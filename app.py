@@ -8,9 +8,6 @@ import os
 import json
 import re
 from werkzeug.utils import secure_filename
-import pytesseract
-from PIL import Image
-from pdf2image import convert_from_bytes
 import io
 import base64
 from sqlalchemy import text
@@ -34,14 +31,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-
-# SQLite-specific settings
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 10,
-    'pool_recycle': 3600,
-    'pool_pre_ping': True,
-}
-
 # SQLite doesn't support ALTER TABLE as well, so we'll need to handle that
 # by setting a pragma for foreign key enforcement
 @app.before_request
@@ -49,11 +38,12 @@ def before_request():
     if db.engine.url.drivername == 'sqlite':
         db.session.execute(text('PRAGMA foreign_keys=ON'))
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-POPPLER_PATH = r'C:\Program Files\poppler\Library\bin'
-os.environ['PATH'] = POPPLER_PATH + os.pathsep + os.environ.get('PATH', '')
-
 db.init_app(app)
+
+# ── Create tables and seed on first startup (works with Gunicorn / Render) ────
+with app.app_context():
+    db.create_all()
+    # seed_database() is defined later in this file; called after all models load
 
 UPLOAD_FOLDER = 'uploads/purchase_invoices'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'tiff', 'bmp'}
@@ -117,72 +107,18 @@ def super_admin_required(f):
 
 
 # ── OCR Extraction Service ────────────────────────────────────────────────────
-# ── OCR Extraction Service (Improved) ────────────────────────────────────────
-def check_tesseract_installed():
-    """Check if Tesseract is installed and accessible"""
-    try:
-        # Try to get tesseract version
-        version = pytesseract.get_tesseract_version()
-        print(f"✓ Tesseract OCR found: {version}")
-        return True
-    except Exception as e:
-        print(f"⚠️ Tesseract not found: {e}")
-        print("   Please install Tesseract OCR from: https://github.com/UB-Mannheim/tesseract/wiki")
-        return False
+# OCR via pytesseract has been removed. These stubs keep the rest of the
+# codebase intact; the /purchase/upload-ocr endpoint will return a clear
+# "not available" message instead of crashing.
 
 def extract_invoice_from_image(image_data):
-    """Extract text from image using Tesseract OCR"""
-    try:
-        # Check if tesseract is installed
-        if not check_tesseract_installed():
-            return ""
-            
-        # If image_data is bytes, open it
-        if isinstance(image_data, bytes):
-            image = Image.open(io.BytesIO(image_data))
-        else:
-            image = Image.open(image_data)
-        
-        # Preprocess image for better OCR
-        # Convert to grayscale
-        image = image.convert('L')
-        
-        # Increase contrast for better recognition
-        from PIL import ImageEnhance
-        enhancer = ImageEnhance.Contrast(image)
-        image = enhancer.enhance(2.0)
-        
-        # Use pytesseract to extract text with better config
-        custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,/-₹% '
-        text = pytesseract.image_to_string(image, lang='eng', config=custom_config)
-        return text
-    except Exception as e:
-        print(f"OCR Error: {e}")
-        return ""
+    """OCR extraction is not available on this deployment."""
+    return ""
 
 
 def extract_invoice_from_pdf(pdf_bytes):
-    """Extract text from PDF using pdf2image + tesseract"""
-    try:
-        if not check_tesseract_installed():
-            return ""
-            
-        # Convert PDF to images
-        images = convert_from_bytes(pdf_bytes, dpi=300, first_page=1, last_page=3)  # First 3 pages only
-        all_text = ""
-        for i, image in enumerate(images):
-            # Preprocess image
-            image = image.convert('L')
-            from PIL import ImageEnhance
-            enhancer = ImageEnhance.Contrast(image)
-            image = enhancer.enhance(2.0)
-            
-            text = pytesseract.image_to_string(image, lang='eng')
-            all_text += text + "\n"
-        return all_text
-    except Exception as e:
-        print(f"PDF OCR Error: {e}")
-        return ""
+    """OCR extraction is not available on this deployment."""
+    return ""
 
 
 def normalize_date(date_str):
@@ -3004,6 +2940,10 @@ def payment_save():
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()       # creates all tables in the SQLite database file
-        seed_database()       # inserts default plans, users, sample data
+        db.create_all()
+        seed_database()
     app.run(debug=True, port=5003)
+else:
+    # When run by Gunicorn / Render, seed after the app is fully loaded
+    with app.app_context():
+        seed_database()
