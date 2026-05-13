@@ -24,28 +24,33 @@ from models import (
 )
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "nexa-erp-2024-super-secret-key-change-in-production")
+app.secret_key = "nexa-erp-2024-super-secret-key-change-in-production"
 
 # ── Database Configuration ────────────────────────────────────────────────────
-# On Render, set the DATABASE_URL environment variable in your service settings.
-# It should be a MySQL URL: mysql+pymysql://<user>:<password>@<host>/<database>
-# (Render also supports PostgreSQL — use postgresql+psycopg2://... if using that)
-_db_url = os.environ.get("DATABASE_URL", "mysql+pymysql://root:@localhost/maktroniks")
-# Fix Render's legacy postgres:// scheme if needed
-if _db_url.startswith("postgres://"):
-    _db_url = _db_url.replace("postgres://", "postgresql+psycopg2://", 1)
-app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
+# Change to SQLite - creates a file named 'maktroniks.db' in the instance folder
+# You can change the path as needed
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'maktroniks.db')
+)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# ── Tesseract / Poppler — Linux paths for Render, Windows paths locally ───────
-if os.name == "nt":  # Windows (local dev)
-    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-    POPPLER_PATH = r'C:\Program Files\poppler\Library\bin'
-    os.environ['PATH'] = POPPLER_PATH + os.pathsep + os.environ.get('PATH', '')
-else:  # Linux (Render / production)
-    # tesseract is installed via apt; no path override needed.
-    # poppler-utils is installed via apt; no path override needed.
-    POPPLER_PATH = None
+# SQLite-specific settings
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,
+    'pool_recycle': 3600,
+    'pool_pre_ping': True,
+}
+
+# SQLite doesn't support ALTER TABLE as well, so we'll need to handle that
+# by setting a pragma for foreign key enforcement
+@app.before_request
+def before_request():
+    if db.engine.url.drivername == 'sqlite':
+        db.session.execute('PRAGMA foreign_keys=ON')
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+POPPLER_PATH = r'C:\Program Files\poppler\Library\bin'
+os.environ['PATH'] = POPPLER_PATH + os.pathsep + os.environ.get('PATH', '')
 
 db.init_app(app)
 
@@ -161,11 +166,8 @@ def extract_invoice_from_pdf(pdf_bytes):
         if not check_tesseract_installed():
             return ""
             
-        # Convert PDF to images (pass poppler_path only on Windows)
-        pdf_kwargs = dict(dpi=300, first_page=1, last_page=3)
-        if os.name == "nt" and POPPLER_PATH:
-            pdf_kwargs["poppler_path"] = POPPLER_PATH
-        images = convert_from_bytes(pdf_bytes, **pdf_kwargs)  # First 3 pages only
+        # Convert PDF to images
+        images = convert_from_bytes(pdf_bytes, dpi=300, first_page=1, last_page=3)  # First 3 pages only
         all_text = ""
         for i, image in enumerate(images):
             # Preprocess image
@@ -3001,7 +3003,6 @@ def payment_save():
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()       # creates all tables in the database
+        db.create_all()       # creates all tables in the SQLite database file
         seed_database()       # inserts default plans, users, sample data
-    port = int(os.environ.get("PORT", 5003))
-    app.run(debug=False, host="0.0.0.0", port=port)
+    app.run(debug=True, port=5003)
