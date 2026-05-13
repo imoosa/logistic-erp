@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if item else 'Add' }} Stock Item{% endblock %}
+{% block page_title %}{{ 'Edit' if item else 'Add' }} Stock Item{% endblock %}
+{% set active = 'stock' %}
+
+{% block extra_style %}
+<style>
+  .form-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #E5E7EB;
+    padding: 28px;
+    max-width: 700px;
+  }
+  .section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #6B7280;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin: 24px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .form-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid #F3F4F6;
+  }
+  .code-preview {
+    font-size: 11px;
+    color: #9CA3AF;
+    margin-top: 4px;
+  }
+  @media (max-width: 600px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>{{ '✏️ Edit' if item else '➕ Add' }} Stock Item</h2>
+  <a href="{{ url_for('inventory_list') }}" class="btn btn-ghost">← Back to Inventory</a>
+</div>
+
+<div class="form-card">
+
+  <form method="POST"
+        action="{{ url_for('inventory_edit', item_pk=item.id) if item else url_for('inventory_add') }}">
+
+    <!-- ── Basic Info ─────────────────────────────────────── -->
+    <div class="section-title">📋 Basic Information</div>
+
+    {% if item %}
+    <!-- Product Code is read-only when editing -->
+    <div class="form-group">
+      <label>Product Code</label>
+      <input type="text" value="{{ item.code }}" disabled
+             style="background:#F9FAFB; color:#6B7280; cursor:not-allowed;">
+      <div class="code-preview">Product code cannot be changed after creation.</div>
+    </div>
+    {% else %}
+    <div class="form-group">
+      <label>Product Code <span style="color:#6B7280;font-size:12px">(leave blank to auto-generate)</span></label>
+      <input type="text" name="code" placeholder="e.g. PROD010, SKU-123"
+             style="text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()">
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+      <label>Product Name *</label>
+      <input type="text" name="name" required
+             value="{{ item.name if item else '' }}"
+             placeholder="e.g. LED TV 43 inch">
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Category</label>
+        <select name="category">
+          {% set categories = ['Electronics','Furniture','Stationery','Raw Material',
+                               'Clothing','Food & Beverage','Tools','Spare Parts','Other'] %}
+          {% for cat in categories %}
+          <option value="{{ cat }}"
+            {{ 'selected' if item and item.category == cat else '' }}>
+            {{ cat }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>HSN Code <span style="color:#9CA3AF;font-size:11px">(for GST)</span></label>
+        <input type="text" name="hsn"
+               value="{{ item.hsn if item else '' }}"
+               placeholder="e.g. 8528">
+      </div>
+    </div>
+
+    <!-- ── Stock & Pricing ─────────────────────────────────── -->
+    <div class="section-title">📊 Stock & Pricing</div>
+
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Quantity *</label>
+        <input type="number" name="quantity" required min="0" step="0.01"
+               value="{{ item.quantity if item else '' }}"
+               placeholder="0">
+      </div>
+      <div class="form-group">
+        <label>Unit</label>
+        <select name="unit">
+          {% set units = [('pcs','Pieces'),('kg','Kilograms'),('g','Grams'),
+                          ('m','Meters'),('cm','Centimeters'),('l','Litres'),
+                          ('ml','Millilitres'),('box','Box'),('set','Set'),('pair','Pair')] %}
+          {% for val, lbl in units %}
+          <option value="{{ val }}"
+            {{ 'selected' if item and item.unit == val else '' }}>
+            {{ lbl }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Reorder Level</label>
+        <input type="number" name="reorder_level" min="0" step="1"
+               value="{{ item.reorder_level if item else 10 }}"
+               placeholder="10">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Unit Price (₹) *</label>
+        <input type="number" name="unit_price" required min="0" step="0.01"
+               value="{{ item.unit_price if item else '' }}"
+               placeholder="0.00">
+      </div>
+      {% if item %}
+      <div class="form-group">
+        <label>Total Stock Value</label>
+        <input type="text" disabled
+               value="₹{{ '{:,.2f}'.format(item.quantity * item.unit_price) }}"
+               style="background:#F0FDF4; color:#16A34A; font-weight:700; cursor:not-allowed;">
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Stock Status Preview ─────────────────────────────── -->
+    {% if item %}
+    <div class="section-title">📈 Current Status</div>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:8px">
+      <div style="background:#F9FAFB; border-radius:10px; padding:12px 18px; text-align:center; min-width:100px">
+        <div style="font-size:20px; font-weight:800; color:#4F46E5">{{ item.quantity }}</div>
+        <div style="font-size:11px; color:#6B7280">In Stock</div>
+      </div>
+      <div style="background:#F9FAFB; border-radius:10px; padding:12px 18px; text-align:center; min-width:100px">
+        <div style="font-size:20px; font-weight:800; color:#D97706">{{ item.reorder_level }}</div>
+        <div style="font-size:11px; color:#6B7280">Reorder Level</div>
+      </div>
+      <div style="background:#F9FAFB; border-radius:10px; padding:12px 18px; text-align:center; min-width:100px">
+        <div style="font-size:20px; font-weight:800; color:#16A34A">₹{{ '{:,.0f}'.format(item.unit_price) }}</div>
+        <div style="font-size:11px; color:#6B7280">Unit Price</div>
+      </div>
+      {% if item.last_updated %}
+      <div style="background:#F9FAFB; border-radius:10px; padding:12px 18px; text-align:center; min-width:120px">
+        <div style="font-size:14px; font-weight:700; color:#374151">{{ item.last_updated }}</div>
+        <div style="font-size:11px; color:#6B7280">Last Updated</div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ── Actions ─────────────────────────────────────────── -->
+    <div class="form-actions">
+      <a href="{{ url_for('inventory_list') }}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        {{ '💾 Save Changes' if item else '➕ Add Item' }}
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}Estimate {{ estimate.id }}{% endblock %}
+{% block page_title %}Estimate Details{% endblock %}
+{% set active = 'estimate' %}
+
+{% block extra_style %}
+<style>
+  @media print {
+    .no-print { display: none; }
+  }
+  .estimate-header { background: #EEF2FF; padding: 20px; border-radius: 14px; margin-bottom: 20px; }
+  .expiry-note { background: #FEF3C7; padding: 10px 15px; border-radius: 8px; margin-top: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="no-print" style="margin-bottom:20px">
+  <a href="/estimate/list" class="btn btn-ghost btn-sm">← Back</a>
+  <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print Estimate</button>
+  {% if estimate.status == 'Approved' %}
+  <a href="/invoice/new?estimate={{ estimate.id }}" class="btn btn-success btn-sm">→ Convert to Invoice</a>
+  {% endif %}
+</div>
+
+<div class="estimate-header">
+  <div style="display:flex; justify-content:space-between">
+    <div>
+      <h2>QUOTATION / ESTIMATE</h2>
+      <p><strong>#{{ estimate.id }}</strong></p>
+      <p>Date: {{ estimate.date }}</p>
+      <p>Valid Until: {{ estimate.valid_until }}</p>
+    </div>
+    <div style="text-align:right">
+      <span class="estimate-status 
+        {% if estimate.status == 'Draft' %}status-draft
+        {% elif estimate.status == 'Sent' %}status-sent
+        {% elif estimate.status == 'Approved' %}status-approved
+        {% else %}status-rejected{% endif %}">
+        {{ estimate.status }}
+      </span>
+    </div>
+  </div>
+</div>
+
+<div class="card card-body" style="margin-bottom:16px">
+  <h4>Client Details</h4>
+  <div class="grid-2">
+    <div>
+      <p><strong>{{ estimate.company }}</strong></p>
+      {% if estimate.contact_person %}<p>Attn: {{ estimate.contact_person }}</p>{% endif %}
+    </div>
+    <div>
+      {% if estimate.email %}<p>Email: {{ estimate.email }}</p>{% endif %}
+      {% if estimate.phone %}<p>Phone: {{ estimate.phone }}</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Rate (₹)</th><th>Discount</th><th>Total (₹)</th></tr>
+      </thead>
+      <tbody>
+        {% for item in estimate.items %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ item.code }}</td>
+          <td>{{ item.desc }}</td>
+          <td>{{ item.qty }}</td>
+          <td>{{ "{:,.2f}".format(item.rate) }}</td>
+          <td>{{ item.discount }}%</td>
+          <td>₹{{ "{:,.2f}".format(item.qty * item.rate * (1 - item.discount/100)) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="6" style="text-align:right"><strong>Subtotal:</strong></td><td>₹{{ "{:,.2f}".format(estimate.total/1.18) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right"><strong>GST (18%):</strong></td><td>₹{{ "{:,.2f}".format(estimate.total - estimate.total/1.18) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right"><strong>Grand Total:</strong></td><td><strong>₹{{ "{:,.2f}".format(estimate.total) }}</strong></td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<div class="expiry-note">
+  <strong>⚠️ Validity Notice:</strong> This estimate is valid until {{ estimate.valid_until }}. Prices are subject to change for orders placed after expiry.
+</div>
+
+<div class="card card-body" style="margin-top:16px">
+  <h4>Terms & Conditions</h4>
+  <p style="white-space:pre-line">{{ estimate.terms }}</p>
+</div>
+
+{% endblock %}

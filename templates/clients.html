@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Clients{% endblock %}
+{% block page_title %}Clients{% endblock %}
+{% set active = 'clients' %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>Clients</h2>
+  <a href="/clients/new" class="btn btn-primary">+ New Client</a>
+</div>
+
+<!-- Filter tabs -->
+<div class="tabs">
+  {% for s in ['All','Active','Pending','Overdue','Paid'] %}
+  <a href="/clients?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">{{ s }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Client Name</th>
+          <th>Contact Person</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Outstanding</th>
+          <th>Status</th>
+          <th>WhatsApp</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in clients %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:8px;background:#EEF2FF;color:#4F46E5;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">
+                {{ c.client_name[0] }}
+              </div>
+              <strong>{{ c.client_name }}</strong>
+            </div>
+          </td>
+          <td>{{ c.contact_person or '-' }}</td>
+          <td>{{ c.phone or '-' }}</td>
+          <td>{{ c.email or '-' }}</td>
+          <td>
+            {% if c.outstanding and c.outstanding > 0 %}
+              <strong style="color:#DC2626">₹{{ "{:,.0f}".format(c.outstanding) }}</strong>
+            {% else %}
+              <span style="color:#16A34A">₹0</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if c.status == 'Active' %}
+              <span class="badge badge-primary">{{ c.status }}</span>
+            {% elif c.status == 'Paid' %}
+              <span class="badge badge-success">{{ c.status }}</span>
+            {% elif c.status == 'Overdue' %}
+              <span class="badge badge-danger">{{ c.status }}</span>
+            {% else %}
+              <span class="badge badge-warning">{{ c.status }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if c.phone %}
+            <a href="https://wa.me/91{{ c.phone }}" target="_blank"
+               class="btn btn-sm" style="color:#25D366;border:1.5px solid #25D366;background:#fff;text-decoration:none">
+              💬 Chat
+            </a>
+            {% else %}
+              <span style="color:#9CA3AF">-</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex; gap:5px;">
+              <a href="/clients/{{ c.id }}" class="btn btn-ghost btn-sm" title="View Details">👁️</a>
+              <a href="/clients/{{ c.id }}/edit" class="btn btn-ghost btn-sm" title="Edit">✏️</a>
+              {% if session.user.role in ['owner', 'super_admin'] %}
+              <a href="/clients/{{ c.id }}/delete" class="btn btn-danger btn-sm" title="Delete" 
+                 onclick="return confirm('Are you sure you want to delete client {{ c.client_name }}? This action cannot be undone.')">🗑️</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9CA3AF">
+          No clients found. <a href="/clients/new">Add your first client →</a>
+        </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .btn-danger {
+    background: #DC2626;
+    color: white;
+    border: none;
+  }
+  .btn-danger:hover {
+    background: #B91C1C;
+  }
+</style>
+
+{% endblock %}

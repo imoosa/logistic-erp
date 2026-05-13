@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Purchase {{ purchase.purchase_id }}{% endblock %}
+{% block page_title %}Purchase Detail{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+  .inv-header { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+  .info-block label { font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .5px; }
+  .info-block p    { font-size: 14px; font-weight: 600; color: var(--gray-800); margin-top: 3px; }
+  .status-unpaid  { background:#FEE2E2;color:#DC2626; }
+  .status-partial { background:#FEF3C7;color:#D97706; }
+  .status-paid    { background:#DCFCE7;color:#16A34A; }
+  .totals-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+  .tot-box { background: var(--gray-50); border-radius: 10px; padding: 14px 18px; border: 1px solid var(--gray-100); }
+  .tot-box .lbl { font-size: 11px; color: var(--gray-500); }
+  .tot-box .val { font-size: 20px; font-weight: 800; margin-top: 4px; }
+  .pay-form { display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-top:16px;
+    background: var(--primary-light); border-radius: 10px; padding: 16px; }
+  .pay-form .form-group { margin: 0; }
+  .gst-tag { font-size: 11px; color: var(--gray-500); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+  <div>
+    <h2 style="font-size:22px;font-weight:800">{{ purchase.purchase_id }}</h2>
+    <span class="badge status-{{ purchase.status|lower }}" style="margin-top:6px">
+      {{ '✓ Paid' if purchase.status=='Paid' else '⏳ Partial' if purchase.status=='Partial' else '⚠️ Unpaid' }}
+    </span>
+  </div>
+  <div style="display:flex;gap:10px">
+    <a href="/purchases" class="btn btn-ghost">← All Purchases</a>
+    {% if purchase.status != 'Paid' %}
+    <button class="btn btn-primary" onclick="document.getElementById('payModal').style.display='flex'">
+      💳 Record Payment
+    </button>
+    {% endif %}
+    <form method="POST" action="/purchases/delete/{{ purchase.purchase_id }}"
+          onsubmit="return confirm('Delete this purchase? Stock will be reversed.')">
+      <button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <div class="inv-header">
+      <div>
+        <div class="info-block" style="margin-bottom:12px">
+          <label>Supplier / Party</label>
+          <p style="font-size:18px">
+            {{ purchase.supplier.name if purchase.supplier else purchase.supplier_name or '—' }}
+          </p>
+        </div>
+        {% if purchase.supplier %}
+        <div class="info-block">
+          <label>Supplier Phone</label>
+          <p>{{ purchase.supplier.phone or '—' }}</p>
+        </div>
+        {% endif %}
+      </div>
+      <div style="text-align:right">
+        <div class="info-block" style="margin-bottom:12px">
+          <label>Invoice Number</label>
+          <p>{{ purchase.invoice_no or '—' }}</p>
+        </div>
+        <div class="info-block" style="margin-bottom:12px">
+          <label>Invoice Date</label>
+          <p>{{ purchase.date }}</p>
+        </div>
+        <div class="info-block">
+          <label>Recorded On</label>
+          <p>{{ purchase.created_at }}</p>
+        </div>
+      </div>
+    </div>
+
+    {% if purchase.notes %}
+    <div style="background:var(--warning-light);border-radius:8px;padding:10px 14px;
+                font-size:13px;color:var(--warning);margin-bottom:16px">
+      📝 {{ purchase.notes }}
+    </div>
+    {% endif %}
+
+    {% if purchase.file_path %}
+    <div style="margin-bottom:16px">
+      <a href="/uploads/{{ purchase.file_path }}" target="_blank" class="btn btn-ghost btn-sm">
+        📎 View Original Invoice
+      </a>
+    </div>
+    {% endif %}
+
+    <!-- Items Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Code</th>
+            <th>Item Description</th>
+            <th>HSN</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Purchase Rate</th>
+            <th>GST</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in purchase.items %}
+          <tr>
+            <td style="color:var(--gray-400)">{{ loop.index }}</td>
+            <td>
+              {% if item.code %}
+              <a href="/stock" style="color:var(--primary);font-weight:700;text-decoration:none">
+                {{ item.code }}
+              </a>
+              {% else %}—{% endif %}
+            </td>
+            <td><strong>{{ item.name }}</strong></td>
+            <td class="gst-tag">{{ item.hsn or '—' }}</td>
+            <td><strong>{{ item.qty | int if item.qty == item.qty|int else item.qty }}</strong></td>
+            <td>{{ item.unit or 'pcs' }}</td>
+            <td>₹{{ "{:,.2f}".format(item.purchase_rate) }}</td>
+            <td>
+              <span class="badge badge-primary">{{ item.gst_percent|int }}%</span>
+              <span class="gst-tag" style="display:block;margin-top:2px">
+                ₹{{ "{:,.2f}".format(item.gst_amount) }}
+              </span>
+            </td>
+            <td><strong style="color:var(--primary)">₹{{ "{:,.2f}".format(item.total) }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-grid">
+      <div class="tot-box">
+        <div class="lbl">Taxable Amount</div>
+        <div class="val" style="color:var(--gray-700)">₹{{ "{:,.2f}".format(purchase.total_taxable) }}</div>
+      </div>
+      <div class="tot-box">
+        <div class="lbl">Total GST</div>
+        <div class="val" style="color:var(--warning)">₹{{ "{:,.2f}".format(purchase.total_gst) }}</div>
+      </div>
+      <div class="tot-box" style="background:var(--primary-light);border-color:var(--primary)">
+        <div class="lbl">Grand Total</div>
+        <div class="val" style="color:var(--primary)">₹{{ "{:,.2f}".format(purchase.total_amount) }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Payment Summary -->
+<div class="card">
+  <div class="card-body">
+    <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">💳 Payment Summary</h3>
+    <div style="display:flex;gap:24px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:var(--gray-400)">TOTAL INVOICE</div>
+        <div style="font-size:22px;font-weight:800">₹{{ "{:,.2f}".format(purchase.total_amount) }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-400)">AMOUNT PAID</div>
+        <div style="font-size:22px;font-weight:800;color:var(--success)">
+          ₹{{ "{:,.2f}".format(purchase.amount_paid or 0) }}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--gray-400)">BALANCE DUE</div>
+        <div style="font-size:22px;font-weight:800;
+             color:{% if purchase.balance > 0 %}var(--danger){% else %}var(--success){% endif %}">
+          ₹{{ "{:,.2f}".format(purchase.balance) }}
+        </div>
+      </div>
+    </div>
+
+    {% if purchase.supplier %}
+    <div style="margin-top:14px;padding:10px 14px;background:var(--warning-light);
+                border-radius:8px;font-size:13px;color:var(--warning);">
+      ⚠️ Supplier <strong>{{ purchase.supplier.name }}</strong> has a total pending payable of
+      <strong>₹{{ "{:,.0f}".format(purchase.supplier.pending or 0) }}</strong>
+      (across all purchases).
+      <a href="/clients/{{ purchase.supplier.id }}" style="margin-left:8px;font-size:12px;">
+        View party account →
+      </a>
+    </div>
+    {% endif %}
+
+    {% if purchase.status != 'Paid' %}
+    <form method="POST" action="/purchases/pay/{{ purchase.purchase_id }}" class="pay-form">
+      <div class="form-group">
+        <label>Payment Amount (₹)</label>
+        <input type="number" name="amount" min="1" step="0.01"
+               max="{{ purchase.balance }}"
+               placeholder="Enter amount"
+               value="{{ purchase.balance }}"
+               style="width:180px">
+      </div>
+      <button type="submit" class="btn btn-success">✅ Record Payment</button>
+    </form>
+    {% else %}
+    <div style="margin-top:14px;padding:12px 16px;background:var(--success-light);
+                border-radius:8px;font-size:13px;color:var(--success);font-weight:600">
+      ✅ Fully paid
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Pay Modal -->
+<div id="payModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+     z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;width:420px;max-width:90%;padding:28px">
+    <h3 style="margin-bottom:20px">💳 Record Payment</h3>
+    <form method="POST" action="/purchases/pay/{{ purchase.purchase_id }}">
+      <div class="form-group">
+        <label>Amount (₹) — Balance: ₹{{ "{:,.2f}".format(purchase.balance) }}</label>
+        <input type="number" name="amount" min="1" step="0.01"
+               max="{{ purchase.balance }}" value="{{ purchase.balance }}" required>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">
+        <button type="button" class="btn btn-ghost"
+                onclick="document.getElementById('payModal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-success">✅ Confirm Payment</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

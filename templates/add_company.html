@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Add New Company — Nexa ERP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 2px 24px rgba(0,0,0,0.08);
+      padding: 36px 40px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .logo { font-size: 22px; font-weight: 700; color: #1a56db; margin-bottom: 6px; }
+    .logo span { color: #374151; }
+    h2 { font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+    .subtitle { font-size: 14px; color: #6b7280; margin-bottom: 24px; }
+
+    /* Plan status bar */
+    .plan-status {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 24px;
+      font-size: 13px;
+      color: #1e40af;
+    }
+    .plan-status strong { font-weight: 700; }
+    .plan-status .limit-bar {
+      height: 5px;
+      background: #dbeafe;
+      border-radius: 99px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .plan-status .limit-bar-fill {
+      height: 100%;
+      background: #1a56db;
+      border-radius: 99px;
+    }
+    .plan-status .limit-bar-fill.warn { background: #f59e0b; }
+    .plan-status .limit-bar-fill.full { background: #ef4444; }
+
+    /* Blocked message */
+    .blocked-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      padding: 20px;
+      text-align: center;
+      color: #b91c1c;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+    .blocked-box strong { font-size: 16px; display: block; margin-bottom: 6px; }
+    .blocked-box a { color: #1a56db; font-weight: 600; text-decoration: none; }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input[type="text"], input[type="tel"] {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1.5px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #111827;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 8px; }
+    .btn {
+      flex: 1;
+      padding: 11px 0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      transition: background 0.15s;
+    }
+    .btn-primary { background: #1a56db; color: #fff; }
+    .btn-primary:hover { background: #1648c0; }
+    .btn-outline { background: #fff; color: #374151; border: 1.5px solid #d1d5db; }
+    .btn-outline:hover { background: #f9fafb; }
+
+    .flash { padding: 11px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+    .flash.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+    .flash.success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Nexa <span>ERP</span></div>
+    <h2>Add New Company</h2>
+    <p class="subtitle">Create an additional company under your subscription.</p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash {{ 'error' if category == 'error' else 'success' }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <!-- Plan limit summary -->
+    <div class="plan-status">
+      <strong>{{ plan_config.name }}</strong> — 
+      {{ current_count }} of 
+      {% if max_companies == 'Unlimited' %}Unlimited{% else %}{{ max_companies }}{% endif %} 
+      companies used
+      {% if max_companies != 'Unlimited' %}
+        {% set pct = ((current_count / max_companies) * 100) | int %}
+        <div class="limit-bar">
+          <div class="limit-bar-fill {% if pct >= 100 %}full{% elif pct >= 75 %}warn{% endif %}"
+               style="width: {{ [pct, 100] | min }}%"></div>
+        </div>
+      {% endif %}
+    </div>
+
+    {% if not can_add %}
+      <!-- Limit reached — show upgrade prompt -->
+      <div class="blocked-box">
+        <strong>Company limit reached</strong>
+        {{ message }}<br/><br/>
+        <a href="{{ url_for('company_settings') }}">Upgrade your plan →</a>
+      </div>
+      <a href="{{ url_for('select_company') }}" class="btn btn-outline" style="display:block;text-align:center;">
+        ← Back to Company List
+      </a>
+    {% else %}
+      <!-- Add company form -->
+      <form method="POST" action="{{ url_for('add_new_company') }}">
+        <div class="form-group">
+          <label for="company_name">Company Name *</label>
+          <input type="text" id="company_name" name="company_name" required
+                 placeholder="e.g. Sharma Exports Pvt Ltd" />
+        </div>
+        <div class="form-group">
+          <label for="gst_number">GST Number</label>
+          <input type="text" id="gst_number" name="gst_number"
+                 placeholder="e.g. 27AAABC1234F1Z" />
+          <div class="hint">Leave blank if not applicable</div>
+        </div>
+        <div class="form-group">
+          <label for="address">Address</label>
+          <input type="text" id="address" name="address"
+                 placeholder="e.g. Mumbai, Maharashtra" />
+        </div>
+        <div class="form-group">
+          <label for="phone">Phone</label>
+          <input type="tel" id="phone" name="phone" placeholder="e.g. 9876543210" />
+        </div>
+
+        <div class="btn-row">
+          <a href="{{ url_for('select_company') }}" class="btn btn-outline">Cancel</a>
+          <button type="submit" class="btn btn-primary">Create Company</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

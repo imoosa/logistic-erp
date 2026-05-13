@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Purchases{% endblock %}
+{% block page_title %}Purchases{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-box { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid var(--gray-100); }
+  .stat-box .val { font-size: 26px; font-weight: 800; margin: 6px 0 2px; }
+  .stat-box .lbl { font-size: 12px; color: var(--gray-500); }
+  .status-unpaid  { background: #FEE2E2; color: #DC2626; }
+  .status-partial { background: #FEF3C7; color: #D97706; }
+  .status-paid    { background: #DCFCE7; color: #16A34A; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>🛒 Purchase Invoices</h2>
+    <p style="color:var(--gray-500);font-size:13px;">Invoices received from suppliers · stock & payables auto-updated</p>
+  </div>
+  <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
+</div>
+
+<!-- KPIs -->
+<div class="stat-row">
+  <div class="stat-box">
+    <div class="lbl">Total Purchased</div>
+    <div class="val" style="color:var(--primary)">₹{{ "{:,.0f}".format(total_amount) }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="lbl">Amount Paid</div>
+    <div class="val" style="color:var(--success)">₹{{ "{:,.0f}".format(total_paid) }}</div>
+  </div>
+  <div class="stat-box">
+    <div class="lbl">Balance Payable</div>
+    <div class="val" style="color:var(--danger)">₹{{ "{:,.0f}".format(total_due) }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Purchase ID</th>
+          <th>Supplier</th>
+          <th>Invoice No</th>
+          <th>Date</th>
+          <th>Total Amount</th>
+          <th>Paid</th>
+          <th>Balance</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in purchases %}
+        <tr style="cursor:pointer" onclick="window.location='/purchases/view/{{ p.purchase_id }}'">
+          <td><strong style="color:var(--primary)">{{ p.purchase_id }}</strong></td>
+          <td>{{ p.supplier.name if p.supplier else p.supplier_name or '—' }}</td>
+          <td style="color:var(--gray-500)">{{ p.invoice_no or '—' }}</td>
+          <td style="color:var(--gray-500)">{{ p.date }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(p.total_amount) }}</strong></td>
+          <td style="color:var(--success)">₹{{ "{:,.0f}".format(p.amount_paid or 0) }}</td>
+          <td style="color:{% if p.balance > 0 %}var(--danger){% else %}var(--success){% endif %}">
+            ₹{{ "{:,.0f}".format(p.balance) }}
+          </td>
+          <td>
+            <span class="badge status-{{ p.status|lower }}">
+              {{ '✓' if p.status=='Paid' else '⏳' if p.status=='Partial' else '⚠️' }}
+              {{ p.status }}
+            </span>
+          </td>
+          <td>
+            <a href="/purchases/view/{{ p.purchase_id }}" class="btn btn-ghost btn-sm"
+               onclick="event.stopPropagation()">View →</a>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:48px;color:var(--gray-400)">
+            No purchases yet.
+            <a href="/purchases/new">Record your first purchase →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

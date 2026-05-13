@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Statement · {{ company }}{% endblock %}
+{% block page_title %}Account Statement{% endblock %}
+{% set active = 'admin' %}
+
+{% block extra_style %}
+<style>
+  .stmt-header { background:linear-gradient(135deg,#4F46E5,#7C3AED); border-radius:14px; padding:28px; color:#fff; margin-bottom:24px; }
+  .stmt-header h2 { font-size:22px; font-weight:800; margin-bottom:4px; }
+  .stmt-header p  { opacity:.75; font-size:13px; }
+  .stmt-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; }
+  .stmt-kpi  { background:rgba(255,255,255,.15); border-radius:10px; padding:14px 16px; }
+  .stmt-kpi .val { font-size:22px; font-weight:800; }
+  .stmt-kpi .lbl { font-size:11px; opacity:.75; margin-top:2px; }
+
+  .order-row td { vertical-align:middle; }
+  .paid-bar { height:5px; background:rgba(255,255,255,.2); border-radius:10px; margin-top:5px; overflow:hidden; }
+  .paid-fill { height:100%; border-radius:10px; background:#4ade80; }
+
+  @media print {
+    .sidebar, .topbar, .btn, .no-print { display:none !important; }
+    .main { margin-left:0 !important; }
+    body { background:#fff; }
+  }
+  @media(max-width:700px){ .stmt-kpis{grid-template-columns:1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back button -->
+<div style="margin-bottom:20px" class="no-print">
+  <a href="/admin" class="btn btn-ghost btn-sm">← Back to Admin</a>
+  <button onclick="window.print()" class="btn btn-primary btn-sm" style="margin-left:8px">🖨️ Print Statement</button>
+</div>
+
+<!-- Statement header card -->
+<div class="stmt-header">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
+    <div>
+      <p style="opacity:.65;font-size:12px;margin-bottom:4px">ACCOUNT STATEMENT</p>
+      <h2>{{ company }}</h2>
+      <p>Generated on {{ now if now else '' }}{{ "{:%d %B %Y}".format(__import__('datetime').datetime.now()) }}</p>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;opacity:.6;margin-bottom:4px">STATEMENT ID</div>
+      <div style="font-size:16px;font-weight:700">STMT-{{ company[:3]|upper }}-2024</div>
+    </div>
+  </div>
+  <div class="stmt-kpis">
+    <div class="stmt-kpi">
+      <div class="val">₹{{ "{:,.0f}".format(total) }}</div>
+      <div class="lbl">Total Billed</div>
+    </div>
+    <div class="stmt-kpi">
+      <div class="val">₹{{ "{:,.0f}".format(received) }}</div>
+      <div class="lbl">Amount Received</div>
+    </div>
+    <div class="stmt-kpi">
+      <div class="val">₹{{ "{:,.0f}".format(pending) }}</div>
+      <div class="lbl">{{ 'Outstanding' if pending > 0 else '✓ Fully Cleared' }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- Orders Table -->
+<div class="card">
+  <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between">
+    <strong>Order History · {{ orders|length }} orders</strong>
+    {% if pending > 0 %}
+      <span class="badge badge-danger">₹{{ "{:,.0f}".format(pending) }} Outstanding</span>
+    {% else %}
+      <span class="badge badge-success">Fully Settled</span>
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th>
+          <th>Date</th>
+          <th>Order Amount</th>
+          <th>Received</th>
+          <th>Pending</th>
+          <th>Employee</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        {% set o_pending = o.amount - o.get('received', 0) %}
+        <tr class="order-row">
+          <td><strong style="color:#4F46E5">{{ o.id }}</strong></td>
+          <td style="color:#6B7280">{{ o.date }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(o.amount) }}</strong></td>
+          <td style="color:#16A34A;font-weight:600">
+            ₹{{ "{:,.0f}".format(o.get('received', 0)) }}
+            {% if o.get('received', 0) > 0 and o.get('received', 0) < o.amount %}
+              <div style="font-size:10px;color:#9CA3AF;font-weight:400">Partial</div>
+            {% endif %}
+          </td>
+          <td>
+            {% if o_pending > 0 %}
+              <span style="color:#DC2626;font-weight:600">₹{{ "{:,.0f}".format(o_pending) }}</span>
+            {% else %}
+              <span style="color:#16A34A;font-weight:600">—</span>
+            {% endif %}
+          </td>
+          <td>
+            <span style="background:#EEF2FF;color:#4F46E5;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px">
+              {{ o.employee_id }}
+            </span>
+            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">{{ emp_name(o.employee_id) }}</div>
+          </td>
+          <td>
+            {% if o.status == 'Delivered' %}<span class="badge badge-success">{{ o.status }}</span>
+            {% elif o.status == 'Pending' %}<span class="badge badge-warning">{{ o.status }}</span>
+            {% elif o.status == 'Processing' %}<span class="badge badge-primary">{{ o.status }}</span>
+            {% elif o.status == 'Cancelled' %}<span class="badge badge-danger">{{ o.status }}</span>
+            {% else %}<span class="badge badge-gray">{{ o.status }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:#F9FAFB;font-weight:700">
+          <td colspan="2" style="padding:14px 16px">TOTAL</td>
+          <td style="padding:14px 16px">₹{{ "{:,.0f}".format(total) }}</td>
+          <td style="padding:14px 16px;color:#16A34A">₹{{ "{:,.0f}".format(received) }}</td>
+          <td style="padding:14px 16px;color:#DC2626">
+            {% if pending > 0 %}₹{{ "{:,.0f}".format(pending) }}{% else %}—{% endif %}
+          </td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+{% block title %}Create Estimate{% endblock %}
+{% block page_title %}Create Estimate / Quotation{% endblock %}
+{% set active = 'estimate' %}
+
+{% block extra_style %}
+<style>
+  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6B7280; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #F3F4F6; }
+  .items-table { width:100%; border-collapse:collapse; }
+  .items-table th { padding:9px 10px; font-size:11px; font-weight:700; text-transform:uppercase; color:#6B7280; background:#F9FAFB; text-align:left; }
+  .items-table td { padding:6px; border-top:1px solid #F3F4F6; }
+  .billing-box { background:#F9FAFB; border-radius:10px; padding:18px; margin-top:16px; }
+  .billing-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
+  .billing-row.grand { font-size:17px; font-weight:800; border-top:2px solid #E5E7EB; margin-top:8px; padding-top:12px; }
+  .del-btn { background:none; border:none; cursor:pointer; color:#9CA3AF; font-size:18px; padding:4px 8px; border-radius:6px; }
+  .del-btn:hover { color:#DC2626; background:#FEE2E2; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>📄 Create New Estimate</h2>
+  <a href="/estimate/list" class="btn btn-ghost">← Back</a>
+</div>
+
+<form method="POST">
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Estimate #</label>
+        <input value="{{ estimate_id }}" disabled>
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" name="estimate_date" value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label>Valid Until</label>
+        <input type="date" name="valid_until" value="{{ valid_until }}">
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select name="status">
+          <option value="Draft" {% if estimate.status == 'Draft' %}selected{% endif %}>Draft</option>
+          <option value="Sent" {% if estimate.status == 'Sent' %}selected{% endif %}>Send to Client</option>
+          <option value="Approved" {% if estimate.status == 'Approved' %}selected{% endif %}>Approved</option>
+          <option value="Rejected" {% if estimate.status == 'Rejected' %}selected{% endif %}>Rejected</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Client Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Client/Company *</label>
+        <select name="company" required>
+          <option value="">— Select Client —</option>
+          {% for c in clients %}
+          <option value="{{ c.name }}" {% if estimate.company == c.name %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Contact Person</label>
+        <input type="text" name="contact_person" value="{{ estimate.contact_person or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" value="{{ estimate.email or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="phone" value="{{ estimate.phone or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Estimate Items</div>
+    <div style="overflow-x:auto">
+      <table class="items-table" style="width:100%">
+        <thead>
+          <tr>
+            <th>Item Code</th><th>Description</th><th>Qty</th><th>Rate (₹)</th><th>Discount %</th><th>Total (₹)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="estimateItemsBody">
+          {% if estimate['items'] and estimate['items']|length > 0 %}
+            {% for item in estimate['items'] %}
+            <tr>
+              <td><input name="item_code[]" value="{{ item.code }}" placeholder="Code" style="width:100px"></td>
+              <td><input name="description[]" value="{{ item.desc }}" placeholder="Description"></td>
+              <td><input name="qty[]" type="number" value="{{ item.qty }}" min="1" oninput="calcEstimateTotal()" style="width:80px"></td>
+              <td><input name="rate[]" type="number" value="{{ item.rate }}" step="0.01" oninput="calcEstimateTotal()" style="width:100px"></td>
+              <td><input name="discount[]" type="number" value="{{ item.discount }}" step="0.01" oninput="calcEstimateTotal()" style="width:80px"></td>
+              <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+              <td><button type="button" class="del-btn" onclick="removeEstimateRow(this)">×</button></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+            <tr>
+              <td><input name="item_code[]" placeholder="Code" style="width:100px"></td>
+              <td><input name="description[]" placeholder="Description"></td>
+              <td><input name="qty[]" type="number" value="1" min="1" oninput="calcEstimateTotal()" style="width:80px"></td>
+              <td><input name="rate[]" type="number" value="0" step="0.01" oninput="calcEstimateTotal()" style="width:100px"></td>
+              <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcEstimateTotal()" style="width:80px"></td>
+              <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+              <td><button type="button" class="del-btn" onclick="removeEstimateRow(this)">×</button></td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addEstimateRow()" style="margin-top:12px">+ Add Item</button>
+
+    <div class="billing-box">
+      <div class="billing-row"><span>Subtotal</span><span id="estimateSubtotal">₹0</span></div>
+      <div class="billing-row"><span>Discount</span><span id="estimateDiscount">₹0</span></div>
+      <div class="billing-row"><span>GST (18%)</span><span id="estimateTax">₹0</span></div>
+      <div class="billing-row grand"><span>Grand Total</span><span id="estimateGrand">₹0</span></div>
+    </div>
+  </div>
+
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Terms & Notes</div>
+    <div class="form-group">
+      <textarea name="terms" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1.5px solid #E5E7EB" placeholder="Payment terms, delivery terms, validity notes...">{{ estimate.terms or '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:flex-end; gap:12px">
+    <button type="submit" name="action" value="draft" class="btn btn-ghost">💾 Save Draft</button>
+    <button type="submit" name="action" value="send" class="btn btn-primary">📧 Send to Client</button>
+    <button type="submit" name="action" value="final" class="btn btn-success">✓ Finalize Estimate</button>
+  </div>
+</form>
+
+<script>
+function addEstimateRow() {
+  const tbody = document.getElementById('estimateItemsBody');
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input name="item_code[]" placeholder="Code" style="width:100px"></td>
+    <td><input name="description[]" placeholder="Description"></td>
+    <td><input name="qty[]" type="number" value="1" min="1" oninput="calcEstimateTotal()" style="width:80px"></td>
+    <td><input name="rate[]" type="number" value="0" step="0.01" oninput="calcEstimateTotal()" style="width:100px"></td>
+    <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcEstimateTotal()" style="width:80px"></td>
+    <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+    <td><button type="button" class="del-btn" onclick="removeEstimateRow(this)">×</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function removeEstimateRow(btn) {
+  const rows = document.querySelectorAll('#estimateItemsBody tr');
+  if (rows.length === 1) { 
+    alert('Need at least one item.'); 
+    return; 
+  }
+  btn.closest('tr').remove();
+  calcEstimateTotal();
+}
+
+function fmt(n) { return '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits:2}); }
+
+function calcEstimateTotal() {
+  let subtotal = 0;
+  let totalDiscount = 0;
+  document.querySelectorAll('#estimateItemsBody tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('[name="qty[]"]')?.value) || 0;
+    const rate = parseFloat(tr.querySelector('[name="rate[]"]')?.value) || 0;
+    const discount = parseFloat(tr.querySelector('[name="discount[]"]')?.value) || 0;
+    const total = qty * rate;
+    const discountAmt = total * discount / 100;
+    subtotal += total;
+    totalDiscount += discountAmt;
+    const rowTotal = tr.querySelector('.row-total');
+    if (rowTotal) rowTotal.value = fmt(total - discountAmt);
+  });
+  const tax = (subtotal - totalDiscount) * 0.18;
+  const grand = subtotal - totalDiscount + tax;
+  document.getElementById('estimateSubtotal').innerText = fmt(subtotal);
+  document.getElementById('estimateDiscount').innerText = fmt(totalDiscount);
+  document.getElementById('estimateTax').innerText = fmt(tax);
+  document.getElementById('estimateGrand').innerText = fmt(grand);
+}
+
+// Calculate on page load
+document.addEventListener('DOMContentLoaded', function() {
+  calcEstimateTotal();
+});
+</script>
+{% endblock %}

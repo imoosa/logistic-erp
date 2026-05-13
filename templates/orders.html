@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Orders{% endblock %}
+{% block page_title %}Orders{% endblock %}
+{% set active = 'orders' %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>All Orders</h2>
+  <a href="/new-order" class="btn btn-primary">+ New Order</a>
+</div>
+
+<!-- Status filter tabs -->
+<div class="tabs">
+  {% for s in ['All','Pending','Processing','Delivered','Cancelled'] %}
+  <a href="/orders?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">{{ s }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Order ID</th><th>Client</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><strong style="color:#4F46E5">{{ o.id }}</strong></td>
+          <td>{{ o.client }}</td>
+          <td style="color:#6B7280">{{ o.date }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(o.amount) }}</strong></td>
+          <td>
+            {% if o.status == 'Delivered' %}<span class="badge badge-success">{{ o.status }}</span>
+            {% elif o.status == 'Pending' %}<span class="badge badge-warning">{{ o.status }}</span>
+            {% elif o.status == 'Processing' %}<span class="badge badge-primary">{{ o.status }}</span>
+            {% elif o.status == 'Cancelled' %}<span class="badge badge-danger">{{ o.status }}</span>
+            {% else %}<span class="badge badge-gray">{{ o.status }}</span>{% endif %}
+          </td>
+          <td><a href="#" class="btn btn-ghost btn-sm">View</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:#9CA3AF">No orders found</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_style %}
+<style>
+  .prod-dropdown { background:#fff; border:1.5px solid #E5E7EB; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:hidden; }
+  .prod-dd-item  { display:grid; grid-template-columns:90px 1fr 80px 70px; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; font-size:12.5px; transition:background .12s; }
+  .prod-dd-item:hover { background:#EEF2FF; }
+  .pd-code { font-weight:700; color:#4F46E5; } .pd-name { color:#374151; }
+  .pd-rate { color:#16A34A; font-weight:600; text-align:right; }
+  .pd-stock { color:#6B7280; font-size:11px; text-align:right; } .pd-stock.out { color:#DC2626; }
+  .stock-avail { font-size:10.5px; margin-top:2px; font-weight:500; }
+</style>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let _lt=null;
+function onCodeInput(i){clearTimeout(_lt);const v=i.value.trim();closeDD();i.style.borderColor='';if(v.length<2)return;_lt=setTimeout(()=>{fetch(`/api/products/search?q=${encodeURIComponent(v)}`).then(r=>r.json()).then(d=>showDD(i,d.results||[])).catch(()=>{});},260);}
+function onCodeBlur(i){setTimeout(()=>{closeDD();const v=i.value.trim();if(!v)return;fetch(`/api/product/${encodeURIComponent(v)}`).then(r=>r.json()).then(d=>{if(d.found)fillRow(i,d);}).catch(()=>{});},200);}
+function fillRow(i,p){const tr=i.closest('tr');if(!tr)return;const desc=tr.querySelector('[name="particular"]');if(desc&&!desc.value)desc.value=p.name;const rate=tr.querySelector('[name="rate"]');if(rate)rate.value=p.rate;const b=tr.querySelector('.stock-avail');if(b){b.textContent=`Stock: ${p.stock} ${p.unit}${p.low_stock?' ⚠️ Low':''}`;b.style.color=p.low_stock?'#DC2626':'#16A34A';b.style.display='block';}i.style.borderColor='#16A34A';if(typeof calc==='function')calc();}
+function showDD(input,results){closeDD();if(!results.length)return;const dd=document.createElement('div');dd.className='prod-dropdown';results.forEach(p=>{const d=document.createElement('div');d.className='prod-dd-item';d.innerHTML=`<span class="pd-code">${p.code}</span><span class="pd-name">${p.name}</span><span class="pd-rate">₹${Number(p.rate).toLocaleString('en-IN')}</span><span class="pd-stock ${p.stock<=0?'out':''}">${p.stock} ${p.unit}</span>`;d.onmousedown=()=>{input.value=p.code;fillRow(input,p);closeDD();};dd.appendChild(d);});const r=input.getBoundingClientRect();dd.style.cssText=`position:fixed;top:${r.bottom+2}px;left:${r.left}px;width:${Math.max(r.width,360)}px;z-index:9999;`;document.body.appendChild(dd);}
+function closeDD(){document.querySelectorAll('.prod-dropdown').forEach(d=>d.remove());}
+document.addEventListener('click',closeDD);
+</script>
+{% endblock %}

@@ -1,0 +1,385 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.id }}{% endblock %}
+{% block page_title %}Invoice Details{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    .main { margin-left: 0 !important; }
+    .sidebar { display: none !important; }
+    body { background: #fff; }
+    .print-area { display: block !important; }
+    .format-tab-content { display: none !important; }
+    .active-format { display: block !important; }
+  }
+
+  /* ── Format switcher ── */
+  .format-tabs { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
+  .fmt-tab { padding:8px 20px; border-radius:8px; cursor:pointer; background:#F3F4F6; font-weight:600; font-size:13px; border:2px solid transparent; }
+  .fmt-tab.active { background:#4F46E5; color:#fff; border-color:#4F46E5; }
+
+  /* ════════════════════════════════════
+     FORMAT 1 — Modern (gradient header)
+  ════════════════════════════════════ */
+  .fmt1-wrap { font-family: 'Segoe UI', Arial, sans-serif; max-width:800px; margin:0 auto; background:#fff; border-radius:14px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); }
+  .fmt1-header { background:linear-gradient(135deg,#4F46E5,#7C3AED); color:#fff; padding:28px 32px 20px; }
+  .fmt1-header h1 { font-size:26px; font-weight:800; margin:0 0 2px; letter-spacing:1px; }
+  .fmt1-header p { opacity:.8; margin:0; font-size:13px; }
+  .fmt1-meta { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .fmt1-meta-box { padding:18px 32px; }
+  .fmt1-meta-box:first-child { border-right:1px solid #F3F4F6; }
+  .fmt1-meta-label { font-size:10px; text-transform:uppercase; letter-spacing:.8px; color:#9CA3AF; font-weight:700; margin-bottom:2px; }
+  .fmt1-meta-value { font-size:14px; font-weight:600; color:#111827; }
+  .fmt1-table { width:100%; border-collapse:collapse; }
+  .fmt1-table th { padding:10px 16px; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6B7280; background:#F9FAFB; text-align:left; }
+  .fmt1-table td { padding:10px 16px; font-size:13px; border-top:1px solid #F3F4F6; color:#374151; }
+  .fmt1-table tfoot td { background:#F9FAFB; font-weight:600; }
+  .fmt1-grand { background:#4F46E5 !important; color:#fff !important; font-size:15px !important; font-weight:800 !important; }
+  .fmt1-footer { padding:20px 32px; background:#F9FAFB; border-top:1px solid #E5E7EB; }
+  .fmt1-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+  .fmt1-badge.paid { background:#DCFCE7; color:#16A34A; }
+  .fmt1-badge.partial { background:#FEF9C3; color:#CA8A04; }
+  .fmt1-badge.pending { background:#FEE2E2; color:#DC2626; }
+
+  /* ════════════════════════════════════
+     FORMAT 2 — Classic GST Invoice
+  ════════════════════════════════════ */
+  .fmt2-wrap { font-family: Arial, sans-serif; max-width:800px; margin:0 auto; background:#fff; border:2px solid #222; }
+  .fmt2-wrap * { box-sizing:border-box; }
+  .fmt2-top { display:grid; grid-template-columns:1fr 1fr; border-bottom:2px solid #222; }
+  .fmt2-company { padding:14px 16px; border-right:1px solid #222; }
+  .fmt2-company h2 { font-size:20px; font-weight:900; margin:0 0 2px; text-transform:uppercase; }
+  .fmt2-company p { font-size:11px; margin:2px 0; color:#333; }
+  .fmt2-title-box { padding:14px 16px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .fmt2-title-box h3 { font-size:17px; font-weight:900; text-transform:uppercase; margin:0 0 6px; letter-spacing:1px; }
+  .fmt2-title-box p { font-size:11px; margin:1px 0; color:#333; }
+  .fmt2-parties { display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid #222; }
+  .fmt2-party { padding:10px 14px; }
+  .fmt2-party:first-child { border-right:1px solid #222; }
+  .fmt2-party-label { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.8px; border-bottom:1px solid #ddd; padding-bottom:4px; margin-bottom:6px; }
+  .fmt2-party p { font-size:11.5px; margin:2px 0; }
+  .fmt2-table { width:100%; border-collapse:collapse; border-top:1px solid #222; }
+  .fmt2-table th { padding:7px 10px; font-size:10px; font-weight:900; text-transform:uppercase; border-bottom:2px solid #222; border-right:1px solid #ccc; text-align:center; background:#F5F5F5; }
+  .fmt2-table th:last-child { border-right:none; }
+  .fmt2-table td { padding:7px 10px; font-size:11.5px; border-bottom:1px solid #eee; border-right:1px solid #eee; }
+  .fmt2-table td:last-child { border-right:none; text-align:right; }
+  .fmt2-table tfoot td { border-top:2px solid #222; font-weight:700; font-size:12px; border-bottom:1px solid #ddd; }
+  .fmt2-summary { display:grid; grid-template-columns:1fr 1fr; border-top:2px solid #222; }
+  .fmt2-words { padding:12px 14px; border-right:1px solid #222; font-size:11px; }
+  .fmt2-words strong { font-size:11.5px; }
+  .fmt2-amounts { padding:12px 14px; }
+  .fmt2-amt-row { display:flex; justify-content:space-between; font-size:12px; padding:2px 0; }
+  .fmt2-amt-row.total { font-weight:900; font-size:14px; border-top:1px solid #222; padding-top:6px; margin-top:4px; }
+  .fmt2-bottom { display:grid; grid-template-columns:1fr 1fr; border-top:2px solid #222; }
+  .fmt2-terms { padding:12px 14px; border-right:1px solid #222; font-size:10.5px; }
+  .fmt2-terms h4 { font-size:11px; font-weight:900; text-transform:uppercase; margin:0 0 6px; }
+  .fmt2-sign { padding:12px 14px; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; font-size:11px; }
+  .fmt2-sign .sig-line { border-top:1px solid #222; width:160px; margin-top:40px; padding-top:4px; text-align:center; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Action bar -->
+<div class="no-print" style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center">
+  <a href="/invoice/list" class="btn btn-ghost btn-sm">← Back</a>
+  <div style="flex:1"></div>
+  <button onclick="downloadPDF()" class="btn btn-primary btn-sm">⬇️ Download PDF</button>
+  <button onclick="window.print()" class="btn btn-ghost btn-sm">🖨️ Print</button>
+</div>
+
+<!-- Format switcher -->
+<div class="no-print format-tabs">
+  <span style="font-weight:600; color:#6B7280; font-size:13px; align-self:center; margin-right:4px">Format:</span>
+  <div class="fmt-tab active" onclick="switchFormat(1, this)">🎨 Modern</div>
+  <div class="fmt-tab" onclick="switchFormat(2, this)">📋 Classic GST</div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FORMAT 1 — Modern
+══════════════════════════════════════ -->
+<div id="format1" class="format1-wrap">
+  <div class="fmt1-wrap" id="printArea">
+
+    <!-- Header -->
+    <div class="fmt1-header">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start">
+        <div>
+          <h1>TAX INVOICE</h1>
+          <p>{{ invoice.customer_name }}</p>
+        </div>
+        <div style="text-align:right">
+          <div style="background:rgba(255,255,255,.15); padding:10px 16px; border-radius:10px;">
+            <div style="font-size:11px; opacity:.7; text-transform:uppercase; letter-spacing:.8px">Invoice #</div>
+            <div style="font-size:20px; font-weight:800">{{ invoice.id }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Meta row -->
+    <div class="fmt1-meta" style="border-bottom:1px solid #F3F4F6">
+      <div class="fmt1-meta-box">
+        <div class="fmt1-meta-label">Invoice Date</div>
+        <div class="fmt1-meta-value">{{ invoice.date }}</div>
+      </div>
+      <div class="fmt1-meta-box">
+        <div class="fmt1-meta-label">Bill Type</div>
+        <div class="fmt1-meta-value">{% if invoice.bill_type == 'cash' %}💵 Cash Bill{% else %}💳 Credit Bill{% endif %}</div>
+      </div>
+      <div class="fmt1-meta-box">
+        <div class="fmt1-meta-label">Payment Mode</div>
+        <div class="fmt1-meta-value">{{ invoice.payment_mode|capitalize }}</div>
+      </div>
+      <div class="fmt1-meta-box">
+        <div class="fmt1-meta-label">Status</div>
+        <div class="fmt1-meta-value">
+          {% if invoice.status == 'paid' %}<span class="fmt1-badge paid">✓ Paid</span>
+          {% elif invoice.status == 'partial' %}<span class="fmt1-badge partial">⏳ Partial</span>
+          {% else %}<span class="fmt1-badge pending">⚠ Pending</span>{% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if invoice.customer_phone %}
+    <div style="padding:12px 32px; border-bottom:1px solid #F3F4F6; font-size:13px; color:#6B7280">
+      📞 {{ invoice.customer_phone }}
+      {% if invoice.cheque_no %} &nbsp;|&nbsp; Cheque: {{ invoice.cheque_no }}{% endif %}
+      {% if invoice.transaction_id %} &nbsp;|&nbsp; Txn: {{ invoice.transaction_id }}{% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Items table -->
+    <table class="fmt1-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Code</th><th>Description</th><th style="text-align:center">Qty</th>
+          <th style="text-align:right">Rate (₹)</th><th style="text-align:center">Disc %</th><th style="text-align:right">Amount (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in invoice['items'] %}
+        <tr>
+          <td style="color:#9CA3AF">{{ loop.index }}</td>
+          <td style="font-weight:600; color:#4F46E5">{{ item.code }}</td>
+          <td>{{ item.desc }}</td>
+          <td style="text-align:center">{{ item.qty }}</td>
+          <td style="text-align:right">{{ "{:,.2f}".format(item.rate) }}</td>
+          <td style="text-align:center">{{ item.discount }}%</td>
+          <td style="text-align:right; font-weight:600">{{ "{:,.2f}".format(item.qty * item.rate * (1 - item.discount/100)) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="6" style="text-align:right">Subtotal</td><td style="text-align:right">{{ "{:,.2f}".format(invoice.subtotal) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right">GST (18%)</td><td style="text-align:right">{{ "{:,.2f}".format(invoice.tax) }}</td></tr>
+        <tr class="fmt1-grand"><td colspan="6" style="text-align:right">Grand Total</td><td style="text-align:right">₹ {{ "{:,.2f}".format(invoice.total) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right">Amount Paid</td><td style="text-align:right; color:#16A34A; font-weight:700">₹ {{ "{:,.2f}".format(invoice.paid) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right">Balance Due</td><td style="text-align:right; color:#DC2626; font-weight:700">₹ {{ "{:,.2f}".format(invoice.balance) }}</td></tr>
+      </tfoot>
+    </table>
+
+    {% if invoice.related_orders %}
+    <div style="padding:14px 32px; border-top:1px solid #F3F4F6; font-size:12px; color:#6B7280">
+      <strong>Related Orders:</strong>
+      {% for order_id in invoice.related_orders %}
+      <span style="display:inline-block; background:#EEF2FF; color:#4F46E5; padding:2px 10px; border-radius:20px; margin:2px; font-weight:600">{{ order_id }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="fmt1-footer">
+      <p style="font-size:11px; color:#9CA3AF; margin:0"><strong>Terms & Conditions:</strong> Payment due within 15 days. Late payment subject to 18% interest per annum. Goods once sold cannot be returned.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     FORMAT 2 — Classic GST
+══════════════════════════════════════ -->
+<div id="format2" style="display:none">
+  <div class="fmt2-wrap" id="printArea2">
+
+    <!-- Top: company + invoice title -->
+    <div class="fmt2-top">
+      <div class="fmt2-company">
+        <h2>Your Company Name</h2>
+        <p>Your Address Line 1, City, State - 000000</p>
+        <p>Mobile: +91 9999999999 | Email: company@email.com</p>
+        <p>GSTIN: 29AAAAA1234F1Z &nbsp;|&nbsp; PAN: AAAAA1234F</p>
+      </div>
+      <div class="fmt2-title-box">
+        <h3>Tax Invoice</h3>
+        <p><strong>Invoice No:</strong> {{ invoice.id }}</p>
+        <p><strong>Date:</strong> {{ invoice.date }}</p>
+        <p><strong>Type:</strong> {% if invoice.bill_type == 'cash' %}Cash Bill{% else %}Credit Bill{% endif %}</p>
+        <p><strong>Status:</strong>
+          {% if invoice.status == 'paid' %}✓ Paid
+          {% elif invoice.status == 'partial' %}⏳ Partial
+          {% else %}⚠ Pending{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <!-- Parties -->
+    <div class="fmt2-parties">
+      <div class="fmt2-party">
+        <div class="fmt2-party-label">Bill To</div>
+        <p><strong>{{ invoice.customer_name }}</strong></p>
+        {% if invoice.customer_phone %}<p>Phone: {{ invoice.customer_phone }}</p>{% endif %}
+        {% if invoice.cheque_no %}<p>Cheque No: {{ invoice.cheque_no }}</p>{% endif %}
+        {% if invoice.transaction_id %}<p>Txn ID: {{ invoice.transaction_id }}</p>{% endif %}
+      </div>
+      <div class="fmt2-party">
+        <div class="fmt2-party-label">Payment Details</div>
+        <p><strong>Mode:</strong> {{ invoice.payment_mode|capitalize }}</p>
+        <p><strong>Amount Paid:</strong> ₹{{ "{:,.2f}".format(invoice.paid) }}</p>
+        <p><strong>Balance Due:</strong> ₹{{ "{:,.2f}".format(invoice.balance) }}</p>
+      </div>
+    </div>
+
+    <!-- Items -->
+    <table class="fmt2-table">
+      <thead>
+        <tr>
+          <th style="width:32px">Sr.</th>
+          <th>Item Description</th>
+          <th style="width:80px">Qty</th>
+          <th style="width:100px">Rate (₹)</th>
+          <th style="width:70px">Disc %</th>
+          <th style="width:80px">Tax %</th>
+          <th style="width:110px">Amount (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in invoice['items'] %}
+        <tr>
+          <td style="text-align:center">{{ loop.index }}</td>
+          <td>{{ item.desc }}<br><span style="font-size:10px; color:#9CA3AF">{{ item.code }}</span></td>
+          <td style="text-align:center">{{ item.qty }}</td>
+          <td style="text-align:right">{{ "{:,.2f}".format(item.rate) }}</td>
+          <td style="text-align:center">{{ item.discount }}%</td>
+          <td style="text-align:center">18%</td>
+          <td>{{ "{:,.2f}".format(item.qty * item.rate * (1 - item.discount/100)) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="6" style="text-align:right; border-right:1px solid #ddd">Subtotal</td>
+          <td>{{ "{:,.2f}".format(invoice.subtotal) }}</td>
+        </tr>
+        <tr>
+          <td colspan="6" style="text-align:right; border-right:1px solid #ddd">GST (18%)</td>
+          <td>{{ "{:,.2f}".format(invoice.tax) }}</td>
+        </tr>
+        <tr style="background:#F5F5F5">
+          <td colspan="6" style="text-align:right; font-size:13px; border-right:1px solid #ddd">Grand Total</td>
+          <td style="font-size:13px">₹ {{ "{:,.2f}".format(invoice.total) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Summary -->
+    <div class="fmt2-summary">
+      <div class="fmt2-words">
+        <strong>Amount in Words:</strong><br>
+        <em id="amtWords2">—</em>
+      </div>
+      <div class="fmt2-amounts">
+        <div class="fmt2-amt-row"><span>Grand Total</span><span>₹ {{ "{:,.2f}".format(invoice.total) }}</span></div>
+        <div class="fmt2-amt-row" style="color:#16A34A"><span>Amount Paid</span><span>₹ {{ "{:,.2f}".format(invoice.paid) }}</span></div>
+        <div class="fmt2-amt-row total" style="color:#DC2626"><span>Balance Due</span><span>₹ {{ "{:,.2f}".format(invoice.balance) }}</span></div>
+      </div>
+    </div>
+
+    <!-- Bottom -->
+    <div class="fmt2-bottom">
+      <div class="fmt2-terms">
+        <h4>Terms & Conditions</h4>
+        <p>E & O.E</p>
+        <p>1. Goods once sold will not be taken back.</p>
+        <p>2. Interest @ 18% p.a. will be charged if payment is not made within the stipulated time.</p>
+        <p>3. Subject to local jurisdiction only.</p>
+      </div>
+      <div class="fmt2-sign">
+        <p style="font-size:10px; color:#666">Certified that the particulars given above are true and correct.</p>
+        <div class="sig-line">Authorised Signatory</div>
+      </div>
+    </div>
+
+    <div style="text-align:center; padding:8px; font-size:10px; color:#9CA3AF; border-top:1px solid #eee">
+      This is a computer generated invoice — no signature required.
+    </div>
+  </div>
+</div>
+
+<script>
+let activeFormat = 1;
+
+function switchFormat(num, el) {
+  activeFormat = num;
+  document.querySelectorAll('.fmt-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('format1').style.display = num === 1 ? 'block' : 'none';
+  document.getElementById('format2').style.display = num === 2 ? 'block' : 'none';
+  if (num === 2) setAmountInWords();
+}
+
+// Simple number to words (Indian system)
+function numToWords(num) {
+  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
+                 'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen',
+                 'Seventeen','Eighteen','Nineteen'];
+  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  if (num === 0) return 'Zero';
+  function helper(n) {
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n/10)] + (n%10 ? ' '+ones[n%10] : '');
+    if (n < 1000) return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' '+helper(n%100) : '');
+    if (n < 100000) return helper(Math.floor(n/1000)) + ' Thousand' + (n%1000 ? ' '+helper(n%1000) : '');
+    if (n < 10000000) return helper(Math.floor(n/100000)) + ' Lakh' + (n%100000 ? ' '+helper(n%100000) : '');
+    return helper(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' '+helper(n%10000000) : '');
+  }
+  const intPart = Math.floor(num);
+  const decPart = Math.round((num - intPart) * 100);
+  let result = helper(intPart) + ' Rupees';
+  if (decPart > 0) result += ' and ' + helper(decPart) + ' Paise';
+  return result + ' Only';
+}
+
+function setAmountInWords() {
+  const total = {{ invoice.total }};
+  const el = document.getElementById('amtWords2');
+  if (el) el.textContent = numToWords(total);
+}
+
+function downloadPDF() {
+  const printArea = activeFormat === 1
+    ? document.getElementById('printArea')
+    : document.getElementById('printArea2');
+
+  // Use print to PDF approach
+  const originalDisplay1 = document.getElementById('format1').style.display;
+  const originalDisplay2 = document.getElementById('format2').style.display;
+
+  // Show only active format
+  document.getElementById('format1').style.display = activeFormat === 1 ? 'block' : 'none';
+  document.getElementById('format2').style.display = activeFormat === 2 ? 'block' : 'none';
+
+  // Hide no-print elements
+  document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+
+  window.print();
+
+  // Restore
+  setTimeout(() => {
+    document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+    document.getElementById('format1').style.display = originalDisplay1;
+    document.getElementById('format2').style.display = originalDisplay2;
+  }, 500);
+}
+</script>
+{% endblock %}

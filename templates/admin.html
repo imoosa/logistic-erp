@@ -1,0 +1,601 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+{% set active = 'admin' %}
+
+{% block extra_style %}
+<style>
+/* ── Layout ── */
+.dash-grid   { display:grid; gap:18px; }
+.cols-4      { grid-template-columns:repeat(4,1fr); }
+.cols-3      { grid-template-columns:repeat(3,1fr); }
+.cols-2      { grid-template-columns:repeat(2,1fr); }
+.cols-2-1    { grid-template-columns:2fr 1fr; }
+.cols-1-2    { grid-template-columns:1fr 2fr; }
+
+/* ── KPI tiles ── */
+.kpi-tile { background:#fff; border-radius:14px; padding:20px 22px; border:1px solid #E5E7EB; box-shadow:0 1px 4px rgba(0,0,0,.06); position:relative; overflow:hidden; }
+.kpi-tile::after { content:''; position:absolute; top:-16px; right:-16px; width:70px; height:70px; border-radius:50%; opacity:.07; }
+.kpi-tile.blue::after   { background:#4F46E5; }
+.kpi-tile.green::after  { background:#16A34A; }
+.kpi-tile.red::after    { background:#DC2626; }
+.kpi-tile.amber::after  { background:#D97706; }
+.kpi-tile.purple::after { background:#7C3AED; }
+.kpi-tile.teal::after   { background:#0D9488; }
+.kpi-tile.rose::after   { background:#E11D48; }
+.kpi-tile.sky::after    { background:#0284C7; }
+.kpi-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; margin-bottom:12px; }
+.kpi-val  { font-size:24px; font-weight:800; letter-spacing:-1px; }
+.kpi-lbl  { font-size:11.5px; color:#6B7280; font-weight:500; margin-top:3px; }
+.kpi-sub  { font-size:11px; color:#9CA3AF; margin-top:5px; display:flex; align-items:center; gap:4px; }
+.trend-up   { color:#16A34A; font-weight:600; }
+.trend-down { color:#DC2626; font-weight:600; }
+
+/* ── Chart cards ── */
+.chart-card { background:#fff; border-radius:14px; border:1px solid #E5E7EB; box-shadow:0 1px 4px rgba(0,0,0,.06); overflow:hidden; }
+.chart-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #F3F4F6; flex-wrap:wrap; gap:8px; }
+.chart-title { font-size:14px; font-weight:700; color:#111827; }
+.chart-sub   { font-size:11.5px; color:#9CA3AF; margin-top:2px; }
+.chart-body  { padding:20px; }
+.chart-tag   { display:inline-flex; align-items:center; gap:5px; background:#F3F4F6; border-radius:20px; padding:4px 10px; font-size:11px; font-weight:600; color:#4B5563; }
+
+/* ── Filter bar ── */
+.filter-bar { background:#fff; border-radius:14px; border:1px solid #E5E7EB; padding:14px 20px; margin-bottom:20px; display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.filter-bar label { font-size:12px; font-weight:600; color:#374151; white-space:nowrap; }
+.filter-bar input[type=month],
+.filter-bar select { padding:7px 12px; border:1.5px solid #E5E7EB; border-radius:8px; font-family:'Poppins',sans-serif; font-size:12.5px; outline:none; transition:border .15s; }
+.filter-bar input[type=month]:focus,
+.filter-bar select:focus { border-color:#4F46E5; }
+
+/* ── Emp performance table ── */
+.emp-rank { display:flex; align-items:center; gap:8px; }
+.emp-ava  { width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; flex-shrink:0; }
+.rank-bar-wrap { flex:1; height:6px; background:#F3F4F6; border-radius:10px; overflow:hidden; }
+.rank-bar-fill { height:100%; border-radius:10px; }
+.medal { font-size:18px; }
+
+/* ── Progress ring ── */
+.ring-wrap { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+
+/* ── Section label ── */
+.sec-label { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6B7280; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.sec-label::after { content:''; flex:1; height:1px; background:#F3F4F6; }
+
+/* ── Summary table ── */
+.amt-pos { color:#16A34A; font-weight:700; }
+.amt-neg { color:#DC2626; font-weight:700; }
+.progress-bar  { height:5px; background:#F3F4F6; border-radius:10px; margin-top:5px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,#4F46E5,#7C3AED); }
+.emp-tag { display:inline-flex; align-items:center; gap:4px; background:#EEF2FF; color:#4F46E5; font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:20px; margin:1px; }
+.stmt-btn { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:7px; font-size:11.5px; font-weight:600; background:#EEF2FF; color:#4F46E5; text-decoration:none; transition:all .15s; }
+.stmt-btn:hover { background:#4F46E5; color:#fff; }
+
+.table-wrap { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; padding:12px 16px; background:#F9FAFB; font-size:12px; font-weight:600; color:#4B5563; border-bottom:1px solid #E5E7EB; }
+td { padding:12px 16px; border-bottom:1px solid #F3F4F6; font-size:13px; }
+
+/* ── Responsive ── */
+@media(max-width:1100px){ .cols-4{grid-template-columns:1fr 1fr;} .cols-3{grid-template-columns:1fr 1fr;} .cols-2-1,.cols-1-2{grid-template-columns:1fr;} }
+@media(max-width:640px) { .cols-4,.cols-3,.cols-2{grid-template-columns:1fr;} }
+
+.btn { padding:8px 16px; border-radius:8px; font-weight:600; font-size:12px; cursor:pointer; transition:all .15s; border:none; }
+.btn-primary { background:#4F46E5; color:#fff; }
+.btn-primary:hover { background:#4338CA; }
+.btn-ghost { background:#F3F4F6; color:#374151; }
+.btn-ghost:hover { background:#E5E7EB; }
+.btn-sm { padding:6px 12px; font-size:11px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:10px">
+  <div>
+    <h2 style="font-size:20px;font-weight:800;color:#111827">Analytics Dashboard</h2>
+    <p style="font-size:13px;color:#6B7280;margin-top:2px">Real-time company performance · FY {{ year_str }}</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <span style="background:#EEF2FF;color:#4F46E5;font-size:11.5px;font-weight:700;padding:6px 14px;border-radius:20px">🔐 Admin View</span>
+    <a href="/admin/statement/all" class="btn btn-ghost btn-sm">📄 Export</a>
+  </div>
+</div>
+
+<!-- ── Filters ── -->
+<div class="filter-bar">
+  <form method="GET" action="/admin" style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;width:100%">
+    <div style="display:flex;align-items:center;gap:8px">
+      <label>📅 Month</label>
+      <input type="month" name="month" value="{{ month_str }}" />
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label>📆 Year</label>
+      <select name="year">
+        <option value="2024" {% if year_str=='2024' %}selected{% endif %}>2024</option>
+        <option value="2023" {% if year_str=='2023' %}selected{% endif %}>2023</option>
+      </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label>👤 Employee</label>
+      <select name="emp">
+        <option value="All" {% if emp_filter=='All' %}selected{% endif %}>All Employees</option>
+        {% for eid,ename in employees.items() %}
+        <option value="{{ eid }}" {% if emp_filter==eid %}selected{% endif %}>{{ ename }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+    <a href="/admin" class="btn btn-ghost btn-sm">Reset</a>
+  </form>
+</div>
+
+<!-- ── KPI Row 1 ── -->
+<div class="dash-grid cols-4" style="margin-bottom:18px">
+  <div class="kpi-tile blue">
+    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">📦</div>
+    <div class="kpi-val" style="color:#4F46E5">{{ kpis.total_orders }}</div>
+    <div class="kpi-lbl">Total Orders (All Time)</div>
+    <div class="kpi-sub"><span class="trend-up">↑ {{ kpis.delivered_count }} delivered</span></div>
+  </div>
+  <div class="kpi-tile green">
+    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">💰</div>
+    <div class="kpi-val" style="color:#16A34A">₹{{ "{:,.0f}".format(kpis.total_revenue/100000) }}L</div>
+    <div class="kpi-lbl">Total Revenue Generated</div>
+    <div class="kpi-sub">₹{{ "{:,.0f}".format(kpis.total_revenue) }}</div>
+  </div>
+  <div class="kpi-tile red">
+    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">⏳</div>
+    <div class="kpi-val" style="color:#DC2626">₹{{ "{:,.0f}".format(kpis.total_outstanding/100000) }}L</div>
+    <div class="kpi-lbl">Total Outstanding</div>
+    <div class="kpi-sub"><span class="trend-down">{{ "%.1f"|format(100 - kpis.collection_rate) }}% uncollected</span></div>
+  </div>
+  <div class="kpi-tile amber">
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">✅</div>
+    <div class="kpi-val" style="color:#D97706">₹{{ "{:,.0f}".format(kpis.month_received/100000) }}L</div>
+    <div class="kpi-lbl">Received — {{ kpis.month_label }}</div>
+    <div class="kpi-sub">{{ kpis.month_orders }} orders this month</div>
+  </div>
+</div>
+
+<!-- ── KPI Row 2 ── -->
+<div class="dash-grid cols-4" style="margin-bottom:22px">
+  <div class="kpi-tile purple">
+    <div class="kpi-icon" style="background:#F5F3FF;color:#7C3AED">🏆</div>
+    <div class="kpi-val" style="color:#7C3AED">{{ kpis.collection_rate }}%</div>
+    <div class="kpi-lbl">Collection Rate</div>
+    <div class="kpi-sub">₹{{ "{:,.0f}".format(kpis.total_received) }} received</div>
+  </div>
+  <div class="kpi-tile teal">
+    <div class="kpi-icon" style="background:#CCFBF1;color:#0D9488">📈</div>
+    <div class="kpi-val" style="color:#0D9488">₹{{ "{:,.0f}".format(kpis.month_revenue/100000) }}L</div>
+    <div class="kpi-lbl">Revenue — {{ kpis.month_label }}</div>
+    <div class="kpi-sub">Monthly target</div>
+  </div>
+  <div class="kpi-tile sky">
+    <div class="kpi-icon" style="background:#E0F2FE;color:#0284C7">🔄</div>
+    <div class="kpi-val" style="color:#0284C7">{{ kpis.pending_count }}</div>
+    <div class="kpi-lbl">Pending Orders</div>
+    <div class="kpi-sub">Require follow-up</div>
+  </div>
+  <div class="kpi-tile rose">
+    <div class="kpi-icon" style="background:#FFE4E6;color:#E11D48">❌</div>
+    <div class="kpi-val" style="color:#E11D48">{{ kpis.cancelled_count }}</div>
+    <div class="kpi-lbl">Cancelled Orders</div>
+    <div class="kpi-sub">Review needed</div>
+  </div>
+</div>
+
+<!-- ── Row: Revenue Trend + Order Status Donut ── -->
+<div class="sec-label">Revenue & Collection Trends</div>
+<div class="dash-grid cols-2-1" style="margin-bottom:18px">
+
+  <!-- Line chart: monthly revenue vs received -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <div>
+        <div class="chart-title">Monthly Revenue vs Collected — {{ year_str }}</div>
+        <div class="chart-sub">Full year billing and collection comparison</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <span class="chart-tag"><span style="width:10px;height:10px;background:#4F46E5;border-radius:2px;display:inline-block"></span> Revenue</span>
+        <span class="chart-tag"><span style="width:10px;height:10px;background:#16A34A;border-radius:2px;display:inline-block"></span> Collected</span>
+      </div>
+    </div>
+    <div class="chart-body"><canvas id="revenueChart" height="100"></canvas></div>
+  </div>
+
+  <!-- Donut: order status -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <div>
+        <div class="chart-title">Order Status</div>
+        <div class="chart-sub">All-time breakdown</div>
+      </div>
+    </div>
+    <div class="chart-body" style="display:flex;flex-direction:column;align-items:center">
+      <canvas id="statusChart" height="180" style="max-width:200px"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:14px;width:100%">
+        {% for s,c in status_counts.items() %}
+        <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+          {% if s=='Delivered' %}{% set dot_color='#16A34A' %}{% elif s=='Pending' %}{% set dot_color='#D97706' %}{% elif s=='Processing' %}{% set dot_color='#4F46E5' %}{% else %}{% set dot_color='#DC2626' %}{% endif %}
+          <span style="width:10px;height:10px;border-radius:50%;background:{{ dot_color }};flex-shrink:0"></span>
+          <span style="color:#6B7280">{{ s }}</span>
+          <span style="font-weight:700;margin-left:auto">{{ c }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Row: Orders bar + Top clients ── -->
+<div class="dash-grid cols-2" style="margin-bottom:18px">
+
+  <!-- Bar chart: orders per month -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <div>
+        <div class="chart-title">Orders Per Month — {{ year_str }}</div>
+        <div class="chart-sub">Volume of orders across the year</div>
+      </div>
+    </div>
+    <div class="chart-body"><canvas id="ordersChart" height="120"></canvas></div>
+  </div>
+
+  <!-- Horizontal bar: top clients -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <div>
+        <div class="chart-title">Top Clients by Revenue</div>
+        <div class="chart-sub">All-time total order value</div>
+      </div>
+    </div>
+    <div class="chart-body"><canvas id="clientsChart" height="120"></canvas></div>
+  </div>
+</div>
+
+<!-- ── Employee Performance Section ── -->
+<div class="sec-label">Employee Performance — {{ year_str }}</div>
+
+<!-- Employee yearly comparison bar chart -->
+<div class="chart-card" style="margin-bottom:18px">
+  <div class="chart-head">
+    <div>
+      <div class="chart-title">Employee Revenue Comparison — {{ year_str }}</div>
+      <div class="chart-sub">Monthly revenue generated per employee</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      {% for i in range(emp_ids|length) %}
+      <span class="chart-tag">
+        <span style="width:10px;height:10px;border-radius:2px;display:inline-block;background:{{'#4F46E5' if i==0 else '#16A34A' if i==1 else '#D97706'}}"></span>
+        {{ emp_names[i] }}
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="chart-body"><canvas id="empMonthlyChart" height="90"></canvas></div>
+</div>
+
+<!-- Employee scorecards + yearly bar -->
+<div class="dash-grid cols-1-2" style="margin-bottom:18px">
+
+  <!-- Scorecards -->
+  <div style="display:flex;flex-direction:column;gap:12px">
+    {% set colors = ['#4F46E5','#16A34A','#D97706'] %}
+    {% set medals = ['🥇','🥈','🥉'] %}
+    {% set sorted_pairs = [] %}
+    {% for i in range(emp_ids|length) %}
+      {% set _ = sorted_pairs.append({'idx': i, 'rev': emp_yearly_revenue[i]}) %}
+    {% endfor %}
+    {% set sorted_pairs = sorted_pairs|sort(attribute='rev', reverse=true) %}
+    
+    {% for pair in sorted_pairs %}
+    {% set idx = pair.idx %}
+    {% set col = colors[loop.index0 % 3] %}
+    <div class="chart-card" style="border-left:4px solid {{ col }}">
+      <div class="chart-body" style="padding:16px 18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="emp-ava" style="background:{{ col }}">{{ emp_names[idx][0] }}</div>
+            <div>
+              <div style="font-weight:700;font-size:13.5px">{{ emp_names[idx] }}</div>
+              <div style="font-size:11px;color:#9CA3AF">{{ emp_ids[idx] }}</div>
+            </div>
+          </div>
+          <span class="medal">{{ medals[loop.index0] }}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
+          <div>
+            <div style="font-size:16px;font-weight:800;color:{{ col }}">{{ emp_yearly_orders[idx] }}</div>
+            <div style="font-size:10px;color:#9CA3AF">Orders</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#111827">₹{{ "{:,.0f}".format(emp_yearly_revenue[idx]/100000) }}L</div>
+            <div style="font-size:10px;color:#9CA3AF">Revenue</div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:800;color:#16A34A">₹{{ "{:,.0f}".format(emp_yearly_received[idx]/100000) }}L</div>
+            <div style="font-size:10px;color:#9CA3AF">Collected</div>
+          </div>
+        </div>
+        <div class="progress-bar" style="margin-top:10px">
+          {% set max_rev_safe = max_rev if max_rev > 0 else 1 %}
+          {% set width_percent = (emp_yearly_revenue[idx] / max_rev_safe * 100) | int %}
+          <div class="rank-bar-fill" style="width:{{ width_percent }}%;height:6px;background:{{ col }};border-radius:10px"></div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Yearly revenue bar chart per employee -->
+  <div class="chart-card">
+    <div class="chart-head">
+      <div>
+        <div class="chart-title">Yearly Revenue Per Employee</div>
+        <div class="chart-sub">Total billed vs collected — {{ year_str }}</div>
+      </div>
+    </div>
+    <div class="chart-body"><canvas id="empYearlyChart" height="200"></canvas></div>
+  </div>
+</div>
+
+<!-- ── Company Summary Table ── -->
+<div class="sec-label">Company-wise Summary Table</div>
+<div class="chart-card" style="margin-bottom:8px">
+  <div class="chart-head">
+    <div>
+      <div class="chart-title">All Client Orders — Complete Breakdown</div>
+      <div class="chart-sub">{{ company_rows|length }} companies · All time</div>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>S.No</th><th>Company Name</th><th>Orders</th>
+          <th>Total Amount</th><th>Received</th><th>Pending</th>
+          <th>Employee(s)</th><th>Statement</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in company_rows %}
+        <tr>
+          <td style="color:#9CA3AF;font-weight:600">{{ row.sno }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:8px;background:#EEF2FF;color:#4F46E5;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">{{ row.company[0] }}</div>
+              <div>
+                <div style="font-weight:600">{{ row.company }}</div>
+                <div style="font-size:11px;color:#9CA3AF">{{ row.order_count }} order{{ 's' if row.order_count!=1 }}</div>
+              </div>
+            </div>
+           </td>
+          <td style="font-weight:700;color:#4F46E5">{{ row.order_count }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(row.total_amount) }}</strong></td>
+          <td class="amt-pos">₹{{ "{:,.0f}".format(row.received) }}</td>
+          <td>
+            {% if row.pending > 0 %}
+              <span class="amt-neg">₹{{ "{:,.0f}".format(row.pending) }}</span>
+              <div class="progress-bar"><div class="progress-fill" style="width:{{ [((row.received/row.total_amount*100)|int),100]|min }}%"></div></div>
+            {% else %}
+              <span class="amt-pos">Fully Paid ✓</span>
+            {% endif %}
+           </td>
+          <td>{% for eid in row.employees %}<span class="emp-tag">{{ eid }} · {{ emp_name(eid).split()[0] }}</span>{% endfor %}</td>
+          <td><a href="/admin/statement/{{ row.company|urlencode }}" class="stmt-btn">📄 View</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background:#F9FAFB;font-weight:700">
+          <td colspan="3" style="padding:13px 16px;color:#374151">TOTAL</td>
+          <td style="padding:13px 16px">₹{{ "{:,.0f}".format(company_rows|sum(attribute='total_amount')) }}</td>
+          <td style="padding:13px 16px;color:#16A34A">₹{{ "{:,.0f}".format(company_rows|sum(attribute='received')) }}</td>
+          <td style="padding:13px 16px;color:#DC2626">₹{{ "{:,.0f}".format(company_rows|sum(attribute='pending')) }}</td>
+          <td colspan="2"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+// ── Data from Flask ─────────────────────────────────────────────────────
+const MONTHS          = {{ months | tojson }};
+const MONTHLY_REV     = {{ monthly_revenue | tojson }};
+const MONTHLY_RCVD    = {{ monthly_received | tojson }};
+const MONTHLY_ORDERS  = {{ monthly_orders | tojson }};
+const EMP_IDS         = {{ emp_ids | tojson }};
+const EMP_NAMES       = {{ emp_names | tojson }};
+const EMP_YR_REV      = {{ emp_yearly_revenue | tojson }};
+const EMP_YR_RCVD     = {{ emp_yearly_received | tojson }};
+const EMP_MONTHLY     = {{ emp_monthly | tojson }};
+const STATUS_LABELS   = {{ status_counts.keys() | list | tojson }};
+const STATUS_VALS     = {{ status_counts.values() | list | tojson }};
+const TOP_CLIENTS     = {{ top_clients | map(attribute='company') | list | tojson }};
+const TOP_AMOUNTS     = {{ top_clients | map(attribute='total_amount') | list | tojson }};
+
+const EMP_COLORS = ['#4F46E5','#16A34A','#D97706'];
+const EMP_LIGHT  = ['rgba(79,70,229,.12)','rgba(22,163,74,.12)','rgba(217,119,6,.12)'];
+
+// ── Chart defaults ──────────────────────────────────────────────────────
+Chart.defaults.font.family = "'Poppins', sans-serif";
+Chart.defaults.font.size   = 11;
+Chart.defaults.color       = '#6B7280';
+
+function gridOpts() {
+  return { color:'#F3F4F6', drawBorder:false };
+}
+function tickOpts() {
+  return { color:'#9CA3AF', maxTicksLimit:6 };
+}
+
+// ── 1. Revenue vs Collected Line Chart ─────────────────────────────────
+new Chart(document.getElementById('revenueChart'), {
+  type: 'line',
+  data: {
+    labels: MONTHS,
+    datasets: [
+      {
+        label:'Revenue', data:MONTHLY_REV,
+        borderColor:'#4F46E5', backgroundColor:'rgba(79,70,229,.08)',
+        borderWidth:2.5, pointBackgroundColor:'#4F46E5', pointRadius:4,
+        tension:.4, fill:true,
+      },
+      {
+        label:'Collected', data:MONTHLY_RCVD,
+        borderColor:'#16A34A', backgroundColor:'rgba(22,163,74,.06)',
+        borderWidth:2.5, pointBackgroundColor:'#16A34A', pointRadius:4,
+        tension:.4, fill:true,
+      }
+    ]
+  },
+  options: {
+    responsive:true, interaction:{mode:'index',intersect:false},
+    plugins:{ legend:{display:false}, tooltip:{
+      callbacks:{ label: ctx => ' ₹' + ctx.parsed.y.toLocaleString('en-IN') }
+    }},
+    scales:{
+      x:{ grid:gridOpts(), ticks:tickOpts() },
+      y:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback: v => '₹'+(v/100000).toFixed(0)+'L' } }
+    }
+  }
+});
+
+// ── 2. Order Status Donut ───────────────────────────────────────────────
+new Chart(document.getElementById('statusChart'), {
+  type:'doughnut',
+  data:{
+    labels: STATUS_LABELS,
+    datasets:[{
+      data: STATUS_VALS,
+      backgroundColor:['#16A34A','#D97706','#4F46E5','#DC2626'],
+      borderWidth:0, hoverOffset:6,
+    }]
+  },
+  options:{
+    cutout:'68%', responsive:true,
+    plugins:{ legend:{display:false}, tooltip:{
+      callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.parsed}` }
+    }}
+  }
+});
+
+// ── 3. Orders Per Month Bar ─────────────────────────────────────────────
+new Chart(document.getElementById('ordersChart'), {
+  type:'bar',
+  data:{
+    labels:MONTHS,
+    datasets:[{
+      label:'Orders', data:MONTHLY_ORDERS,
+      backgroundColor: MONTHS.map((_,i)=> i%2===0?'#4F46E5':'#7C3AED'),
+      borderRadius:7, borderSkipped:false,
+    }]
+  },
+  options:{
+    responsive:true,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ grid:{display:false}, ticks:tickOpts() },
+      y:{ grid:gridOpts(), ticks:{ ...tickOpts(), stepSize:1 } }
+    }
+  }
+});
+
+// ── 4. Top Clients Horizontal Bar ──────────────────────────────────────
+new Chart(document.getElementById('clientsChart'), {
+  type:'bar',
+  data:{
+    labels: TOP_CLIENTS,
+    datasets:[{
+      label:'Revenue', data:TOP_AMOUNTS,
+      backgroundColor:'rgba(79,70,229,.75)',
+      borderColor:'#4F46E5', borderWidth:1.5,
+      borderRadius:6, borderSkipped:false,
+    }]
+  },
+  options:{
+    indexAxis:'y', responsive:true,
+    plugins:{ legend:{display:false}, tooltip:{
+      callbacks:{ label: ctx=>' ₹'+ctx.parsed.x.toLocaleString('en-IN') }
+    }},
+    scales:{
+      x:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₹'+(v/100000).toFixed(0)+'L' } },
+      y:{ grid:{display:false}, ticks:{ color:'#374151', font:{weight:'600'} } }
+    }
+  }
+});
+
+// ── 5. Employee Monthly Line Chart ─────────────────────────────────────
+const empMonthlyData = {};
+{% for eid in emp_ids %}
+empMonthlyData["{{ eid }}"] = {{ emp_monthly[eid] | tojson }};
+{% endfor %}
+
+new Chart(document.getElementById('empMonthlyChart'), {
+  type:'line',
+  data:{
+    labels: MONTHS,
+    datasets: EMP_IDS.map((eid,i)=>({
+      label: EMP_NAMES[i],
+      data: empMonthlyData[eid],
+      borderColor: EMP_COLORS[i],
+      backgroundColor: EMP_LIGHT[i],
+      borderWidth:2.5, pointRadius:4,
+      pointBackgroundColor: EMP_COLORS[i],
+      tension:.4, fill:false,
+    }))
+  },
+  options:{
+    responsive:true, interaction:{mode:'index',intersect:false},
+    plugins:{ legend:{position:'bottom', labels:{usePointStyle:true,pointStyleWidth:8}} , tooltip:{
+      callbacks:{ label: ctx=>' '+ctx.dataset.label+': ₹'+ctx.parsed.y.toLocaleString('en-IN') }
+    }},
+    scales:{
+      x:{ grid:gridOpts(), ticks:tickOpts() },
+      y:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₹'+(v/100000).toFixed(0)+'L' } }
+    }
+  }
+});
+
+// ── 6. Employee Yearly Grouped Bar ─────────────────────────────────────
+new Chart(document.getElementById('empYearlyChart'), {
+  type:'bar',
+  data:{
+    labels: EMP_NAMES,
+    datasets:[
+      {
+        label:'Revenue Billed', data:EMP_YR_REV,
+        backgroundColor: EMP_COLORS.map(c=>c+'CC'),
+        borderColor: EMP_COLORS, borderWidth:2,
+        borderRadius:8, borderSkipped:false,
+      },
+      {
+        label:'Amount Collected', data:EMP_YR_RCVD,
+        backgroundColor: EMP_LIGHT,
+        borderColor: EMP_COLORS, borderWidth:1.5,
+        borderRadius:8, borderSkipped:false,
+        borderDash:[4,2],
+      }
+    ]
+  },
+  options:{
+    responsive:true, interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{ position:'bottom', labels:{usePointStyle:true,pointStyleWidth:8} },
+      tooltip:{ callbacks:{ label: ctx=>' '+ctx.dataset.label+': ₹'+ctx.parsed.y.toLocaleString('en-IN') } }
+    },
+    scales:{
+      x:{ grid:{display:false}, ticks:{ color:'#374151', font:{weight:'700'} } },
+      y:{ grid:gridOpts(), ticks:{ ...tickOpts(), callback:v=>'₹'+(v/100000).toFixed(0)+'L' } }
+    }
+  }
+});
+</script>
+{% endblock %}

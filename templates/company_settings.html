@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Company Settings{% endblock %}
+{% block page_title %}Company Settings{% endblock %}
+{% set active = 'settings' %}
+
+{% block content %}
+<div class="grid-2" style="gap: 24px;">
+  
+  <!-- Company Information -->
+  <div class="card card-body">
+    <h3 style="margin-bottom: 20px;">🏢 Company Information</h3>
+    <form method="POST" action="/company/update-info">
+      <div class="form-group">
+        <label>Company Name</label>
+        <input type="text" name="company_name" value="{{ company.company_name }}" required>
+      </div>
+      <div class="form-group">
+        <label>GST Number</label>
+        <input type="text" name="gst_number" value="{{ company.gst_number or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="phone" value="{{ company.phone or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Address</label>
+        <textarea name="address" rows="3">{{ company.address or '' }}</textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+    </form>
+  </div>
+  
+  <!-- Subscription Plan -->
+  <div class="card card-body">
+    <h3 style="margin-bottom: 20px;">💎 Current Plan: {{ current_plan.name }}</h3>
+    <div style="background: #F3F4F6; padding: 16px; border-radius: 12px; margin-bottom: 20px;">
+      <p><strong>🏢 Max Companies:</strong> {{ company.max_companies_allowed }}</p>
+      <p><strong>👥 Max Users:</strong> {{ company.max_users_per_company }}</p>
+      <p><strong>📅 Valid Until:</strong> {{ company.subscription_end }}</p>
+    </div>
+    
+    <h4 style="margin-bottom: 12px;">Upgrade Plan</h4>
+    <form method="POST" action="/company/upgrade-plan">
+      <div class="grid-2" style="gap: 12px; margin-bottom: 16px;">
+        {% for plan_key, plan in plans.items() %}
+        <label style="display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #E5E7EB; border-radius: 8px; cursor: pointer;">
+          <input type="radio" name="plan" value="{{ plan_key }}" {% if company.subscription_plan == plan_key %}checked{% endif %}>
+          <div>
+            <strong>{{ plan.name }}</strong><br>
+            <small>₹{{ plan.price }}/month</small>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      <button type="submit" class="btn btn-success">Upgrade Plan →</button>
+    </form>
+  </div>
+  
+  <!-- Team Members -->
+  <div class="card card-body" style="grid-column: span 2;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3>👥 Team Members ({{ users|length }}/{{ company.max_users_per_company }})</h3>
+      <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
+    </div>
+    
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>User ID</th><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for uid, user_data in users.items() %}
+          <tr>
+            <td>{{ uid }}</td>
+            <td>{{ user_data.full_name }}</td>
+            <td>{{ user_data.email }}</td>
+            <td>{{ user_data.role|replace('_', ' ')|title }}</td>
+            <td>{{ user_data.department or '-' }}</td>
+            <td>{% if user_data.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Inactive</span>{% endif %}</td>
+            <td>
+              {% if user_data.role != 'owner' %}
+              <a href="/company/remove-user/{{ uid }}" class="btn btn-danger btn-sm" onclick="return confirm('Remove this user?')">Remove</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addUserModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
+    <h3 style="margin-bottom:20px">Add Team Member</h3>
+    <form method="POST" action="/company/add-user">
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input type="text" name="full_name" required>
+      </div>
+      <div class="form-group">
+        <label>Email *</label>
+        <input type="email" name="email" required>
+      </div>
+      <div class="form-group">
+        <label>Password *</label>
+        <input type="password" name="password" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Role</label>
+          <select name="role">
+            <option value="sales_manager">Sales Manager</option>
+            <option value="sales_executive">Sales Executive</option>
+            <option value="accountant">Accountant</option>
+            <option value="operations">Operations</option>
+            <option value="staff">Staff</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Department</label>
+          <input type="text" name="department" placeholder="e.g., Sales">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="phone">
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showAddUserModal() {
+  document.getElementById('addUserModal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('addUserModal').style.display = 'none';
+}
+</script>
+{% endblock %}

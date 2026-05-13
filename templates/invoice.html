@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+{% block title %}Customer Invoice{% endblock %}
+{% block page_title %}Customer Invoice{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6B7280; margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid #F3F4F6; }
+  .billing-box { background:#F9FAFB; border-radius:10px; padding:18px; margin-top:16px; }
+  .billing-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
+  .billing-row.grand { font-size:17px; font-weight:800; border-top:2px solid #E5E7EB; margin-top:8px; padding-top:12px; }
+  .del-btn { background:none; border:none; cursor:pointer; color:#9CA3AF; font-size:18px; padding:4px 8px; border-radius:6px; }
+  .del-btn:hover { color:#DC2626; background:#FEE2E2; }
+
+  /* Package table */
+  .pkg-table { width:100%; border-collapse:collapse; }
+  .pkg-table th { padding:10px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#16A34A; text-align:left; }
+  .pkg-table td { padding:6px; border-top:1px solid #F3F4F6; }
+  .pkg-totals { display:flex; gap:24px; margin-top:14px; padding:12px 16px; background:#DCFCE7; border-radius:10px; font-size:13px; }
+  .pkg-totals span { font-weight:700; color:#15803D; }
+
+  /* Payment tabs */
+  .pay-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .pay-tab { padding:8px 18px; border-radius:20px; border:1.5px solid #E5E7EB; font-size:13px; font-weight:600; cursor:pointer; background:#fff; color:#6B7280; transition:all .15s; user-select:none; }
+  .pay-tab.active { border-color:#4F46E5; background:#EEF2FF; color:#4F46E5; }
+
+  /* UPI grid */
+  .upi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; margin-top:10px; }
+  .upi-chip { display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px 8px; border:1.5px solid #E5E7EB; border-radius:10px; cursor:pointer; font-size:11.5px; font-weight:600; color:#374151; transition:all .15s; background:#fff; text-align:center; user-select:none; }
+  .upi-chip:hover { border-color:#4F46E5; background:#EEF2FF; }
+  .upi-chip.selected { border-color:#4F46E5; background:#EEF2FF; color:#4F46E5; }
+  .upi-icon { font-size:22px; display:block; margin-bottom:2px; }
+
+  /* Errors */
+  .error-banner { background:#FEF2F2; border:1px solid #FECACA; border-radius:10px; padding:14px 18px; margin-bottom:16px; display:none; }
+  .error-banner ul { margin:6px 0 0 18px; color:#DC2626; font-size:13px; }
+  .error-banner .error-title { font-weight:700; color:#DC2626; font-size:14px; }
+  input.field-error, select.field-error { border-color:#DC2626 !important; background:#FFF5F5; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>🚚 Customer Invoice</h2>
+    <p style="color:#6B7280;font-size:13px;">Shipment billing to end customer · automatically added to Debtors</p>
+  </div>
+  <a href="/invoice/list" class="btn btn-ghost">← Back to Invoices</a>
+</div>
+
+<div class="error-banner" id="errorBanner">
+  <div class="error-title">⚠️ Please fix the following before saving:</div>
+  <ul id="errorList"></ul>
+</div>
+
+<form method="POST" action="/invoice/customer/save" id="custInvForm" onsubmit="return validateCustForm(event)">
+  <input type="hidden" name="payment_mode" id="paymentModeHidden" value="cash">
+  <input type="hidden" name="upi_app"      id="upiAppHidden"      value="">
+
+  <!-- Invoice Meta -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Invoice Details</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Invoice #</label>
+        <input value="{{ invoice_id }}" disabled style="background:#F9FAFB;color:#6B7280">
+      </div>
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" name="invoice_date" value="{{ today }}" required>
+      </div>
+      <div class="form-group">
+        <label>Docket / AWB No.</label>
+        <input type="text" name="docket_no" placeholder="e.g. ABC063655" value="{{ form_data.docket_no or '' }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer / Shipper -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Customer (Shipper) Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Customer / Company *</label>
+        <select name="customer_id" id="customerSelect" required onchange="onCustomerChange(this)">
+          <option value="">— Select Customer —</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}"
+            data-phone="{{ c.phone or '' }}"
+            {% if form_data.get('customer_id')|string == c.id|string %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Customer Phone</label>
+        <input type="text" name="customer_phone" id="custPhone" value="{{ form_data.customer_phone or '' }}" placeholder="10-digit mobile">
+      </div>
+      <div class="form-group">
+        <label>Shipper Name</label>
+        <input type="text" name="shipper_name" value="{{ form_data.shipper_name or '' }}" placeholder="Full name of sender">
+      </div>
+      <div class="form-group">
+        <label>Shipper Address</label>
+        <input type="text" name="shipper_address" value="{{ form_data.shipper_address or '' }}" placeholder="Pickup / collection address">
+      </div>
+    </div>
+  </div>
+
+  <!-- Receiver -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Receiver Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Receiver Name *</label>
+        <input type="text" name="receiver_name" value="{{ form_data.receiver_name or '' }}" placeholder="Recipient full name" required>
+      </div>
+      <div class="form-group">
+        <label>Receiver Phone</label>
+        <input type="text" name="receiver_phone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
+      </div>
+      <div class="form-group">
+        <label>Receiver Address</label>
+        <input type="text" name="receiver_address" value="{{ form_data.receiver_address or '' }}" placeholder="Delivery address">
+      </div>
+      <div class="form-group">
+        <label>Destination (Country / City)</label>
+        <input type="text" name="destination" value="{{ form_data.destination or '' }}" placeholder="e.g. Ethiopia / Addis Ababa">
+      </div>
+    </div>
+  </div>
+
+  <!-- Shipment Details -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Shipment Details</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Type of Shipment</label>
+        <select name="shipment_type">
+          {% for t in ['NON DC','DC','DOOR TO DOOR','AIRPORT TO AIRPORT','CARGO'] %}
+          <option value="{{ t }}" {% if form_data.shipment_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Mode</label>
+        <select name="mode">
+          {% for m in ['COURIER','AIR','SEA','ROAD'] %}
+          <option value="{{ m }}" {% if form_data.mode == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Carrier</label>
+        <select name="carrier">
+          <option value="">— Select —</option>
+          {% for car in ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'] %}
+          <option value="{{ car }}" {% if form_data.carrier == car %}selected{% endif %}>{{ car }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Carrier Reference No.</label>
+        <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="Tracking / AWB number">
+      </div>
+      <div class="form-group">
+        <label>Origin</label>
+        <input type="text" name="origin" value="{{ form_data.origin or 'India' }}" placeholder="Origin country/city">
+      </div>
+      <div class="form-group">
+        <label>Pickup Date</label>
+        <input type="date" name="pickup_date" value="{{ form_data.pickup_date or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Departure Time</label>
+        <input type="datetime-local" name="departure_time" value="{{ form_data.departure_time or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Expected Delivery Date</label>
+        <input type="date" name="expected_delivery" value="{{ form_data.expected_delivery or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Comments</label>
+        <input type="text" name="comments" value="{{ form_data.comments or '' }}" placeholder="Special instructions">
+      </div>
+    </div>
+  </div>
+
+  <!-- Packages -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">📦 Packages</div>
+    <div style="overflow-x:auto">
+      <table class="pkg-table">
+        <thead>
+          <tr>
+            <th>Qty</th><th>Piece Type</th><th>Description</th>
+            <th>Length (cm)</th><th>Width (cm)</th><th>Height (cm)</th>
+            <th>Weight (kg)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="pkgBody">
+          <tr>
+            <td><input name="pkg_qty[]" type="number" value="1" min="1" oninput="calcPkg()" style="width:60px"></td>
+            <td>
+              <select name="pkg_type[]" style="width:130px">
+                <option value="">-- Select --</option>
+                <option>Box</option><option>Envelope</option><option>Pallet</option>
+                <option>Tube</option><option>Bag</option><option>Crate</option>
+              </select>
+            </td>
+            <td><input name="pkg_desc[]" placeholder="Contents" style="width:170px"></td>
+            <td><input name="pkg_l[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="L"></td>
+            <td><input name="pkg_w[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="W"></td>
+            <td><input name="pkg_h[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="H"></td>
+            <td><input name="pkg_wt[]" type="number" step="0.01" oninput="calcPkg()" style="width:75px" placeholder="kg"></td>
+            <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addPkgRow()"
+      style="margin-top:12px;border-color:#16A34A;color:#16A34A">+ Add Package</button>
+    <div class="pkg-totals">
+      <div>Total Volumetric Weight: <span id="volWt">0.00</span> kg</div>
+      <div>Total Volume: <span id="totalVol">0.0000</span> cu.m</div>
+      <div>Total Actual Weight: <span id="actualWt">0.00</span> kg</div>
+    </div>
+  </div>
+
+  <!-- Freight & Charges -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Freight &amp; Charges</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Total Freight (₹) *</label>
+        <input type="number" name="freight_amount" id="freightAmt" step="0.01" value="0" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Fuel Surcharge (₹)</label>
+        <input type="number" name="fuel_surcharge" id="fuelCharge" step="0.01" value="0" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Other Charges (₹)</label>
+        <input type="number" name="other_charges" id="otherCharges" step="0.01" value="0" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="billing-box">
+      <div class="billing-row"><span>Freight</span><span id="dispFreight">₹0</span></div>
+      <div class="billing-row"><span>Fuel Surcharge</span><span id="dispFuel">₹0</span></div>
+      <div class="billing-row"><span>Other Charges</span><span id="dispOther">₹0</span></div>
+      <div class="billing-row"><span>GST (18%)</span><span id="dispGST">₹0</span></div>
+      <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Amount Paid (₹)</label>
+            <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="0" oninput="calcBalance()" min="0">
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:20px">
+            <span style="font-weight:700">Balance Due</span>
+            <span id="balanceDue" style="color:#DC2626;font-weight:800;font-size:16px">₹0</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment Mode -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Payment Mode</div>
+    <div class="pay-tabs">
+      <div class="pay-tab active" id="tab-cash"   onclick="setPayMode('cash')">💵 Cash</div>
+      <div class="pay-tab"        id="tab-online" onclick="setPayMode('online')">📱 Online / UPI</div>
+      <div class="pay-tab"        id="tab-cheque" onclick="setPayMode('cheque')">🏦 Cheque</div>
+      <div class="pay-tab"        id="tab-credit" onclick="setPayMode('credit')">💳 Credit</div>
+    </div>
+
+    <!-- UPI section -->
+    <div id="upiSection" style="display:none">
+      <p style="font-size:12px;color:#6B7280;margin-bottom:6px;font-weight:500">Select UPI / Online payment app:</p>
+      <div class="upi-grid">
+        {% set upi_apps = [
+          ('gpay',         '🟢', 'Google Pay'),
+          ('phonepe',      '🟣', 'PhonePe'),
+          ('paytm',        '🔵', 'Paytm'),
+          ('bhim',         '🇮🇳', 'BHIM UPI'),
+          ('amazonpay',    '🟠', 'Amazon Pay'),
+          ('mobikwik',     '💜', 'MobiKwik'),
+          ('freecharge',   '🟡', 'FreeCharge'),
+          ('airtel',       '🔴', 'Airtel Pay'),
+          ('jiopay',       '🔷', 'JioPay'),
+          ('neft',         '🏛️', 'NEFT/RTGS'),
+          ('bank_transfer','🏦', 'Bank Transfer')
+        ] %}
+        {% for app_id, icon, label in upi_apps %}
+        <div class="upi-chip" onclick="selectUPI(this,'{{ app_id }}')">
+          <span class="upi-icon">{{ icon }}</span>{{ label }}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label>Transaction / UTR Reference No.</label>
+        <input type="text" name="upi_ref" id="upiRef" placeholder="Enter transaction reference number">
+      </div>
+    </div>
+
+    <!-- Cheque section -->
+    <div id="chequeSection" style="display:none" class="grid-2">
+      <div class="form-group">
+        <label>Cheque Number</label>
+        <input type="text" name="cheque_no">
+      </div>
+      <div class="form-group">
+        <label>Cheque Date</label>
+        <input type="date" name="cheque_date">
+      </div>
+      <div class="form-group">
+        <label>Bank Name</label>
+        <input type="text" name="cheque_bank" placeholder="e.g. HDFC Bank">
+      </div>
+      <div class="form-group">
+        <label>Drawn on Bank</label>
+        <input type="text" name="drawn_bank" placeholder="Payable at bank">
+      </div>
+    </div>
+
+    <!-- Credit note -->
+    <div id="creditNote" style="display:none;padding:10px 14px;background:#FEF3C7;border-radius:8px;font-size:12.5px;color:#92400E;font-weight:500">
+      ⚠️ This invoice will be recorded in <strong>Debtors</strong> as an outstanding balance for this customer.
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="card card-body" style="margin-bottom:20px">
+    <div class="section-title">Notes / Terms</div>
+    <div class="form-group">
+      <textarea name="notes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #E5E7EB" placeholder="Delivery terms, payment terms, special instructions...">{{ form_data.notes or '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:12px">
+    <button type="submit" name="action" value="draft" class="btn btn-ghost">💾 Save Draft</button>
+    <button type="submit" name="action" value="final" class="btn btn-success">✓ Generate Customer Invoice</button>
+  </div>
+</form>
+
+<script>
+/* ── Package rows ── */
+function addPkgRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input name="pkg_qty[]" type="number" value="1" min="1" oninput="calcPkg()" style="width:60px"></td>
+    <td><select name="pkg_type[]" style="width:130px">
+      <option value="">-- Select --</option>
+      <option>Box</option><option>Envelope</option><option>Pallet</option>
+      <option>Tube</option><option>Bag</option><option>Crate</option>
+    </select></td>
+    <td><input name="pkg_desc[]" placeholder="Contents" style="width:170px"></td>
+    <td><input name="pkg_l[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="L"></td>
+    <td><input name="pkg_w[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="W"></td>
+    <td><input name="pkg_h[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="H"></td>
+    <td><input name="pkg_wt[]" type="number" step="0.01" oninput="calcPkg()" style="width:75px" placeholder="kg"></td>
+    <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>`;
+  document.getElementById('pkgBody').appendChild(tr);
+}
+function removePkgRow(btn) {
+  if (document.querySelectorAll('#pkgBody tr').length === 1) { alert('At least one package row required.'); return; }
+  btn.closest('tr').remove(); calcPkg();
+}
+function calcPkg() {
+  let volWt=0, vol=0, actWt=0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('[name="pkg_qty[]"]')?.value)||0;
+    const l   = parseFloat(tr.querySelector('[name="pkg_l[]"]')?.value)||0;
+    const w   = parseFloat(tr.querySelector('[name="pkg_w[]"]')?.value)||0;
+    const h   = parseFloat(tr.querySelector('[name="pkg_h[]"]')?.value)||0;
+    const wt  = parseFloat(tr.querySelector('[name="pkg_wt[]"]')?.value)||0;
+    const cbm = (l*w*h)/1000000;
+    vol   += cbm*qty;
+    volWt += (cbm*166.67)*qty;
+    actWt += wt*qty;
+  });
+  document.getElementById('volWt').textContent    = volWt.toFixed(2);
+  document.getElementById('totalVol').textContent = vol.toFixed(4);
+  document.getElementById('actualWt').textContent = actWt.toFixed(2);
+}
+
+/* ── Totals ── */
+const fmt = n => '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+function calcInvoiceTotal() {
+  const freight = parseFloat(document.getElementById('freightAmt').value)||0;
+  const fuel    = parseFloat(document.getElementById('fuelCharge').value)||0;
+  const other   = parseFloat(document.getElementById('otherCharges').value)||0;
+  const base=freight+fuel+other, gst=base*0.18, grand=base+gst;
+  document.getElementById('dispFreight').textContent = fmt(freight);
+  document.getElementById('dispFuel').textContent    = fmt(fuel);
+  document.getElementById('dispOther').textContent   = fmt(other);
+  document.getElementById('dispGST').textContent     = fmt(gst);
+  document.getElementById('dispGrand').textContent   = fmt(grand);
+  calcBalance();
+}
+function calcBalance() {
+  const grand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,''))||0;
+  const paid  = parseFloat(document.getElementById('amountPaid').value)||0;
+  document.getElementById('balanceDue').textContent = fmt(grand-paid);
+}
+
+/* ── Payment mode ── */
+function setPayMode(mode) {
+  document.querySelectorAll('.pay-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+mode).classList.add('active');
+  document.getElementById('paymentModeHidden').value = mode;
+  document.getElementById('upiSection').style.display    = mode==='online' ? 'block':'none';
+  document.getElementById('chequeSection').style.display = mode==='cheque' ? 'grid':'none';
+  document.getElementById('creditNote').style.display    = mode==='credit' ? 'block':'none';
+  if (mode!=='online'){ document.getElementById('upiAppHidden').value=''; document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected')); }
+}
+function selectUPI(el, app) {
+  document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('upiAppHidden').value=app;
+}
+
+/* ── Customer autofill ── */
+function onCustomerChange(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('custPhone').value = opt.dataset.phone || '';
+}
+
+/* ── Validation ── */
+function validateCustForm(e) {
+  const errors=[], banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
+  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+  banner.style.display='none'; errList.innerHTML='';
+  const custSel=document.getElementById('customerSelect');
+  if (!custSel.value){ errors.push('Please select a Customer.'); custSel.classList.add('field-error'); }
+  const recv=document.querySelector('[name="receiver_name"]');
+  if (!recv.value.trim()){ errors.push('Receiver Name is required.'); recv.classList.add('field-error'); }
+  const freight=parseFloat(document.getElementById('freightAmt').value)||0;
+  if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
+  const mode=document.getElementById('paymentModeHidden').value;
+  if (mode==='online' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI / Online payment app.');
+  if (errors.length){
+    errors.forEach(err=>{const li=document.createElement('li');li.textContent=err;errList.appendChild(li);});
+    banner.style.display='block'; banner.scrollIntoView({behavior:'smooth',block:'start'});
+    e.preventDefault(); return false;
+  }
+  return true;
+}
+document.addEventListener('DOMContentLoaded', ()=>{ calcInvoiceTotal(); calcPkg(); });
+</script>
+{% endblock %}

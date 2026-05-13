@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% block title %}New Purchase{% endblock %}
+{% block page_title %}New Purchase{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+  .upload-zone {
+    border: 2px dashed var(--gray-200); border-radius: 12px;
+    padding: 32px; text-align: center; cursor: pointer;
+    transition: all .2s; background: var(--gray-50);
+  }
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--primary); background: var(--primary-light);
+  }
+  .upload-zone .icon { font-size: 40px; margin-bottom: 8px; }
+  .extract-btn {
+    background: linear-gradient(135deg, #4F46E5, #7C3AED);
+    color: #fff; border: none; border-radius: 8px;
+    padding: 10px 22px; font-weight: 600; font-size: 13px;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 12px;
+  }
+  .extract-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .items-table th { font-size: 11px; }
+  .items-table td { padding: 8px 10px; }
+  .items-table input, .items-table select {
+    padding: 6px 8px; font-size: 13px; border-radius: 6px;
+  }
+  .del-row { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 16px; }
+  .add-row-btn { background: none; border: 1.5px dashed var(--gray-300); border-radius: 8px;
+    padding: 8px 16px; color: var(--gray-500); cursor: pointer; font-size: 13px;
+    width: 100%; margin-top: 8px; transition: all .15s; }
+  .add-row-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .total-bar { background: var(--primary-light); border-radius: 10px;
+    padding: 16px 20px; display: flex; gap: 32px; flex-wrap: wrap; }
+  .total-bar .t-item { text-align: center; }
+  .total-bar .t-val  { font-size: 20px; font-weight: 800; color: var(--primary); }
+  .total-bar .t-lbl  { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+  .spinner { display: none; }
+  .spinner.active { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin-icon { animation: spin 1s linear infinite; display: inline-block; }
+  .ai-badge { background: linear-gradient(135deg,#4F46E5,#7C3AED); color:#fff;
+    padding:2px 8px; border-radius:20px; font-size:10px; font-weight:700; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>🛒 New Purchase</h2>
+    <p style="color:var(--gray-500);font-size:13px;">Upload a supplier invoice PDF or image — AI will auto-extract all details</p>
+  </div>
+  <a href="/purchases" class="btn btn-ghost">← Back</a>
+</div>
+
+<form method="POST" action="/purchases/new" enctype="multipart/form-data" id="purchaseForm">
+  <input type="hidden" name="action" value="save" id="formAction">
+
+  <div class="grid-2" style="gap:20px;align-items:start;">
+
+    <!-- LEFT: Upload + AI Extraction -->
+    <div>
+      <div class="card">
+        <div class="card-body">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+            <h3 style="font-size:15px;font-weight:700">📎 Upload Invoice</h3>
+            <span class="ai-badge">✨ AI Powered</span>
+          </div>
+
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('invoiceFile').click()">
+            <div class="icon">📄</div>
+            <div style="font-weight:600;font-size:14px;margin-bottom:4px">Drop PDF or image here</div>
+            <div style="font-size:12px;color:var(--gray-400)">PDF, PNG, JPG, WEBP supported</div>
+            <div id="fileName" style="margin-top:8px;font-size:12px;color:var(--primary);font-weight:600"></div>
+          </div>
+          <input type="file" id="invoiceFile" name="invoice_file"
+                 accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none"
+                 onchange="onFileSelected(this)">
+
+          <button type="button" class="extract-btn" id="extractBtn" onclick="extractInvoice()" disabled>
+            <span id="extractLabel">✨ Extract with AI</span>
+            <span class="spinner" id="extractSpinner"><span class="spin-icon">⟳</span> Extracting…</span>
+          </button>
+
+          <div id="extractStatus" style="margin-top:10px;font-size:12px;color:var(--gray-500)"></div>
+        </div>
+      </div>
+
+      <!-- Supplier -->
+      <div class="card">
+        <div class="card-body">
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:14px">🏭 Supplier Details</h3>
+          <div class="form-group">
+            <label>Select Supplier (Party)</label>
+            <select name="supplier_id" id="supplierSelect" onchange="onSupplierChange(this)">
+              <option value="">— Select from party list —</option>
+              {% for c in clients %}
+              <option value="{{ c.id }}" data-name="{{ c.name }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Or type supplier name <span style="color:var(--gray-400)">(if not in list)</span></label>
+            <input type="text" name="supplier_name" id="supplierName"
+                   placeholder="Auto-filled from invoice">
+          </div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>Supplier Invoice No.</label>
+              <input type="text" name="invoice_no" id="invoiceNo" placeholder="e.g. INV-2025-001">
+            </div>
+            <div class="form-group">
+              <label>Invoice Date</label>
+              <input type="date" name="invoice_date" id="invoiceDate" value="{{ today }}">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Notes</label>
+            <textarea name="notes" id="invoiceNotes" rows="2" placeholder="Optional notes…"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: Line Items -->
+    <div>
+      <div class="card">
+        <div class="card-body">
+          <h3 style="font-size:15px;font-weight:700;margin-bottom:14px">📦 Purchase Items</h3>
+          <div class="table-wrap">
+            <table class="items-table" style="min-width:700px">
+              <thead>
+                <tr>
+                  <th style="width:90px">Code</th>
+                  <th>Item Name</th>
+                  <th style="width:55px">HSN</th>
+                  <th style="width:65px">Qty</th>
+                  <th style="width:60px">Unit</th>
+                  <th style="width:90px">Rate (₹)</th>
+                  <th style="width:65px">GST %</th>
+                  <th style="width:90px">Total (₹)</th>
+                  <th style="width:30px"></th>
+                </tr>
+              </thead>
+              <tbody id="itemsBody">
+                <!-- rows inserted by JS -->
+              </tbody>
+            </table>
+          </div>
+          <button type="button" class="add-row-btn" onclick="addRow()">+ Add Item</button>
+
+          <!-- Totals -->
+          <div class="total-bar" style="margin-top:16px">
+            <div class="t-item">
+              <div class="t-lbl">Taxable Value</div>
+              <div class="t-val" id="totalTaxable">₹0</div>
+            </div>
+            <div class="t-item">
+              <div class="t-lbl">Total GST</div>
+              <div class="t-val" id="totalGst">₹0</div>
+            </div>
+            <div class="t-item">
+              <div class="t-lbl">Grand Total</div>
+              <div class="t-val" id="grandTotal">₹0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:4px">
+        <a href="/purchases" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary" style="padding:10px 28px">
+          💾 Save Purchase
+        </button>
+      </div>
+    </div>
+
+  </div>
+</form>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let rowIdx = 0;
+
+function addRow(item = {}) {
+  const tbody = document.getElementById('itemsBody');
+  const i = rowIdx++;
+  const tr = document.createElement('tr');
+  tr.id = `row-${i}`;
+  tr.innerHTML = `
+    <td><input type="text" name="item_code[]" value="${item.code||''}" placeholder="AUTO"
+         style="width:80px" oninput="lookupItem(this, ${i})"></td>
+    <td><input type="text" name="item_name[]" value="${item.name||''}"
+         required placeholder="Item description" style="min-width:160px"
+         oninput="recalcRow(${i})"></td>
+    <td><input type="text" name="item_hsn[]"  value="${item.hsn||''}"  style="width:60px"></td>
+    <td><input type="number" name="item_qty[]"  value="${item.qty||1}"  min="0" step="any"
+         style="width:60px" oninput="recalcRow(${i})"></td>
+    <td><input type="text" name="item_unit[]" value="${item.unit||'pcs'}" style="width:50px"></td>
+    <td><input type="number" name="item_rate[]" value="${item.purchase_rate||0}" min="0" step="any"
+         style="width:85px" oninput="recalcRow(${i})"></td>
+    <td>
+      <select name="item_gst[]" onchange="recalcRow(${i})" style="width:62px">
+        ${[0,5,12,18,28].map(g=>`<option value="${g}" ${g==(item.gst_percent||18)?'selected':''}>${g}%</option>`).join('')}
+      </select>
+    </td>
+    <td id="row-total-${i}" style="font-weight:700;color:var(--primary)">₹0</td>
+    <td><button type="button" class="del-row" onclick="delRow(${i})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  recalcRow(i);
+}
+
+function delRow(i) {
+  const el = document.getElementById(`row-${i}`);
+  if (el) el.remove();
+  recalcTotals();
+}
+
+function getRowVal(i, name) {
+  const row = document.getElementById(`row-${i}`);
+  if (!row) return null;
+  const el = row.querySelector(`[name="${name}"]`);
+  return el ? el.value : null;
+}
+
+function recalcRow(i) {
+  const qty  = parseFloat(getRowVal(i,'item_qty[]'))  || 0;
+  const rate = parseFloat(getRowVal(i,'item_rate[]')) || 0;
+  const gst  = parseFloat(getRowVal(i,'item_gst[]'))  || 0;
+  const taxable   = qty * rate;
+  const gstAmt    = taxable * gst / 100;
+  const total     = taxable + gstAmt;
+  const cell = document.getElementById(`row-total-${i}`);
+  if (cell) cell.textContent = '₹' + total.toLocaleString('en-IN',{maximumFractionDigits:2});
+  recalcTotals();
+}
+
+function recalcTotals() {
+  let taxable = 0, gstAmt = 0, grand = 0;
+  document.querySelectorAll('#itemsBody tr').forEach(tr => {
+    const i = tr.id.replace('row-','');
+    const qty  = parseFloat(getRowVal(i,'item_qty[]'))  || 0;
+    const rate = parseFloat(getRowVal(i,'item_rate[]')) || 0;
+    const gst  = parseFloat(getRowVal(i,'item_gst[]'))  || 0;
+    const t = qty * rate;
+    const g = t * gst / 100;
+    taxable += t; gstAmt += g; grand += t + g;
+  });
+  const fmt = n => '₹' + n.toLocaleString('en-IN',{maximumFractionDigits:2});
+  document.getElementById('totalTaxable').textContent = fmt(taxable);
+  document.getElementById('totalGst').textContent     = fmt(gstAmt);
+  document.getElementById('grandTotal').textContent   = fmt(grand);
+}
+
+async function lookupItem(input, i) {
+  const code = input.value.trim().toUpperCase();
+  if (code.length < 2) return;
+  try {
+    const r = await fetch(`/api/product/${code}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d.found) return;
+    const row = document.getElementById(`row-${i}`);
+    row.querySelector('[name="item_name[]"]').value = d.name;
+    row.querySelector('[name="item_unit[]"]').value = d.unit || 'pcs';
+    row.querySelector('[name="item_rate[]"]').value = d.rate || 0;
+    if (d.hsn) row.querySelector('[name="item_hsn[]"]').value = d.hsn;
+    recalcRow(i);
+  } catch(_) {}
+}
+
+// ── File upload UI ────────────────────────────────────────────────────────────
+function onFileSelected(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('fileName').textContent = '📎 ' + file.name;
+  document.getElementById('extractBtn').disabled = false;
+  document.getElementById('extractStatus').textContent = 'File ready — click Extract to process with AI';
+}
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    const input = document.getElementById('invoiceFile');
+    const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+    onFileSelected(input);
+  }
+});
+
+// ── AI Extraction ─────────────────────────────────────────────────────────────
+async function extractInvoice() {
+  const fileInput = document.getElementById('invoiceFile');
+  if (!fileInput.files[0]) return;
+
+  document.getElementById('extractLabel').style.display  = 'none';
+  document.getElementById('extractSpinner').style.display = 'inline';
+  document.getElementById('extractBtn').disabled = true;
+  document.getElementById('extractStatus').textContent = '🤖 Sending to AI… this may take 10–20 seconds';
+
+  const formData = new FormData();
+  formData.append('invoice_file', fileInput.files[0]);
+
+  try {
+    const resp = await fetch('/purchases/extract', { method: 'POST', body: formData });
+    const json = await resp.json();
+
+    if (json.error) {
+      document.getElementById('extractStatus').textContent = '❌ Error: ' + json.error;
+      return;
+    }
+
+    const d = json.data;
+    // Populate header fields
+    if (d.supplier_name) document.getElementById('supplierName').value   = d.supplier_name;
+    if (d.invoice_no)    document.getElementById('invoiceNo').value       = d.invoice_no;
+    if (d.invoice_date)  document.getElementById('invoiceDate').value     = d.invoice_date;
+    if (d.notes)         document.getElementById('invoiceNotes').value    = d.notes;
+
+    // Clear existing rows and add extracted items
+    document.getElementById('itemsBody').innerHTML = '';
+    rowIdx = 0;
+    (d.items || []).forEach(item => addRow(item));
+
+    document.getElementById('extractStatus').textContent =
+      `✅ Extracted ${(d.items||[]).length} item(s). Please review and save.`;
+  } catch(e) {
+    document.getElementById('extractStatus').textContent = '❌ Extraction failed: ' + e.message;
+  } finally {
+    document.getElementById('extractLabel').style.display  = 'inline';
+    document.getElementById('extractSpinner').style.display = 'none';
+    document.getElementById('extractBtn').disabled = false;
+  }
+}
+
+function onSupplierChange(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.dataset.name && !document.getElementById('supplierName').value) {
+    document.getElementById('supplierName').value = opt.dataset.name;
+  }
+}
+
+// Start with one empty row
+addRow();
+</script>
+{% endblock %}

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NexaERP · Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    
+    .login-container { display: flex; max-width: 1200px; width: 100%; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+    
+    .login-left { flex: 1; background: linear-gradient(135deg, #4F46E5, #7C3AED); padding: 48px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
+    .login-left h1 { font-size: 36px; font-weight: 800; margin-bottom: 16px; }
+    .login-left p { font-size: 14px; opacity: 0.85; line-height: 1.6; margin-bottom: 32px; }
+    .feature-list { list-style: none; }
+    .feature-list li { margin-bottom: 16px; display: flex; align-items: center; gap: 12px; font-size: 14px; }
+    .feature-list li::before { content: "✓"; width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+    
+    .login-right { flex: 0 0 440px; padding: 48px; }
+    .login-right h2 { font-size: 28px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+    .login-right .subtitle { color: #6B7280; font-size: 14px; margin-bottom: 32px; }
+    
+    .form-group { margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input { width: 100%; padding: 12px 14px; border: 1.5px solid #E5E7EB; border-radius: 10px; font-family: 'Poppins', sans-serif; font-size: 14px; transition: all 0.15s; }
+    input:focus { outline: none; border-color: #4F46E5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+    
+    .btn-login { width: 100%; padding: 12px; background: #4F46E5; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; }
+    .btn-login:hover { background: #4338CA; }
+    
+    .register-link { text-align: center; margin-top: 24px; font-size: 13px; color: #6B7280; }
+    .register-link a { color: #4F46E5; text-decoration: none; font-weight: 600; }
+    .register-link a:hover { text-decoration: underline; }
+    
+    .flash-message { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 20px; }
+    
+    .demo-credentials { background: #F3F4F6; border-radius: 10px; padding: 12px; margin-top: 24px; font-size: 11px; color: #6B7280; }
+    .demo-credentials p { margin-bottom: 6px; }
+    .demo-credentials code { background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+    
+    @media (max-width: 768px) {
+      .login-left { display: none; }
+      .login-right { flex: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-left">
+      <h1>⚡ NexaERP</h1>
+      <p>Enterprise Resource Planning made simple. Manage your business, track orders, and grow with powerful analytics.</p>
+      <ul class="feature-list">
+        <li>Multi-company Support</li>
+        <li>Order & Inventory Management</li>
+        <li>Invoice & Billing System</li>
+        <li>Real-time Analytics</li>
+        <li>Role-based Access Control</li>
+      </ul>
+    </div>
+    
+    <div class="login-right">
+      <h2>Welcome back 👋</h2>
+      <p class="subtitle">Sign in to your account</p>
+      
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="flash-message">{{ messages[0] }}</div>
+        {% endif %}
+      {% endwith %}
+      
+      <form method="POST">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" name="email" placeholder="you@company.com" required autofocus>
+        </div>
+        
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" name="password" placeholder="••••••••" required>
+        </div>
+        
+        <button type="submit" class="btn-login">Sign In →</button>
+      </form>
+      
+      <div class="register-link">
+        Don't have an account? <a href="/register">Create your company →</a>
+      </div>
+      
+      <div class="demo-credentials">
+        <p><strong>🔐 Demo Credentials:</strong></p>
+        <p>Company Owner: <code>rahul@techsolutions.com</code> / <code>Tech@123</code></p>
+        <p>Employee: <code>priya.mehta@techsolutions.com</code> / <code>Priya@123</code></p>
+        <p>Super Admin: <code>admin@nexa.com</code> / <code>Admin@123</code></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

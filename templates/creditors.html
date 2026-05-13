@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Creditors{% endblock %}
+{% block page_title %}Creditors{% endblock %}
+{% set active = 'creditors' %}
+
+{% block extra_style %}
+<style>
+  .summary-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
+  .sum-card { background:#fff; border-radius:14px; padding:20px 24px; border:1px solid var(--gray-100);
+              display:flex; align-items:center; gap:16px; }
+  .sum-icon { font-size:32px; }
+  .sum-val  { font-size:24px; font-weight:800; }
+  .sum-lbl  { font-size:12px; color:var(--gray-500); margin-top:2px; }
+
+  .search-bar { display:flex; gap:12px; margin-bottom:16px; }
+  .search-bar input { max-width:320px; }
+
+  .chip-overdue { background:#FEE2E2; color:#DC2626; padding:2px 8px; border-radius:10px;
+                  font-size:11px; font-weight:700; margin-left:6px; }
+
+  .amt-payable  { color:#7C3AED; font-weight:700; }
+  .amt-due      { color:#DC2626; font-weight:600; }
+  .amt-payment  { color:#16A34A; font-weight:600; }
+
+  .view-btn { background:#F5F3FF; color:#7C3AED; border:none; padding:6px 12px;
+              border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
+              transition:background .15s; display:inline-flex; align-items:center; gap:4px; }
+  .view-btn:hover { background:#7C3AED; color:#fff; }
+
+  .pay-btn { background:#FEF3C7; color:#D97706; border:none; padding:6px 12px;
+             border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
+             transition:background .15s; display:inline-flex; align-items:center; gap:4px; margin-left:6px; }
+  .pay-btn:hover { background:#D97706; color:#fff; }
+
+  .tbl-row:hover { background:var(--gray-50); cursor:pointer; }
+  .action-cell   { display:flex; gap:6px; white-space:nowrap; }
+
+  @media(max-width:900px){ .summary-bar{grid-template-columns:1fr 1fr;} }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>📤 Creditors</h2>
+    <p style="color:var(--gray-500);font-size:13px;margin-top:4px;">
+      Suppliers you owe money to — track payable amounts &amp; due dates.
+    </p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="/payments/new" class="btn btn-warning" style="background:#D97706;color:#fff;">💸 Record Payment</a>
+    <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="summary-bar">
+  <div class="sum-card">
+    <div class="sum-icon">💸</div>
+    <div>
+      <div class="sum-val" style="color:#7C3AED;">₹{{ "{:,.0f}".format(total_payable) }}</div>
+      <div class="sum-lbl">Total Payable</div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon">🏭</div>
+    <div>
+      <div class="sum-val" style="color:#4F46E5;">{{ creditors|length }}</div>
+      <div class="sum-lbl">Active Creditors</div>
+    </div>
+  </div>
+  <div class="sum-card">
+    <div class="sum-icon">⚠️</div>
+    <div>
+      <div class="sum-val" style="color:#D97706;">{{ overdue_count }}</div>
+      <div class="sum-lbl">Overdue Payments</div>
+    </div>
+  </div>
+</div>
+
+<!-- Search / Filter -->
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍  Search supplier name…" oninput="filterTable()">
+  <select id="filterOverdue" onchange="filterTable()" style="max-width:180px;">
+    <option value="all">All Creditors</option>
+    <option value="overdue">Overdue Only</option>
+  </select>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="table-wrap">
+    <table id="creditorTable">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Supplier</th>
+          <th>Total Payable</th>
+          <th>Last Bill Date</th>
+          <th>Nearest Due Date</th>
+          <th>Due Amount</th>
+          <th>Last Payment</th>
+          <th>Last Paid Amount</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in creditors %}
+        <tr class="tbl-row {% if c.overdue %}row-overdue{% endif %}"
+            data-overdue="{{ 'yes' if c.overdue else 'no' }}"
+            onclick="window.location='/creditors/{{ c.id }}/statement'">
+          <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
+          <td>
+            <strong>{{ c.name }}</strong>
+            {% if c.overdue %}<span class="chip-overdue">OVERDUE</span>{% endif %}
+            <div style="font-size:11px; color:var(--gray-400);">
+              {% if c.phone %}📞 {{ c.phone }}{% endif %}
+              {% if c.city %} · {{ c.city }}{% endif %}
+            </div>
+          </td>
+          <td><span class="amt-payable">₹{{ "{:,.0f}".format(c.total_pending) }}</span></td>
+          <td style="color:var(--gray-600); font-size:13px;">
+            {% if c.last_bill_date %}{{ c.last_bill_date.strftime('%d %b %Y') }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if c.nearest_due_date %}
+              <span style="color:{% if c.overdue %}#DC2626{% else %}#D97706{% endif %}; font-weight:600; font-size:13px;">
+                {{ c.nearest_due_date.strftime('%d %b %Y') }}
+              </span>
+            {% else %}
+              <span style="color:var(--gray-400);">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if c.nearest_due_amt %}
+              <span class="amt-due">₹{{ "{:,.0f}".format(c.nearest_due_amt) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="color:var(--gray-600); font-size:13px;">
+            {% if c.last_payment_date %}{{ c.last_payment_date.strftime('%d %b %Y') }}{% else %}—{% endif %}
+          </td>
+          <td>
+            {% if c.last_payment_amt %}
+              <span class="amt-payment">₹{{ "{:,.0f}".format(c.last_payment_amt) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td onclick="event.stopPropagation()">
+            <div class="action-cell">
+              <a href="/creditors/{{ c.id }}/statement" class="view-btn">Statement →</a>
+              <a href="/payments/new?supplier_id={{ c.id }}" class="pay-btn">💸 Pay</a>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center; padding:48px; color:var(--gray-400);">
+            🎉 No outstanding creditors right now!
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+function filterTable(){
+  const q       = document.getElementById('searchInput').value.toLowerCase();
+  const overdue = document.getElementById('filterOverdue').value;
+  document.querySelectorAll('#creditorTable tbody tr.tbl-row').forEach(row => {
+    const name   = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
+    const isOver = row.dataset.overdue === 'yes';
+    const matchQ = name.includes(q);
+    const matchO = overdue === 'all' || (overdue === 'overdue' && isOver);
+    row.style.display = (matchQ && matchO) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

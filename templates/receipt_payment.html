@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+{% block title %}{{ "Record Receipt" if mode == "receipt" else "Record Payment" }}{% endblock %}
+{% block page_title %}{{ "Record Receipt" if mode == "receipt" else "Record Payment" }}{% endblock %}
+{% set active = 'debtors' if mode == 'receipt' else 'creditors' %}
+
+{% block extra_style %}
+<style>
+  .rp-header { background: linear-gradient(135deg,
+    {% if mode == 'receipt' %}#16A34A, #15803D{% else %}#7C3AED, #5B21B6{% endif %});
+    border-radius: 16px; padding: 24px 32px; margin-bottom: 28px; color: #fff; }
+  .rp-header h2 { font-size: 22px; margin-bottom: 4px; }
+  .rp-header p  { opacity: .85; font-size: 13px; }
+
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .6px; color: var(--gray-400); margin-bottom: 12px; }
+
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+  .mode-tab  { flex: 1; padding: 14px; border: 2px solid var(--gray-200); border-radius: 12px;
+               text-align: center; cursor: pointer; font-weight: 600; font-size: 13px;
+               color: var(--gray-500); transition: all .15s; text-decoration: none; display: block; }
+  .mode-tab.active-receipt { border-color: #16A34A; background: #DCFCE7; color: #16A34A; }
+  .mode-tab.active-payment { border-color: #7C3AED; background: #F5F3FF; color: #7C3AED; }
+  .mode-tab:hover { border-color: var(--gray-400); }
+
+  .invoice-picker { border: 1.5px solid var(--gray-200); border-radius: 12px; overflow: hidden; margin-top: 8px; }
+  .invoice-picker-header { background: var(--gray-50); padding: 10px 16px; font-size: 11px;
+                           font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+                           color: var(--gray-500); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px; }
+  .inv-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px;
+             align-items: center; padding: 12px 16px; border-top: 1px solid var(--gray-100);
+             transition: background .15s; }
+  .inv-row:hover { background: var(--gray-50); }
+  .inv-ref  { font-weight: 600; font-size: 13px; color: var(--primary); }
+  .inv-date { font-size: 12px; color: var(--gray-500); }
+  .inv-amt  { font-weight: 700; font-size: 13px; }
+  .inv-bal  { font-weight: 700; font-size: 13px; color: #DC2626; }
+  .inv-chk  { width: 18px; height: 18px; cursor: pointer; accent-color: var(--primary); }
+
+  .pay-input-wrap { position: relative; }
+  .pay-input-wrap .currency-sym { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+                                   font-weight: 700; color: var(--gray-500); font-size: 15px; }
+  .pay-input-wrap input { padding-left: 28px !important; font-size: 20px !important; font-weight: 700; }
+
+  .method-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 6px; }
+  .method-card { border: 2px solid var(--gray-200); border-radius: 10px; padding: 12px 8px;
+                 text-align: center; cursor: pointer; transition: all .15s; }
+  .method-card input[type=radio] { display: none; }
+  .method-card:has(input:checked) { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .method-icon { font-size: 22px; margin-bottom: 4px; }
+  .method-lbl  { font-size: 11px; font-weight: 600; }
+
+  .summary-strip { background: var(--gray-50); border: 1.5px solid var(--gray-200);
+                   border-radius: 12px; padding: 16px 20px; display: flex;
+                   justify-content: space-between; align-items: center; margin: 20px 0; }
+  .summary-strip .s-item { text-align: center; }
+  .summary-strip .s-val  { font-size: 18px; font-weight: 800; }
+  .summary-strip .s-lbl  { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+  .submit-bar { display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px; }
+
+  .no-invoices { text-align: center; padding: 40px; color: var(--gray-400); font-size: 14px; }
+
+  @media(max-width:768px){ .method-grid{grid-template-columns:repeat(2,1fr);} .invoice-picker-header,.inv-row{grid-template-columns:2fr 1fr 1fr;} .inv-row .inv-date,.invoice-picker-header span:nth-child(2){display:none;} }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Mode tabs -->
+<div class="mode-tabs">
+  <a href="/receipts/new" class="mode-tab {% if mode=='receipt' %}active-receipt{% endif %}">
+    💰 Record Receipt
+    <div style="font-size:11px; font-weight:400; margin-top:2px;">Money received from debtors</div>
+  </a>
+  <a href="/payments/new" class="mode-tab {% if mode=='payment' %}active-payment{% endif %}">
+    💸 Record Payment
+    <div style="font-size:11px; font-weight:400; margin-top:2px;">Money paid to creditors</div>
+  </a>
+</div>
+
+<!-- Header -->
+<div class="rp-header">
+  <h2>{{ "💰 Record Receipt" if mode == "receipt" else "💸 Record Payment" }}</h2>
+  <p>{{ "Select the client, pick invoices to settle, and enter amount received." if mode == "receipt"
+        else "Select the supplier, pick purchase invoices to settle, and enter amount paid." }}</p>
+</div>
+
+<form method="POST" action="{{ '/receipts/save' if mode == 'receipt' else '/payments/save' }}" id="rpForm">
+
+  <div class="card">
+    <div class="card-body">
+
+      <!-- ── Step 1: Client / Supplier ── -->
+      <div class="section-label">Step 1 — Select {{ "Client (Debtor)" if mode=="receipt" else "Supplier (Creditor)" }}</div>
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="form-group" style="margin-bottom:0">
+          <label>{{ "Client" if mode=="receipt" else "Supplier" }} *</label>
+          <select name="entity_id" id="entitySelect" required onchange="loadInvoices()">
+            <option value="">— Choose —</option>
+            {% for e in entities %}
+            <option value="{{ e.id }}" {{ 'selected' if selected_id == e.id }}>
+              {{ e.name }}{% if e.pending %} — ₹{{ "{:,.0f}".format(e.pending) }} pending{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Transaction Date *</label>
+          <input type="date" name="txn_date" value="{{ today }}" required>
+        </div>
+      </div>
+
+      <!-- ── Step 2: Invoice picker ── -->
+      <div id="invoiceSection" style="display:none; margin-bottom:20px;">
+        <div class="section-label">Step 2 — Select Invoices to Settle <span id="invoiceCount" style="font-weight:400;text-transform:none;letter-spacing:0;"></span></div>
+        <div class="invoice-picker">
+          <div class="invoice-picker-header">
+            <span>{{ "Invoice" if mode=="receipt" else "Bill" }} Ref</span>
+            <span>Date</span>
+            <span>Total</span>
+            <span>Balance Due</span>
+            <span><input type="checkbox" id="checkAll" onclick="toggleAll(this)" title="Select all" style="cursor:pointer;width:16px;height:16px;"></span>
+          </div>
+          <div id="invoiceList"></div>
+        </div>
+        <div style="font-size:12px; color:var(--gray-400); margin-top:8px;">
+          ☑ Selecting an invoice will auto-fill the amount field below. You can adjust it.
+        </div>
+      </div>
+
+      <!-- ── Step 3: Amount & Mode ── -->
+      <div id="amountSection" style="display:none;">
+        <div class="section-label">Step 3 — Payment Details</div>
+        <div class="grid-2" style="margin-bottom:20px;">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Amount {{ "Received" if mode=="receipt" else "Paid" }} (₹) *</label>
+            <div class="pay-input-wrap">
+              <span class="currency-sym">₹</span>
+              <input type="number" name="amount" id="amountInput" min="1" step="0.01"
+                     placeholder="0.00" required oninput="updateSummary()">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Reference / Narration</label>
+            <input type="text" name="narration" placeholder="e.g. cheque no, UPI ref, note…">
+          </div>
+        </div>
+
+        <!-- Payment method -->
+        <div class="form-group">
+          <label>Payment Mode</label>
+          <div class="method-grid">
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="Cash" checked>
+              <div class="method-icon">💵</div>
+              <div class="method-lbl">Cash</div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="Bank Transfer">
+              <div class="method-icon">🏦</div>
+              <div class="method-lbl">Bank Transfer</div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="UPI">
+              <div class="method-icon">📱</div>
+              <div class="method-lbl">UPI</div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="Cheque">
+              <div class="method-icon">📋</div>
+              <div class="method-lbl">Cheque</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Summary strip -->
+        <div class="summary-strip" id="summaryStrip">
+          <div class="s-item">
+            <div class="s-val" id="sumInvoices">0</div>
+            <div class="s-lbl">Invoices Selected</div>
+          </div>
+          <div class="s-item">
+            <div class="s-val" id="sumSelected" style="color:#DC2626;">₹0</div>
+            <div class="s-lbl">Total Balance Selected</div>
+          </div>
+          <div class="s-item">
+            <div class="s-val" id="sumPaying" style="color:{% if mode=='receipt' %}#16A34A{% else %}#7C3AED{% endif %};">₹0</div>
+            <div class="s-lbl">Amount {{ "Receiving" if mode=="receipt" else "Paying" }}</div>
+          </div>
+          <div class="s-item">
+            <div class="s-val" id="sumRemaining" style="color:#D97706;">₹0</div>
+            <div class="s-lbl">Remaining After</div>
+          </div>
+        </div>
+
+        <!-- hidden: selected invoice IDs -->
+        <input type="hidden" name="invoice_ids" id="invoiceIdsInput">
+        <input type="hidden" name="mode" value="{{ mode }}">
+
+        <div class="submit-bar">
+          <a href="{{ '/debtors' if mode=='receipt' else '/creditors' }}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn {% if mode=='receipt' %}btn-success{% else %}btn-primary{% endif %}" id="submitBtn" disabled>
+            {{ "✅ Save Receipt" if mode=="receipt" else "✅ Save Payment" }}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+<script>
+  // ── Invoice data injected from Flask ──────────────────────────────────────
+  const INVOICES_BY_ENTITY = {{ invoices_json | safe }};
+  const MODE = "{{ mode }}";
+
+  function fmt(n){ return '₹' + Number(n).toLocaleString('en-IN', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+
+  function loadInvoices(){
+    const entityId = document.getElementById('entitySelect').value;
+    const list     = document.getElementById('invoiceList');
+    const sec      = document.getElementById('invoiceSection');
+    const amtSec   = document.getElementById('amountSection');
+    const countEl  = document.getElementById('invoiceCount');
+    document.getElementById('checkAll').checked = false;
+
+    if(!entityId){ sec.style.display='none'; amtSec.style.display='none'; return; }
+
+    const invs = INVOICES_BY_ENTITY[entityId] || [];
+    list.innerHTML = '';
+
+    if(invs.length === 0){
+      list.innerHTML = `<div class="no-invoices">🎉 No outstanding invoices for this ${MODE==='receipt'?'client':'supplier'}!</div>`;
+      countEl.textContent = '';
+    } else {
+      countEl.textContent = `(${invs.length} outstanding)`;
+      invs.forEach(inv => {
+        list.innerHTML += `
+        <div class="inv-row">
+          <div>
+            <div class="inv-ref">${inv.ref}</div>
+            <div class="inv-date">${inv.date}</div>
+          </div>
+          <div class="inv-date">${inv.date}</div>
+          <div class="inv-amt">${fmt(inv.total)}</div>
+          <div class="inv-bal">${fmt(inv.balance)}</div>
+          <input type="checkbox" class="inv-chk" value="${inv.id}"
+                 data-balance="${inv.balance}" onchange="onCheckChange()">
+        </div>`;
+      });
+    }
+
+    sec.style.display    = 'block';
+    amtSec.style.display = 'block';
+    updateSummary();
+  }
+
+  function toggleAll(master){
+    document.querySelectorAll('.inv-chk').forEach(c => c.checked = master.checked);
+    onCheckChange();
+  }
+
+  function onCheckChange(){
+    const checked = [...document.querySelectorAll('.inv-chk:checked')];
+    const totalBal = checked.reduce((s,c) => s + parseFloat(c.dataset.balance), 0);
+    document.getElementById('amountInput').value = totalBal.toFixed(2);
+    updateSummary();
+  }
+
+  function updateSummary(){
+    const checked  = [...document.querySelectorAll('.inv-chk:checked')];
+    const totalBal = checked.reduce((s,c) => s + parseFloat(c.dataset.balance), 0);
+    const paying   = parseFloat(document.getElementById('amountInput').value) || 0;
+    const remain   = Math.max(0, totalBal - paying);
+
+    document.getElementById('sumInvoices').textContent  = checked.length;
+    document.getElementById('sumSelected').textContent  = fmt(totalBal);
+    document.getElementById('sumPaying').textContent    = fmt(paying);
+    document.getElementById('sumRemaining').textContent = fmt(remain);
+
+    // collect IDs
+    const ids = checked.map(c => c.value).join(',');
+    document.getElementById('invoiceIdsInput').value = ids;
+
+    document.getElementById('submitBtn').disabled = (paying <= 0);
+  }
+
+  // Pre-load if entity already selected (e.g. coming from debtor/creditor page)
+  window.addEventListener('DOMContentLoaded', () => {
+    if(document.getElementById('entitySelect').value){ loadInvoices(); }
+  });
+</script>
+{% endblock %}

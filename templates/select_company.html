@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Select Company — Nexa ERP</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    /* ── Header ── */
+    .page-header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1a56db;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+    .logo span { color: #374151; }
+    .page-header h2 {
+      font-size: 22px;
+      font-weight: 600;
+      color: #111827;
+    }
+    .page-header p {
+      font-size: 14px;
+      color: #6b7280;
+      margin-top: 4px;
+    }
+
+    /* ── Flash messages ── */
+    .flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;
+             font-size: 14px; max-width: 680px; width: 100%; }
+    .flash.error   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .flash.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .flash.info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+
+    /* ── Company grid ── */
+    .companies-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 980px;
+      margin-bottom: 24px;
+    }
+
+    .company-card {
+      background: #fff;
+      border: 2px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 22px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s, transform 0.1s;
+      position: relative;
+      text-align: left;
+    }
+    .company-card:hover {
+      border-color: #1a56db;
+      box-shadow: 0 4px 20px rgba(26, 86, 219, 0.12);
+      transform: translateY(-2px);
+    }
+    .company-card.active-card {
+      border-color: #1a56db;
+      background: #eff6ff;
+    }
+
+    /* Active badge */
+    .active-badge {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: #1a56db;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    /* Inactive / suspended badge */
+    .suspended-badge {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .company-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #1a56db 0%, #3b82f6 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+
+    .company-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 4px;
+      padding-right: 70px; /* avoid overlap with badge */
+    }
+    .company-id {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 14px;
+    }
+
+    .company-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .meta-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .meta-pill.plan-basic    { background: #f0fdf4; color: #166534; }
+    .meta-pill.plan-premium  { background: #eff6ff; color: #1e40af; }
+    .meta-pill.plan-gold     { background: #fffbeb; color: #92400e; }
+    .meta-pill.plan-custom   { background: #faf5ff; color: #6b21a8; }
+
+    .company-address {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Select button (hidden form submit) */
+    .card-form { width: 100%; }
+    .card-form button {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    /* ── Bottom actions ── */
+    .bottom-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      max-width: 980px;
+      width: 100%;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    .btn-primary { background: #1a56db; color: #fff; }
+    .btn-primary:hover { background: #1648c0; }
+    .btn-outline { background: #fff; color: #374151; border: 1.5px solid #d1d5db; }
+    .btn-outline:hover { background: #f9fafb; }
+    .btn-danger  { background: #fff; color: #b91c1c; border: 1.5px solid #fecaca; }
+    .btn-danger:hover { background: #fef2f2; }
+
+    /* Plan limit bar */
+    .limit-bar-wrap { margin-top: 12px; }
+    .limit-label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .limit-bar {
+      height: 5px;
+      background: #e5e7eb;
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .limit-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: #1a56db;
+      transition: width 0.3s;
+    }
+    .limit-bar-fill.warn { background: #f59e0b; }
+    .limit-bar-fill.full { background: #ef4444; }
+
+    /* Upgrade notice */
+    .upgrade-notice {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #78350f;
+      max-width: 980px;
+      width: 100%;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    @media (max-width: 500px) {
+      .companies-grid { grid-template-columns: 1fr; }
+      .page-header h2 { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Logo & heading -->
+  <div class="page-header">
+    <div class="logo">Nexa <span>ERP</span></div>
+    <h2>Select a Company</h2>
+    <p>Hi {{ user.full_name }}, choose which company to work in.</p>
+  </div>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+        {{ message }}
+      </div>
+    {% endfor %}
+  {% endwith %}
+
+  <!-- Upgrade notice if at company limit -->
+  {% set max_cos = companies | length %}
+  {% if max_cos > 0 %}
+    {% set first = companies[0] %}
+    {% if first.max_companies_allowed != 'Unlimited' and companies | length >= first.max_companies_allowed | int %}
+      <div class="upgrade-notice">
+        ⚠️ You've reached your company limit ({{ companies | length }} / {{ first.max_companies_allowed }}) under your <strong>{{ first.plan_name }}</strong>.
+        &nbsp;<a href="{{ url_for('company_settings') }}" style="color:#b45309;font-weight:700;">Upgrade Plan →</a>
+      </div>
+    {% endif %}
+  {% endif %}
+
+  <!-- Company cards grid -->
+  <div class="companies-grid">
+    {% for company in companies %}
+    <div class="company-card {% if company.is_active_selection %}active-card{% endif %}">
+
+      {% if company.is_active_selection %}
+        <span class="active-badge">✓ Active</span>
+      {% elif not company.is_active %}
+        <span class="suspended-badge">Suspended</span>
+      {% endif %}
+
+      <!-- Invisible form button covers entire card -->
+      {% if company.is_active %}
+      <form method="POST" action="{{ url_for('select_company') }}" class="card-form">
+        <input type="hidden" name="company_id" value="{{ company.company_id }}" />
+        <button type="submit" title="Switch to {{ company.company_name }}"></button>
+      </form>
+      {% endif %}
+
+      <!-- Company icon (first letter) -->
+      <div class="company-icon">{{ company.company_name[0] | upper }}</div>
+
+      <div class="company-name">{{ company.company_name }}</div>
+      <div class="company-id">{{ company.company_id }}</div>
+
+      <div class="company-meta">
+        <!-- Plan badge -->
+        <span class="meta-pill plan-{{ company.subscription_plan }}">
+          🏷 {{ company.plan_name }}
+        </span>
+        <!-- User count -->
+        <span class="meta-pill">
+          👥 {{ company.user_count }} /
+          {% if company.max_users == 'Unlimited' %}∞{% else %}{{ company.max_users }}{% endif %}
+          users
+        </span>
+      </div>
+
+      {% if company.address %}
+      <div class="company-address">
+        📍 {{ company.address }}
+      </div>
+      {% endif %}
+
+      <!-- User limit progress bar -->
+      {% if company.max_users != 'Unlimited' %}
+      <div class="limit-bar-wrap">
+        <div class="limit-label">
+          <span>Users</span>
+          <span>{{ company.user_count }} / {{ company.max_users }}</span>
+        </div>
+        {% set pct = ((company.user_count / company.max_users) * 100) | int %}
+        <div class="limit-bar">
+          <div class="limit-bar-fill {% if pct >= 100 %}full{% elif pct >= 75 %}warn{% endif %}"
+               style="width: {{ [pct, 100] | min }}%"></div>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Bottom action buttons -->
+  <div class="bottom-actions">
+    {% if user.role == 'owner' %}
+      <a href="{{ url_for('add_new_company') }}" class="btn btn-primary">
+        ＋ Add New Company
+      </a>
+    {% endif %}
+
+    {% if current_company_id %}
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline">
+        ← Back to Dashboard
+      </a>
+    {% endif %}
+
+    <a href="{{ url_for('logout') }}" class="btn btn-danger">
+      Logout
+    </a>
+  </div>
+
+</body>
+</html>

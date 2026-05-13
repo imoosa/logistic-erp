@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+{% block title %}Invoice Billing{% endblock %}
+{% block page_title %}Invoice Billing{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  .bill-type-tabs { display:flex; gap:10px; margin-bottom:20px; }
+  .bill-type { padding:10px 20px; border-radius:10px; cursor:pointer; background:#F3F4F6; font-weight:600; }
+  .bill-type.active { background:#4F46E5; color:#fff; }
+  .credit-orders-list { max-height:300px; overflow-y:auto; border:1px solid #E5E7EB; border-radius:10px; margin-top:10px; }
+  .credit-order-item { padding:12px; border-bottom:1px solid #F3F4F6; cursor:pointer; transition:background .15s; }
+  .credit-order-item:hover { background:#F9FAFB; }
+  .credit-order-item.selected { background:#EEF2FF; border-left:3px solid #4F46E5; }
+  .import-btn { background:#4F46E5; color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; }
+  /* ── Product lookup dropdown ── */
+  .prod-dropdown { background:#fff; border:1.5px solid #E5E7EB; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.12); overflow:hidden; }
+  .prod-dd-item  { display:grid; grid-template-columns:90px 1fr 80px 70px; align-items:center; gap:8px; padding:9px 14px; cursor:pointer; font-size:12.5px; transition:background .12s; }
+  .prod-dd-item:hover  { background:#EEF2FF; }
+  .pd-code  { font-weight:700; color:#4F46E5; }
+  .pd-name  { color:#374151; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pd-rate  { color:#16A34A; font-weight:600; text-align:right; }
+  .pd-stock { color:#6B7280; font-size:11px; text-align:right; }
+  .pd-stock.out { color:#DC2626; }
+  .stock-avail { font-size:10.5px; margin-top:2px; font-weight:500; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>🧾 Invoice Billing</h2>
+  <a href="/dashboard" class="btn btn-ghost">← Back</a>
+</div>
+
+<!-- Bill Type Selection -->
+<div class="bill-type-tabs">
+  <div class="bill-type {% if bill_type == 'cash' %}active{% endif %}" onclick="setBillType('cash')">💵 Cash Bill</div>
+  <div class="bill-type {% if bill_type == 'credit' %}active{% endif %}" onclick="setBillType('credit')">💳 Credit Bill</div>
+</div>
+
+<form method="POST" id="invoiceForm">
+  <input type="hidden" name="bill_type" id="billType" value="{{ bill_type }}">
+  
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Customer Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input type="text" name="customer_name" required value="{{ form_data.customer_name or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="customer_phone" value="{{ form_data.customer_phone or '' }}">
+      </div>
+      <div class="form-group">
+        <label>GST Number</label>
+        <input type="text" name="customer_gst" value="{{ form_data.customer_gst or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" name="invoice_date" value="{{ today }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Credit Orders Section (only shown for credit bills) -->
+  <div id="creditSection" style="display: {% if bill_type == 'credit' %}block{% else %}none{% endif %}; margin-bottom:16px">
+    <div class="card card-body">
+      <div class="section-title">Import from Orders</div>
+      <p style="font-size:12px; color:#6B7280; margin-bottom:12px">Select pending orders to convert to credit invoice</p>
+      
+      <div class="credit-orders-list" id="ordersList">
+        {% for order in pending_orders %}
+        <div class="credit-order-item" data-order-id="{{ order.id }}" data-order-amount="{{ order.amount }}" data-order-client="{{ order.client }}" onclick="toggleOrderSelection(this)">
+          <div style="display:flex; justify-content:space-between">
+            <div>
+              <strong>{{ order.id }}</strong><br>
+              <span style="font-size:12px; color:#6B7280">{{ order.client }} | {{ order.date }}</span>
+            </div>
+            <div style="text-align:right">
+              <strong>₹{{ "{:,.0f}".format(order.amount) }}</strong><br>
+              <span style="font-size:11px; color:#D97706">Pending: ₹{{ "{:,.0f}".format(order.amount - order.received) }}</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="imported_orders" id="importedOrders" value="">
+      <div style="margin-top:12px">
+        <button type="button" class="btn btn-primary btn-sm" onclick="importSelectedOrders()">➕ Import Selected Orders</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoice Items -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Invoice Items</div>
+
+    <!-- Product lookup hint -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:9px 14px;background:#EEF2FF;border-radius:8px;font-size:12px;color:#4F46E5;font-weight:500">
+      💡 Type a <strong style="margin:0 3px">product code</strong> (e.g. <code style="background:#fff;padding:1px 5px;border-radius:4px">PROD001</code>) or any partial name — rate &amp; description will auto-fill from stock.
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="items-table" style="width:100%">
+        <thead>
+          <tr>
+            <th>Code / Search</th><th>Description</th><th>Qty</th><th>Rate (₹)</th><th>Discount %</th><th>Total (₹)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="invoiceItemsBody">
+          {% for item in items %}
+          <tr>
+            <td>
+              <input name="item_code[]" value="{{ item.code }}" placeholder="Code / search"
+                style="width:110px" autocomplete="off"
+                oninput="onCodeInput(this)" onblur="onCodeBlur(this)" />
+              <span class="stock-avail" style="display:none;font-size:10px;margin-top:2px"></span>
+            </td>
+            <td><input name="description[]" value="{{ item.desc }}" placeholder="Description"></td>
+            <td><input name="qty[]" type="number" value="{{ item.qty }}" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input name="rate[]" type="number" value="{{ item.rate }}" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+            <td><input name="discount[]" type="number" value="{{ item.discount }}" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+            <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td>
+              <input name="item_code[]" placeholder="Code / search"
+                style="width:110px" autocomplete="off"
+                oninput="onCodeInput(this)" onblur="onCodeBlur(this)" />
+              <span class="stock-avail" style="display:none;font-size:10px;margin-top:2px"></span>
+            </td>
+            <td><input name="description[]" placeholder="Description"></td>
+            <td><input name="qty[]" type="number" value="1" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input name="rate[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+            <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+            <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addInvoiceRow()" style="margin-top:12px">+ Add Item</button>
+
+    <div class="billing-box" style="margin-top:16px">
+      <div class="billing-row"><span>Subtotal</span><span id="invoiceSubtotal">₹0</span></div>
+      <div class="billing-row"><span>Discount</span><span id="invoiceDiscount">₹0</span></div>
+      <div class="billing-row"><span>GST (18%)</span><span id="invoiceTax">₹0</span></div>
+      <div class="billing-row grand"><span>Grand Total</span><span id="invoiceGrand">₹0</span></div>
+      
+      <!-- Payment Section -->
+      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #E5E7EB">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select name="payment_mode" id="paymentMode" onchange="togglePaymentFields()">
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="cheque">Cheque</option>
+              <option value="credit">Credit</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount Paid</label>
+            <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="0" oninput="calcBalance()">
+          </div>
+          <div id="chequeFields" style="display:none" class="grid-2">
+            <div class="form-group">
+              <label>Cheque Number</label>
+              <input type="text" name="cheque_no">
+            </div>
+            <div class="form-group">
+              <label>Cheque Date</label>
+              <input type="date" name="cheque_date">
+            </div>
+          </div>
+          <div id="bankFields" style="display:none" class="grid-2">
+            <div class="form-group">
+              <label>Transaction ID</label>
+              <input type="text" name="transaction_id">
+            </div>
+            <div class="form-group">
+              <label>Bank Name</label>
+              <input type="text" name="bank_name">
+            </div>
+          </div>
+        </div>
+        <div class="billing-row" style="margin-top:10px">
+          <span>Balance Due</span>
+          <span id="balanceDue" style="color:#DC2626; font-weight:700">₹0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:flex-end; gap:12px">
+    <button type="submit" name="action" value="draft" class="btn btn-ghost">Save Draft</button>
+    <button type="submit" name="action" value="final" class="btn btn-success">✓ Generate Invoice</button>
+  </div>
+</form>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   PRODUCT LOOKUP — shared across invoice / estimate / order forms
+   ═══════════════════════════════════════════════════════════════════ */
+let _lookupTimer = null;
+
+function onCodeInput(input) {
+  clearTimeout(_lookupTimer);
+  const val = input.value.trim();
+  closeAllDropdowns();
+  input.style.borderColor = '';          // reset error state
+  if (val.length < 2) return;
+  _lookupTimer = setTimeout(() => {
+    fetch(`/api/products/search?q=${encodeURIComponent(val)}`)
+      .then(r => r.json())
+      .then(d => showDropdown(input, d.results || []))
+      .catch(() => {});
+  }, 260);
+}
+
+function onCodeBlur(input) {
+  setTimeout(() => {
+    closeAllDropdowns();
+    const val = input.value.trim();
+    if (val) fetchExact(input, val);
+  }, 200);
+}
+
+function fetchExact(codeInput, code) {
+  fetch(`/api/product/${encodeURIComponent(code)}`)
+    .then(r => r.json())
+    .then(d => { if (d.found) fillRow(codeInput, d); else showRowError(codeInput, d.message || 'Not found'); })
+    .catch(() => {});
+}
+
+function fillRow(codeInput, p) {
+  const tr = codeInput.closest('tr');
+  if (!tr) return;
+  const desc = tr.querySelector('[name="description[]"]');
+  if (desc && !desc.value) desc.value = p.name;
+  const rate = tr.querySelector('[name="rate[]"]');
+  if (rate) { rate.value = p.rate; }
+  const stockBadge = tr.querySelector('.stock-avail');
+  if (stockBadge) {
+    stockBadge.textContent = `Stock: ${p.stock} ${p.unit}${p.low_stock ? ' ⚠️ Low' : ''}`;
+    stockBadge.style.color = p.low_stock ? '#DC2626' : '#16A34A';
+    stockBadge.style.display = 'block';
+  }
+  codeInput.style.borderColor = '#16A34A';
+  calcInvoiceTotal();
+}
+
+function showRowError(inp, msg) {
+  inp.style.borderColor = '#DC2626';
+  inp.title = msg;
+  const badge = inp.closest('td')?.querySelector('.stock-avail');
+  if (badge) { badge.textContent = '⚠ ' + msg; badge.style.color = '#DC2626'; badge.style.display = 'block'; }
+}
+
+function showDropdown(input, results) {
+  closeAllDropdowns();
+  if (!results.length) return;
+  const dd = document.createElement('div');
+  dd.className = 'prod-dropdown';
+  results.forEach(p => {
+    const d = document.createElement('div');
+    d.className = 'prod-dd-item';
+    d.innerHTML = `<span class="pd-code">${p.code}</span><span class="pd-name">${p.name}</span><span class="pd-rate">₹${Number(p.rate).toLocaleString('en-IN')}</span><span class="pd-stock ${p.stock<=0?'out':''}">${p.stock} ${p.unit}</span>`;
+    d.onmousedown = () => { input.value = p.code; fillRow(input, p); closeAllDropdowns(); };
+    dd.appendChild(d);
+  });
+  const rect = input.getBoundingClientRect();
+  dd.style.cssText = `position:fixed;top:${rect.bottom+2}px;left:${rect.left}px;width:${Math.max(rect.width,360)}px;z-index:9999;`;
+  document.body.appendChild(dd);
+}
+
+function closeAllDropdowns() { document.querySelectorAll('.prod-dropdown').forEach(d => d.remove()); }
+document.addEventListener('click', closeAllDropdowns);
+
+/* ═══════════════════════════════════════════════════════════════════
+   INVOICE-specific functions
+   ═══════════════════════════════════════════════════════════════════ */
+let selectedOrders = [];
+
+function setBillType(type) {
+  document.getElementById('billType').value = type;
+  document.querySelectorAll('.bill-type').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('creditSection').style.display = type === 'credit' ? 'block' : 'none';
+}
+
+function toggleOrderSelection(element) {
+  const orderId = element.dataset.orderId;
+  if (element.classList.contains('selected')) {
+    element.classList.remove('selected');
+    selectedOrders = selectedOrders.filter(id => id !== orderId);
+  } else {
+    element.classList.add('selected');
+    selectedOrders.push(orderId);
+  }
+}
+
+function importSelectedOrders() {
+  if (selectedOrders.length === 0) { alert('Please select at least one order to import'); return; }
+  fetch('/invoice/import-orders', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({order_ids: selectedOrders})
+  }).then(res => res.json())
+    .then(data => {
+      const tbody = document.getElementById('invoiceItemsBody');
+      tbody.innerHTML = '';
+      data.items.forEach(item => addInvoiceRowWithData(item.code, item.desc, item.qty, item.rate));
+      document.getElementById('importedOrders').value = JSON.stringify(selectedOrders);
+      calcInvoiceTotal();
+      alert(`Imported ${data.items.length} items from ${selectedOrders.length} orders`);
+    });
+}
+
+function _newCodeCell(code='') {
+  return `<input name="item_code[]" value="${code}" placeholder="Code / search"
+    style="width:110px" autocomplete="off"
+    oninput="onCodeInput(this)" onblur="onCodeBlur(this)" />
+    <span class="stock-avail" style="display:none;font-size:10px;margin-top:2px"></span>`;
+}
+
+function addInvoiceRowWithData(code, desc, qty, rate) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${_newCodeCell(code)}</td>
+    <td><input name="description[]" value="${desc}" placeholder="Description"></td>
+    <td><input name="qty[]" type="number" value="${qty}" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input name="rate[]" type="number" value="${rate}" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+    <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+    <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>`;
+  document.getElementById('invoiceItemsBody').appendChild(tr);
+  calcInvoiceTotal();
+}
+
+function addInvoiceRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${_newCodeCell()}</td>
+    <td><input name="description[]" placeholder="Description"></td>
+    <td><input name="qty[]" type="number" value="1" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input name="rate[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+    <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+    <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>`;
+  document.getElementById('invoiceItemsBody').appendChild(tr);
+}
+
+function removeInvoiceRow(btn) {
+  if (document.querySelectorAll('#invoiceItemsBody tr').length === 1) { alert('Need at least one item.'); return; }
+  btn.closest('tr').remove();
+  calcInvoiceTotal();
+}
+
+function calcInvoiceTotal() {
+  let subtotal = 0, totalDiscount = 0;
+  document.querySelectorAll('#invoiceItemsBody tr').forEach(tr => {
+    const qty      = parseFloat(tr.querySelector('[name="qty[]"]')?.value)      || 0;
+    const rate     = parseFloat(tr.querySelector('[name="rate[]"]')?.value)     || 0;
+    const discount = parseFloat(tr.querySelector('[name="discount[]"]')?.value) || 0;
+    const total    = qty * rate;
+    const discAmt  = total * discount / 100;
+    subtotal      += total;
+    totalDiscount += discAmt;
+    const rowTotal = tr.querySelector('.row-total');
+    if (rowTotal) rowTotal.value = '₹' + (total - discAmt).toLocaleString('en-IN');
+  });
+  const tax   = (subtotal - totalDiscount) * 0.18;
+  const grand = subtotal - totalDiscount + tax;
+  document.getElementById('invoiceSubtotal').innerText  = '₹' + subtotal.toLocaleString('en-IN');
+  document.getElementById('invoiceDiscount').innerText  = '₹' + totalDiscount.toLocaleString('en-IN');
+  document.getElementById('invoiceTax').innerText       = '₹' + tax.toLocaleString('en-IN');
+  document.getElementById('invoiceGrand').innerText     = '₹' + grand.toLocaleString('en-IN');
+  calcBalance();
+}
+
+function togglePaymentFields() {
+  const mode = document.getElementById('paymentMode').value;
+  document.getElementById('chequeFields').style.display    = mode === 'cheque'        ? 'grid' : 'none';
+  document.getElementById('bankFields').style.display      = mode === 'bank_transfer' ? 'grid' : 'none';
+}
+
+function calcBalance() {
+  const grand = parseFloat(document.getElementById('invoiceGrand').innerText.replace(/[^0-9.-]/g,'')) || 0;
+  const paid  = parseFloat(document.getElementById('amountPaid').value) || 0;
+  document.getElementById('balanceDue').innerText = '₹' + (grand - paid).toLocaleString('en-IN');
+}
+
+calcInvoiceTotal();
+</script>
+{% endblock %}

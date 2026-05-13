@@ -1,0 +1,1086 @@
+{% extends "base.html" %}
+{% block title %}Shipper Invoice{% endblock %}
+{% block page_title %}Shipper Invoice{% endblock %}
+{% set active = 'estimate' %}
+
+{% block extra_style %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  /* ── Root Variables ── */
+  :root {
+    --amber:    #D97706;
+    --amber-lt: #FEF3C7;
+    --amber-dk: #92400E;
+    --gray-50:  #F9FAFB;
+    --gray-100: #F3F4F6;
+    --gray-200: #E5E7EB;
+    --gray-400: #9CA3AF;
+    --gray-600: #6B7280;
+    --gray-800: #1F2937;
+    --red:      #DC2626;
+    --blue:     #1E40AF;
+    --blue-lt:  #EFF6FF;
+    --blue-bd:  #BFDBFE;
+    --white:    #FFFFFF;
+    --radius:   10px;
+    --shadow:   0 1px 4px rgba(0,0,0,.07);
+  }
+
+  * { box-sizing: border-box; }
+
+  body, input, select, textarea, button {
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  /* ── Invoice wrapper ── */
+  .inv-wrap {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  /* ── Page header ── */
+  .inv-page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 14px;
+  }
+  .inv-page-header h2 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gray-800);
+    margin: 0 0 4px;
+  }
+  .inv-page-header p {
+    color: var(--gray-600);
+    font-size: 12.5px;
+    margin: 0;
+  }
+
+  /* ── Info / error banners ── */
+  .info-banner {
+    background: var(--blue-lt);
+    border: 1px solid var(--blue-bd);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    color: var(--blue);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .error-banner {
+    background: #FEF2F2;
+    border: 1px solid #FECACA;
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    display: none;
+  }
+  .error-banner .err-title { font-weight: 700; color: var(--red); font-size: 13px; }
+  .error-banner ul { margin: 5px 0 0 16px; color: var(--red); font-size: 12.5px; }
+  input.field-error, select.field-error { border-color: var(--red) !important; background: #FFF5F5; }
+
+  /* ── Invoice document card ── */
+  .inv-doc {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,.06);
+    overflow: hidden;
+    margin-bottom: 16px;
+  }
+
+  /* ── Invoice header band ── */
+  .inv-header-band {
+    background: var(--gray-800);
+    color: var(--white);
+    padding: 18px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .inv-company { flex: 1; }
+  .inv-company h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    margin: 0 0 2px;
+    color: var(--white);
+  }
+  .inv-company p {
+    font-size: 11px;
+    color: var(--gray-400);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .inv-title-box {
+    text-align: right;
+  }
+  .inv-title-box .inv-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--amber);
+    margin-bottom: 4px;
+  }
+  .inv-title-box .inv-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--white);
+    background: rgba(255,255,255,.08);
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.12);
+    display: inline-block;
+  }
+
+  /* ── Meta row (date / docket / mode strip) ── */
+  .inv-meta-strip {
+    background: var(--amber-lt);
+    border-bottom: 1px solid #FDE68A;
+    padding: 10px 24px;
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .inv-meta-item { display: flex; align-items: center; gap: 8px; }
+  .inv-meta-item label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    color: var(--amber-dk);
+    white-space: nowrap;
+  }
+  .inv-meta-item input,
+  .inv-meta-item select {
+    border: 1.5px solid #FCD34D;
+    background: var(--white);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    color: var(--gray-800);
+    font-weight: 500;
+    outline: none;
+    height: 32px;
+  }
+  .inv-meta-item input:focus,
+  .inv-meta-item select:focus { border-color: var(--amber); }
+
+  /* ── Two-column address block ── */
+  .inv-addresses {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .inv-addr-box {
+    padding: 18px 24px;
+  }
+  .inv-addr-box:first-child {
+    border-right: 1px solid var(--gray-100);
+  }
+  .inv-addr-label {
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--amber);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .inv-addr-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--amber-lt);
+  }
+  .addr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+  }
+  .addr-field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    margin-bottom: 3px;
+  }
+  .addr-field input,
+  .addr-field select {
+    width: 100%;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 12.5px;
+    color: var(--gray-800);
+    background: var(--white);
+    outline: none;
+    transition: border-color .15s;
+  }
+  .addr-field input:focus,
+  .addr-field select:focus { border-color: var(--amber); }
+  .addr-field.full { grid-column: 1 / -1; }
+
+  /* ── Shipment details strip ── */
+  .inv-shipment-strip {
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-100);
+    padding: 14px 24px;
+  }
+  .ship-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px 18px;
+  }
+  .ship-field label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    color: var(--gray-600);
+    margin-bottom: 3px;
+  }
+  .ship-field input,
+  .ship-field select {
+    width: 100%;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 12px;
+    background: var(--white);
+    outline: none;
+  }
+  .ship-field input:focus,
+  .ship-field select:focus { border-color: var(--amber); }
+
+  /* ── Section heading inside doc ── */
+  .inv-section-head {
+    padding: 10px 24px 0;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .inv-section-head::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--gray-200);
+  }
+
+  /* ── Package table ── */
+  .inv-pkg-wrap { padding: 10px 24px 16px; }
+  .pkg-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .pkg-tbl thead tr {
+    background: var(--gray-800);
+    color: var(--white);
+  }
+  .pkg-tbl th {
+    padding: 8px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .pkg-tbl th:first-child { border-radius: 4px 0 0 4px; padding-left: 12px; }
+  .pkg-tbl th:last-child  { border-radius: 0 4px 4px 0; }
+  .pkg-tbl tbody tr:nth-child(even) { background: var(--gray-50); }
+  .pkg-tbl tbody tr:hover { background: var(--amber-lt); }
+  .pkg-tbl td {
+    padding: 5px 5px;
+    border-bottom: 1px solid var(--gray-100);
+    vertical-align: middle;
+  }
+  .pkg-tbl td:first-child { padding-left: 12px; }
+  .pkg-tbl input[type="number"],
+  .pkg-tbl input[type="text"] {
+    border: 1.5px solid var(--gray-200);
+    border-radius: 5px;
+    padding: 5px 7px;
+    font-size: 12px;
+    background: var(--white);
+    outline: none;
+    transition: border-color .12s;
+  }
+  .pkg-tbl input:focus { border-color: var(--amber); }
+  .pkg-tbl select {
+    border: 1.5px solid var(--gray-200);
+    border-radius: 5px;
+    padding: 5px 6px;
+    font-size: 12px;
+    background: var(--white);
+    outline: none;
+  }
+  .pkg-tbl select:focus { border-color: var(--amber); }
+  .del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-400);
+    font-size: 16px;
+    padding: 3px 7px;
+    border-radius: 5px;
+    line-height: 1;
+    transition: all .12s;
+  }
+  .del-btn:hover { color: var(--red); background: #FEE2E2; }
+
+  .pkg-footer {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+  }
+  .pkg-tbl tfoot td {
+    border-top: none;
+  }
+
+  /* ── Charges table ── */
+  .inv-charges-wrap { padding: 10px 24px 0; }
+  .chg-tbl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .chg-tbl th {
+    padding: 8px 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--gray-600);
+    background: var(--gray-100);
+    text-align: left;
+    border-bottom: 1px solid var(--gray-200);
+  }
+  .chg-tbl td {
+    padding: 5px 6px;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .chg-tbl input {
+    border: 1.5px solid var(--gray-200);
+    border-radius: 5px;
+    padding: 5px 8px;
+    font-size: 12.5px;
+    background: var(--white);
+    outline: none;
+    transition: border-color .12s;
+  }
+  .chg-tbl input:focus { border-color: var(--amber); }
+
+  /* ── Billing summary box ── */
+  .inv-billing-wrap {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+    border-top: 1px solid var(--gray-100);
+    margin-top: 12px;
+  }
+  .inv-payment-left { padding: 16px 24px; border-right: 1px solid var(--gray-100); }
+  .inv-totals-right { padding: 16px 20px; }
+
+  .tot-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 13px;
+    color: var(--gray-800);
+  }
+  .tot-row.grand {
+    font-size: 15px;
+    font-weight: 800;
+    border-top: 2px solid var(--gray-200);
+    margin-top: 6px;
+    padding-top: 10px;
+    color: var(--gray-800);
+  }
+  .tot-row .lbl { color: var(--gray-600); font-weight: 500; }
+  .tot-row .val { font-family: 'DM Mono', monospace; font-weight: 600; }
+  .tot-row.grand .val { color: var(--amber); font-size: 17px; }
+
+  .bal-chip {
+    margin-top: 10px;
+    background: var(--gray-800);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .bal-chip .lbl { font-size: 11px; font-weight: 600; color: var(--gray-400); text-transform: uppercase; letter-spacing: .6px; }
+  .bal-chip .val { font-family: 'DM Mono', monospace; font-size: 17px; font-weight: 700; color: #FCD34D; }
+
+  /* ── Payment tabs ── */
+  .pay-tabs { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pay-tab {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--gray-200);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--white);
+    color: var(--gray-600);
+    transition: all .15s;
+    user-select: none;
+  }
+  .pay-tab.active { border-color: var(--amber); background: var(--amber-lt); color: var(--amber); }
+
+  /* ── UPI grid ── */
+  .upi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; margin-top: 8px; }
+  .upi-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 9px 6px;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gray-800);
+    transition: all .15s;
+    background: var(--white);
+    text-align: center;
+    user-select: none;
+  }
+  .upi-chip:hover { border-color: var(--amber); background: var(--amber-lt); }
+  .upi-chip.selected { border-color: var(--amber); background: var(--amber-lt); color: var(--amber-dk); }
+  .upi-icon { font-size: 20px; }
+
+  /* ── Amount paid field ── */
+  .paid-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .paid-row label { font-size: 12px; font-weight: 600; color: var(--gray-600); white-space: nowrap; }
+  .paid-row input {
+    flex: 1;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 13px;
+    outline: none;
+    font-family: 'DM Mono', monospace;
+  }
+  .paid-row input:focus { border-color: var(--amber); }
+
+  /* ── Notes ── */
+  .inv-notes-wrap { padding: 0 24px 16px; }
+  .inv-notes-wrap label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--gray-600); display: block; margin-bottom: 5px; }
+  .inv-notes-wrap textarea {
+    width: 100%;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    resize: vertical;
+    outline: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .inv-notes-wrap textarea:focus { border-color: var(--amber); }
+
+  /* ── Action bar ── */
+  .inv-action-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 24px;
+    border-top: 1px solid var(--gray-100);
+    background: var(--gray-50);
+    border-radius: 0 0 12px 12px;
+  }
+  .btn-draft {
+    padding: 9px 20px;
+    border: 1.5px solid var(--gray-300);
+    border-radius: 8px;
+    background: var(--white);
+    color: var(--gray-700);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn-draft:hover { border-color: var(--amber); color: var(--amber); }
+  .btn-generate {
+    padding: 9px 22px;
+    border: none;
+    border-radius: 8px;
+    background: var(--amber);
+    color: var(--white);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s;
+    box-shadow: 0 2px 6px rgba(217,119,6,.3);
+  }
+  .btn-generate:hover { background: #B45309; }
+
+  /* ── Credit note warning ── */
+  .credit-note {
+    display: none;
+    padding: 9px 12px;
+    background: var(--amber-lt);
+    border-radius: 7px;
+    font-size: 12px;
+    color: var(--amber-dk);
+    font-weight: 500;
+  }
+
+  /* ── Cheque section ── */
+  .cheque-grid {
+    display: none;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .cheque-field label { display: block; font-size: 11px; font-weight: 600; color: var(--gray-600); margin-bottom: 3px; }
+  .cheque-field input {
+    width: 100%;
+    border: 1.5px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 6px 9px;
+    font-size: 12.5px;
+    outline: none;
+  }
+  .cheque-field input:focus { border-color: var(--amber); }
+
+  /* ── Add row btn ── */
+  .add-row-btn {
+    background: none;
+    border: 1.5px dashed var(--amber);
+    color: var(--amber);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .add-row-btn:hover { background: var(--amber-lt); }
+
+  @media (max-width: 768px) {
+    .inv-addresses { grid-template-columns: 1fr; }
+    .addr-box:first-child { border-right: none; border-bottom: 1px solid var(--gray-100); }
+    .ship-grid { grid-template-columns: 1fr 1fr; }
+    .inv-billing-wrap { grid-template-columns: 1fr; }
+    .inv-payment-left { border-right: none; border-bottom: 1px solid var(--gray-100); }
+    .inv-meta-strip { gap: 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="inv-wrap">
+
+  <!-- Page header -->
+  <div class="inv-page-header">
+    <div>
+      <h2>📋 Shipper Invoice</h2>
+      <p>Invoice raised on the sending agent / shipper · saved to Shipper Invoice table only</p>
+    </div>
+    <a href="/estimate/list" class="btn btn-ghost" style="font-size:13px">← Back</a>
+  </div>
+
+  <!-- Info notice -->
+  <div class="info-banner">
+    ℹ️ Shipper invoices are recorded in the <strong>Shipper Invoice</strong> register only and are <strong>NOT</strong> added to the Debtors ledger.
+    Use <a href="/invoice/customer/new" style="color:var(--blue)">Customer Invoice</a> for debtor entries.
+  </div>
+
+  <!-- Error banner -->
+  <div class="error-banner" id="errorBanner">
+    <div class="err-title">⚠️ Please fix the following before saving:</div>
+    <ul id="errorList"></ul>
+  </div>
+
+  <form method="POST" action="/shipper-invoice/save" id="shipInvForm" onsubmit="return validateShipForm(event)">
+    <input type="hidden" name="payment_mode" id="paymentModeHidden" value="cash">
+    <input type="hidden" name="upi_app"      id="upiAppHidden"      value="">
+
+    <!-- ═══════════════════════════════════════
+         INVOICE DOCUMENT
+    ═══════════════════════════════════════ -->
+    <div class="inv-doc">
+
+      <!-- Header band -->
+      <div class="inv-header-band">
+        <div class="inv-company">
+          <h1>LOGISTIC ERP</h1>
+          <p>International Freight & Logistics · Nagpur, India</p>
+        </div>
+        <div class="inv-title-box">
+          <div class="inv-label">Shipper Invoice</div>
+          <div class="inv-number">{{ shipper_invoice_id }}</div>
+        </div>
+      </div>
+
+      <!-- Meta strip (date / docket / mode / carrier) -->
+      <div class="inv-meta-strip">
+        <div class="inv-meta-item">
+          <label>Date</label>
+          <input type="date" name="invoice_date" value="{{ today }}" required style="width:140px">
+        </div>
+        <div class="inv-meta-item">
+          <label>Docket / AWB</label>
+          <input type="text" name="docket_no" placeholder="e.g. ABC063655" value="{{ form_data.docket_no or '' }}" style="width:170px">
+        </div>
+        <div class="inv-meta-item">
+          <label>Shipment Type</label>
+          <select name="shipment_type" style="width:160px">
+            {% for t in ['NON DC','DC','DOOR TO DOOR','AIRPORT TO AIRPORT','CARGO'] %}
+            <option value="{{ t }}" {% if form_data.shipment_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="inv-meta-item">
+          <label>Mode</label>
+          <select name="mode" style="width:130px">
+            {% for m in ['COURIER','AIR','SEA','ROAD'] %}
+            <option value="{{ m }}" {% if form_data.mode == m %}selected{% endif %}>{{ m }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="inv-meta-item">
+          <label>Carrier</label>
+          <select name="carrier" style="width:150px">
+            <option value="">— Select —</option>
+            {% for car in ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'] %}
+            <option value="{{ car }}" {% if form_data.carrier == car %}selected{% endif %}>{{ car }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- ── Shipper / Receiver addresses ── -->
+      <div class="inv-addresses">
+
+        <!-- SHIPPER -->
+        <div class="inv-addr-box">
+          <div class="inv-addr-label">📤 Shipper / Agent (Sender)</div>
+          <div class="addr-grid">
+            <div class="addr-field full">
+              <label>Agent / Company *</label>
+              <select name="shipper_id" id="shipperSelect" required>
+                <option value="">— Select Shipper —</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}"
+                  data-phone="{{ c.phone or '' }}"
+                  {% if form_data.get('shipper_id')|string == c.id|string %}selected{% endif %}>
+                  {{ c.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="addr-field">
+              <label>Contact Person</label>
+              <input type="text" name="shipper_name" value="{{ form_data.shipper_name or '' }}" placeholder="Full name">
+            </div>
+            <div class="addr-field">
+              <label>Phone</label>
+              <input type="text" name="shipper_phone" id="shipperPhone" value="{{ form_data.shipper_phone or '' }}" placeholder="10-digit mobile">
+            </div>
+            <div class="addr-field full">
+              <label>Pickup Address</label>
+              <input type="text" name="shipper_address" value="{{ form_data.shipper_address or '' }}" placeholder="Full pickup address">
+            </div>
+          </div>
+        </div>
+
+        <!-- RECEIVER -->
+        <div class="inv-addr-box">
+          <div class="inv-addr-label">📥 Receiver (Consignee)</div>
+          <div class="addr-grid">
+            <div class="addr-field full">
+              <label>Receiver Name *</label>
+              <input type="text" name="receiver_name" value="{{ form_data.receiver_name or '' }}" placeholder="Recipient full name" required>
+            </div>
+            <div class="addr-field">
+              <label>Phone</label>
+              <input type="text" name="receiver_phone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
+            </div>
+            <div class="addr-field">
+              <label>Destination</label>
+              <input type="text" name="destination" value="{{ form_data.destination or '' }}" placeholder="Country / City">
+            </div>
+            <div class="addr-field full">
+              <label>Delivery Address</label>
+              <input type="text" name="receiver_address" value="{{ form_data.receiver_address or '' }}" placeholder="Full delivery address">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Shipment logistics strip ── -->
+      <div class="inv-shipment-strip">
+        <div class="ship-grid">
+          <div class="ship-field">
+            <label>Carrier Ref / Tracking No.</label>
+            <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="AWB / Tracking">
+          </div>
+          <div class="ship-field">
+            <label>Origin</label>
+            <input type="text" name="origin" value="{{ form_data.origin or 'India' }}">
+          </div>
+          <div class="ship-field">
+            <label>Pickup Date</label>
+            <input type="date" name="pickup_date" value="{{ form_data.pickup_date or '' }}">
+          </div>
+          <div class="ship-field">
+            <label>Departure Time</label>
+            <input type="datetime-local" name="departure_time" value="{{ form_data.departure_time or '' }}">
+          </div>
+          <div class="ship-field">
+            <label>Expected Delivery</label>
+            <input type="date" name="expected_delivery" value="{{ form_data.expected_delivery or '' }}">
+          </div>
+          <div class="ship-field">
+            <label>Comments</label>
+            <input type="text" name="comments" value="{{ form_data.comments or '' }}" placeholder="Special instructions">
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           ITEMS / PACKAGES TABLE
+      ══════════════════════════════════ -->
+      <div class="inv-section-head" style="margin-top:14px">📦 Items / Packages</div>
+      <div class="inv-pkg-wrap">
+        <div style="overflow-x:auto">
+          <table class="pkg-tbl">
+            <thead>
+              <tr>
+                <th style="width:48px;text-align:center">S.No</th>
+                <th>Description</th>
+                <th style="width:90px;text-align:center">Quantity</th>
+                <th style="width:130px;text-align:right">Rate / Piece (₹)</th>
+                <th style="width:130px;text-align:right">Total Amount (₹)</th>
+                <th style="width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="pkgBody">
+              {% for i in range(5) %}
+              <tr>
+                <td style="text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-400);font-weight:600">{{ i + 1 }}</td>
+                <td><input name="description[]" placeholder="Item description" style="width:100%"></td>
+                <td><input name="qty[]" type="number" value="" min="1" oninput="calcPkg()" style="width:72px;text-align:center" placeholder="0"></td>
+                <td><input name="rate[]" type="number" step="0.01" value="" min="0" oninput="calcPkg()" style="width:110px;text-align:right" placeholder="0.00"></td>
+                <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--gray-800);padding-right:12px">
+                  <span class="row-total">—</span>
+                </td>
+                <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr style="background:var(--gray-800)">
+                <td colspan="4" style="padding:11px 12px;font-size:13px;font-weight:700;color:var(--white);text-align:right;letter-spacing:.3px">
+                  Grand Total
+                </td>
+                <td style="padding:11px 12px;text-align:right;font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:#FCD34D">
+                  <span id="pkgGrandTotal">₹0</span>
+                </td>
+                <td style="background:var(--gray-800)"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div class="pkg-footer" style="margin-top:10px">
+          <button type="button" class="add-row-btn" onclick="addPkgRow()">+ Add Item Row</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           CHARGES TABLE
+      ══════════════════════════════════ -->
+      <div class="inv-section-head">💰 Additional Charges</div>
+      <div class="inv-charges-wrap">
+        <table class="chg-tbl" id="chargesTable">
+          <thead>
+            <tr>
+              <th>Charge Description</th>
+              <th style="width:160px">Amount (₹)</th>
+              <th style="width:40px"></th>
+            </tr>
+          </thead>
+          <tbody id="chargesBody">
+            <tr>
+              <td><input name="charge_desc[]" value="Freight Charges" style="width:100%"></td>
+              <td><input name="charge_amt[]" type="number" step="0.01" value="0" oninput="calcShipTotal()" style="width:140px" min="0"></td>
+              <td><button type="button" class="del-btn" onclick="removeChargeRow(this)">×</button></td>
+            </tr>
+            <tr>
+              <td><input name="charge_desc[]" value="Fuel Surcharge" style="width:100%"></td>
+              <td><input name="charge_amt[]" type="number" step="0.01" value="0" oninput="calcShipTotal()" style="width:140px" min="0"></td>
+              <td><button type="button" class="del-btn" onclick="removeChargeRow(this)">×</button></td>
+            </tr>
+            <tr>
+              <td><input name="charge_desc[]" value="Handling Charges" style="width:100%"></td>
+              <td><input name="charge_amt[]" type="number" step="0.01" value="0" oninput="calcShipTotal()" style="width:140px" min="0"></td>
+              <td><button type="button" class="del-btn" onclick="removeChargeRow(this)">×</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding: 8px 0 14px">
+          <button type="button" class="add-row-btn" onclick="addChargeRow()">+ Add Charge</button>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════
+           BILLING + PAYMENT
+      ══════════════════════════════════ -->
+      <div class="inv-billing-wrap">
+
+        <!-- Left: Payment mode -->
+        <div class="inv-payment-left">
+          <div class="inv-section-head" style="padding:0 0 10px">💳 Payment Mode</div>
+          <div class="pay-tabs">
+            <div class="pay-tab active" id="tab-cash"   onclick="setPayMode('cash')">💵 Cash</div>
+            <div class="pay-tab"        id="tab-online" onclick="setPayMode('online')">📱 Online / UPI</div>
+            <div class="pay-tab"        id="tab-cheque" onclick="setPayMode('cheque')">🏦 Cheque</div>
+            <div class="pay-tab"        id="tab-credit" onclick="setPayMode('credit')">💳 Credit</div>
+          </div>
+
+          <!-- UPI grid -->
+          <div id="upiSection" style="display:none">
+            <p style="font-size:11px;color:var(--gray-600);margin-bottom:4px;font-weight:500">Select payment app:</p>
+            <div class="upi-grid">
+              {% set upi_apps = [
+                ('gpay','🟢','Google Pay'),('phonepe','🟣','PhonePe'),('paytm','🔵','Paytm'),
+                ('bhim','🇮🇳','BHIM UPI'),('amazonpay','🟠','Amazon Pay'),('mobikwik','💜','MobiKwik'),
+                ('freecharge','🟡','FreeCharge'),('airtel','🔴','Airtel Pay'),('jiopay','🔷','JioPay'),
+                ('neft','🏛️','NEFT/RTGS'),('bank_transfer','🏦','Bank Transfer')
+              ] %}
+              {% for app_id, icon, label in upi_apps %}
+              <div class="upi-chip" onclick="selectUPI(this,'{{ app_id }}')">
+                <span class="upi-icon">{{ icon }}</span>{{ label }}
+              </div>
+              {% endfor %}
+            </div>
+            <div style="margin-top:10px">
+              <label style="font-size:11px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:3px">Transaction / UTR Ref No.</label>
+              <input type="text" name="upi_ref" id="upiRef" placeholder="Enter transaction reference"
+                style="width:100%;border:1.5px solid var(--gray-200);border-radius:6px;padding:6px 10px;font-size:12.5px;outline:none">
+            </div>
+          </div>
+
+          <!-- Cheque -->
+          <div class="cheque-grid" id="chequeSection">
+            <div class="cheque-field"><label>Cheque Number</label><input type="text" name="cheque_no"></div>
+            <div class="cheque-field"><label>Cheque Date</label><input type="date" name="cheque_date"></div>
+            <div class="cheque-field"><label>Bank Name</label><input type="text" name="cheque_bank" placeholder="e.g. HDFC Bank"></div>
+            <div class="cheque-field"><label>Drawn on Bank</label><input type="text" name="drawn_bank" placeholder="Payable at bank"></div>
+          </div>
+
+          <!-- Credit note -->
+          <div class="credit-note" id="creditNote">
+            ⚠️ Recorded as outstanding in <strong>Shipper Invoice</strong> only. Will <strong>NOT</strong> appear in Debtors.
+          </div>
+
+          <!-- Amount Paid -->
+          <div class="paid-row" style="margin-top:16px">
+            <label>Amount Paid (₹)</label>
+            <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="0" oninput="calcBalance()" min="0">
+          </div>
+        </div>
+
+        <!-- Right: Totals -->
+        <div class="inv-totals-right">
+          <div class="inv-section-head" style="padding:0 0 10px">🧾 Summary</div>
+          <div class="tot-row"><span class="lbl">Subtotal</span><span class="val" id="dispSubtotal">₹0</span></div>
+          <div class="tot-row"><span class="lbl">GST (18%)</span><span class="val" id="dispGST">₹0</span></div>
+          <div class="tot-row grand"><span class="lbl">Grand Total</span><span class="val" id="dispGrand">₹0</span></div>
+          <div class="bal-chip">
+            <span class="lbl">Balance Due</span>
+            <span class="val" id="balanceDue">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Notes ── -->
+      <div class="inv-section-head" style="padding: 14px 24px 0">📝 Notes / Terms</div>
+      <div class="inv-notes-wrap" style="padding-top:10px">
+        <textarea name="notes" rows="3" placeholder="Delivery terms, payment conditions, special instructions...">{{ form_data.notes or '' }}</textarea>
+      </div>
+
+      <!-- ── Action bar ── -->
+      <div class="inv-action-bar">
+        <button type="submit" name="action" value="draft" class="btn-draft">💾 Save Draft</button>
+        <button type="submit" name="action" value="final" class="btn-generate">✓ Generate Shipper Invoice</button>
+      </div>
+
+    </div><!-- .inv-doc -->
+  </form>
+</div><!-- .inv-wrap -->
+
+<script>
+/* ── Package / Item rows ── */
+function renumberRows() {
+  document.querySelectorAll('#pkgBody tr').forEach((tr, i) => {
+    const sno = tr.querySelector('.sno');
+    if (sno) sno.textContent = i + 1;
+  });
+}
+function addPkgRow() {
+  const tbody = document.getElementById('pkgBody');
+  const rowNum = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td style="text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--gray-400);font-weight:600">
+      <span class="sno">${rowNum}</span>
+    </td>
+    <td><input name="description[]" placeholder="Item description" style="width:100%"></td>
+    <td><input name="qty[]" type="number" value="" min="1" oninput="calcPkg()" style="width:72px;text-align:center" placeholder="0"></td>
+    <td><input name="rate[]" type="number" step="0.01" value="" min="0" oninput="calcPkg()" style="width:110px;text-align:right" placeholder="0.00"></td>
+    <td style="text-align:right;font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--gray-800);padding-right:12px">
+      <span class="row-total">—</span>
+    </td>
+    <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>`;
+  tbody.appendChild(tr);
+}
+function removePkgRow(btn) {
+  if (document.querySelectorAll('#pkgBody tr').length === 1) {
+    alert('At least one item row is required.'); return;
+  }
+  btn.closest('tr').remove();
+  renumberRows();
+  calcPkg();
+}
+function calcPkg() {
+  const fmt2 = n => '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  let grand = 0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const qty  = parseFloat(tr.querySelector('[name="qty[]"]')?.value)  || 0;
+    const rate = parseFloat(tr.querySelector('[name="rate[]"]')?.value) || 0;
+    const total = qty * rate;
+    const cell = tr.querySelector('.row-total');
+    if (cell) cell.textContent = (qty > 0 && rate > 0) ? fmt2(total) : '—';
+    grand += total;
+  });
+  document.getElementById('pkgGrandTotal').textContent = fmt2(grand);
+  calcShipTotal();
+}
+
+/* ── Charges rows ── */
+function addChargeRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input name="charge_desc[]" placeholder="e.g. Customs Clearance" style="width:100%"></td>
+    <td><input name="charge_amt[]" type="number" step="0.01" value="0" oninput="calcShipTotal()" style="width:140px" min="0"></td>
+    <td><button type="button" class="del-btn" onclick="removeChargeRow(this)">×</button></td>`;
+  document.getElementById('chargesBody').appendChild(tr);
+}
+function removeChargeRow(btn) {
+  if (document.querySelectorAll('#chargesBody tr').length === 1) {
+    alert('At least one charge row is required.'); return;
+  }
+  btn.closest('tr').remove(); calcShipTotal();
+}
+
+/* ── Totals (items + charges combined) ── */
+const fmt = n => '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+function calcShipTotal() {
+  // Sum all item rows (qty x rate)
+  let itemsTotal = 0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const qty  = parseFloat(tr.querySelector('[name="qty[]"]')?.value)  || 0;
+    const rate = parseFloat(tr.querySelector('[name="rate[]"]')?.value) || 0;
+    itemsTotal += qty * rate;
+  });
+  // Sum additional charges
+  let charges = 0;
+  document.querySelectorAll('[name="charge_amt[]"]').forEach(i => { charges += parseFloat(i.value) || 0; });
+
+  const sub   = itemsTotal + charges;
+  const gst   = sub * 0.18;
+  const grand = sub + gst;
+
+  document.getElementById('dispSubtotal').textContent = fmt(sub);
+  document.getElementById('dispGST').textContent      = fmt(gst);
+  document.getElementById('dispGrand').textContent    = fmt(grand);
+  calcBalance();
+}
+function calcBalance() {
+  const grand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g, '')) || 0;
+  const paid  = parseFloat(document.getElementById('amountPaid').value) || 0;
+  document.getElementById('balanceDue').textContent = fmt(grand - paid);
+}
+
+/* ── Payment mode ── */
+function setPayMode(mode) {
+  document.querySelectorAll('.pay-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + mode).classList.add('active');
+  document.getElementById('paymentModeHidden').value = mode;
+  document.getElementById('upiSection').style.display    = mode === 'online' ? 'block' : 'none';
+  document.getElementById('chequeSection').style.display = mode === 'cheque' ? 'grid'  : 'none';
+  document.getElementById('creditNote').style.display    = mode === 'credit' ? 'block' : 'none';
+  if (mode !== 'online') {
+    document.getElementById('upiAppHidden').value = '';
+    document.querySelectorAll('.upi-chip').forEach(c => c.classList.remove('selected'));
+  }
+}
+function selectUPI(el, app) {
+  document.querySelectorAll('.upi-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('upiAppHidden').value = app;
+}
+
+/* ── Shipper autofill ── */
+document.getElementById('shipperSelect').addEventListener('change', function () {
+  const opt = this.options[this.selectedIndex];
+  document.getElementById('shipperPhone').value = opt.dataset.phone || '';
+});
+
+/* ── Validation ── */
+function validateShipForm(e) {
+  const errors = [], banner = document.getElementById('errorBanner'), errList = document.getElementById('errorList');
+  document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
+  banner.style.display = 'none'; errList.innerHTML = '';
+  const shipSel = document.getElementById('shipperSelect');
+  if (!shipSel.value) { errors.push('Please select a Shipper / Agent.'); shipSel.classList.add('field-error'); }
+  const recv = document.querySelector('[name="receiver_name"]');
+  if (!recv.value.trim()) { errors.push('Receiver Name is required.'); recv.classList.add('field-error'); }
+  let sub = 0;
+  document.querySelectorAll('[name="charge_amt[]"]').forEach(i => { sub += parseFloat(i.value) || 0; });
+  document.querySelectorAll('[name="qty[]"]').forEach((qEl, idx) => {
+    const rEl = document.querySelectorAll('[name="rate[]"]')[idx];
+    sub += (parseFloat(qEl.value) || 0) * (parseFloat(rEl?.value) || 0);
+  });
+  if (sub <= 0) errors.push('Total amount must be greater than 0 (add items or charges).');
+  const mode = document.getElementById('paymentModeHidden').value;
+  if (mode === 'online' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI / Online payment app.');
+  if (errors.length) {
+    errors.forEach(err => { const li = document.createElement('li'); li.textContent = err; errList.appendChild(li); });
+    banner.style.display = 'block';
+    banner.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    e.preventDefault(); return false;
+  }
+  return true;
+}
+document.addEventListener('DOMContentLoaded', () => { calcShipTotal(); calcPkg(); });
+</script>
+{% endblock %}

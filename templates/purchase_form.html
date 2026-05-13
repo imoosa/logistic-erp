@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}New Purchase Invoice{% endblock %}
+{% block page_title %}New Purchase Invoice{% endblock %}
+{% set active = 'purchase' %}
+
+{% block extra_style %}
+<style>
+    .ocr-preview { border: 2px dashed #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .item-row { background: #f9fafb; padding: 15px; border-radius: 10px; margin-bottom: 10px; }
+    .remove-item { cursor: pointer; color: #dc2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <!-- OCR Upload Section -->
+        <div class="ocr-preview">
+            <h4>📄 Upload Invoice for Auto-fill</h4>
+            <p class="text-muted">Upload PDF or image - we'll extract items, rates, and GST automatically!</p>
+            <div class="form-group">
+                <input type="file" id="ocr_file" accept=".pdf,.jpg,.jpeg,.png" class="form-control">
+                <button type="button" class="btn btn-primary mt-2" onclick="processOCR()">🔍 Extract Data</button>
+            </div>
+            <div id="ocr_status" class="mt-2"></div>
+        </div>
+        
+        <form method="POST" enctype="multipart/form-data" id="purchaseForm">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Supplier *</label>
+                    <select name="supplier_id" id="supplier_id" required class="form-control">
+                        <option value="">Select Supplier</option>
+                        {% for s in suppliers %}
+                        <option value="{{ s.id }}">{{ s.name }} {% if s.gst_number %}(GST: {{ s.gst_number }}){% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Supplier Invoice Number</label>
+                    <input type="text" name="invoice_number" id="invoice_number" placeholder="Original invoice number">
+                </div>
+                <div class="form-group">
+                    <label>Invoice Date</label>
+                    <input type="date" name="invoice_date" value="{{ today }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date">
+                </div>
+                <div class="form-group">
+                    <label>Payment Terms</label>
+                    <input type="text" name="payment_terms" placeholder="e.g., Net 30 days">
+                </div>
+            </div>
+            
+            <h4 class="mt-4">📦 Items Received</h4>
+            <div id="items_container">
+                <div class="item-row">
+                    <div class="grid-3">
+                        <input type="text" name="item_description[]" placeholder="Item Name" class="form-control" required>
+                        <input type="number" name="item_quantity[]" placeholder="Quantity" step="0.01" class="form-control" required>
+                        <input type="text" name="item_unit[]" placeholder="Unit (pcs, kg, etc)" class="form-control" value="pcs">
+                    </div>
+                    <div class="grid-3 mt-2">
+                        <input type="number" name="item_rate[]" placeholder="Purchase Rate (₹)" step="0.01" class="form-control" required>
+                        <input type="number" name="item_gst[]" placeholder="GST %" step="0.01" class="form-control" value="18">
+                        <button type="button" class="btn btn-danger remove-item" onclick="removeItem(this)">Remove</button>
+                    </div>
+                </div>
+            </div>
+            
+            <button type="button" class="btn btn-secondary mt-2" onclick="addItemRow()">+ Add Another Item</button>
+            
+            <div class="form-group mt-4">
+                <label>Notes</label>
+                <textarea name="notes" rows="3" class="form-control"></textarea>
+            </div>
+            
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary">Create Purchase Invoice</button>
+                <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let itemCount = 1;
+
+function addItemRow() {
+    itemCount++;
+    const container = document.getElementById('items_container');
+    const newRow = document.createElement('div');
+    newRow.className = 'item-row';
+    newRow.innerHTML = `
+        <div class="grid-3">
+            <input type="text" name="item_description[]" placeholder="Item Name" class="form-control" required>
+            <input type="number" name="item_quantity[]" placeholder="Quantity" step="0.01" class="form-control" required>
+            <input type="text" name="item_unit[]" placeholder="Unit (pcs, kg, etc)" class="form-control" value="pcs">
+        </div>
+        <div class="grid-3 mt-2">
+            <input type="number" name="item_rate[]" placeholder="Purchase Rate (₹)" step="0.01" class="form-control" required>
+            <input type="number" name="item_gst[]" placeholder="GST %" step="0.01" class="form-control" value="18">
+            <button type="button" class="btn btn-danger remove-item" onclick="removeItem(this)">Remove</button>
+        </div>
+    `;
+    container.appendChild(newRow);
+}
+
+function removeItem(btn) {
+    btn.closest('.item-row').remove();
+}
+
+async function processOCR() {
+    const fileInput = document.getElementById('ocr_file');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('Please select a file first');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const statusDiv = document.getElementById('ocr_status');
+    statusDiv.innerHTML = '<div class="alert alert-info">📄 Processing OCR... Please wait (this may take 10-30 seconds).</div>';
+    
+    try {
+        const response = await fetch('/purchase/upload-ocr', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            const data = result.data;
+            
+            let successHtml = '<div class="alert alert-success">✓ Data extracted successfully! Found ' + 
+                              (data.item_count || 0) + ' items.</div>';
+            
+            if (data.extracted_text_preview) {
+                successHtml += '<details><summary>📋 View extracted text (for debugging)</summary>' +
+                              '<pre style="background:#f5f5f5; padding:10px; margin-top:10px; font-size:12px; max-height:200px; overflow:auto;">' +
+                              data.extracted_text_preview + '</pre></details>';
+            }
+            
+            statusDiv.innerHTML = successHtml;
+            
+            // Auto-fill form fields
+            if (data.invoice_number) {
+                document.getElementById('invoice_number').value = data.invoice_number;
+                console.log('Filled invoice number:', data.invoice_number);
+            }
+            
+            if (data.supplier_id) {
+                document.getElementById('supplier_id').value = data.supplier_id;
+                console.log('Selected supplier ID:', data.supplier_id);
+            } else if (data.supplier_name) {
+                statusDiv.innerHTML += `<div class="alert alert-warning mt-2">⚠️ Supplier detected: "${data.supplier_name}". Please select from dropdown or create new supplier.</div>`;
+            }
+            
+            if (data.date) {
+                const dateInput = document.querySelector('input[name="invoice_date"]');
+                if (dateInput) dateInput.value = data.date;
+                console.log('Filled date:', data.date);
+            }
+            
+            // Add items
+            if (data.items && data.items.length > 0) {
+                const container = document.getElementById('items_container');
+                container.innerHTML = '';
+                
+                data.items.forEach((item, idx) => {
+                    const newRow = document.createElement('div');
+                    newRow.className = 'item-row';
+                    // Escape special characters in description
+                    const desc = item.description.replace(/[&<>]/g, function(m) {
+                        if (m === '&') return '&amp;';
+                        if (m === '<') return '&lt;';
+                        if (m === '>') return '&gt;';
+                        return m;
+                    });
+                    newRow.innerHTML = `
+                        <div class="grid-3">
+                            <input type="text" name="item_description[]" placeholder="Item Name" class="form-control" value="${desc}" required>
+                            <input type="number" name="item_quantity[]" placeholder="Quantity" step="0.01" class="form-control" value="${item.quantity || 1}" required>
+                            <input type="text" name="item_unit[]" placeholder="Unit" class="form-control" value="pcs">
+                        </div>
+                        <div class="grid-3 mt-2">
+                            <input type="number" name="item_rate[]" placeholder="Purchase Rate (₹)" step="0.01" class="form-control" value="${item.rate || 0}" required>
+                            <input type="number" name="item_gst[]" placeholder="GST %" step="0.01" class="form-control" value="18">
+                            <button type="button" class="btn btn-danger remove-item" onclick="removeItem(this)">Remove</button>
+                        </div>
+                    `;
+                    container.appendChild(newRow);
+                });
+                
+                console.log(`Added ${data.items.length} items to form`);
+                statusDiv.innerHTML += `<div class="alert alert-success mt-2">✓ Added ${data.items.length} items. Please verify and adjust if needed.</div>`;
+            } else {
+                statusDiv.innerHTML += `<div class="alert alert-warning mt-2">⚠️ No items could be extracted automatically. Please add items manually.</div>`;
+            }
+            
+            if (data.grand_total && data.grand_total > 0) {
+                statusDiv.innerHTML += `<div class="alert alert-info mt-2">💰 Detected Total: ₹${data.grand_total.toFixed(2)}</div>`;
+            }
+            
+        } else {
+            const errorMsg = result.error || 'Failed to extract data';
+            statusDiv.innerHTML = `<div class="alert alert-danger">❌ ${errorMsg}<br><br>💡 Tips for better results:<br>
+                - Use clear, high-quality images<br>
+                - Ensure the invoice is well-lit<br>
+                - Try converting to PDF first<br>
+                - Or enter data manually below</div>`;
+        }
+    } catch (error) {
+        console.error('OCR Error:', error);
+        statusDiv.innerHTML = '<div class="alert alert-danger">❌ Error processing file. Please check if Tesseract OCR is installed and try again, or enter data manually.</div>';
+    }
+}
+</script>
+{% endblock %}

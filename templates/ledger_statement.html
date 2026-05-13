@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% block title %}{{ entity.client_name }} · Statement{% endblock %}
+{% block page_title %}
+  {% if mode == 'debtor' %}📥 Debtor Statement{% else %}📤 Creditor Statement{% endif %}
+{% endblock %}
+{% set active = 'debtors' if mode == 'debtor' else 'creditors' %}
+
+{% block extra_style %}
+<style>
+  .stmt-header { background: linear-gradient(135deg,
+    {% if mode == 'debtor' %}#4F46E5, #7C3AED{% else %}#7C3AED, #9D174D{% endif %});
+    border-radius:16px; padding:28px 32px; margin-bottom:24px; color:#fff;
+    display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:20px; }
+  .entity-name { font-size:22px; font-weight:800; margin-bottom:6px; }
+  .entity-meta { font-size:13px; opacity:.85; line-height:1.8; }
+  .stmt-totals { display:flex; gap:24px; flex-wrap:wrap; }
+  .stmt-tot-box { background:rgba(255,255,255,.15); border-radius:12px; padding:14px 20px; min-width:140px; }
+  .stmt-tot-val { font-size:20px; font-weight:800; }
+  .stmt-tot-lbl { font-size:11px; opacity:.8; margin-top:2px; }
+
+  .ledger-type-invoice { color:#4F46E5; font-weight:600; }
+  .ledger-type-payment { color:#16A34A; font-weight:600; }
+  .ledger-type-opening { color:#6B7280; font-style:italic; }
+  .ledger-type-purchase { color:#7C3AED; font-weight:600; }
+
+  .debit-col  { color:#DC2626; }
+  .credit-col { color:#16A34A; }
+  .bal-col    { font-weight:700; }
+  .bal-positive { color:#DC2626; }
+  .bal-zero     { color:#16A34A; }
+
+  .closing-row { background:#F9FAFB; font-weight:700; }
+  .closing-row td { border-top: 2px solid var(--gray-200) !important; padding:14px 16px; }
+
+  .print-btn { background:#fff; color:#4F46E5; border:none; padding:9px 18px; border-radius:8px;
+               font-weight:600; font-size:13px; cursor:pointer; }
+  .print-btn:hover { background:#EEF2FF; }
+
+  .ref-link { color:var(--primary); text-decoration:none; font-weight:500; }
+  .ref-link:hover { text-decoration:underline; }
+
+  @media print {
+    .sidebar, .topbar, .no-print { display:none !important; }
+    .main { margin-left:0 !important; }
+    .content { padding:0 !important; }
+    .stmt-header { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back button -->
+<div class="no-print" style="margin-bottom:16px;">
+  <a href="{{ back_url }}" class="btn btn-ghost btn-sm">← Back to {{ 'Debtors' if mode == 'debtor' else 'Creditors' }}</a>
+</div>
+
+<!-- Header card -->
+<div class="stmt-header">
+  <div>
+    <div class="entity-name">{{ entity.client_name }}</div>
+    <div class="entity-meta">
+      {% if entity.phone %}📞 {{ entity.phone }}<br>{% endif %}
+      {% if entity.email %}✉️ {{ entity.email }}<br>{% endif %}
+      {% if entity.city %}📍 {{ entity.city }}{% if entity.state %}, {{ entity.state }}{% endif %}<br>{% endif %}
+      {% if entity.gst_number %}GST: {{ entity.gst_number }}{% endif %}
+    </div>
+  </div>
+  <div class="stmt-totals">
+    <div class="stmt-tot-box">
+      <div class="stmt-tot-val">₹{{ "{:,.0f}".format(total_debit) }}</div>
+      <div class="stmt-tot-lbl">{{ 'Total Invoiced' if mode == 'debtor' else 'Total Paid' }}</div>
+    </div>
+    <div class="stmt-tot-box">
+      <div class="stmt-tot-val">₹{{ "{:,.0f}".format(total_credit) }}</div>
+      <div class="stmt-tot-lbl">{{ 'Total Received' if mode == 'debtor' else 'Total Billed' }}</div>
+    </div>
+    <div class="stmt-tot-box">
+      <div class="stmt-tot-val">₹{{ "{:,.0f}".format(closing_balance|abs) }}</div>
+      <div class="stmt-tot-lbl">
+        {% if closing_balance > 0 %}
+          {{ 'Outstanding (Dr)' if mode == 'debtor' else 'Payable (Cr)' }}
+        {% elif closing_balance < 0 %}
+          {{ 'Advance (Cr)' if mode == 'debtor' else 'Overpaid (Dr)' }}
+        {% else %}
+          Settled ✓
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Print / Export -->
+<div class="no-print" style="display:flex; gap:12px; margin-bottom:16px;">
+  <button onclick="window.print()" class="btn btn-ghost btn-sm">🖨️ Print Statement</button>
+</div>
+
+<!-- Ledger table -->
+<div class="card">
+  <div style="padding:16px 20px; border-bottom:1px solid var(--gray-100); display:flex; justify-content:space-between; align-items:center;">
+    <span style="font-weight:700; font-size:15px;">
+      📋 Account Statement — {{ entity.client_name }}
+    </span>
+    <span style="font-size:12px; color:var(--gray-400);">
+      As of {{ today if today is defined else '' }}
+    </span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Particulars</th>
+          <th>Reference</th>
+          <th style="text-align:right">
+            {% if mode == 'debtor' %}Debit (Receivable){% else %}Debit (Payment Made){% endif %}
+          </th>
+          <th style="text-align:right">
+            {% if mode == 'debtor' %}Credit (Received){% else %}Credit (Payable){% endif %}
+          </th>
+          <th style="text-align:right">Balance</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in ledger %}
+        <tr>
+          <td style="white-space:nowrap; color:var(--gray-500); font-size:13px;">
+            {% if row.date %}
+              {% if row.date is string %}{{ row.date }}
+              {% else %}{{ row.date.strftime('%d %b %Y') }}{% endif %}
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            {% if row.type == 'Invoice' %}
+              <span class="ledger-type-invoice">🧾 Sales Invoice</span>
+              {% if row.status %}
+                <span class="badge badge-{{ 'success' if row.status=='paid' else 'warning' if row.status=='partial' else 'danger' }}"
+                      style="font-size:10px; margin-left:6px;">{{ row.status|title }}</span>
+              {% endif %}
+            {% elif row.type == 'Purchase Invoice' %}
+              <span class="ledger-type-purchase">📦 Purchase Invoice</span>
+              {% if row.status %}
+                <span class="badge badge-{{ 'success' if row.status=='Paid' else 'warning' if row.status=='Partial' else 'danger' }}"
+                      style="font-size:10px; margin-left:6px;">{{ row.status }}</span>
+              {% endif %}
+            {% elif row.type == 'Payment Received' %}
+              <span class="ledger-type-payment">✅ Payment Received</span>
+            {% elif row.type == 'Payment Made' %}
+              <span class="ledger-type-payment">💳 Payment Made</span>
+            {% else %}
+              <span class="ledger-type-opening">{{ row.type }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if row.id and row.type == 'Invoice' %}
+              <a href="/invoice/view/{{ row.id }}" class="ref-link">{{ row.ref }}</a>
+            {% elif row.id and row.type in ['Purchase Invoice', 'Payment Made'] %}
+              <a href="/purchase/view/{{ row.inv_id if row.inv_id is defined else row.id }}" class="ref-link">{{ row.ref }}</a>
+            {% elif row.id and row.type == 'Payment Received' %}
+              <a href="/invoice/view/{{ row.ref }}" class="ref-link">INV#{{ row.ref }}</a>
+            {% else %}
+              <span style="color:var(--gray-400);">{{ row.ref }}</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right">
+            {% if row.debit > 0 %}
+              <span class="debit-col">₹{{ "{:,.0f}".format(row.debit) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="text-align:right">
+            {% if row.credit > 0 %}
+              <span class="credit-col">₹{{ "{:,.0f}".format(row.credit) }}</span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="text-align:right">
+            <span class="bal-col {{ 'bal-positive' if row.balance > 0 else 'bal-zero' }}">
+              ₹{{ "{:,.0f}".format(row.balance|abs) }}
+              <span style="font-size:10px; font-weight:500; margin-left:2px;">
+                {% if row.balance > 0 %}Dr{% elif row.balance < 0 %}Cr{% else %}Nil{% endif %}
+              </span>
+            </span>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" style="text-align:center; padding:48px; color:var(--gray-400);">
+            No transactions found.
+          </td>
+        </tr>
+        {% endfor %}
+
+        <!-- Closing balance row -->
+        {% if ledger %}
+        <tr class="closing-row">
+          <td colspan="3" style="text-align:right; font-weight:700;">Closing Balance</td>
+          <td style="text-align:right; color:#DC2626; font-weight:700;">₹{{ "{:,.0f}".format(total_debit) }}</td>
+          <td style="text-align:right; color:#16A34A; font-weight:700;">₹{{ "{:,.0f}".format(total_credit) }}</td>
+          <td style="text-align:right;">
+            <span style="font-size:16px; font-weight:800;
+              color:{% if closing_balance > 0 %}#DC2626{% else %}#16A34A{% endif %}">
+              ₹{{ "{:,.0f}".format(closing_balance|abs) }}
+              {% if closing_balance > 0 %} Dr{% elif closing_balance < 0 %} Cr{% else %} ✓{% endif %}
+            </span>
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

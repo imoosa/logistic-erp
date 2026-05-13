@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Orders{% endblock %}
+{% block page_title %}Orders{% endblock %}
+{% set active = 'orders' %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>All Orders</h2>
+  <a href="/new-order" class="btn btn-primary">+ New Order</a>
+</div>
+
+<!-- Status filter tabs -->
+<div class="tabs">
+  {% for s in ['All','Pending','Processing','Delivered','Cancelled'] %}
+  <a href="/orders?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">{{ s }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Order ID</th><th>Client</th><th>Date</th><th>Amount</th><th>Status</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><strong style="color:#4F46E5">{{ o.id }}</strong></td>
+          <td>{{ o.client }}</td>
+          <td style="color:#6B7280">{{ o.date }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(o.amount) }}</strong></td>
+          <td>
+            {% if o.status == 'Delivered' %}<span class="badge badge-success">{{ o.status }}</span>
+            {% elif o.status == 'Pending' %}<span class="badge badge-warning">{{ o.status }}</span>
+            {% elif o.status == 'Processing' %}<span class="badge badge-primary">{{ o.status }}</span>
+            {% elif o.status == 'Cancelled' %}<span class="badge badge-danger">{{ o.status }}</span>
+            {% else %}<span class="badge badge-gray">{{ o.status }}</span>{% endif %}
+          </td>
+          <td><a href="#" class="btn btn-ghost btn-sm">View</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:40px;color:#9CA3AF">No orders found</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

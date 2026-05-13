@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+{% block title %}Invoice Billing{% endblock %}
+{% block page_title %}Invoice Billing{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  .bill-type-tabs { display:flex; gap:10px; margin-bottom:20px; }
+  .bill-type { padding:10px 20px; border-radius:10px; cursor:pointer; background:#F3F4F6; font-weight:600; }
+  .bill-type.active { background:#4F46E5; color:#fff; }
+  .credit-orders-list { max-height:300px; overflow-y:auto; border:1px solid #E5E7EB; border-radius:10px; margin-top:10px; }
+  .credit-order-item { padding:12px; border-bottom:1px solid #F3F4F6; cursor:pointer; transition:background .15s; }
+  .credit-order-item:hover { background:#F9FAFB; }
+  .credit-order-item.selected { background:#EEF2FF; border-left:3px solid #4F46E5; }
+  .import-btn { background:#4F46E5; color:#fff; border:none; padding:8px 16px; border-radius:8px; cursor:pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>🧾 Invoice Billing</h2>
+  <a href="/dashboard" class="btn btn-ghost">← Back</a>
+</div>
+
+<!-- Bill Type Selection -->
+<div class="bill-type-tabs">
+  <div class="bill-type {% if bill_type == 'cash' %}active{% endif %}" onclick="setBillType('cash')">💵 Cash Bill</div>
+  <div class="bill-type {% if bill_type == 'credit' %}active{% endif %}" onclick="setBillType('credit')">💳 Credit Bill</div>
+</div>
+
+<form method="POST" id="invoiceForm">
+  <input type="hidden" name="bill_type" id="billType" value="{{ bill_type }}">
+  
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Customer Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input type="text" name="customer_name" required value="{{ form_data.customer_name or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="text" name="customer_phone" value="{{ form_data.customer_phone or '' }}">
+      </div>
+      <div class="form-group">
+        <label>GST Number</label>
+        <input type="text" name="customer_gst" value="{{ form_data.customer_gst or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Invoice Date</label>
+        <input type="date" name="invoice_date" value="{{ today }}">
+      </div>
+    </div>
+  </div>
+
+  <!-- Credit Orders Section (only shown for credit bills) -->
+  <div id="creditSection" style="display: {% if bill_type == 'credit' %}block{% else %}none{% endif %}; margin-bottom:16px">
+    <div class="card card-body">
+      <div class="section-title">Import from Orders</div>
+      <p style="font-size:12px; color:#6B7280; margin-bottom:12px">Select pending orders to convert to credit invoice</p>
+      
+      <div class="credit-orders-list" id="ordersList">
+        {% for order in pending_orders %}
+        <div class="credit-order-item" data-order-id="{{ order.id }}" data-order-amount="{{ order.amount }}" data-order-client="{{ order.client }}" onclick="toggleOrderSelection(this)">
+          <div style="display:flex; justify-content:space-between">
+            <div>
+              <strong>{{ order.id }}</strong><br>
+              <span style="font-size:12px; color:#6B7280">{{ order.client }} | {{ order.date }}</span>
+            </div>
+            <div style="text-align:right">
+              <strong>₹{{ "{:,.0f}".format(order.amount) }}</strong><br>
+              <span style="font-size:11px; color:#D97706">Pending: ₹{{ "{:,.0f}".format(order.amount - order.received) }}</span>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="imported_orders" id="importedOrders" value="">
+      <div style="margin-top:12px">
+        <button type="button" class="btn btn-primary btn-sm" onclick="importSelectedOrders()">➕ Import Selected Orders</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invoice Items -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Invoice Items</div>
+    <div style="overflow-x:auto">
+      <table class="items-table" style="width:100%">
+        <thead>
+          <tr>
+            <th>Item Code</th><th>Description</th><th>Qty</th><th>Rate (₹)</th><th>Discount %</th><th>Total (₹)</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="invoiceItemsBody">
+          {% for item in items %}
+          <tr>
+            <td><input name="item_code[]" value="{{ item.code }}" placeholder="Code" style="width:100px"></td>
+            <td><input name="description[]" value="{{ item.desc }}" placeholder="Description"></td>
+            <td><input name="qty[]" type="number" value="{{ item.qty }}" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input name="rate[]" type="number" value="{{ item.rate }}" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+            <td><input name="discount[]" type="number" value="{{ item.discount }}" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+            <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td><input name="item_code[]" placeholder="Code" style="width:100px"></td>
+            <td><input name="description[]" placeholder="Description"></td>
+            <td><input name="qty[]" type="number" value="1" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input name="rate[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+            <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+            <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+            <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addInvoiceRow()" style="margin-top:12px">+ Add Item</button>
+
+    <div class="billing-box" style="margin-top:16px">
+      <div class="billing-row"><span>Subtotal</span><span id="invoiceSubtotal">₹0</span></div>
+      <div class="billing-row"><span>Discount</span><span id="invoiceDiscount">₹0</span></div>
+      <div class="billing-row"><span>GST (18%)</span><span id="invoiceTax">₹0</span></div>
+      <div class="billing-row grand"><span>Grand Total</span><span id="invoiceGrand">₹0</span></div>
+      
+      <!-- Payment Section -->
+      <div style="margin-top:16px; padding-top:12px; border-top:1px solid #E5E7EB">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select name="payment_mode" id="paymentMode" onchange="togglePaymentFields()">
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="cheque">Cheque</option>
+              <option value="credit">Credit</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount Paid</label>
+            <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="0" oninput="calcBalance()">
+          </div>
+          <div id="chequeFields" style="display:none" class="grid-2">
+            <div class="form-group">
+              <label>Cheque Number</label>
+              <input type="text" name="cheque_no">
+            </div>
+            <div class="form-group">
+              <label>Cheque Date</label>
+              <input type="date" name="cheque_date">
+            </div>
+          </div>
+          <div id="bankFields" style="display:none" class="grid-2">
+            <div class="form-group">
+              <label>Transaction ID</label>
+              <input type="text" name="transaction_id">
+            </div>
+            <div class="form-group">
+              <label>Bank Name</label>
+              <input type="text" name="bank_name">
+            </div>
+          </div>
+        </div>
+        <div class="billing-row" style="margin-top:10px">
+          <span>Balance Due</span>
+          <span id="balanceDue" style="color:#DC2626; font-weight:700">₹0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; justify-content:flex-end; gap:12px">
+    <button type="submit" name="action" value="draft" class="btn btn-ghost">Save Draft</button>
+    <button type="submit" name="action" value="final" class="btn btn-success">✓ Generate Invoice</button>
+  </div>
+</form>
+
+<script>
+let selectedOrders = [];
+
+function setBillType(type) {
+  document.getElementById('billType').value = type;
+  document.querySelectorAll('.bill-type').forEach(el => el.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('creditSection').style.display = type === 'credit' ? 'block' : 'none';
+}
+
+function toggleOrderSelection(element) {
+  const orderId = element.dataset.orderId;
+  if (element.classList.contains('selected')) {
+    element.classList.remove('selected');
+    selectedOrders = selectedOrders.filter(id => id !== orderId);
+  } else {
+    element.classList.add('selected');
+    selectedOrders.push(orderId);
+  }
+}
+
+function importSelectedOrders() {
+  if (selectedOrders.length === 0) {
+    alert('Please select at least one order to import');
+    return;
+  }
+  fetch('/invoice/import-orders', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({order_ids: selectedOrders})
+  }).then(res => res.json())
+    .then(data => {
+      // Clear existing items and add imported items
+      const tbody = document.getElementById('invoiceItemsBody');
+      tbody.innerHTML = '';
+      data.items.forEach(item => {
+        addInvoiceRowWithData(item.code, item.desc, item.qty, item.rate);
+      });
+      document.getElementById('importedOrders').value = JSON.stringify(selectedOrders);
+      calcInvoiceTotal();
+      alert(`Imported ${data.items.length} items from ${selectedOrders.length} orders`);
+    });
+}
+
+function addInvoiceRowWithData(code, desc, qty, rate) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input name="item_code[]" value="${code}" placeholder="Code" style="width:100px"></td>
+    <td><input name="description[]" value="${desc}" placeholder="Description"></td>
+    <td><input name="qty[]" type="number" value="${qty}" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input name="rate[]" type="number" value="${rate}" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+    <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+    <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>
+  `;
+  document.getElementById('invoiceItemsBody').appendChild(tr);
+  calcInvoiceTotal();
+}
+
+function addInvoiceRow() {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input name="item_code[]" placeholder="Code" style="width:100px"></td>
+    <td><input name="description[]" placeholder="Description"></td>
+    <td><input name="qty[]" type="number" value="1" min="1" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input name="rate[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:100px"></td>
+    <td><input name="discount[]" type="number" value="0" step="0.01" oninput="calcInvoiceTotal()" style="width:80px"></td>
+    <td><input class="row-total" disabled style="background:#F9FAFB;width:100px" value="₹0"></td>
+    <td><button type="button" class="del-btn" onclick="removeInvoiceRow(this)">×</button></td>
+  `;
+  document.getElementById('invoiceItemsBody').appendChild(tr);
+}
+
+function removeInvoiceRow(btn) {
+  const rows = document.querySelectorAll('#invoiceItemsBody tr');
+  if (rows.length === 1) { alert('Need at least one item.'); return; }
+  btn.closest('tr').remove();
+  calcInvoiceTotal();
+}
+
+function calcInvoiceTotal() {
+  let subtotal = 0;
+  let totalDiscount = 0;
+  document.querySelectorAll('#invoiceItemsBody tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('[name="qty[]"]')?.value) || 0;
+    const rate = parseFloat(tr.querySelector('[name="rate[]"]')?.value) || 0;
+    const discount = parseFloat(tr.querySelector('[name="discount[]"]')?.value) || 0;
+    const total = qty * rate;
+    const discountAmt = total * discount / 100;
+    subtotal += total;
+    totalDiscount += discountAmt;
+    const rowTotal = tr.querySelector('.row-total');
+    if (rowTotal) rowTotal.value = '₹' + (total - discountAmt).toLocaleString('en-IN');
+  });
+  const tax = (subtotal - totalDiscount) * 0.18;
+  const grand = subtotal - totalDiscount + tax;
+  document.getElementById('invoiceSubtotal').innerText = '₹' + subtotal.toLocaleString('en-IN');
+  document.getElementById('invoiceDiscount').innerText = '₹' + totalDiscount.toLocaleString('en-IN');
+  document.getElementById('invoiceTax').innerText = '₹' + tax.toLocaleString('en-IN');
+  document.getElementById('invoiceGrand').innerText = '₹' + grand.toLocaleString('en-IN');
+  calcBalance();
+}
+
+function togglePaymentFields() {
+  const mode = document.getElementById('paymentMode').value;
+  document.getElementById('chequeFields').style.display = mode === 'cheque' ? 'grid' : 'none';
+  document.getElementById('bankFields').style.display = mode === 'bank_transfer' ? 'grid' : 'none';
+}
+
+function calcBalance() {
+  const grandText = document.getElementById('invoiceGrand').innerText;
+  const grand = parseFloat(grandText.replace(/[^0-9.-]/g, '')) || 0;
+  const paid = parseFloat(document.getElementById('amountPaid').value) || 0;
+  document.getElementById('balanceDue').innerText = '₹' + (grand - paid).toLocaleString('en-IN');
+}
+
+calcInvoiceTotal();
+</script>
+{% endblock %}

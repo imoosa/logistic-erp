@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Stock Management{% endblock %}
+{% block page_title %}Stock Management{% endblock %}
+{% set active = 'stock' %}
+
+{% block extra_style %}
+<style>
+  .stock-card { background:#fff; border-radius:14px; border:1px solid #E5E7EB; overflow:hidden; }
+  .stock-header { padding:16px 20px; border-bottom:1px solid #F3F4F6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  .stock-qty { font-size:24px; font-weight:800; }
+  .low-stock { background:#FEF3C7; color:#D97706; }
+  .out-stock { background:#FEE2E2; color:#DC2626; }
+  .in-stock { background:#DCFCE7; color:#16A34A; }
+  .stock-badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>📦 Stock Inventory</h2>
+  <button class="btn btn-primary" onclick="openStockModal()">+ Add Stock Item</button>
+</div>
+
+<!-- Stock Summary KPIs -->
+<div class="kpi-grid" style="margin-bottom:20px">
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">📦</div>
+    <div class="kpi-val" style="color:#4F46E5">{{ stock_summary.total_items }}</div>
+    <div class="kpi-lbl">Total Items</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">✅</div>
+    <div class="kpi-val" style="color:#16A34A">{{ stock_summary.in_stock }}</div>
+    <div class="kpi-lbl">In Stock</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⚠️</div>
+    <div class="kpi-val" style="color:#D97706">{{ stock_summary.low_stock }}</div>
+    <div class="kpi-lbl">Low Stock (&lt;10)</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">❌</div>
+    <div class="kpi-val" style="color:#DC2626">{{ stock_summary.out_stock }}</div>
+    <div class="kpi-lbl">Out of Stock</div>
+  </div>
+</div>
+
+<!-- Stock Table -->
+<div class="stock-card">
+  <div class="stock-header">
+    <strong>All Stock Items</strong>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="searchStock" placeholder="🔍 Search item..." style="width:200px" onkeyup="filterStock()">
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="stockTable">
+      <thead>
+        <tr>
+          <th>Product Code</th>
+          <th>Product Name</th>
+          <th>Category</th>
+          <th>Quantity</th>
+          <th>Purchase Rate</th>
+          <th>Selling Price</th>
+          <th>Margin</th>
+          <th>Actions</th>
+          <th>Unit Price</th>
+          <th>GST %</th>
+          <th>Total Value</th>
+          <th>Status</th>
+          <th>Last Updated</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in stock_items %}
+        <tr>
+          <td><strong style="color:#4F46E5">{{ item.code }}</strong></td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.category }}</td>
+          <td>
+            <strong>{{ item.quantity }}</strong> {{ item.unit }}
+            {% if item.reorder_level and item.quantity <= item.reorder_level %}
+              <span class="stock-badge {% if item.quantity <= 0 %}out-stock{% else %}low-stock{% endif %}" style="margin-left:8px">
+                {% if item.quantity <= 0 %}Out{% else %}Low{% endif %}
+              </span>
+            {% endif %}
+          </td>
+          <td>₹{{ "{:,.2f}".format(item.purchase_rate or 0) }}</td>
+<td>₹{{ "{:,.2f}".format(item.selling_price or item.unit_price or 0) }}</td>
+<td class="{% if (item.selling_price or item.unit_price or 0) > (item.purchase_rate or 0) %}text-success{% else %}text-danger{% endif %}">
+    {% if item.purchase_rate and item.purchase_rate > 0 %}
+        {{ "%.1f"|format(((item.selling_price or item.unit_price or 0) - item.purchase_rate) / item.purchase_rate * 100) }}%
+    {% else %}
+        -
+    {% endif %}
+</td>
+
+          <td>₹{{ "{:,.2f}".format(item.unit_price) }}</td>
+          <td>{{ item.gst_percent or 18 }}%</td>
+          <td>₹{{ "{:,.2f}".format(item.quantity * item.unit_price) }}</td>
+          <td>
+            {% if item.quantity <= 0 %}
+              <span class="stock-badge out-stock">Out of Stock</span>
+            {% elif item.reorder_level and item.quantity <= item.reorder_level %}
+              <span class="stock-badge low-stock">Low Stock</span>
+            {% else %}
+              <span class="stock-badge in-stock">In Stock</span>
+            {% endif %}
+          </td>
+          <td style="color:#6B7280;font-size:12px">{{ item.last_updated }}</td>
+          <td>
+            <button class="btn btn-ghost btn-sm" onclick="editStockItem('{{ item.code }}')">✏️</button>
+            <button class="btn btn-ghost btn-sm" onclick="adjustStock('{{ item.code }}')">📊 Adj</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Stock Adjustment Modal -->
+<div id="stockModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
+    <h3 id="modalTitle" style="margin-bottom:20px">Add Stock Item</h3>
+    <form id="stockForm">
+      <input type="hidden" id="stockCode" name="code">
+      <div class="form-group">
+        <label>Product Name *</label>
+        <input type="text" id="stockName" name="name" required>
+      </div>
+      <div class="form-group">
+        <label>Category</label>
+        <select id="stockCategory" name="category">
+          <option value="Electronics">Electronics</option>
+          <option value="Furniture">Furniture</option>
+          <option value="Stationery">Stationery</option>
+          <option value="Raw Material">Raw Material</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Quantity *</label>
+          <input type="number" id="stockQuantity" name="quantity" step="1" required>
+        </div>
+        <div class="form-group">
+          <label>Unit</label>
+          <select id="stockUnit" name="unit">
+            <option value="pcs">Pieces</option>
+            <option value="kg">Kilograms</option>
+            <option value="m">Meters</option>
+            <option value="box">Box</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Unit Price (₹) *</label>
+          <input type="number" id="stockPrice" name="unit_price" step="0.01" required>
+        </div>
+        <div class="form-group">
+          <label>Reorder Level</label>
+          <input type="number" id="stockReorder" name="reorder_level" value="10">
+        </div>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
+        <button type="button" class="btn btn-ghost" onclick="closeStockModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openStockModal(itemCode=null) {
+  document.getElementById('stockModal').style.display = 'flex';
+  if (itemCode) {
+    document.getElementById('modalTitle').innerText = 'Edit Stock Item';
+    fetch(`/stock/item/${itemCode}`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('stockCode').value = data.code;
+        document.getElementById('stockName').value = data.name;
+        document.getElementById('stockCategory').value = data.category;
+        document.getElementById('stockQuantity').value = data.quantity;
+        document.getElementById('stockUnit').value = data.unit;
+        document.getElementById('stockPrice').value = data.unit_price;
+        document.getElementById('stockReorder').value = data.reorder_level || 10;
+      });
+  } else {
+    document.getElementById('modalTitle').innerText = 'Add Stock Item';
+    document.getElementById('stockForm').reset();
+    document.getElementById('stockCode').value = '';
+  }
+}
+
+function closeStockModal() {
+  document.getElementById('stockModal').style.display = 'none';
+}
+
+function editStockItem(code) {
+  openStockModal(code);
+}
+
+function adjustStock(code) {
+  let newQty = prompt('Enter new quantity:');
+  if (newQty !== null) {
+    fetch('/stock/adjust', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({code: code, quantity: parseInt(newQty)})
+    }).then(() => location.reload());
+  }
+}
+
+document.getElementById('stockForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+  const data = Object.fromEntries(formData);
+  await fetch('/stock/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  });
+  closeStockModal();
+  location.reload();
+});
+
+function filterStock() {
+  const search = document.getElementById('searchStock').value.toLowerCase();
+  const rows = document.querySelectorAll('#stockTable tbody tr');
+  rows.forEach(row => {
+    const text = row.innerText.toLowerCase();
+    row.style.display = text.includes(search) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

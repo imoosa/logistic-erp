@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}Order {{ order.id }}{% endblock %}
+{% block page_title %}Order Details{% endblock %}
+{% set active = 'orders' %}
+
+{% block extra_style %}
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    .sidebar, .topbar { display: none !important; }
+    .main { margin-left: 0 !important; }
+    body { background: #fff; }
+  }
+
+  .order-card {
+    background: #fff;
+    border-radius: 14px;
+    border: 1px solid #E5E7EB;
+    overflow: hidden;
+    max-width: 860px;
+  }
+  .order-header {
+    background: linear-gradient(135deg, #4F46E5, #7C3AED);
+    color: #fff;
+    padding: 24px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .order-id-badge {
+    background: rgba(255,255,255,.15);
+    border-radius: 10px;
+    padding: 10px 18px;
+    text-align: right;
+  }
+  .order-id-badge .label { font-size: 10px; opacity: .7; text-transform: uppercase; letter-spacing: .8px; }
+  .order-id-badge .value { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+
+  .status-row {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .meta-box {
+    flex: 1;
+    padding: 16px 24px;
+    border-right: 1px solid #F3F4F6;
+  }
+  .meta-box:last-child { border-right: none; }
+  .meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #9CA3AF; margin-bottom: 4px; }
+  .meta-value { font-size: 14px; font-weight: 600; color: #111827; }
+
+  .section-body { padding: 20px 24px; }
+  .section-head {
+    padding: 10px 24px;
+    background: #F9FAFB;
+    border-top: 1px solid #F3F4F6;
+    border-bottom: 1px solid #F3F4F6;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: #6B7280;
+  }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .info-row { display: flex; flex-direction: column; gap: 2px; }
+  .info-row .lbl { font-size: 11px; color: #9CA3AF; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .info-row .val { font-size: 14px; color: #111827; font-weight: 500; }
+
+  .summary-table { width: 100%; }
+  .summary-table td { padding: 7px 0; font-size: 14px; }
+  .summary-table td:last-child { text-align: right; font-weight: 600; }
+  .summary-table .grand td { font-size: 17px; font-weight: 800; color: #4F46E5; border-top: 2px solid #E5E7EB; padding-top: 12px; }
+  .summary-table .balance td { color: #DC2626; }
+  .summary-table .received td { color: #16A34A; }
+
+  .status-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .s-delivered { background: #DCFCE7; color: #16A34A; }
+  .s-pending   { background: #FEF3C7; color: #D97706; }
+  .s-processing{ background: #EEF2FF; color: #4F46E5; }
+  .s-cancelled { background: #FEE2E2; color: #DC2626; }
+
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content:''; position:absolute; left:7px; top:4px; bottom:4px; width:2px; background:#E5E7EB; }
+  .tl-item { position: relative; margin-bottom: 16px; }
+  .tl-dot {
+    position: absolute; left: -24px; top: 3px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #E5E7EB; border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #E5E7EB;
+  }
+  .tl-dot.done { background: #4F46E5; box-shadow: 0 0 0 2px #C7D2FE; }
+  .tl-label { font-size: 13px; font-weight: 600; color: #374151; }
+  .tl-sub   { font-size: 11px; color: #9CA3AF; margin-top: 1px; }
+
+  @media (max-width: 600px) {
+    .status-row { flex-wrap: wrap; }
+    .meta-box { border-right: none; border-bottom: 1px solid #F3F4F6; }
+    .info-grid { grid-template-columns: 1fr; }
+    .order-header { flex-direction: column; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Action bar -->
+<div class="no-print" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+  <a href="/orders" class="btn btn-ghost btn-sm">← Back to Orders</a>
+  <div style="flex:1"></div>
+  <a href="/orders/edit/{{ order.id }}" class="btn btn-ghost btn-sm">✏️ Edit</a>
+  <button onclick="window.print()" class="btn btn-ghost btn-sm">🖨️ Print</button>
+  <form method="POST" action="/orders/delete/{{ order.id }}"
+        onsubmit="return confirm('Delete order {{ order.id }}? This cannot be undone.')"
+        style="display:inline">
+    <button type="submit" class="btn btn-sm"
+            style="background:#FEE2E2;color:#DC2626;border:none">🗑️ Delete</button>
+  </form>
+</div>
+
+<div class="order-card">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="order-header">
+    <div>
+      <div style="font-size:12px;opacity:.7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Purchase Order</div>
+      <div style="font-size:13px;opacity:.85">{{ company.company_name if company else '' }}</div>
+    </div>
+    <div class="order-id-badge">
+      <div class="label">Order #</div>
+      <div class="value">{{ order.id }}</div>
+    </div>
+  </div>
+
+  <!-- ── Status meta row ────────────────────────────────────────────────── -->
+  <div class="status-row">
+    <div class="meta-box">
+      <div class="meta-label">Order Date</div>
+      <div class="meta-value">{{ order.date }}</div>
+    </div>
+    <div class="meta-box">
+      <div class="meta-label">Client</div>
+      <div class="meta-value">{{ order.client }}</div>
+    </div>
+    <div class="meta-box">
+      <div class="meta-label">Assigned To</div>
+      <div class="meta-value">{{ order.employee or '—' }}</div>
+    </div>
+    <div class="meta-box">
+      <div class="meta-label">Status</div>
+      <div class="meta-value">
+        {% if order.status == 'Delivered' %}
+          <span class="status-badge s-delivered">✓ Delivered</span>
+        {% elif order.status == 'Processing' %}
+          <span class="status-badge s-processing">⚙ Processing</span>
+        {% elif order.status == 'Cancelled' %}
+          <span class="status-badge s-cancelled">✕ Cancelled</span>
+        {% else %}
+          <span class="status-badge s-pending">⏳ Pending</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Client details ─────────────────────────────────────────────────── -->
+  {% if order.client_obj %}
+  <div class="section-head">👤 Client Details</div>
+  <div class="section-body">
+    <div class="info-grid">
+      <div class="info-row">
+        <span class="lbl">Company / Name</span>
+        <span class="val">{{ order.client_obj.name }}</span>
+      </div>
+      {% if order.client_obj.phone %}
+      <div class="info-row">
+        <span class="lbl">Phone</span>
+        <span class="val">
+          {{ order.client_obj.phone }}
+          {% if order.client_obj.phone %}
+          &nbsp;
+          <a href="https://wa.me/91{{ order.client_obj.phone }}" target="_blank"
+             style="font-size:11px;color:#25D366;text-decoration:none">💬 WhatsApp</a>
+          {% endif %}
+        </span>
+      </div>
+      {% endif %}
+      {% if order.client_obj.email %}
+      <div class="info-row">
+        <span class="lbl">Email</span>
+        <span class="val">{{ order.client_obj.email }}</span>
+      </div>
+      {% endif %}
+      {% if order.client_obj.gst_number %}
+      <div class="info-row">
+        <span class="lbl">GST Number</span>
+        <span class="val">{{ order.client_obj.gst_number }}</span>
+      </div>
+      {% endif %}
+      {% if order.client_obj.city or order.client_obj.state %}
+      <div class="info-row">
+        <span class="lbl">Location</span>
+        <span class="val">
+          {{ [order.client_obj.city, order.client_obj.state] | select | join(', ') }}
+        </span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Financial Summary ──────────────────────────────────────────────── -->
+  <div class="section-head">💰 Financial Summary</div>
+  <div class="section-body">
+    <div style="max-width:380px;margin-left:auto">
+      <table class="summary-table">
+        <tr>
+          <td style="color:#6B7280">Order Amount</td>
+          <td>₹{{ "{:,.2f}".format(order.amount) }}</td>
+        </tr>
+        <tr class="received">
+          <td>Amount Received</td>
+          <td>₹{{ "{:,.2f}".format(order.received) }}</td>
+        </tr>
+        <tr class="balance">
+          <td>Balance Due</td>
+          <td>₹{{ "{:,.2f}".format(order.balance) }}</td>
+        </tr>
+        <tr class="grand">
+          <td>Grand Total</td>
+          <td>₹{{ "{:,.2f}".format(order.amount) }}</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- Payment progress bar -->
+    {% if order.amount > 0 %}
+    {% set pct = [(order.received / order.amount * 100), 100] | min | int %}
+    <div style="margin-top:20px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#6B7280;margin-bottom:6px">
+        <span>Payment Progress</span>
+        <span style="font-weight:700;color:{% if pct==100 %}#16A34A{% else %}#D97706{% endif %}">{{ pct }}% paid</span>
+      </div>
+      <div style="background:#F3F4F6;border-radius:99px;height:10px;overflow:hidden">
+        <div style="width:{{ pct }}%;height:100%;border-radius:99px;background:{% if pct==100 %}#16A34A{% elif pct>50 %}#4F46E5{% else %}#D97706{% endif %};transition:width .4s"></div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Order Timeline ─────────────────────────────────────────────────── -->
+  <div class="section-head">📋 Order Progress</div>
+  <div class="section-body">
+    <div class="timeline">
+      <div class="tl-item">
+        <div class="tl-dot done"></div>
+        <div class="tl-label">Order Placed</div>
+        <div class="tl-sub">{{ order.date }}</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if order.status in ['Processing','Delivered'] %}done{% endif %}"></div>
+        <div class="tl-label" style="color:{% if order.status in ['Processing','Delivered'] %}#111827{% else %}#9CA3AF{% endif %}">Processing</div>
+        <div class="tl-sub">{% if order.status in ['Processing','Delivered'] %}In progress{% else %}Awaiting{% endif %}</div>
+      </div>
+      <div class="tl-item">
+        <div class="tl-dot {% if order.status == 'Delivered' %}done{% endif %}"></div>
+        <div class="tl-label" style="color:{% if order.status == 'Delivered' %}#16A34A{% else %}#9CA3AF{% endif %}">
+          {% if order.status == 'Delivered' %}✓ Delivered{% else %}Delivery Pending{% endif %}
+        </div>
+        <div class="tl-sub">{% if order.status == 'Delivered' %}Completed{% else %}Not yet{% endif %}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Quick Actions ──────────────────────────────────────────────────── -->
+  <div class="section-head no-print">⚡ Quick Actions</div>
+  <div class="section-body no-print" style="display:flex;gap:10px;flex-wrap:wrap">
+    <a href="/invoice/new?client_id={{ order.client_id }}" class="btn btn-primary btn-sm">🧾 Create Invoice</a>
+    <a href="/estimate/new?client_id={{ order.client_id }}" class="btn btn-ghost btn-sm">📄 Create Estimate</a>
+    <a href="/orders/edit/{{ order.id }}" class="btn btn-ghost btn-sm">✏️ Edit Order</a>
+    {% if order.client_obj and order.client_obj.phone %}
+    <a href="https://wa.me/91{{ order.client_obj.phone }}?text=Hello%20{{ order.client %}%2C%20your%20order%20{{ order.id }}%20is%20{{ order.status }}."
+       target="_blank" class="btn btn-sm" style="background:#DCFCE7;color:#16A34A;border:none">
+      💬 WhatsApp Client
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:12px 24px;text-align:center;font-size:11px;color:#9CA3AF;border-top:1px solid #F3F4F6">
+    Order {{ order.id }} &nbsp;·&nbsp; Generated by Maktroniks ERP
+  </div>
+
+</div>
+{% endblock %}

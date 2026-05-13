@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Invoice {{ invoice.id }}{% endblock %}
+{% block page_title %}Invoice Details{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    .main { margin-left: 0 !important; }
+    .card { box-shadow: none; border: 1px solid #ddd; }
+  }
+  .invoice-header { background: linear-gradient(135deg,#4F46E5,#7C3AED); color: #fff; padding: 20px; border-radius: 14px; margin-bottom: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="no-print" style="margin-bottom:20px">
+  <a href="/invoice/list" class="btn btn-ghost btn-sm">← Back</a>
+  <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print Invoice</button>
+</div>
+
+<div class="invoice-header">
+  <div style="display:flex; justify-content:space-between; align-items:center">
+    <div>
+      <h2 style="font-size:24px; margin-bottom:4px">TAX INVOICE</h2>
+      <p style="opacity:0.8">Maktronics Enterprises Pvt Ltd</p>
+    </div>
+    <div style="text-align:right">
+      <p><strong>Invoice #:</strong> {{ invoice.id }}</p>
+      <p><strong>Date:</strong> {{ invoice.date }}</p>
+      <p><strong>Type:</strong> {% if invoice.bill_type == 'cash' %}Cash Bill{% else %}Credit Bill{% endif %}</p>
+    </div>
+  </div>
+</div>
+
+<div class="card card-body" style="margin-bottom:16px">
+  <div class="grid-2">
+    <div>
+      <h4>Bill To:</h4>
+      <p><strong>{{ invoice.customer_name }}</strong></p>
+      {% if invoice.customer_phone %}<p>Phone: {{ invoice.customer_phone }}</p>{% endif %}
+      {% if invoice.customer_gst %}<p>GST: {{ invoice.customer_gst }}</p>{% endif %}
+    </div>
+    <div>
+      <h4>Payment Details:</h4>
+      <p><strong>Payment Mode:</strong> {{ invoice.payment_mode|capitalize }}</p>
+      {% if invoice.cheque_no %}<p><strong>Cheque No:</strong> {{ invoice.cheque_no }}</p>{% endif %}
+      {% if invoice.transaction_id %}<p><strong>Transaction ID:</strong> {{ invoice.transaction_id }}</p>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>#</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Rate</th><th>Discount</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        {% for item in invoice['items'] %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td>{{ item.code }}</td>
+          <td>{{ item.desc }}</td>
+          <td>{{ item.qty }}</td>
+          <td>₹{{ "{:,.2f}".format(item.rate) }}</td>
+          <td>{{ item.discount }}%</td>
+          <td>₹{{ "{:,.2f}".format(item.qty * item.rate * (1 - item.discount/100)) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="6" style="text-align:right"><strong>Subtotal:</strong></td><td>₹{{ "{:,.2f}".format(invoice.subtotal) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right"><strong>GST (18%):</strong></td><td>₹{{ "{:,.2f}".format(invoice.tax) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right"><strong>Grand Total:</strong></td><td><strong>₹{{ "{:,.2f}".format(invoice.total) }}</strong></td></tr>
+        <tr><td colspan="6" style="text-align:right"><strong>Amount Paid:</strong></td><td>₹{{ "{:,.2f}".format(invoice.paid) }}</td></tr>
+        <tr><td colspan="6" style="text-align:right"><strong>Balance Due:</strong></td><td style="color:#DC2626"><strong>₹{{ "{:,.2f}".format(invoice.balance) }}</strong></td></tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+{% if invoice.related_orders %}
+<div class="card card-body" style="margin-top:16px">
+  <h4>Related Orders:</h4>
+  {% for order_id in invoice.related_orders %}
+  <span class="badge badge-primary">{{ order_id }}</span>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card card-body" style="margin-top:16px">
+  <p style="font-size:12px; color:#6B7280"><strong>Terms & Conditions:</strong> Payment due within 15 days. Late payment subject to 18% interest per annum.</p>
+</div>
+
+{% endblock %}

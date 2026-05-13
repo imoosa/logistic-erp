@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% set active = 'dashboard' %}
+
+{% block content %}
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">📋</div>
+    <div class="kpi-val" style="color:#4F46E5">{{ stats.total_orders }}</div>
+    <div class="kpi-lbl">Total Orders</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⏳</div>
+    <div class="kpi-val" style="color:#D97706">{{ stats.pending_orders }}</div>
+    <div class="kpi-lbl">Pending Orders</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">✅</div>
+    <div class="kpi-val" style="color:#16A34A">{{ stats.delivered }}</div>
+    <div class="kpi-lbl">Delivered</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">💰</div>
+    <div class="kpi-val" style="color:#DC2626">₹{{ "{:,.0f}".format(stats.total_billing) }}</div>
+    <div class="kpi-lbl">Total Billing</div>
+  </div>
+</div>
+
+<!-- Recent Orders -->
+<div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid #F3F4F6">
+    <strong>Recent Orders</strong>
+    <div style="display:flex;gap:8px">
+      <a href="/orders" class="btn btn-ghost btn-sm">View All</a>
+      <a href="/new-order" class="btn btn-primary btn-sm">+ New Order</a>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Order ID</th><th>Client</th><th>Date</th><th>Amount</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td><strong style="color:#4F46E5">{{ o.id }}</strong></td>
+          <td>{{ o.client }}</td>
+          <td style="color:#6B7280">{{ o.date }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(o.amount) }}</strong></td>
+          <td>
+            {% if o.status == 'Delivered' %}<span class="badge badge-success">{{ o.status }}</span>
+            {% elif o.status == 'Pending' %}<span class="badge badge-warning">{{ o.status }}</span>
+            {% elif o.status == 'Processing' %}<span class="badge badge-primary">{{ o.status }}</span>
+            {% elif o.status == 'Cancelled' %}<span class="badge badge-danger">{{ o.status }}</span>
+            {% else %}<span class="badge badge-gray">{{ o.status }}</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
