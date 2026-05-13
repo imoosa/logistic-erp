@@ -2989,6 +2989,8 @@ def payment_save():
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()       # creates all tables in `maktroniks` database
-        seed_database()       # inserts default plans, users, sample data
-    app.run(debug=True, port=5003)
+        db.create_all()
+        seed_database()
+
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
