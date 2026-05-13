@@ -29,9 +29,10 @@ app.secret_key = "nexa-erp-2024-super-secret-key-change-in-production"
 # ── Database Configuration ────────────────────────────────────────────────────
 # Change the credentials below to match your MySQL setup.
 # Format: mysql+pymysql://<user>:<password>@<host>/<database>
-app.config["SQLALCHEMY_DATABASE_URI"] = (
+"""app.config["SQLALCHEMY_DATABASE_URI"] = (
     'mysql+pymysql://root:@localhost/maktroniks'
-)
+)"""
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
