@@ -21,6 +21,8 @@ from models import (
     Invoice, InvoiceItem,
     Estimate, EstimateItem,
     PurchaseInvoice, PurchaseInvoiceItem, StockPurchaseHistory,
+    CustomerInvoice, CustomerInvoicePackage,
+    ShipperInvoice, ShipperInvoicePackage, ShipperInvoiceCharge,
 )
 
 app = Flask(__name__)
@@ -2996,8 +2998,20 @@ def payment_save():
 # ─────────────────────────────────────────────────────────────────────────────
 # ── App entry point ───────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
+# ── Ensure tables exist on every startup (works on Render / gunicorn too) ────
+_db_initialised = False
+
+@app.before_request
+def _init_db_once():
+    global _db_initialised
+    if not _db_initialised:
+        db.create_all()
+        seed_database()
+        _db_initialised = True
+
+
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()       # creates all tables in `maktroniks` database
-        seed_database()       # inserts default plans, users, sample data
+        db.create_all()
+        seed_database()
     app.run(debug=True, port=5003)
