@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nexa-erp
+    env: python
+    buildCommand: |
+      apt-get install -y tesseract-ocr poppler-utils &&
+      pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        sync: false          # Set this manually in Render dashboard
+      - key: SECRET_KEY
+        generateValue: true  # Render will auto-generate a secure key
