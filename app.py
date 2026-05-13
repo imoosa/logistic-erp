@@ -13,7 +13,7 @@ from PIL import Image
 from pdf2image import convert_from_bytes
 import io
 import base64
-
+from sqlalchemy import text
 from models import (
     db,
     SubscriptionPlan, RegisteredUser, Company, CompanyUser,
@@ -34,6 +34,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+
 # SQLite-specific settings
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_size': 10,
@@ -46,7 +47,7 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 @app.before_request
 def before_request():
     if db.engine.url.drivername == 'sqlite':
-        db.session.execute('PRAGMA foreign_keys=ON')
+        db.session.execute(text('PRAGMA foreign_keys=ON'))
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 POPPLER_PATH = r'C:\Program Files\poppler\Library\bin'
