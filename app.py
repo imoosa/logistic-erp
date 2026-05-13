@@ -27,17 +27,25 @@ app = Flask(__name__)
 app.secret_key = "nexa-erp-2024-super-secret-key-change-in-production"
 
 # ── Database Configuration ────────────────────────────────────────────────────
-# Change the credentials below to match your MySQL setup.
-# Format: mysql+pymysql://<user>:<password>@<host>/<database>
-"""app.config["SQLALCHEMY_DATABASE_URI"] = (
-    'mysql+pymysql://root:@localhost/maktroniks'
-)"""
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///database.db"
+# Reads DATABASE_URL from environment (set this in Render dashboard).
+# Falls back to local MySQL for development.
+_db_url = os.environ.get(
+    "DATABASE_URL",
+    "mysql+pymysql://root:@localhost/maktroniks"
+)
+# Render (and some other hosts) supply postgres:// — fix the scheme so
+# SQLAlchemy 2.x accepts it.
+if _db_url.startswith("postgres://"):
+    _db_url = _db_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = _db_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-POPPLER_PATH = r'C:\Program Files\poppler\Library\bin'
-os.environ['PATH'] = POPPLER_PATH + os.pathsep + os.environ.get('PATH', '')
+# ── OCR tools — only configure on Windows (not on Render / Linux) ────────────
+if os.name == "nt":
+    pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    POPPLER_PATH = r'C:\Program Files\poppler\Library\bin'
+    os.environ['PATH'] = POPPLER_PATH + os.pathsep + os.environ.get('PATH', '')
 
 db.init_app(app)
 
@@ -2990,8 +2998,6 @@ def payment_save():
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     with app.app_context():
-        db.create_all()
-        seed_database()
-
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+        db.create_all()       # creates all tables in `maktroniks` database
+        seed_database()       # inserts default plans, users, sample data
+    app.run(debug=True, port=5003)
