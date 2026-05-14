@@ -647,7 +647,16 @@
         </div>
         <div class="inv-meta-item">
           <label>Docket / AWB</label>
-          <input type="text" name="docket_no" placeholder="e.g. ABC063655" value="{{ form_data.docket_no or '' }}" style="width:170px">
+          <select name="docket_no" id="docketSelect" style="width:200px" onchange="fetchDocketInfo(this.value)" required>
+            <option value="">— Select AWB / Docket —</option>
+            {% for inv in (available_dockets or []) %}
+            <option value="{{ inv.docket_no }}"
+              data-invoice-id="{{ inv.invoice_id }}"
+              {% if form_data.get('docket_no') == inv.docket_no %}selected{% endif %}>
+              {{ inv.docket_no }} — {{ inv.customer_name }}
+            </option>
+            {% endfor %}
+          </select>
         </div>
         <div class="inv-meta-item">
           <label>Shipment Type</label>
@@ -735,35 +744,14 @@
         </div>
       </div>
 
-      <!-- ── Shipment logistics strip ── -->
-      <div class="inv-shipment-strip">
-        <div class="ship-grid">
-          <div class="ship-field">
-            <label>Carrier Ref / Tracking No.</label>
-            <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="AWB / Tracking">
-          </div>
-          <div class="ship-field">
-            <label>Origin</label>
-            <input type="text" name="origin" value="{{ form_data.origin or 'India' }}">
-          </div>
-          <div class="ship-field">
-            <label>Pickup Date</label>
-            <input type="date" name="pickup_date" value="{{ form_data.pickup_date or '' }}">
-          </div>
-          <div class="ship-field">
-            <label>Departure Time</label>
-            <input type="datetime-local" name="departure_time" value="{{ form_data.departure_time or '' }}">
-          </div>
-          <div class="ship-field">
-            <label>Expected Delivery</label>
-            <input type="date" name="expected_delivery" value="{{ form_data.expected_delivery or '' }}">
-          </div>
-          <div class="ship-field">
-            <label>Comments</label>
-            <input type="text" name="comments" value="{{ form_data.comments or '' }}" placeholder="Special instructions">
-          </div>
-        </div>
-      </div>
+      <!-- Hidden fields preserving shipment metadata auto-filled from docket -->
+      <input type="hidden" name="carrier_ref"      id="hCarrierRef"      value="{{ form_data.carrier_ref or '' }}">
+      <input type="hidden" name="origin"            id="hOrigin"          value="{{ form_data.origin or 'India' }}">
+      <input type="hidden" name="pickup_date"       id="hPickupDate"      value="{{ form_data.pickup_date or '' }}">
+      <input type="hidden" name="departure_time"    id="hDepartureTime"   value="{{ form_data.departure_time or '' }}">
+      <input type="hidden" name="expected_delivery" id="hExpectedDelivery" value="{{ form_data.expected_delivery or '' }}">
+      <input type="hidden" name="comments"          id="hComments"        value="{{ form_data.comments or '' }}">
+      <input type="hidden" name="linked_invoice_id" id="hLinkedInvoiceId" value="{{ form_data.linked_invoice_id or '' }}">
 
       <!-- ══════════════════════════════════
            ITEMS / PACKAGES TABLE
@@ -1049,10 +1037,54 @@ function selectUPI(el, app) {
   document.getElementById('upiAppHidden').value = app;
 }
 
-/* ── Shipper autofill ── */
+/* ── Shipper autofill from select dropdown ── */
 document.getElementById('shipperSelect').addEventListener('change', function () {
   const opt = this.options[this.selectedIndex];
   document.getElementById('shipperPhone').value = opt.dataset.phone || '';
+});
+
+/* ── Docket / AWB auto-fill sender & receiver from customer invoice ── */
+async function fetchDocketInfo(docketNo) {
+  if (!docketNo) return;
+  try {
+    const res  = await fetch('/api/docket-info/' + encodeURIComponent(docketNo));
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Fill shipper / sender fields
+    const shipSel = document.getElementById('shipperSelect');
+    if (data.client_id) {
+      for (let i = 0; i < shipSel.options.length; i++) {
+        if (shipSel.options[i].value == data.client_id) {
+          shipSel.selectedIndex = i; break;
+        }
+      }
+    }
+    if (data.shipper_name)    document.querySelector('[name="shipper_name"]').value    = data.shipper_name;
+    if (data.shipper_phone)   document.getElementById('shipperPhone').value            = data.shipper_phone;
+    if (data.shipper_address) document.querySelector('[name="shipper_address"]').value = data.shipper_address;
+
+    // Fill receiver fields
+    if (data.receiver_name)    document.querySelector('[name="receiver_name"]').value    = data.receiver_name;
+    if (data.receiver_phone)   document.querySelector('[name="receiver_phone"]').value   = data.receiver_phone;
+    if (data.receiver_address) document.querySelector('[name="receiver_address"]').value = data.receiver_address;
+    if (data.destination)      document.querySelector('[name="destination"]').value      = data.destination;
+
+    // Store linked invoice id
+    document.getElementById('hLinkedInvoiceId').value = data.invoice_id || '';
+
+    // Show a brief confirmation
+    const banner = document.getElementById('errorBanner');
+    banner.style.display = 'none';
+  } catch (err) {
+    console.error('Docket fetch error:', err);
+  }
+}
+
+/* Trigger on page load if docket already selected (edit mode) */
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('docketSelect');
+  if (sel && sel.value) fetchDocketInfo(sel.value);
 });
 
 /* ── Validation ── */
@@ -1060,6 +1092,14 @@ function validateShipForm(e) {
   const errors = [], banner = document.getElementById('errorBanner'), errList = document.getElementById('errorList');
   document.querySelectorAll('.field-error').forEach(el => el.classList.remove('field-error'));
   banner.style.display = 'none'; errList.innerHTML = '';
+
+  // Docket must be selected
+  const docketSel = document.getElementById('docketSelect');
+  if (!docketSel || !docketSel.value) {
+    errors.push('Please select an AWB / Docket number.');
+    if (docketSel) docketSel.classList.add('field-error');
+  }
+
   const shipSel = document.getElementById('shipperSelect');
   if (!shipSel.value) { errors.push('Please select a Shipper / Agent.'); shipSel.classList.add('field-error'); }
   const recv = document.querySelector('[name="receiver_name"]');

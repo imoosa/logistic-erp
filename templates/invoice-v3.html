@@ -72,9 +72,7 @@
       </div>
       <div class="form-group">
         <label>Docket / AWB No.</label>
-        <input type="text" name="docket_no" value="{{ docket_no }}" readonly
-               style="background:#F0FDF4;color:#15803D;font-weight:700;letter-spacing:.5px;cursor:not-allowed;"
-               title="Auto-assigned AWB number — not editable">
+        <input type="text" name="docket_no" placeholder="e.g. ABC063655" value="{{ form_data.docket_no or '' }}">
       </div>
     </div>
   </div>

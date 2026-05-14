@@ -1807,9 +1807,6 @@ def invoice_list():
 
     raw_invoices = query.order_by(Invoice.date.desc()).all()
 
-    # Normalize into dicts that match invoice_list.html field names:
-    # inv.id, inv.customer_name, inv.date, inv.bill_type,
-    # inv.total, inv.paid, inv.balance, inv.status
     invoices = []
     for inv in raw_invoices:
         if inv.client_obj:
@@ -1822,27 +1819,47 @@ def invoice_list():
         total = inv.grand_total or 0.0
 
         if inv.status == "Paid":
-            paid      = total
-            balance   = 0.0
+            paid       = total
+            balance    = 0.0
             tab_status = "paid"
         elif inv.status == "Partial":
-            paid      = inv.subtotal or 0.0
-            balance   = total - paid
+            paid       = inv.paid_amount if hasattr(inv, "paid_amount") and inv.paid_amount else (inv.subtotal or 0.0)
+            balance    = inv.balance if hasattr(inv, "balance") and inv.balance is not None else total - paid
             tab_status = "partial"
         else:
-            paid      = 0.0
-            balance   = total
+            paid       = 0.0
+            balance    = total
             tab_status = "pending"
 
+        # Unpack shipment metadata stored as JSON in inv.terms
+        meta = {}
+        if inv.terms:
+            try:
+                meta = json.loads(inv.terms)
+            except (ValueError, TypeError):
+                meta = {}
+
+        # Determine if this is a customer/shipment invoice (has AWB docket)
+        docket_no = meta.get("docket_no", "")
+        is_shipment = bool(docket_no) or inv.invoice_id.startswith("CUST-")
+
         invoices.append({
-            "id":            inv.invoice_id,
-            "customer_name": customer_name,
-            "date":          inv.date,
-            "bill_type":     "credit",
-            "total":         total,
-            "paid":          paid,
-            "balance":       balance,
-            "status":        tab_status,
+            "id":             inv.invoice_id,
+            "customer_name":  customer_name,
+            "date":           inv.date,
+            "bill_type":      "credit",
+            "total":          total,
+            "paid":           paid,
+            "balance":        balance,
+            "status":         tab_status,
+            # Shipment-specific fields unpacked from JSON terms
+            "docket_no":      docket_no,
+            "receiver_name":  meta.get("receiver_name", ""),
+            "destination":    meta.get("destination", ""),
+            "carrier":        meta.get("carrier", ""),
+            "shipment_type":  meta.get("shipment_type", ""),
+            "mode":           meta.get("mode", ""),
+            "is_shipment":    is_shipment,
         })
 
     return render_template("invoice_list.html",
@@ -1990,33 +2007,511 @@ def invoice_view(invoice_id):
             "amount":   qty * rate * (1 - discount / 100),
         })
 
+    # Unpack shipment metadata stored as JSON in inv.terms
+    meta = {}
+    if inv.terms:
+        try:
+            meta = json.loads(inv.terms)
+        except (ValueError, TypeError):
+            meta = {}
+
     invoice = {
-        "id":             inv.invoice_id,
-        "date":           inv.date,
-        "due_date":       inv.due_date,
-        "status":         tab_status,
-        "customer_name":  customer_name,
-        "customer_phone": customer_phone,
-        "subtotal":       subtotal,
-        "tax":            tax,
-        "total":          total,
-        "paid":           paid,
-        "balance":        balance,
-        "bill_type":      "credit",
-        "payment_mode":   "credit",
-        "cheque_no":      "",
-        "transaction_id": "",
-        "items":          items,
-        "related_orders": [],
-        "terms":          inv.terms or "",
+        "id":               inv.invoice_id,
+        "date":             inv.date,
+        "due_date":         inv.due_date,
+        "status":           tab_status,
+        "customer_name":    customer_name,
+        "customer_phone":   customer_phone,
+        "subtotal":         subtotal,
+        "tax":              tax,
+        "total":            total,
+        "paid":             paid,
+        "balance":          balance,
+        "bill_type":        "credit",
+        "items":            items,
+        "related_orders":   [],
+        # Shipment fields unpacked from JSON stored in inv.terms
+        "docket_no":        meta.get("docket_no", inv.invoice_id),
+        "shipper_name":     meta.get("shipper_name", inv.contact_person or ""),
+        "shipper_address":  meta.get("shipper_address", ""),
+        "receiver_name":    meta.get("receiver_name", ""),
+        "receiver_phone":   meta.get("receiver_phone", ""),
+        "receiver_address": meta.get("receiver_address", ""),
+        "destination":      meta.get("destination", ""),
+        "shipment_type":    meta.get("shipment_type", ""),
+        "mode":             meta.get("mode", ""),
+        "carrier":          meta.get("carrier", ""),
+        "carrier_ref":      meta.get("carrier_ref", ""),
+        "payment_mode":     meta.get("payment_mode", "credit"),
+        "upi_app":          meta.get("upi_app", ""),
+        "transaction_id":   meta.get("upi_ref", ""),
+        "cheque_no":        meta.get("cheque_no", ""),
+        "cheque_bank":      meta.get("cheque_bank", ""),
+        "freight":          meta.get("freight", subtotal),
+        "fuel_charge":      meta.get("fuel", 0),
+        "other_charges":    meta.get("other", 0),
+        "notes":            inv.email or "",
+        "packages":         [],
     }
 
     return render_template("invoice_view.html", invoice=invoice)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ── Estimates ─────────────────────────────────────────────────────────────────
+# ── Customer Invoice (Shipment) ───────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
+
+AWB_PREFIX   = "AHL"
+AWB_START    = 81000          # first number: AHL81000
+AWB_COUNTER_KEY = "awb_last" # we store the last-used counter in a tiny helper
+
+
+def _next_awb_number(company_id: int) -> str:
+    """Generate the next sequential AWB/docket number for this company.
+
+    Format: AHL81000, AHL81001, AHL81002, …
+
+    We count existing customer invoices that already have a docket_no
+    beginning with 'AHL' to determine the next sequence number, so the
+    series is always gapless even after a server restart.
+    """
+    # Count how many customer invoices already have an AHL docket number
+    existing_count = (
+        Invoice.query
+        .filter(
+            Invoice.company_id == company_id,
+            Invoice.terms.like("AWB:AHL%"),   # we embed the AWB in terms for storage
+        )
+        .count()
+    )
+    # Alternatively, just count all customer-type invoices for this company
+    # (simpler and still gapless)
+    cust_count = (
+        Invoice.query
+        .filter(
+            Invoice.company_id == company_id,
+            Invoice.invoice_id.like("CUST-%"),
+        )
+        .count()
+    )
+    seq = AWB_START + cust_count
+    return f"{AWB_PREFIX}{seq}"
+
+
+@app.route("/invoice/customer")
+@login_required
+def invoice_customer_new():
+    """Show the blank customer / shipment invoice form."""
+    company_id = get_current_company()
+    clients    = Client.query.filter_by(company_id=company_id).all()
+
+    # Auto-generate invoice ID
+    cust_count = (
+        Invoice.query
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .count()
+    )
+    invoice_id = f"CUST-{datetime.now().strftime('%Y%m%d')}-{cust_count + 1:03d}"
+    docket_no  = _next_awb_number(company_id)
+
+    return render_template(
+        "invoice.html",
+        clients=clients,
+        invoice_id=invoice_id,
+        docket_no=docket_no,
+        today=str(date.today()),
+        form_data={},
+    )
+
+
+@app.route("/invoice/customer/save", methods=["POST"])
+@login_required
+def invoice_customer_save():
+    """Save a customer / shipment invoice submitted from invoice.html."""
+    company_id = get_current_company()
+
+    # ── Basic fields ──────────────────────────────────────────────────────────
+    client_id_raw  = request.form.get("customer_id")
+    client_id      = int(client_id_raw) if client_id_raw else None
+    invoice_date   = request.form.get("invoice_date") or str(date.today())
+    docket_no      = request.form.get("docket_no", "")
+    action         = request.form.get("action", "final")   # 'draft' or 'final'
+
+    # ── Charges & totals ──────────────────────────────────────────────────────
+    freight        = float(request.form.get("freight_amount", 0) or 0)
+    fuel           = float(request.form.get("fuel_surcharge",  0) or 0)
+    other          = float(request.form.get("other_charges",   0) or 0)
+    base           = freight + fuel + other
+    gst            = round(base * 0.18, 2)
+    grand_total    = round(base + gst, 2)
+    amount_paid    = float(request.form.get("amount_paid", 0) or 0)
+    balance        = round(grand_total - amount_paid, 2)
+
+    # ── Payment info ─────────────────────────────────────────────────────────
+    payment_mode   = request.form.get("payment_mode", "cash")
+    upi_app        = request.form.get("upi_app", "")
+    upi_ref        = request.form.get("upi_ref", "")
+    cheque_no      = request.form.get("cheque_no", "")
+    cheque_date    = request.form.get("cheque_date", "")
+    cheque_bank    = request.form.get("cheque_bank", "")
+
+    # ── Status ────────────────────────────────────────────────────────────────
+    if action == "draft":
+        status = "Draft"
+    elif balance <= 0:
+        status = "Paid"
+    elif amount_paid > 0:
+        status = "Partial"
+    else:
+        status = "Draft"
+
+    # ── Generate invoice ID ───────────────────────────────────────────────────
+    cust_count = (
+        Invoice.query
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .count()
+    )
+    invoice_id = f"CUST-{datetime.now().strftime('%Y%m%d')}-{cust_count + 1:03d}"
+
+    # ── Shipment / receiver details stored in notes / terms ──────────────────
+    notes = request.form.get("notes", "")
+    # Pack all extra shipment metadata into the terms field as JSON
+    shipment_meta = json.dumps({
+        "docket_no":        docket_no,
+        "shipper_name":     request.form.get("shipper_name", ""),
+        "shipper_address":  request.form.get("shipper_address", ""),
+        "receiver_name":    request.form.get("receiver_name", ""),
+        "receiver_phone":   request.form.get("receiver_phone", ""),
+        "receiver_address": request.form.get("receiver_address", ""),
+        "destination":      request.form.get("destination", ""),
+        "shipment_type":    request.form.get("shipment_type", ""),
+        "mode":             request.form.get("mode", ""),
+        "carrier":          request.form.get("carrier", ""),
+        "carrier_ref":      request.form.get("carrier_ref", ""),
+        "origin":           request.form.get("origin", "India"),
+        "pickup_date":      request.form.get("pickup_date", ""),
+        "departure_time":   request.form.get("departure_time", ""),
+        "expected_delivery":request.form.get("expected_delivery", ""),
+        "comments":         request.form.get("comments", ""),
+        "payment_mode":     payment_mode,
+        "upi_app":          upi_app,
+        "upi_ref":          upi_ref,
+        "cheque_no":        cheque_no,
+        "cheque_date":      cheque_date,
+        "cheque_bank":      cheque_bank,
+        "freight":          freight,
+        "fuel":             fuel,
+        "other":            other,
+        "gst":              gst,
+        "amount_paid":      amount_paid,
+    })
+
+    inv = Invoice(
+        invoice_id     = invoice_id,
+        company_id     = company_id,
+        client_id      = client_id,
+        date           = date.fromisoformat(invoice_date),
+        status         = status,
+        contact_person = request.form.get("shipper_name", ""),
+        phone          = request.form.get("customer_phone", ""),
+        subtotal       = base,
+        tax_amount     = gst,
+        grand_total    = grand_total,
+        terms          = shipment_meta,
+        # store notes in email field (re-used as a free-text field)
+        email          = notes,
+    )
+    db.session.add(inv)
+
+    # Update client pending balance if credit / unpaid
+    if balance > 0 and client_id:
+        client = Client.query.filter_by(id=client_id, company_id=company_id).first()
+        if client and hasattr(client, "pending"):
+            client.pending = (client.pending or 0) + balance
+
+    db.session.commit()
+
+    flash(f"Customer invoice {invoice_id} (AWB: {docket_no}) saved successfully!")
+    return redirect(url_for("invoice_list"))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ── Shipper Invoice (estimate.html) ──────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_available_dockets(company_id):
+    """Return customer invoices that have NOT yet had a Shipper Invoice generated.
+    A Shipper Invoice is tracked by storing the linked CUST- invoice_id in the
+    Estimate.terms JSON field as {"linked_invoice_id": "CUST-..."}.
+    """
+    # Find all CUST- invoices that are already linked from a Shipper Invoice
+    used_invoice_ids = set()
+    shipper_estimates = (
+        Estimate.query
+        .filter_by(company_id=company_id)
+        .all()
+    )
+    for est in shipper_estimates:
+        if est.terms:
+            try:
+                t = json.loads(est.terms)
+                lid = t.get("linked_invoice_id", "")
+                if lid:
+                    used_invoice_ids.add(lid)
+            except (ValueError, TypeError):
+                pass
+
+    # Fetch all customer invoices not yet linked
+    all_cust = (
+        Invoice.query
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .order_by(Invoice.date.desc())
+        .all()
+    )
+
+    dockets = []
+    for inv in all_cust:
+        if inv.invoice_id in used_invoice_ids:
+            continue  # already has a shipper invoice — skip
+        meta = {}
+        if inv.terms:
+            try:
+                meta = json.loads(inv.terms)
+            except (ValueError, TypeError):
+                pass
+        docket_no = meta.get("docket_no", "")
+        if not docket_no:
+            continue
+        cname = inv.client_obj.name if inv.client_obj else (inv.contact_person or inv.invoice_id)
+        dockets.append({
+            "invoice_id":    inv.invoice_id,
+            "docket_no":     docket_no,
+            "customer_name": cname,
+        })
+    return dockets
+
+
+@app.route("/api/docket-info/<docket_no>")
+@login_required
+def api_docket_info(docket_no):
+    """Return sender/receiver details for a given AWB/docket number so the
+    Shipper Invoice form can auto-fill fields."""
+    company_id = get_current_company()
+    # Find the customer invoice carrying this docket number
+    all_cust = (
+        Invoice.query
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .all()
+    )
+    for inv in all_cust:
+        meta = {}
+        if inv.terms:
+            try:
+                meta = json.loads(inv.terms)
+            except (ValueError, TypeError):
+                pass
+        if meta.get("docket_no", "") == docket_no:
+            cname  = inv.client_obj.name  if inv.client_obj else (inv.contact_person or "")
+            cphone = inv.client_obj.phone if inv.client_obj else (inv.phone or "")
+            return jsonify({
+                "invoice_id":       inv.invoice_id,
+                "client_id":        inv.client_id,
+                "shipper_name":     meta.get("shipper_name",     cname),
+                "shipper_phone":    meta.get("shipper_phone",    cphone),
+                "shipper_address":  meta.get("shipper_address",  ""),
+                "receiver_name":    meta.get("receiver_name",    ""),
+                "receiver_phone":   meta.get("receiver_phone",   ""),
+                "receiver_address": meta.get("receiver_address", ""),
+                "destination":      meta.get("destination",      ""),
+                "shipment_type":    meta.get("shipment_type",    ""),
+                "mode":             meta.get("mode",             ""),
+                "carrier":          meta.get("carrier",          ""),
+            })
+    return jsonify({"error": "not found"}), 404
+
+
+@app.route("/shipper-invoice/new")
+@login_required
+def shipper_invoice_new():
+    """Show the Shipper Invoice creation form (estimate.html)."""
+    company_id = get_current_company()
+    clients    = Client.query.filter_by(company_id=company_id).all()
+
+    # Auto-generate Shipper Invoice ID
+    ship_count = Estimate.query.filter_by(company_id=company_id).count()
+    shipper_invoice_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+
+    available_dockets = _get_available_dockets(company_id)
+
+    return render_template(
+        "estimate.html",
+        clients=clients,
+        shipper_invoice_id=shipper_invoice_id,
+        today=str(date.today()),
+        form_data={},
+        available_dockets=available_dockets,
+    )
+
+
+@app.route("/shipper-invoice/save", methods=["POST"])
+@login_required
+def shipper_invoice_save():
+    """Save a Shipper Invoice submitted from estimate.html."""
+    company_id  = get_current_company()
+    action      = request.form.get("action", "final")
+    invoice_date = request.form.get("invoice_date") or str(date.today())
+
+    # Totals
+    descriptions = request.form.getlist("description[]")
+    qtys         = request.form.getlist("qty[]")
+    rates        = request.form.getlist("rate[]")
+    subtotal = 0
+    line_items = []
+    for i in range(len(descriptions)):
+        if descriptions[i] and descriptions[i].strip():
+            qty  = float(qtys[i])  if qtys[i]  else 0
+            rate = float(rates[i]) if rates[i] else 0
+            subtotal += qty * rate
+            line_items.append((descriptions[i], qty, rate))
+
+    charge_descs = request.form.getlist("charge_desc[]")
+    charge_amts  = request.form.getlist("charge_amt[]")
+    extra = 0
+    for amt in charge_amts:
+        extra += float(amt) if amt else 0
+
+    base        = subtotal + extra
+    gst         = round(base * 0.18, 2)
+    grand_total = round(base + gst, 2)
+    amount_paid = float(request.form.get("amount_paid", 0) or 0)
+    balance     = round(grand_total - amount_paid, 2)
+
+    status = "Draft" if action == "draft" else ("Paid" if balance <= 0 else ("Partial" if amount_paid > 0 else "Unpaid"))
+
+    ship_count         = Estimate.query.filter_by(company_id=company_id).count()
+    shipper_invoice_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+
+    client_id_raw = request.form.get("shipper_id")
+    client_id     = int(client_id_raw) if client_id_raw else None
+
+    # Pack all metadata into terms JSON
+    charges_list = [{"desc": d, "amt": float(a or 0)} for d, a in zip(charge_descs, charge_amts)]
+    terms_data = json.dumps({
+        "docket_no":          request.form.get("docket_no", ""),
+        "linked_invoice_id":  request.form.get("linked_invoice_id", ""),
+        "shipment_type":      request.form.get("shipment_type", ""),
+        "mode":               request.form.get("mode", ""),
+        "carrier":            request.form.get("carrier", ""),
+        "shipper_name":       request.form.get("shipper_name", ""),
+        "shipper_phone":      request.form.get("shipper_phone", ""),
+        "shipper_address":    request.form.get("shipper_address", ""),
+        "receiver_name":      request.form.get("receiver_name", ""),
+        "receiver_phone":     request.form.get("receiver_phone", ""),
+        "receiver_address":   request.form.get("receiver_address", ""),
+        "destination":        request.form.get("destination", ""),
+        "carrier_ref":        request.form.get("carrier_ref", ""),
+        "origin":             request.form.get("origin", "India"),
+        "payment_mode":       request.form.get("payment_mode", "cash"),
+        "upi_app":            request.form.get("upi_app", ""),
+        "upi_ref":            request.form.get("upi_ref", ""),
+        "cheque_no":          request.form.get("cheque_no", ""),
+        "cheque_date":        request.form.get("cheque_date", ""),
+        "cheque_bank":        request.form.get("cheque_bank", ""),
+        "amount_paid":        amount_paid,
+        "balance":            balance,
+        "charges":            charges_list,
+        "line_items":         [{"desc": d, "qty": q, "rate": r} for d, q, r in line_items],
+    })
+
+    est = Estimate(
+        estimate_id   = shipper_invoice_id,
+        company_id    = company_id,
+        client_id     = client_id,
+        date          = date.fromisoformat(invoice_date),
+        status        = status,
+        contact_person= request.form.get("shipper_name", ""),
+        email         = request.form.get("notes", ""),
+        phone         = request.form.get("shipper_phone", ""),
+        subtotal      = base,
+        tax_amount    = gst,
+        grand_total   = grand_total,
+        terms         = terms_data,
+    )
+    db.session.add(est)
+    db.session.flush()
+
+    for desc, qty, rate in line_items:
+        db.session.add(EstimateItem(
+            estimate_id = est.id,
+            description = desc,
+            qty         = qty,
+            rate        = rate,
+        ))
+
+    db.session.commit()
+    flash(f"Shipper Invoice {shipper_invoice_id} saved successfully!")
+    # Redirect to the estimate/shipper-invoice list
+    try:
+        return redirect(url_for("estimate_list"))
+    except Exception:
+        return redirect("/estimate/list")
+
+
+@app.route("/shipper-invoice/pdf/<estimate_id>")
+@login_required
+def shipper_invoice_pdf(estimate_id):
+    """Render the Shipper Invoice as a printable PDF-style page."""
+    company_id = get_current_company()
+    est = Estimate.query.filter_by(estimate_id=estimate_id, company_id=company_id).first_or_404()
+
+    meta = {}
+    if est.terms:
+        try:
+            meta = json.loads(est.terms)
+        except (ValueError, TypeError):
+            pass
+
+    company = Company.query.filter_by(id=company_id).first()
+
+    shipper_data = {
+        "invoice_id":      est.estimate_id,
+        "date":            est.date,
+        "docket_no":       meta.get("docket_no", ""),
+        "shipment_type":   meta.get("shipment_type", ""),
+        "mode":            meta.get("mode", ""),
+        "carrier":         meta.get("carrier", ""),
+        "shipper_name":    meta.get("shipper_name", est.contact_person or ""),
+        "shipper_phone":   meta.get("shipper_phone", est.phone or ""),
+        "shipper_address": meta.get("shipper_address", ""),
+        "receiver_name":   meta.get("receiver_name", ""),
+        "receiver_phone":  meta.get("receiver_phone", ""),
+        "receiver_address":meta.get("receiver_address", ""),
+        "destination":     meta.get("destination", ""),
+        "origin":          meta.get("origin", "India"),
+        "carrier_ref":     meta.get("carrier_ref", ""),
+        "payment_mode":    meta.get("payment_mode", "cash"),
+        "amount_paid":     meta.get("amount_paid", 0),
+        "balance":         meta.get("balance", est.grand_total or 0),
+        "charges":         meta.get("charges", []),
+        "line_items":      meta.get("line_items", []),
+        "subtotal":        est.subtotal or 0,
+        "gst":             est.tax_amount or 0,
+        "grand_total":     est.grand_total or 0,
+        "notes":           est.email or "",
+        "company_name":    company.name if company else "LOGISTIC ERP",
+        "company_address": company.address if company and hasattr(company, "address") else "Nagpur, India",
+        "company_phone":   company.phone if company and hasattr(company, "phone") else "",
+    }
+
+    return render_template("shipper_invoice_pdf.html", inv=shipper_data)
+
+
+
+@login_required
 @app.route("/estimate/list")
 @login_required
 def estimate_list():
@@ -2025,8 +2520,36 @@ def estimate_list():
     query         = Estimate.query.filter_by(company_id=company_id)
     if filter_status != "All":
         query = query.filter_by(status=filter_status)
-    estimates = query.order_by(Estimate.date.desc()).all()
+    raw = query.order_by(Estimate.date.desc()).all()
+
+    estimates = []
+    for est in raw:
+        meta = {}
+        if est.terms:
+            try:
+                meta = json.loads(est.terms)
+            except (ValueError, TypeError):
+                meta = {}
+        estimates.append({
+            "id":            est.estimate_id,
+            "date":          est.date.strftime("%d %b %Y") if est.date else "—",
+            "valid_until":   est.valid_until.strftime("%d %b %Y") if est.valid_until else "—",
+            "status":        est.status or "Draft",
+            "grand_total":   est.grand_total or 0,
+            "subtotal":      est.subtotal or 0,
+            "tax_amount":    est.tax_amount or 0,
+            "client_name":   est.client_obj.name if est.client_obj else (est.contact_person or "—"),
+            "phone":         est.phone or "",
+            "docket_no":     meta.get("docket_no", ""),
+            "receiver_name": meta.get("receiver_name", ""),
+            "destination":   meta.get("destination", ""),
+            "shipment_type": meta.get("shipment_type", ""),
+            "mode":          meta.get("mode", ""),
+            "is_shipper":    bool(meta.get("docket_no", "") or est.estimate_id.startswith("SHIP-")),
+        })
+
     return render_template("estimate_list.html", estimates=estimates, current_status=filter_status)
+
 
 
 @app.route("/estimate/new", methods=["GET", "POST"])
@@ -2113,10 +2636,18 @@ def estimate_new():
         return redirect(url_for("estimate_list"))
 
     valid_until = str(date.today() + timedelta(days=30))
+    available_dockets = _get_available_dockets(company_id)
+
+    # Auto-generate Shipper Invoice ID for display
+    ship_count = Estimate.query.filter_by(company_id=company_id).count()
+    shipper_invoice_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+
     return render_template("estimate.html",
                        clients=clients, estimate=existing,
                        today=str(date.today()), valid_until=valid_until,
-                       form_data={})
+                       form_data={},
+                       available_dockets=available_dockets,
+                       shipper_invoice_id=shipper_invoice_id)
 
 @app.route("/estimate/edit/<estimate_id>")
 @login_required
@@ -2128,8 +2659,56 @@ def estimate_edit(estimate_id):
 @login_required
 def estimate_view(estimate_id):
     company_id = get_current_company()
-    estimate   = Estimate.query.filter_by(estimate_id=estimate_id, company_id=company_id).first_or_404()
-    return render_template("estimate_view_new.html", estimate=estimate)
+    est = Estimate.query.filter_by(estimate_id=estimate_id, company_id=company_id).first_or_404()
+
+    meta = {}
+    if est.terms:
+        try:
+            meta = json.loads(est.terms)
+        except (ValueError, TypeError):
+            meta = {}
+
+    items = []
+    for li in est.items:
+        qty      = li.qty      or 0
+        rate     = li.rate     or 0
+        discount = li.discount or 0
+        items.append({
+            "code":     li.code        or "",
+            "desc":     li.description or "",
+            "qty":      qty,
+            "rate":     rate,
+            "discount": discount,
+            "amount":   qty * rate * (1 - discount / 100),
+        })
+
+    estimate = {
+        "id":            est.estimate_id,
+        "date":          est.date.strftime("%d %b %Y") if est.date else "—",
+        "valid_until":   est.valid_until.strftime("%d %b %Y") if est.valid_until else "—",
+        "status":        est.status or "Draft",
+        "grand_total":   est.grand_total or 0,
+        "subtotal":      est.subtotal or 0,
+        "tax_amount":    est.tax_amount or 0,
+        "client_name":   est.client_obj.name if est.client_obj else (est.contact_person or "—"),
+        "contact_person":est.contact_person or "",
+        "email":         est.email or "",
+        "phone":         est.phone or "",
+        "terms_text":    meta if not meta.get("docket_no") else "",
+        "docket_no":     meta.get("docket_no", ""),
+        "receiver_name": meta.get("receiver_name", ""),
+        "receiver_phone":meta.get("receiver_phone", ""),
+        "receiver_address": meta.get("receiver_address", ""),
+        "destination":   meta.get("destination", ""),
+        "shipment_type": meta.get("shipment_type", ""),
+        "mode":          meta.get("mode", ""),
+        "carrier":       meta.get("carrier", ""),
+        "line_items":    items,
+        "is_shipper":    bool(meta.get("docket_no") or est.estimate_id.startswith("SHIP-")),
+    }
+
+    return render_template("estimate_view.html", estimate=estimate)
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────

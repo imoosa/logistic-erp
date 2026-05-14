@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shipper Invoice – {{ inv.invoice_id }}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', Arial, sans-serif;
+    font-size: 11px;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 0;
+  }
+
+  /* ── Print / PDF page ── */
+  @media print {
+    body { padding: 0; }
+    .no-print { display: none !important; }
+    @page { size: A4; margin: 10mm 12mm; }
+  }
+
+  .page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 8mm 10mm;
+    background: #fff;
+  }
+
+  /* ── TOP HEADER BAND ── */
+  .hdr-band {
+    background: #1a1a2e;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+    border-radius: 4px 4px 0 0;
+  }
+  .hdr-logo { display: flex; align-items: center; gap: 10px; }
+  .hdr-logo-icon {
+    width: 40px; height: 40px;
+    background: #f59e0b;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; font-weight: 900; color: #1a1a2e;
+    letter-spacing: -1px;
+  }
+  .hdr-company-name { font-size: 17px; font-weight: 800; letter-spacing: .3px; color: #fff; }
+  .hdr-company-sub  { font-size: 9px; color: #9ca3af; margin-top: 1px; }
+  .hdr-right { text-align: right; }
+  .hdr-doc-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; color: #f59e0b; margin-bottom: 3px;
+  }
+  .hdr-inv-number {
+    font-family: 'DM Mono', monospace;
+    font-size: 16px; font-weight: 700; color: #fff;
+    background: rgba(255,255,255,.1);
+    border: 1px solid rgba(255,255,255,.15);
+    padding: 4px 12px; border-radius: 4px;
+    display: inline-block;
+  }
+
+  /* ── AMBER META STRIP ── */
+  .meta-strip {
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    border-top: none;
+    padding: 7px 14px;
+    display: flex;
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .meta-cell {
+    flex: 1;
+    min-width: 120px;
+    padding: 0 10px;
+    border-right: 1px solid #fde68a;
+  }
+  .meta-cell:first-child { padding-left: 0; }
+  .meta-cell:last-child  { border-right: none; }
+  .meta-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #92400e; }
+  .meta-val { font-size: 11px; font-weight: 700; color: #1a1a1a; margin-top: 2px; }
+
+  /* ── SECTION DIVIDER ── */
+  .sec-divider {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 0 4px;
+  }
+  .sec-divider-label {
+    font-size: 8.5px; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 1.2px; color: #f59e0b;
+    white-space: nowrap;
+  }
+  .sec-divider-line { flex: 1; height: 1px; background: #e5e7eb; }
+
+  /* ── SHIPPER / CONSIGNEE GRID ── */
+  .addr-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .addr-box {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .addr-box-hdr {
+    background: #1a1a2e;
+    color: #fff;
+    padding: 5px 10px;
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .addr-box-hdr span { color: #f59e0b; }
+  .addr-body { padding: 8px 10px; }
+  .addr-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .addr-row:last-child { margin-bottom: 0; }
+  .addr-lbl {
+    font-size: 8px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: #9ca3af;
+    width: 54px; flex-shrink: 0; padding-top: 1px;
+  }
+  .addr-val { font-size: 11px; color: #1a1a1a; font-weight: 500; flex: 1; }
+  .addr-name { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 5px; }
+
+  /* ── CHARGES TABLE ── */
+  .chg-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
+    font-size: 11px;
+  }
+  .chg-table thead tr {
+    background: #1a1a2e;
+    color: #fff;
+  }
+  .chg-table th {
+    padding: 6px 8px;
+    font-size: 8.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    text-align: left;
+  }
+  .chg-table th:first-child { border-radius: 0; }
+  .chg-table th:last-child  { text-align: right; border-radius: 0; }
+  .chg-table tbody tr:nth-child(even) { background: #f9fafb; }
+  .chg-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid #f3f4f6;
+    vertical-align: middle;
+  }
+  .chg-table td:last-child  { text-align: right; font-family: 'DM Mono', monospace; font-weight: 600; }
+  .chg-table tfoot tr { background: #f3f4f6; border-top: 2px solid #e5e7eb; }
+  .chg-table tfoot td {
+    padding: 7px 8px;
+    font-weight: 700;
+    font-size: 11.5px;
+    border-bottom: none;
+  }
+  .chg-table tfoot td:last-child { font-family: 'DM Mono', monospace; font-size: 13px; color: #f59e0b; }
+
+  /* ── SUMMARY / TOTALS BOX ── */
+  .totals-wrap {
+    display: grid;
+    grid-template-columns: 1fr 220px;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .payment-box {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .payment-box-hdr {
+    background: #1a1a2e; color: #fff;
+    padding: 5px 10px;
+    font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .payment-box-body { padding: 8px 10px; }
+  .pm-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 11px; }
+  .pm-lbl { color: #6b7280; font-weight: 500; }
+  .pm-val { font-family: 'DM Mono', monospace; font-weight: 600; }
+  .pm-mode-badge {
+    display: inline-block;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    font-size: 9px; font-weight: 700;
+    padding: 2px 8px; border-radius: 10px;
+    text-transform: uppercase; letter-spacing: .5px;
+  }
+
+  .summary-box {
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .summary-box-hdr {
+    background: #1a1a2e; color: #fff;
+    padding: 5px 10px;
+    font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+  }
+  .summary-body { padding: 8px 10px; }
+  .sum-row {
+    display: flex; justify-content: space-between;
+    padding: 3px 0;
+    font-size: 11px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .sum-row:last-child { border-bottom: none; }
+  .sum-lbl { color: #6b7280; font-weight: 500; }
+  .sum-val { font-family: 'DM Mono', monospace; font-weight: 600; }
+  .sum-row.grand {
+    font-size: 13px; font-weight: 800; border-top: 2px solid #e5e7eb;
+    margin-top: 4px; padding-top: 6px; border-bottom: none;
+  }
+  .sum-row.grand .sum-val { color: #f59e0b; font-size: 15px; }
+
+  .balance-chip {
+    background: #1a1a2e; border-radius: 4px;
+    padding: 7px 10px; margin-top: 6px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .balance-chip .lbl { font-size: 8.5px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .6px; }
+  .balance-chip .val { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 800; color: #fcd34d; }
+
+  /* ── SIGNATURE STRIP ── */
+  .sig-strip {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-top: 14px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 10px;
+  }
+  .sig-box { text-align: center; }
+  .sig-line { border-bottom: 1.5px solid #1a1a2e; height: 32px; margin-bottom: 4px; }
+  .sig-lbl { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px; color: #6b7280; }
+
+  /* ── FOOTER ── */
+  .doc-footer {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 8.5px;
+    color: #9ca3af;
+    border-top: 1px solid #f3f4f6;
+    padding-top: 6px;
+  }
+
+  /* ── PRINT BUTTON ── */
+  .print-bar {
+    background: #1a1a2e;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .btn-print {
+    background: #f59e0b; color: #1a1a2e;
+    border: none; border-radius: 6px;
+    padding: 8px 20px; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+  }
+  .btn-back {
+    background: transparent; color: #9ca3af;
+    border: 1px solid #374151; border-radius: 6px;
+    padding: 8px 16px; font-size: 12px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    display: inline-flex; align-items: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Print bar (hidden when printing) -->
+<div class="print-bar no-print">
+  <a href="javascript:history.back()" class="btn-back">← Back</a>
+  <button class="btn-print" onclick="window.print()">🖨 Print / Save PDF</button>
+</div>
+
+<div class="page">
+
+  <!-- ── HEADER BAND ── -->
+  <div class="hdr-band">
+    <div class="hdr-logo">
+      <div class="hdr-logo-icon">L</div>
+      <div>
+        <div class="hdr-company-name">{{ inv.company_name }}</div>
+        <div class="hdr-company-sub">International Freight &amp; Logistics · {{ inv.company_address }}</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-doc-label">Shipper Invoice</div>
+      <div class="hdr-inv-number">{{ inv.invoice_id }}</div>
+    </div>
+  </div>
+
+  <!-- ── META STRIP ── -->
+  <div class="meta-strip">
+    <div class="meta-cell">
+      <div class="meta-lbl">Date</div>
+      <div class="meta-val">{{ inv.date.strftime('%d %b %Y') if inv.date else '—' }}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">AWB / Docket</div>
+      <div class="meta-val">{{ inv.docket_no or '—' }}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Shipment Type</div>
+      <div class="meta-val">{{ inv.shipment_type or '—' }}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Mode</div>
+      <div class="meta-val">{{ inv.mode or '—' }}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Carrier</div>
+      <div class="meta-val">{{ inv.carrier or '—' }}</div>
+    </div>
+    <div class="meta-cell">
+      <div class="meta-lbl">Origin</div>
+      <div class="meta-val">{{ inv.origin or 'India' }}</div>
+    </div>
+  </div>
+
+  <!-- ── SHIPPER / CONSIGNEE ── -->
+  <div class="sec-divider">
+    <div class="sec-divider-label">📋 Parties</div>
+    <div class="sec-divider-line"></div>
+  </div>
+
+  <div class="addr-grid">
+    <!-- Shipper -->
+    <div class="addr-box">
+      <div class="addr-box-hdr"><span>📤</span> Shipper / Agent (Sender)</div>
+      <div class="addr-body">
+        <div class="addr-name">{{ inv.shipper_name or '—' }}</div>
+        {% if inv.shipper_phone %}
+        <div class="addr-row">
+          <div class="addr-lbl">Phone</div>
+          <div class="addr-val">{{ inv.shipper_phone }}</div>
+        </div>
+        {% endif %}
+        {% if inv.shipper_address %}
+        <div class="addr-row">
+          <div class="addr-lbl">Address</div>
+          <div class="addr-val">{{ inv.shipper_address }}</div>
+        </div>
+        {% endif %}
+        {% if inv.origin %}
+        <div class="addr-row">
+          <div class="addr-lbl">Origin</div>
+          <div class="addr-val">{{ inv.origin }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Consignee -->
+    <div class="addr-box">
+      <div class="addr-box-hdr"><span>📥</span> Consignee (Receiver)</div>
+      <div class="addr-body">
+        <div class="addr-name">{{ inv.receiver_name or '—' }}</div>
+        {% if inv.receiver_phone %}
+        <div class="addr-row">
+          <div class="addr-lbl">Phone</div>
+          <div class="addr-val">{{ inv.receiver_phone }}</div>
+        </div>
+        {% endif %}
+        {% if inv.receiver_address %}
+        <div class="addr-row">
+          <div class="addr-lbl">Address</div>
+          <div class="addr-val">{{ inv.receiver_address }}</div>
+        </div>
+        {% endif %}
+        {% if inv.destination %}
+        <div class="addr-row">
+          <div class="addr-lbl">Destination</div>
+          <div class="addr-val">{{ inv.destination }}</div>
+        </div>
+        {% endif %}
+        {% if inv.carrier_ref %}
+        <div class="addr-row">
+          <div class="addr-lbl">Tracking</div>
+          <div class="addr-val">{{ inv.carrier_ref }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHARGES TABLE ── -->
+  <div class="sec-divider">
+    <div class="sec-divider-label">💰 Charges Breakdown</div>
+    <div class="sec-divider-line"></div>
+  </div>
+
+  <table class="chg-table">
+    <thead>
+      <tr>
+        <th style="width:36px">#</th>
+        <th>Description</th>
+        <th style="width:100px;text-align:right">Amount (₹)</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set ns = namespace(row=1) %}
+      {% for item in inv.line_items %}
+      {% if item.desc and item.desc.strip() %}
+      <tr>
+        <td>{{ ns.row }}</td>
+        <td>{{ item.desc }}</td>
+        <td style="text-align:right">₹{{ '{:,.2f}'.format(item.qty * item.rate) }}</td>
+      </tr>
+      {% set ns.row = ns.row + 1 %}
+      {% endif %}
+      {% endfor %}
+      {% for charge in inv.charges %}
+      {% if charge.desc and charge.desc.strip() and charge.amt %}
+      <tr>
+        <td>{{ ns.row }}</td>
+        <td>{{ charge.desc }}</td>
+        <td style="text-align:right">₹{{ '{:,.2f}'.format(charge.amt) }}</td>
+      </tr>
+      {% set ns.row = ns.row + 1 %}
+      {% endif %}
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2" style="text-align:right;color:#6b7280;font-weight:600">Grand Total (incl. GST 18%)</td>
+        <td>₹{{ '{:,.2f}'.format(inv.grand_total) }}</td>
+      </tr>
+    </tfoot>
+  </table>
+
+  <!-- ── TOTALS + PAYMENT ── -->
+  <div class="totals-wrap">
+
+    <!-- Payment details -->
+    <div class="payment-box">
+      <div class="payment-box-hdr">💳 Payment Details</div>
+      <div class="payment-box-body">
+        <div class="pm-row">
+          <span class="pm-lbl">Payment Mode</span>
+          <span class="pm-mode-badge">{{ inv.payment_mode | upper }}</span>
+        </div>
+        {% if inv.payment_mode in ['online', 'upi'] and inv.upi_app %}
+        <div class="pm-row">
+          <span class="pm-lbl">UPI App</span>
+          <span class="pm-val">{{ inv.upi_app }}</span>
+        </div>
+        {% endif %}
+        <div class="pm-row">
+          <span class="pm-lbl">Amount Paid</span>
+          <span class="pm-val">₹{{ '{:,.2f}'.format(inv.amount_paid) }}</span>
+        </div>
+        <div class="pm-row">
+          <span class="pm-lbl">Balance Due</span>
+          <span class="pm-val" style="color:{% if inv.balance <= 0 %}#16a34a{% else %}#dc2626{% endif %}">
+            ₹{{ '{:,.2f}'.format(inv.balance) }}
+          </span>
+        </div>
+        {% if inv.notes %}
+        <hr style="border:none;border-top:1px solid #f3f4f6;margin:6px 0">
+        <div style="font-size:10px;color:#6b7280;line-height:1.5">{{ inv.notes }}</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary-box">
+      <div class="summary-box-hdr">🧾 Summary</div>
+      <div class="summary-body">
+        <div class="sum-row">
+          <span class="sum-lbl">Subtotal</span>
+          <span class="sum-val">₹{{ '{:,.2f}'.format(inv.subtotal) }}</span>
+        </div>
+        <div class="sum-row">
+          <span class="sum-lbl">GST (18%)</span>
+          <span class="sum-val">₹{{ '{:,.2f}'.format(inv.gst) }}</span>
+        </div>
+        <div class="sum-row grand">
+          <span class="sum-lbl">Grand Total</span>
+          <span class="sum-val">₹{{ '{:,.2f}'.format(inv.grand_total) }}</span>
+        </div>
+        <div class="balance-chip">
+          <span class="lbl">Balance Due</span>
+          <span class="val">₹{{ '{:,.2f}'.format(inv.balance) }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── SIGNATURE STRIP ── -->
+  <div class="sig-strip">
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-lbl">Shipper / Agent Signature</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-lbl">Receiver Signature</div>
+    </div>
+    <div class="sig-box">
+      <div class="sig-line"></div>
+      <div class="sig-lbl">Authorized Signatory</div>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
+  <div class="doc-footer">
+    {{ inv.company_name }} · {{ inv.company_address }}
+    {% if inv.company_phone %} · {{ inv.company_phone }}{% endif %}
+    &nbsp;|&nbsp; This is a computer-generated document.
+  </div>
+
+</div><!-- .page -->
+
+<script>
+// Auto-print when opened directly (optional — remove if not wanted)
+// window.addEventListener('load', () => window.print());
+</script>
+</body>
+</html>

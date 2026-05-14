@@ -1,97 +1,266 @@
 {% extends "base.html" %}
-{% block title %}Estimate {{ estimate.id }}{% endblock %}
-{% block page_title %}Estimate Details{% endblock %}
+{% block title %}Shipper Invoice {{ estimate.id }}{% endblock %}
+{% block page_title %}Shipper Invoice Details{% endblock %}
 {% set active = 'estimate' %}
 
 {% block extra_style %}
 <style>
-  @media print {
-    .no-print { display: none; }
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+  :root{--amber:#D97706;--amber-lt:#FEF3C7;--amber-dk:#92400E;--gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;--gray-400:#9CA3AF;--gray-600:#6B7280;--gray-800:#1F2937;--navy:#1a1a2e;--white:#FFFFFF;}
+  *{box-sizing:border-box;}body,input,select,button{font-family:'DM Sans',sans-serif;}
+  .sv-wrap{max-width:960px;margin:0 auto;}
+  /* Top action bar */
+  .sv-actions{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .sv-btn{padding:8px 16px;border-radius:8px;font-size:12.5px;font-weight:600;text-decoration:none;border:1.5px solid var(--gray-200);color:var(--gray-700);background:var(--white);cursor:pointer;transition:all .15s;display:inline-block;}
+  .sv-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .sv-btn-amber{background:var(--amber);border-color:var(--amber);color:var(--white)!important;box-shadow:0 2px 6px rgba(217,119,6,.3);}
+  .sv-btn-amber:hover{background:#B45309!important;}
+  /* Card */
+  .sv-card{background:var(--white);border:1px solid var(--gray-200);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.06);overflow:hidden;margin-bottom:14px;}
+  /* Header band */
+  .sv-hdr{background:var(--navy);color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;}
+  .sv-hdr-left h1{font-size:19px;font-weight:800;margin:0 0 2px;color:#fff;}
+  .sv-hdr-left p{font-size:10px;color:var(--gray-400);margin:0;}
+  .sv-hdr-right{text-align:right;}
+  .sv-hdr-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--amber);margin-bottom:3px;}
+  .sv-inv-no{font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:#fff;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);padding:5px 12px;border-radius:5px;display:inline-block;}
+  /* Meta strip */
+  .sv-meta{background:var(--amber-lt);border-bottom:1px solid #FDE68A;padding:8px 22px;display:flex;gap:0;flex-wrap:wrap;}
+  .sv-meta-cell{flex:1;min-width:120px;padding:0 14px;border-right:1px solid #FDE68A;}
+  .sv-meta-cell:first-child{padding-left:0;}
+  .sv-meta-cell:last-child{border-right:none;}
+  .sv-meta-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--amber-dk);}
+  .sv-meta-val{font-size:12px;font-weight:700;color:var(--gray-800);margin-top:2px;}
+  /* Address grid */
+  .sv-addr-grid{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--gray-100);}
+  .sv-addr-box{padding:16px 22px;}
+  .sv-addr-box:first-child{border-right:1px solid var(--gray-100);}
+  .sv-addr-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--amber);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .sv-addr-lbl::after{content:'';flex:1;height:1px;background:var(--amber-lt);}
+  .sv-addr-name{font-size:14px;font-weight:700;color:var(--gray-800);margin-bottom:4px;}
+  .sv-addr-row{display:flex;gap:8px;margin-bottom:3px;font-size:12px;}
+  .sv-addr-key{color:var(--gray-400);font-size:10px;font-weight:700;text-transform:uppercase;width:56px;flex-shrink:0;padding-top:1px;}
+  .sv-addr-val{color:var(--gray-800);}
+  /* Section head */
+  .sv-sec-head{padding:12px 22px 0;font-size:9.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--gray-600);display:flex;align-items:center;gap:8px;}
+  .sv-sec-head::after{content:'';flex:1;height:1px;background:var(--gray-200);}
+  /* Items table */
+  .sv-tbl-wrap{padding:10px 22px 16px;overflow-x:auto;}
+  .sv-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+  .sv-tbl thead tr{background:var(--navy);color:#fff;}
+  .sv-tbl th{padding:8px 10px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;text-align:left;}
+  .sv-tbl th:first-child{border-radius:4px 0 0 4px;padding-left:14px;}
+  .sv-tbl th:last-child{border-radius:0 4px 4px 0;text-align:right;}
+  .sv-tbl tbody tr:nth-child(even){background:var(--gray-50);}
+  .sv-tbl td{padding:8px 10px;border-bottom:1px solid var(--gray-100);vertical-align:middle;}
+  .sv-tbl td:first-child{padding-left:14px;color:var(--gray-400);font-weight:600;}
+  .sv-tbl td:last-child{text-align:right;font-family:'DM Mono',monospace;font-weight:600;color:var(--gray-800);}
+  .sv-tbl tfoot tr{background:var(--gray-800);}
+  .sv-tbl tfoot td{padding:10px 10px;color:#fff;font-weight:700;border:none;}
+  .sv-tbl tfoot td:first-child{padding-left:14px;text-align:right;}
+  .sv-tbl tfoot .grand-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:800;color:#FCD34D;text-align:right;}
+  /* Totals section */
+  .sv-billing{display:grid;grid-template-columns:1fr 280px;border-top:1px solid var(--gray-100);}
+  .sv-pay-left{padding:16px 22px;border-right:1px solid var(--gray-100);}
+  .sv-sum-right{padding:16px 18px;}
+  .sv-sum-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;}
+  .sv-sum-lbl{color:var(--gray-600);font-weight:500;}
+  .sv-sum-val{font-family:'DM Mono',monospace;font-weight:600;}
+  .sv-sum-row.grand{font-size:14px;font-weight:800;border-top:2px solid var(--gray-200);margin-top:5px;padding-top:8px;}
+  .sv-sum-row.grand .sv-sum-val{color:var(--amber);font-size:16px;}
+  .sv-bal{margin-top:8px;background:var(--navy);border-radius:7px;padding:9px 12px;display:flex;justify-content:space-between;align-items:center;}
+  .sv-bal .lbl{font-size:10px;font-weight:700;color:var(--gray-400);text-transform:uppercase;letter-spacing:.5px;}
+  .sv-bal .val{font-family:'DM Mono',monospace;font-size:15px;font-weight:800;color:#FCD34D;}
+  .sv-pay-row{display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px;}
+  .sv-pay-lbl{color:var(--gray-600);font-weight:500;}
+  .sv-pay-val{font-family:'DM Mono',monospace;font-weight:600;}
+  .pm-badge{display:inline-block;background:var(--amber-lt);border:1px solid #FDE68A;color:var(--amber-dk);font-size:10px;font-weight:700;padding:2px 9px;border-radius:10px;text-transform:uppercase;letter-spacing:.5px;}
+  /* Status badge */
+  .s-badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .s-paid{background:#D1FAE5;color:#065F46;}
+  .s-partial{background:#FEF3C7;color:#92400E;}
+  .s-unpaid{background:#FEE2E2;color:#991B1B;}
+  .s-draft{background:var(--gray-100);color:var(--gray-600);}
+  @media(max-width:768px){
+    .sv-addr-grid{grid-template-columns:1fr;}
+    .sv-addr-box:first-child{border-right:none;border-bottom:1px solid var(--gray-100);}
+    .sv-billing{grid-template-columns:1fr;}
+    .sv-pay-left{border-right:none;border-bottom:1px solid var(--gray-100);}
+    .sv-meta{gap:8px;}
+    .sv-meta-cell{border-right:none;}
   }
-  .estimate-header { background: #EEF2FF; padding: 20px; border-radius: 14px; margin-bottom: 20px; }
-  .expiry-note { background: #FEF3C7; padding: 10px 15px; border-radius: 8px; margin-top: 16px; }
+  @media print{
+    .sv-actions,.no-print{display:none!important;}
+    @page{size:A4;margin:12mm;}
+  }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="sv-wrap">
 
-<div class="no-print" style="margin-bottom:20px">
-  <a href="/estimate/list" class="btn btn-ghost btn-sm">← Back</a>
-  <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print Estimate</button>
-  {% if estimate.status == 'Approved' %}
-  <a href="/invoice/new?estimate={{ estimate.id }}" class="btn btn-success btn-sm">→ Convert to Invoice</a>
-  {% endif %}
-</div>
-
-<div class="estimate-header">
-  <div style="display:flex; justify-content:space-between">
-    <div>
-      <h2>QUOTATION / ESTIMATE</h2>
-      <p><strong>#{{ estimate.id }}</strong></p>
-      <p>Date: {{ estimate.date }}</p>
-      <p>Valid Until: {{ estimate.valid_until }}</p>
-    </div>
-    <div style="text-align:right">
-      <span class="estimate-status 
-        {% if estimate.status == 'Draft' %}status-draft
-        {% elif estimate.status == 'Sent' %}status-sent
-        {% elif estimate.status == 'Approved' %}status-approved
-        {% else %}status-rejected{% endif %}">
-        {{ estimate.status }}
-      </span>
-    </div>
+  <!-- Action bar -->
+  <div class="sv-actions no-print">
+    <a href="/estimate/list" class="sv-btn">&#8592; Back to List</a>
+    <a href="/shipper-invoice/pdf/{{ estimate.id }}" class="sv-btn sv-btn-amber" target="_blank">&#128424; Print / PDF</a>
+    <a href="/estimate/edit/{{ estimate.id }}" class="sv-btn">&#9999;&#65039; Edit</a>
   </div>
-</div>
 
-<div class="card card-body" style="margin-bottom:16px">
-  <h4>Client Details</h4>
-  <div class="grid-2">
-    <div>
-      <p><strong>{{ estimate.company }}</strong></p>
-      {% if estimate.contact_person %}<p>Attn: {{ estimate.contact_person }}</p>{% endif %}
+  <div class="sv-card">
+
+    <!-- Header band -->
+    <div class="sv-hdr">
+      <div class="sv-hdr-left">
+        <h1>LOGISTIC ERP</h1>
+        <p>International Freight &amp; Logistics · Nagpur, India</p>
+      </div>
+      <div class="sv-hdr-right">
+        <div class="sv-hdr-label">Shipper Invoice</div>
+        <div class="sv-inv-no">{{ estimate.id }}</div>
+        <div style="margin-top:6px">
+          {% if estimate.status|lower == 'paid' %}<span class="s-badge s-paid">Paid</span>
+          {% elif estimate.status|lower == 'partial' %}<span class="s-badge s-partial">Partial</span>
+          {% elif estimate.status|lower == 'unpaid' %}<span class="s-badge s-unpaid">Unpaid</span>
+          {% else %}<span class="s-badge s-draft">{{ estimate.status }}</span>{% endif %}
+        </div>
+      </div>
     </div>
-    <div>
-      {% if estimate.email %}<p>Email: {{ estimate.email }}</p>{% endif %}
-      {% if estimate.phone %}<p>Phone: {{ estimate.phone }}</p>{% endif %}
+
+    <!-- Meta strip -->
+    <div class="sv-meta">
+      <div class="sv-meta-cell">
+        <div class="sv-meta-lbl">Date</div>
+        <div class="sv-meta-val">{{ estimate.date }}</div>
+      </div>
+      <div class="sv-meta-cell">
+        <div class="sv-meta-lbl">AWB / Docket</div>
+        <div class="sv-meta-val">{{ estimate.docket_no or '&#8212;' }}</div>
+      </div>
+      <div class="sv-meta-cell">
+        <div class="sv-meta-lbl">Shipment Type</div>
+        <div class="sv-meta-val">{{ estimate.shipment_type or '&#8212;' }}</div>
+      </div>
+      <div class="sv-meta-cell">
+        <div class="sv-meta-lbl">Mode</div>
+        <div class="sv-meta-val">{{ estimate.mode or '&#8212;' }}</div>
+      </div>
+      <div class="sv-meta-cell">
+        <div class="sv-meta-lbl">Carrier</div>
+        <div class="sv-meta-val">{{ estimate.carrier or '&#8212;' }}</div>
+      </div>
     </div>
-  </div>
-</div>
 
-<div class="card">
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr><th>#</th><th>Item Code</th><th>Description</th><th>Qty</th><th>Rate (₹)</th><th>Discount</th><th>Total (₹)</th></tr>
-      </thead>
-      <tbody>
-        {% for item in estimate.items %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ item.code }}</td>
-          <td>{{ item.desc }}</td>
-          <td>{{ item.qty }}</td>
-          <td>{{ "{:,.2f}".format(item.rate) }}</td>
-          <td>{{ item.discount }}%</td>
-          <td>₹{{ "{:,.2f}".format(item.qty * item.rate * (1 - item.discount/100)) }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-      <tfoot>
-        <tr><td colspan="6" style="text-align:right"><strong>Subtotal:</strong></td><td>₹{{ "{:,.2f}".format(estimate.total/1.18) }}</td></tr>
-        <tr><td colspan="6" style="text-align:right"><strong>GST (18%):</strong></td><td>₹{{ "{:,.2f}".format(estimate.total - estimate.total/1.18) }}</td></tr>
-        <tr><td colspan="6" style="text-align:right"><strong>Grand Total:</strong></td><td><strong>₹{{ "{:,.2f}".format(estimate.total) }}</strong></td></tr>
-      </tfoot>
-    </table>
-  </div>
-</div>
+    <!-- Addresses -->
+    <div class="sv-addr-grid">
+      <div class="sv-addr-box">
+        <div class="sv-addr-lbl">&#128228; Shipper / Agent (Sender)</div>
+        <div class="sv-addr-name">{{ estimate.client_name }}</div>
+        {% if estimate.phone %}
+        <div class="sv-addr-row"><span class="sv-addr-key">Phone</span><span class="sv-addr-val">{{ estimate.phone }}</span></div>
+        {% endif %}
+        {% if estimate.contact_person %}
+        <div class="sv-addr-row"><span class="sv-addr-key">Contact</span><span class="sv-addr-val">{{ estimate.contact_person }}</span></div>
+        {% endif %}
+      </div>
+      <div class="sv-addr-box">
+        <div class="sv-addr-lbl">&#128229; Receiver (Consignee)</div>
+        <div class="sv-addr-name">{{ estimate.receiver_name or '&#8212;' }}</div>
+        {% if estimate.receiver_phone %}
+        <div class="sv-addr-row"><span class="sv-addr-key">Phone</span><span class="sv-addr-val">{{ estimate.receiver_phone }}</span></div>
+        {% endif %}
+        {% if estimate.receiver_address %}
+        <div class="sv-addr-row"><span class="sv-addr-key">Address</span><span class="sv-addr-val">{{ estimate.receiver_address }}</span></div>
+        {% endif %}
+        {% if estimate.destination %}
+        <div class="sv-addr-row"><span class="sv-addr-key">Dest.</span><span class="sv-addr-val">{{ estimate.destination }}</span></div>
+        {% endif %}
+      </div>
+    </div>
 
-<div class="expiry-note">
-  <strong>⚠️ Validity Notice:</strong> This estimate is valid until {{ estimate.valid_until }}. Prices are subject to change for orders placed after expiry.
-</div>
+    <!-- Items table -->
+    {% if estimate.line_items %}
+    <div class="sv-sec-head" style="margin-top:12px">&#128230; Items / Packages</div>
+    <div class="sv-tbl-wrap">
+      <table class="sv-tbl">
+        <thead>
+          <tr>
+            <th style="width:40px">#</th>
+            <th>Description</th>
+            <th style="width:80px;text-align:center">Qty</th>
+            <th style="width:120px;text-align:right">Rate (&#8377;)</th>
+            <th style="width:130px">Amount (&#8377;)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in estimate.line_items %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ item.desc or '&#8212;' }}</td>
+            <td style="text-align:center">{{ item.qty }}</td>
+            <td style="text-align:right;font-family:'DM Mono',monospace">&#8377;{{ "{:,.2f}".format(item.rate) }}</td>
+            <td>&#8377;{{ "{:,.2f}".format(item.amount) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right;font-size:12px;font-weight:600;color:var(--gray-400);letter-spacing:.3px">Items Subtotal</td>
+            <td class="grand-val" style="font-size:13px;color:#fff">
+              &#8377;{{ "{:,.2f}".format(estimate.line_items | sum(attribute='amount')) }}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% endif %}
 
-<div class="card card-body" style="margin-top:16px">
-  <h4>Terms & Conditions</h4>
-  <p style="white-space:pre-line">{{ estimate.terms }}</p>
-</div>
+    <!-- Billing + summary -->
+    <div class="sv-billing">
+      <div class="sv-pay-left">
+        <div class="sv-sec-head" style="padding:0 0 10px">&#128179; Payment Details</div>
+        <div class="sv-pay-row">
+          <span class="sv-pay-lbl">Payment Mode</span>
+          <span class="pm-badge">{{ estimate.status }}</span>
+        </div>
+        <div class="sv-pay-row" style="margin-top:6px">
+          <span class="sv-pay-lbl">Shipper</span>
+          <span class="sv-pay-val">{{ estimate.client_name }}</span>
+        </div>
+        {% if estimate.contact_person %}
+        <div class="sv-pay-row">
+          <span class="sv-pay-lbl">Contact</span>
+          <span class="sv-pay-val">{{ estimate.contact_person }}</span>
+        </div>
+        {% endif %}
+        {% if estimate.email %}
+        <div class="sv-pay-row">
+          <span class="sv-pay-lbl">Email</span>
+          <span class="sv-pay-val">{{ estimate.email }}</span>
+        </div>
+        {% endif %}
+      </div>
 
+      <div class="sv-sum-right">
+        <div class="sv-sec-head" style="padding:0 0 10px">&#129534; Summary</div>
+        <div class="sv-sum-row">
+          <span class="sv-sum-lbl">Subtotal</span>
+          <span class="sv-sum-val">&#8377;{{ "{:,.2f}".format(estimate.subtotal) }}</span>
+        </div>
+        <div class="sv-sum-row">
+          <span class="sv-sum-lbl">GST (18%)</span>
+          <span class="sv-sum-val">&#8377;{{ "{:,.2f}".format(estimate.tax_amount) }}</span>
+        </div>
+        <div class="sv-sum-row grand">
+          <span class="sv-sum-lbl">Grand Total</span>
+          <span class="sv-sum-val">&#8377;{{ "{:,.2f}".format(estimate.grand_total) }}</span>
+        </div>
+        <div class="sv-bal">
+          <span class="lbl">Grand Total</span>
+          <span class="val">&#8377;{{ "{:,.2f}".format(estimate.grand_total) }}</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- .sv-card -->
+</div>
 {% endblock %}

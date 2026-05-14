@@ -3,16 +3,108 @@
 {% block page_title %}All Invoices{% endblock %}
 {% set active = 'invoice' %}
 
+{% block extra_style %}
+<style>
+  .mode-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    white-space: nowrap;
+  }
+  .bm-air     { background:#EEF2FF; color:#4338CA; }
+  .bm-sea     { background:#E0F2FE; color:#0369A1; }
+  .bm-road    { background:#FEF9C3; color:#92400E; }
+  .bm-courier { background:#F0FDF4; color:#15803D; }
+  .bm-default { background:#F3F4F6; color:#374151; }
+
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .badge-success { background:#DCFCE7; color:#16A34A; }
+  .badge-warning  { background:#FEF9C3; color:#CA8A04; }
+  .badge-danger   { background:#FEE2E2; color:#DC2626; }
+
+  .tab { padding:8px 18px; border-radius:20px; font-size:13px; font-weight:600;
+         color:#6B7280; border:1.5px solid #E5E7EB; text-decoration:none; transition:all .15s; }
+  .tab:hover { border-color:#4F46E5; color:#4F46E5; }
+  .tab.active { background:#4F46E5; color:#fff; border-color:#4F46E5; }
+
+  .awb-code {
+    font-family:'Courier New',monospace;
+    font-size:13px; font-weight:800; letter-spacing:1px;
+    color:#1E40AF; background:#EEF2FF;
+    padding:4px 10px; border-radius:6px;
+    display:inline-block;
+  }
+
+  .carrier-pill {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 9px; border-radius:20px;
+    background:#F3F4F6; color:#374151;
+    font-size:11.5px; font-weight:600;
+  }
+
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; min-width:860px; }
+  thead th {
+    padding:11px 14px; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.7px;
+    color:#6B7280; background:#F9FAFB;
+    border-bottom:1.5px solid #E5E7EB; text-align:left; white-space:nowrap;
+  }
+  tbody td { padding:13px 14px; border-bottom:1px solid #F3F4F6; font-size:13.5px; vertical-align:middle; }
+  tbody tr:hover { background:#FAFAFE; }
+  tbody tr:last-child td { border-bottom:none; }
+
+  .summary-strip {
+    display:flex; gap:24px; flex-wrap:wrap;
+    padding:14px 20px; background:#F9FAFB;
+    border-radius:10px; margin-bottom:18px;
+    border:1px solid #E5E7EB;
+  }
+  .s-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:#9CA3AF; font-weight:700; }
+  .s-val   { font-size:18px; font-weight:800; color:#111827; }
+  .s-val.green { color:#16A34A; }
+  .s-val.red   { color:#DC2626; }
+</style>
+{% endblock %}
+
 {% block content %}
 
 <div class="page-header">
-  <h2>🧾 Invoice History</h2>
-  <a href="/invoice/new" class="btn btn-primary">+ New Invoice</a>
+  <h2>🚚 Shipment Invoices</h2>
+  <a href="/invoice/customer" class="btn btn-primary">+ New Invoice</a>
 </div>
 
-<div class="tabs">
-  {% for s in ['All','paid','partial','pending'] %}
-  <a href="/invoice/list?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">{{ s|capitalize }}</a>
+{% set total_billed  = invoices | sum(attribute='total') %}
+{% set total_paid    = invoices | sum(attribute='paid') %}
+{% set total_balance = invoices | sum(attribute='balance') %}
+<div class="summary-strip">
+  <div>
+    <div class="s-label">Total Invoices</div>
+    <div class="s-val">{{ invoices | length }}</div>
+  </div>
+  <div>
+    <div class="s-label">Total Billed</div>
+    <div class="s-val">₹{{ "{:,.0f}".format(total_billed) }}</div>
+  </div>
+  <div>
+    <div class="s-label">Amount Received</div>
+    <div class="s-val green">₹{{ "{:,.0f}".format(total_paid) }}</div>
+  </div>
+  <div>
+    <div class="s-label">Balance Pending</div>
+    <div class="s-val red">₹{{ "{:,.0f}".format(total_balance) }}</div>
+  </div>
+</div>
+
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">
+  {% for s in ['All', 'paid', 'partial', 'pending'] %}
+  <a href="/invoice/list?status={{ s }}"
+     class="tab {% if current_status == s %}active{% endif %}">
+    {% if s == 'All' %}📋 All
+    {% elif s == 'paid' %}✅ Paid
+    {% elif s == 'partial' %}⏳ Partial
+    {% else %}⚠️ Pending{% endif %}
+  </a>
   {% endfor %}
 </div>
 
@@ -21,13 +113,12 @@
     <table>
       <thead>
         <tr>
-          <th>Invoice #</th>
-          <th>Customer</th>
-          <th>Date</th>
-          <th>Type</th>
-          <th>Total</th>
-          <th>Paid</th>
-          <th>Balance</th>
+          <th>AWB / Docket No.</th>
+          <th>Customer Name</th>
+          <th>Dispatch Date</th>
+          <th>Carrier</th>
+          <th>Mode</th>
+          <th>Amount</th>
           <th>Status</th>
           <th></th>
         </tr>
@@ -35,28 +126,94 @@
       <tbody>
         {% for inv in invoices %}
         <tr>
-          <td><strong style="color:#4F46E5">{{ inv.id }}</strong></td>
-          <td><strong>{{ inv.customer_name }}</strong></td>
-          <td style="color:#6B7280">{{ inv.date }}</td>
-          <td>{% if inv.bill_type == 'cash' %}💵 Cash{% else %}💳 Credit{% endif %}</td>
-          <td><strong>₹{{ "{:,.0f}".format(inv.total) }}</strong></td>
-          <td style="color:#16A34A">₹{{ "{:,.0f}".format(inv.paid) }}</td>
-          <td style="color:{% if inv.balance > 0 %}#DC2626{% else %}#16A34A{% endif %}; font-weight:600">
-            ₹{{ "{:,.0f}".format(inv.balance) }}
-          </td>
+
+          <!-- AWB / Docket No. -->
           <td>
-            {% if inv.status == 'paid' %}<span class="badge badge-success">✓ Paid</span>
-            {% elif inv.status == 'partial' %}<span class="badge badge-warning">⏳ Partial</span>
-            {% else %}<span class="badge badge-danger">⚠ Pending</span>{% endif %}
+            {% if inv.docket_no %}
+              <span class="awb-code">{{ inv.docket_no }}</span>
+            {% else %}
+              <span style="color:#9CA3AF;font-size:12px;font-style:italic">No AWB</span>
+            {% endif %}
+            <div style="font-size:11px;color:#9CA3AF;margin-top:3px">{{ inv.id }}</div>
           </td>
+
+          <!-- Customer / Receiver -->
           <td>
-            <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm">View</a>
+            <strong>{{ inv.customer_name }}</strong>
+            {% if inv.receiver_name %}
+            <div style="font-size:11.5px;color:#6B7280;margin-top:2px">
+              → {{ inv.receiver_name }}{% if inv.destination %} · <em>{{ inv.destination }}</em>{% endif %}
+            </div>
+            {% endif %}
           </td>
+
+          <!-- Dispatch Date -->
+          <td style="white-space:nowrap;color:#374151">
+            📅 {{ inv.date.strftime('%d %b %Y') if inv.date else '—' }}
+          </td>
+
+          <!-- Carrier -->
+          <td>
+            {% if inv.carrier %}
+              <span class="carrier-pill">🏷️ {{ inv.carrier }}</span>
+            {% else %}
+              <span style="color:#D1D5DB">—</span>
+            {% endif %}
+            {% if inv.shipment_type %}
+            <div style="font-size:11px;color:#9CA3AF;margin-top:3px">{{ inv.shipment_type }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Mode — compare uppercase so AIR/Air/air all match -->
+          <td>
+            {% set m = (inv.mode or '') | upper %}
+            {% if m == 'AIR' %}
+              <span class="mode-badge bm-air">✈️ Air</span>
+            {% elif m == 'SEA' %}
+              <span class="mode-badge bm-sea">🚢 Sea</span>
+            {% elif m == 'ROAD' %}
+              <span class="mode-badge bm-road">🚛 Road</span>
+            {% elif m == 'COURIER' %}
+              <span class="mode-badge bm-courier">📦 Courier</span>
+            {% elif inv.mode %}
+              <span class="mode-badge bm-default">{{ inv.mode }}</span>
+            {% else %}
+              <span style="color:#D1D5DB">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Amount -->
+          <td>
+            <strong style="font-size:14px">₹{{ "{:,.0f}".format(inv.total) }}</strong>
+            {% if inv.balance > 0 %}
+            <div style="font-size:11.5px;color:#DC2626;margin-top:2px">Due: ₹{{ "{:,.0f}".format(inv.balance) }}</div>
+            {% else %}
+            <div style="font-size:11.5px;color:#16A34A;margin-top:2px">Fully Paid ✓</div>
+            {% endif %}
+          </td>
+
+          <!-- Status -->
+          <td>
+            {% if inv.status == 'paid' %}
+              <span class="badge badge-success">✓ Paid</span>
+            {% elif inv.status == 'partial' %}
+              <span class="badge badge-warning">⏳ Partial</span>
+            {% else %}
+              <span class="badge badge-danger">⚠ Pending</span>
+            {% endif %}
+          </td>
+
+          <!-- View -->
+          <td>
+            <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm">View →</a>
+          </td>
+
         </tr>
         {% else %}
         <tr>
-          <td colspan="9" style="text-align:center; padding:40px; color:#9CA3AF">
-            No invoices found
+          <td colspan="8" style="text-align:center;padding:48px;color:#9CA3AF">
+            <div style="font-size:32px;margin-bottom:8px">📭</div>
+            No invoices found for this filter.
           </td>
         </tr>
         {% endfor %}

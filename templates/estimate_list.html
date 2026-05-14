@@ -1,32 +1,75 @@
 {% extends "base.html" %}
-{% block title %}All Estimates{% endblock %}
-{% block page_title %}All Estimates / Quotations{% endblock %}
+{% block title %}Shipper Invoices{% endblock %}
+{% block page_title %}Shipper Invoices{% endblock %}
 {% set active = 'estimate' %}
 
+{% block extra_style %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+  :root{--amber:#D97706;--amber-lt:#FEF3C7;--amber-dk:#92400E;--gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;--gray-400:#9CA3AF;--gray-600:#6B7280;--gray-800:#1F2937;--navy:#1a1a2e;--white:#FFFFFF;}
+  *{box-sizing:border-box;}body,input,select,button{font-family:'DM Sans',sans-serif;}
+  .sl-wrap{max-width:1140px;margin:0 auto;}
+  .sl-page-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
+  .sl-page-hdr h2{font-size:20px;font-weight:700;color:var(--gray-800);margin:0 0 3px;}
+  .sl-page-hdr p{color:var(--gray-600);font-size:12px;margin:0;}
+  .sl-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;}
+  .sl-tab{padding:7px 16px;border-radius:20px;border:1.5px solid var(--gray-200);font-size:12px;font-weight:600;text-decoration:none;color:var(--gray-600);background:var(--white);transition:all .15s;}
+  .sl-tab:hover{border-color:var(--amber);color:var(--amber);}
+  .sl-tab.active{border-color:var(--amber);background:var(--amber-lt);color:var(--amber-dk);}
+  .sl-card{background:var(--white);border:1px solid var(--gray-200);border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,.05);overflow:hidden;}
+  .sl-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .sl-table thead tr{background:var(--navy);color:#fff;}
+  .sl-table th{padding:10px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;text-align:left;white-space:nowrap;}
+  .sl-table tbody tr{border-bottom:1px solid var(--gray-100);transition:background .1s;}
+  .sl-table tbody tr:hover{background:var(--gray-50);}
+  .sl-table td{padding:10px 12px;vertical-align:middle;}
+  .inv-id{font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);font-size:12px;}
+  .docket-pill{font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--navy);background:var(--amber-lt);border:1px solid #FDE68A;padding:2px 8px;border-radius:5px;display:inline-block;}
+  .client-name{font-weight:600;color:var(--gray-800);}
+  .sub-text{font-size:11px;color:var(--gray-600);}
+  .badge{display:inline-block;padding:3px 9px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+  .badge-draft{background:var(--gray-100);color:var(--gray-600);}
+  .badge-paid{background:#D1FAE5;color:#065F46;}
+  .badge-partial{background:#FEF3C7;color:#92400E;}
+  .badge-unpaid{background:#FEE2E2;color:#991B1B;}
+  .amt{font-family:'DM Mono',monospace;font-weight:700;color:var(--amber);}
+  .act-btn{padding:5px 11px;border-radius:6px;font-size:11.5px;font-weight:600;text-decoration:none;border:1.5px solid var(--gray-200);color:var(--gray-700);background:var(--white);transition:all .12s;display:inline-block;}
+  .act-btn:hover{border-color:var(--amber);color:var(--amber);}
+  .act-btn-amber{background:var(--amber)!important;border-color:var(--amber)!important;color:var(--white)!important;}
+  .act-btn-amber:hover{background:#B45309!important;border-color:#B45309!important;}
+  .btn-new{padding:9px 20px;border-radius:8px;background:var(--amber);color:var(--white);font-size:13px;font-weight:700;border:none;text-decoration:none;box-shadow:0 2px 6px rgba(217,119,6,.3);transition:background .15s;display:inline-block;}
+  .btn-new:hover{background:#B45309;color:var(--white);}
+  .sl-empty{text-align:center;padding:60px 20px;color:var(--gray-400);}
+</style>
+{% endblock %}
+
 {% block content %}
+<div class="sl-wrap">
+  <div class="sl-page-hdr">
+    <div>
+      <h2>🧾 Shipper Invoices</h2>
+      <p>Invoices raised on sending agents — not added to Debtors ledger</p>
+    </div>
+    <a href="/shipper-invoice/new" class="btn-new">+ New Shipper Invoice</a>
+  </div>
 
-<div class="page-header">
-  <h2>📋 Estimates & Quotations</h2>
-  <a href="/estimate/new" class="btn btn-primary">+ New Estimate</a>
-</div>
+  <div class="sl-tabs">
+    {% for s in ['All','Draft','Unpaid','Partial','Paid'] %}
+    <a href="/estimate/list?status={{ s }}" class="sl-tab {% if current_status == s %}active{% endif %}">{{ s }}</a>
+    {% endfor %}
+  </div>
 
-<!-- Filter tabs -->
-<div class="tabs" style="display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;">
-  {% for s in ['All', 'Draft', 'Sent', 'Approved', 'Rejected'] %}
-  <a href="/estimate/list?status={{ s }}" class="tab" style="padding: 8px 16px; border-radius: 8px; background: {% if current_status == s %}#4F46E5{% else %}#F3F4F6{% endif %}; color: {% if current_status == s %}#fff{% else %}#374151{% endif %}; text-decoration: none; font-size: 13px; font-weight: 500;">{{ s }}</a>
-  {% endfor %}
-</div>
-
-<div class="card">
-  <div class="table-wrap">
-    <table>
+  <div class="sl-card">
+    <table class="sl-table">
       <thead>
         <tr>
-          <th>Estimate #</th>
-          <th>Client</th>
+          <th>Invoice #</th>
+          <th>AWB / Docket</th>
+          <th>Shipper / Client</th>
+          <th>Receiver</th>
+          <th>Destination</th>
           <th>Date</th>
-          <th>Valid Until</th>
-          <th>Amount</th>
+          <th style="text-align:right">Amount (&#8377;)</th>
           <th>Status</th>
           <th>Actions</th>
         </tr>
@@ -34,36 +77,48 @@
       <tbody>
         {% for est in estimates %}
         <tr>
-          <td><strong style="color:#4F46E5">{{ est.id }}</strong></td>
-          <td>{{ est.company }}</td>
-          <td style="color:#6B7280">{{ est.date }}</td>
-          <td style="color:#6B7280; font-size:12px">{{ est.valid_until }}</td>
-          <td><strong>₹{{ "{:,.0f}".format(est.total) }}</strong></td>
+          <td><span class="inv-id">{{ est.id }}</span></td>
           <td>
-            {% if est.status == 'Draft' %}
-              <span class="badge badge-secondary">Draft</span>
-            {% elif est.status == 'Sent' %}
-              <span class="badge badge-primary">Sent</span>
-            {% elif est.status == 'Approved' %}
-              <span class="badge badge-success">Approved</span>
-            {% elif est.status == 'Rejected' %}
-              <span class="badge badge-danger">Rejected</span>
-            {% endif %}
+            {% if est.docket_no %}<span class="docket-pill">{{ est.docket_no }}</span>
+            {% else %}<span style="color:var(--gray-400)">&#8212;</span>{% endif %}
           </td>
           <td>
-            <a href="/estimate/view/{{ est.id }}" class="btn btn-ghost btn-sm">View</a>
-            <a href="/estimate/edit/{{ est.id }}" class="btn btn-ghost btn-sm">✏️ Edit</a>
-            {% if est.status == 'Approved' %}
-            <a href="/invoice/new?estimate={{ est.id }}" class="btn btn-primary btn-sm">→ Invoice</a>
-            {% endif %}
+            <div class="client-name">{{ est.client_name }}</div>
+            {% if est.phone %}<div class="sub-text">{{ est.phone }}</div>{% endif %}
+          </td>
+          <td>
+            {% if est.receiver_name %}<div style="font-weight:500;font-size:12px">{{ est.receiver_name }}</div>
+            {% else %}<span style="color:var(--gray-400)">&#8212;</span>{% endif %}
+          </td>
+          <td><span class="sub-text">{{ est.destination or '&#8212;' }}</span></td>
+          <td style="color:var(--gray-600);font-size:12px;white-space:nowrap">{{ est.date }}</td>
+          <td style="text-align:right"><span class="amt">&#8377;{{ "{:,.0f}".format(est.grand_total) }}</span></td>
+          <td>
+            {% if est.status|lower == 'paid' %}<span class="badge badge-paid">Paid</span>
+            {% elif est.status|lower == 'partial' %}<span class="badge badge-partial">Partial</span>
+            {% elif est.status|lower == 'unpaid' %}<span class="badge badge-unpaid">Unpaid</span>
+            {% else %}<span class="badge badge-draft">{{ est.status }}</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <a href="/shipper-invoice/pdf/{{ est.id }}" class="act-btn act-btn-amber" target="_blank">&#128424; PDF</a>
+            <a href="/estimate/view/{{ est.id }}" class="act-btn">&#128065; View</a>
+            <a href="/estimate/edit/{{ est.id }}" class="act-btn">&#9999;&#65039; Edit</a>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="7" style="text-align:center;padding:40px;color:#9CA3AF">No estimates found</td></tr>
+        <tr>
+          <td colspan="9">
+            <div class="sl-empty">
+              <div style="font-size:36px;margin-bottom:10px">&#128203;</div>
+              No shipper invoices found{% if current_status != 'All' %} with status "{{ current_status }}"{% endif %}.
+              <br><br>
+              <a href="/shipper-invoice/new" class="btn-new" style="font-size:12px;padding:7px 16px">+ Create First Shipper Invoice</a>
+            </div>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </div>
-
 {% endblock %}
