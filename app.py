@@ -104,14 +104,9 @@ def send_whatsapp_template(to_number, template_name, variables, media_url=None):
     }
 
     if media_url:
-        # Derive extension from the actual URL — never hardcode .pdf for image uploads
-        _url_path = media_url.split('?')[0].split('/')[-1]
-        _ext = _url_path.rsplit('.', 1)[-1].lower() if '.' in _url_path else 'pdf'
-        if _ext not in ('pdf', 'jpg', 'jpeg', 'png'):
-            _ext = 'pdf'
         payload["media"] = {
             "url": media_url,
-            "filename": f"invoice_{datetime.datetime.now().strftime('%Y%m%d')}.{_ext}"
+            "filename": f"invoice_{datetime.datetime.now().strftime('%Y%m%d')}.pdf"
         }
 
     headers = {'Content-Type': 'application/json'}
@@ -1246,7 +1241,7 @@ def admin_update_job(job_id):
         invoice_file = request.files.get('invoice_file')
         invoice_number = request.form.get('invoice_number', '').strip()
         invoice_total_amount = float(request.form.get('invoice_total_amount', 0) or 0)
-        use_razorpay = request.form.get('use_razorpay') == '1'  # checkbox: 1 if ticked
+        payment_method = request.form.get('payment_method', 'razorpay')
         other_notes = request.form.get('other_payment_notes', '').strip()
 
         if not invoice_file or not allowed_file(invoice_file.filename):
@@ -1254,19 +1249,15 @@ def admin_update_job(job_id):
             db.commit()
             return redirect(url_for('admin_job_detail', job_id=job_id))
 
-        if invoice_total_amount <= 0:
+        if invoice_total_amount <= 0 and payment_method != 'free_of_charge':
             flash('Invoice amount must be greater than 0.', 'error')
             db.commit()
             return redirect(url_for('admin_job_detail', job_id=job_id))
 
         # ── Save invoice file ──────────────────────────────────────────────────
-        # Use a clean filename — only preserve the file extension, not the full original name
-        _orig_ext = invoice_file.filename.rsplit('.', 1)[-1].lower() if '.' in invoice_file.filename else 'pdf'
-        filename = secure_filename(f"INV_{job_id}_{uuid.uuid4().hex[:8]}.{_orig_ext}")
+        filename = secure_filename(f"INV_{job_id}_{uuid.uuid4().hex[:8]}_{invoice_file.filename}")
         invoice_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
         invoice_url = build_public_url(f'/static/uploads/{filename}')
-
-        payment_method = 'razorpay' if use_razorpay else 'pending'
 
         db.execute("""
             UPDATE jobs SET
@@ -1279,15 +1270,15 @@ def admin_update_job(job_id):
               invoice_total_amount, payment_method, now, job_id))
 
         log_action(db, job_id,
-                   f'Invoice Uploaded & Sent: {invoice_number or job_id} (₹{invoice_total_amount:.2f})',
+                   f'Invoice Uploaded & Sent: {invoice_number or job_id} (₹{invoice_total_amount:.2f}) — {payment_method}',
                    session['user_id'])
 
         # Re-fetch job so payment_token etc. are available after update
         job = db.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
         job_dict = dict(job)
 
-        # ── RAZORPAY PATH: send repair_completed_invoice with payment link ─────
-        if use_razorpay:
+        # ── Handle payment method ──────────────────────────────────────────────
+        if payment_method == 'razorpay':
             amount_paise = int(invoice_total_amount * 100)
             try:
                 order = razorpay_client.order.create({
@@ -1301,82 +1292,80 @@ def admin_update_job(job_id):
                     UPDATE jobs SET razorpay_order_id=?, payment_token=?, payment_link=?, updated_at=?
                     WHERE job_id=?
                 """, (order['id'], token, pay_link, now, job_id))
-                job_dict['payment_token'] = token
+                job_dict['payment_token'] = token  # inject token for template params
                 send_invoice_ready_notification(
                     job_dict, invoice_total_amount,
                     job['parts_cost'] or 0, job['labour_cost'] or 0,
                     invoice_url
                 )
-                db.commit()
-                flash('✅ Invoice sent with Razorpay payment link via WhatsApp!', 'success')
+                flash(f'✅ Invoice sent with Razorpay payment link via WhatsApp!', 'success')
             except Exception as e:
-                db.commit()
                 flash(f'Invoice saved but Razorpay error: {str(e)}', 'error')
-            return redirect(url_for('admin_job_detail', job_id=job_id))
 
-        # ── NON-RAZORPAY PATH: send invoice first, then redirect to payment step
-        # Invoice WhatsApp is sent immediately; payment method is collected next
-        send_invoice_ready_notification_non_razorpay(
-            job_dict, invoice_total_amount,
-            job['parts_cost'] or 0, job['labour_cost'] or 0,
-            'Other',  # generic label — payment method confirmed in next step
-            invoice_url
-        )
-        log_action(db, job_id, 'Invoice Sent via WhatsApp (non-Razorpay) — awaiting payment method', session['user_id'])
-        db.commit()
-        # Redirect back with flag to open the payment method modal
-        flash('✅ Invoice sent via WhatsApp! Now select the payment method below.', 'success')
-        return redirect(url_for('admin_job_detail', job_id=job_id) + '?open_payment_modal=1')
-
-    # ── Step 2 (non-Razorpay): confirm payment method after invoice is sent ──
-    elif action == 'confirm_payment_method':
-        payment_method = request.form.get('payment_method', '')
-        payment_reference = request.form.get('payment_reference', '').strip()
-        other_notes = request.form.get('other_payment_notes', '').strip()
-        invoice_total_amount = float(
-            db.execute("SELECT invoice_total_amount FROM jobs WHERE job_id=?", (job_id,)).fetchone()[0] or 0
-        )
-
-        job = db.execute("SELECT * FROM jobs WHERE job_id=?", (job_id,)).fetchone()
-        job_dict = dict(job)
-
-        if payment_method == 'cash_cheque':
-            # Mark paid and send payment_received only if reference number entered
+        elif payment_method == 'cash_cheque':
+            # Step 1: Send non-razorpay invoice message
+            send_invoice_ready_notification_non_razorpay(
+                job_dict, invoice_total_amount,
+                job['parts_cost'] or 0, job['labour_cost'] or 0,
+                'Cash / Cheque',
+                invoice_url
+            )
+            log_action(db, job_id, 'Payment Method: Cash / Cheque — Invoice Sent', session['user_id'])
+            # Step 2: Wait 10 seconds then send payment received message
+            time.sleep(10)
             db.execute("""
                 UPDATE jobs SET payment_status='paid', payment_received_at=?,
-                payment_method='cash_cheque', status='payment_received', updated_at=? WHERE job_id=?
+                status='payment_received', updated_at=? WHERE job_id=?
             """, (now, now, job_id))
-            log_action(db, job_id, f'Payment Method: Cash / Cheque — Ref: {payment_reference or "N/A"}', session['user_id'])
-            if payment_reference:
-                send_payment_received_confirmation(job_dict, invoice_total_amount, payment_reference)
-                flash('✅ Payment marked received and customer notified via WhatsApp (Cash / Cheque).', 'success')
-            else:
-                flash('✅ Payment marked as Cash / Cheque (no reference — WhatsApp not sent).', 'success')
+            log_action(db, job_id, 'Auto-Marked Paid (Cash / Cheque)', session['user_id'])
+            send_payment_received_confirmation(job_dict, invoice_total_amount, 'CASH_CHEQUE')
+            flash('✅ Invoice sent and payment marked received via WhatsApp (Cash / Cheque).', 'success')
 
         elif payment_method == 'pay_later':
-            db.execute("""
-                UPDATE jobs SET payment_method='pay_later', status='invoice_uploaded', updated_at=? WHERE job_id=?
-            """, (now, job_id))
-            log_action(db, job_id, 'Payment Method: Pay Later — no payment message sent', session['user_id'])
-            flash('✅ Marked as Pay Later. No payment message sent.', 'success')
-
-        elif payment_method == 'free_of_charge':
+            # Invoice only — no payment received message (payment is deferred)
+            send_invoice_ready_notification_non_razorpay(
+                job_dict, invoice_total_amount,
+                job['parts_cost'] or 0, job['labour_cost'] or 0,
+                'Pay Later',
+                invoice_url
+            )
+            log_action(db, job_id, 'Payment Method: Pay Later — Invoice Sent', session['user_id'],
+                       f'Amount ₹{invoice_total_amount:.2f} deferred')
             db.execute("""
                 UPDATE jobs SET payment_status='paid', payment_received_at=?,
-                payment_method='free_of_charge', status='payment_received', updated_at=? WHERE job_id=?
+                status='payment_received', updated_at=? WHERE job_id=?
+            """, (now, now, job_id))
+            log_action(db, job_id, 'Auto-Marked Paid (Pay Later)', session['user_id'])
+            flash('✅ Invoice sent via WhatsApp (Pay Later).', 'success')
+
+        elif payment_method == 'free_of_charge':
+            # No invoice, no payment received message — just mark paid silently
+            db.execute("""
+                UPDATE jobs SET payment_status='paid', payment_received_at=?,
+                status='payment_received', updated_at=? WHERE job_id=?
             """, (now, now, job_id))
             log_action(db, job_id, 'Free of Charge — Payment Waived', session['user_id'])
-            flash('✅ Marked Free of Charge. No payment message sent.', 'success')
+            flash('✅ Marked Free of Charge. Job moved to Payment Received.', 'success')
 
         elif payment_method == 'other':
+            # Step 1: Send non-razorpay invoice message
+            send_invoice_ready_notification_non_razorpay(
+                job_dict, invoice_total_amount,
+                job['parts_cost'] or 0, job['labour_cost'] or 0,
+                other_notes or 'Other',
+                invoice_url
+            )
+            log_action(db, job_id, 'Payment Method: Other — Invoice Sent', session['user_id'],
+                       other_notes or 'No notes')
+            # Step 2: Wait 10 seconds then send payment received message
+            time.sleep(10)
             db.execute("""
-                UPDATE jobs SET payment_method='other', status='invoice_uploaded', updated_at=? WHERE job_id=?
-            """, (now, job_id))
-            log_action(db, job_id, f'Payment Method: Other — {other_notes or "No notes"}', session['user_id'])
-            flash('✅ Invoice sent. No payment message sent for "Other" arrangement.', 'success')
-
-        else:
-            flash('Please select a valid payment method.', 'error')
+                UPDATE jobs SET payment_status='paid', payment_received_at=?,
+                status='payment_received', updated_at=? WHERE job_id=?
+            """, (now, now, job_id))
+            log_action(db, job_id, 'Auto-Marked Paid (Other)', session['user_id'])
+            send_payment_received_confirmation(job_dict, invoice_total_amount, other_notes or 'OTHER')
+            flash(f'✅ Invoice sent via WhatsApp. Payment received ({other_notes or "Other"}).', 'success')
 
         db.commit()
         return redirect(url_for('admin_job_detail', job_id=job_id))
