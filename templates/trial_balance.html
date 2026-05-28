@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Trial Balance{% endblock %}
+{% block page_title %}Trial Balance{% endblock %}
+{% set active = 'trial_balance' %}
+
+{% block content %}
+<div class="page-header">
+  <h2>⚖️ Trial Balance</h2>
+</div>
+
+<!-- Filter Form -->
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('trial_balance') }}" class="filter-form">
+      <div class="grid-3" style="gap: 16px; align-items: end;">
+        <div class="form-group">
+          <label>As On Date</label>
+          <input type="date" name="as_on_date" value="{{ as_on_date.isoformat() if as_on_date else '' }}">
+        </div>
+        <div>
+          <button type="submit" class="btn btn-primary">Show Trial Balance</button>
+          <a href="{{ url_for('trial_balance') }}" class="btn btn-ghost">Today</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Summary Card -->
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">💰</div>
+    <div class="kpi-val" style="color:#4F46E5">₹{{ "{:,.2f}".format(total_debits) }}</div>
+    <div class="kpi-lbl">Total Debits</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">💳</div>
+    <div class="kpi-val" style="color:#16A34A">₹{{ "{:,.2f}".format(total_credits) }}</div>
+    <div class="kpi-lbl">Total Credits</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⚖️</div>
+    <div class="kpi-val" style="color:#D97706">₹{{ "{:,.2f}".format(difference) }}</div>
+    <div class="kpi-lbl">Difference</div>
+  </div>
+</div>
+
+<!-- Trial Balance Table -->
+<div class="card">
+  <div class="card-header">
+    <strong>Trial Balance</strong>
+    <span>As on {{ as_on_date.strftime('%d %b %Y') if as_on_date else '-' }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Account Name</th>
+          <th>Debit (₹)</th>
+          <th>Credit (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td><strong>{{ account.name }}</strong></td>
+          <td class="{% if account.debit > 0 %}text-success{% endif %}">
+            {% if account.debit > 0 %}₹{{ "{:,.2f}".format(account.debit) }}{% else %}-{% endif %}
+          </td>
+          <td class="{% if account.credit > 0 %}text-danger{% endif %}">
+            {% if account.credit > 0 %}₹{{ "{:,.2f}".format(account.credit) }}{% else %}-{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="3" style="text-align: center;">No accounts found</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background: #F9FAFB; font-weight: bold;">
+          <td style="text-align: right;">Total:</td>
+          <td>₹{{ "{:,.2f}".format(total_debits) }}</td>
+          <td>₹{{ "{:,.2f}".format(total_credits) }}</td>
+        </tr>
+        {% if difference != 0 %}
+        <tr style="background: #FEF3C7;">
+          <td style="text-align: right;">Difference:</td>
+          <td colspan="2" style="color: #D97706;">₹{{ "{:,.2f}".format(difference) }}</td>
+        </tr>
+        {% endif %}
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<!-- Note if difference exists -->
+{% if difference != 0 %}
+<div class="alert alert-warning" style="margin-top: 16px; padding: 12px; background: #FEF3C7; border-radius: 8px;">
+  <strong>⚠️ Note:</strong> The trial balance is not balanced. The difference of ₹{{ "{:,.2f}".format(difference) }} needs to be investigated.
+</div>
+{% else %}
+<div class="alert alert-success" style="margin-top: 16px; padding: 12px; background: #DCFCE7; border-radius: 8px;">
+  <strong>✓ Balanced:</strong> The trial balance is balanced. Total Debits equal Total Credits.
+</div>
+{% endif %}
+
+<style>
+.text-success {
+  color: #16A34A;
+  font-weight: 600;
+}
+.text-danger {
+  color: #DC2626;
+  font-weight: 600;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.alert-warning {
+  border: 1px solid #FDE68A;
+}
+.alert-success {
+  border: 1px solid #86EFAC;
+}
+</style>
+{% endblock %}

@@ -111,7 +111,7 @@
 <body>
 <div class="wrapper">
 
-  <!-- Sidebar -->
+  <!-- Sidebar -
   <div class="sidebar">
     <div class="sidebar-logo">
       <span>⚡ NexaERP</span>
@@ -139,7 +139,7 @@
           <!--<a href="/orders"         class="{% if active=='orders'    %}active{% endif %}">📋 Orders</a>
           <a href="/receipts/new"   class="{% if active=='receipts'  %}active{% endif %}">💰 Record Receipt</a>-->
 
-          <div class="nav-group-label">Purchases</div>
+          <!--<div class="nav-group-label">Purchases</div>
           <a href="/purchase/list"  class="{% if active=='purchase'  %}active{% endif %}">📥 Purchase Invoices</a>
           <a href="/payments/new"   class="{% if active=='payments'  %}active{% endif %}">💸 Record Payment</a>
 
@@ -161,7 +161,196 @@
       <a href="/profile">👤 My Profile</a>
       <a href="/logout">🚪 Sign Out</a>
     </div>
+  </div>-->
+
+  <!-- In your base.html - Update the sidebar navigation -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <h2>🚚 LogisticERP</h2>
+    <p>{{ company.company_name if company else 'Your Company' }}</p>
   </div>
+  
+  <nav class="sidebar-nav">
+    <!-- Main Dashboard -->
+    <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+      <span class="nav-icon">📊</span>
+      <span>Dashboard</span>
+    </a>
+    
+    <!-- Sales Section -->
+    <div class="nav-section">
+      <div class="nav-section-title">SALES</div>
+      <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
+        <span class="nav-icon">📄</span>
+        <span>Customer Invoices</span>
+      </a>
+      <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
+        <span class="nav-icon">📝</span>
+        <span>Shipper Invoices</span>
+      </a>
+      <a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
+        <span class="nav-icon">📦</span>
+        <span>Orders</span>
+      </a>
+      <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
+        <span class="nav-icon">👥</span>
+        <span>Clients</span>
+      </a>
+    </div>
+    
+    <!-- Purchases Section -->
+    <div class="nav-section">
+      <div class="nav-section-title">PURCHASES</div>
+      <a href="{{ url_for('purchase_invoice_list') }}" class="nav-item {% if active == 'purchases' %}active{% endif %}">
+        <span class="nav-icon">🛒</span>
+        <span>Purchase Invoices</span>
+      </a>
+      <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
+        <span class="nav-icon">📦</span>
+        <span>Stock / Inventory</span>
+      </a>
+    </div>
+    
+    <!-- Banking & Finance Section (NEW) -->
+    <div class="nav-section">
+      <div class="nav-section-title">BANKING & FINANCE</div>
+      <a href="{{ url_for('bank_accounts') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
+        <span class="nav-icon">🏦</span>
+        <span>Bank Accounts</span>
+      </a>
+      <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
+        <span class="nav-icon">💵</span>
+        <span>Cash In Hand</span>
+      </a>
+      <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
+        <span class="nav-icon">📝</span>
+        <span>Cheques</span>
+      </a>
+      <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
+        <span class="nav-icon">🏦</span>
+        <span>Loan Accounts</span>
+      </a>
+    </div>
+    
+    <!-- Accounting Section (NEW) -->
+    <div class="nav-section">
+      <div class="nav-section-title">ACCOUNTING</div>
+      <a href="{{ url_for('debtors_list') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
+        <span class="nav-icon">💰</span>
+        <span>Debtors (Customers)</span>
+      </a>
+      <a href="{{ url_for('creditors_list') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
+        <span class="nav-icon">💳</span>
+        <span>Creditors (Suppliers)</span>
+      </a>
+      <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
+        <span class="nav-icon">📥</span>
+        <span>Receipts</span>
+      </a>
+      <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
+        <span class="nav-icon">📤</span>
+        <span>Payments</span>
+      </a>
+      <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
+        <span class="nav-icon">📒</span>
+        <span>General Ledger</span>
+      </a>
+      <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
+        <span class="nav-icon">⚖️</span>
+        <span>Trial Balance</span>
+      </a>
+    </div>
+    
+    <!-- Reports Section (NEW) -->
+    <div class="nav-section">
+      <div class="nav-section-title">REPORTS</div>
+      <a href="{{ url_for('sales_report') }}" class="nav-item {% if active == 'sales_report' %}active{% endif %}">
+        <span class="nav-icon">📈</span>
+        <span>Sales Report</span>
+      </a>
+      <a href="{{ url_for('purchase_report') }}" class="nav-item {% if active == 'purchase_report' %}active{% endif %}">
+        <span class="nav-icon">📉</span>
+        <span>Purchase Report</span>
+      </a>
+      <a href="{{ url_for('stock_report') }}" class="nav-item {% if active == 'stock_report' %}active{% endif %}">
+        <span class="nav-icon">📊</span>
+        <span>Stock Report</span>
+      </a>
+      <a href="{{ url_for('tax_report') }}" class="nav-item {% if active == 'tax_report' %}active{% endif %}">
+        <span class="nav-icon">🧾</span>
+        <span>Tax Report (GST)</span>
+      </a>
+      <a href="{{ url_for('profit_loss') }}" class="nav-item {% if active == 'profit_loss' %}active{% endif %}">
+        <span class="nav-icon">📊</span>
+        <span>Profit & Loss</span>
+      </a>
+    </div>
+    
+    <!-- Sync, Share & Backup (NEW) -->
+    <div class="nav-section">
+      <div class="nav-section-title">SYNC & BACKUP</div>
+      <a href="{{ url_for('sync_data') }}" class="nav-item {% if active == 'sync' %}active{% endif %}">
+        <span class="nav-icon">🔄</span>
+        <span>Sync Data</span>
+      </a>
+      <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
+        <span class="nav-icon">💾</span>
+        <span>Backup</span>
+      </a>
+      <a href="{{ url_for('share_data') }}" class="nav-item {% if active == 'share' %}active{% endif %}">
+        <span class="nav-icon">📤</span>
+        <span>Share Data</span>
+      </a>
+    </div>
+    
+    <!-- Other Products (NEW) -->
+    <div class="nav-section">
+      <div class="nav-section-title">OTHER PRODUCTS</div>
+      <a href="{{ url_for('integrations') }}" class="nav-item {% if active == 'integrations' %}active{% endif %}">
+        <span class="nav-icon">🔌</span>
+        <span>Integrations</span>
+      </a>
+      <a href="{{ url_for('addons') }}" class="nav-item {% if active == 'addons' %}active{% endif %}">
+        <span class="nav-icon">🧩</span>
+        <span>Add-ons</span>
+      </a>
+    </div>
+    
+    <!-- Utilities (NEW) -->
+    <div class="nav-section">
+      <div class="nav-section-title">UTILITIES</div>
+      <a href="{{ url_for('import_data') }}" class="nav-item {% if active == 'import' %}active{% endif %}">
+        <span class="nav-icon">📥</span>
+        <span>Import Data</span>
+      </a>
+      <a href="{{ url_for('export_data') }}" class="nav-item {% if active == 'export' %}active{% endif %}">
+        <span class="nav-icon">📤</span>
+        <span>Export Data</span>
+      </a>
+      <a href="{{ url_for('audit_log') }}" class="nav-item {% if active == 'audit' %}active{% endif %}">
+        <span class="nav-icon">📋</span>
+        <span>Audit Log</span>
+      </a>
+    </div>
+    
+    <!-- Settings (Keep as is) -->
+    <div class="nav-section">
+      <div class="nav-section-title">SETTINGS</div>
+      <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
+        <span class="nav-icon">⚙️</span>
+        <span>Company Settings</span>
+      </a>
+      <a href="{{ url_for('employee_list') }}" class="nav-item {% if active == 'employees' %}active{% endif %}">
+        <span class="nav-icon">👥</span>
+        <span>Employees</span>
+      </a>
+      <a href="{{ url_for('profile') }}" class="nav-item {% if active == 'profile' %}active{% endif %}">
+        <span class="nav-icon">👤</span>
+        <span>My Profile</span>
+      </a>
+    </div>
+  </nav>
+</aside>
 
   <!-- Main -->
   <div class="main">

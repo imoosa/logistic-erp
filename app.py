@@ -24,15 +24,11 @@ app = Flask(__name__)
 app.secret_key = "nexa-erp-2024-super-secret-key-change-in-production"
 
 # ── Database Configuration ────────────────────────────────────────────────────
-# Change to SQLite - creates a file named 'maktroniks.db' in the instance folder
-# You can change the path as needed
 app.config["SQLALCHEMY_DATABASE_URI"] = (
     'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'maktroniks.db')
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
-# SQLite doesn't support ALTER TABLE as well, so we'll need to handle that
-# by setting a pragma for foreign key enforcement
 @app.before_request
 def before_request():
     if db.engine.url.drivername == 'sqlite':
@@ -40,17 +36,15 @@ def before_request():
 
 db.init_app(app)
 
-# ── Create tables and seed on first startup (works with Gunicorn / Render) ────
+# ── Create tables and seed on first startup ────────────────────────────────────
 with app.app_context():
     db.create_all()
-    # seed_database() is defined later in this file; called after all models load
 
 UPLOAD_FOLDER = 'uploads/purchase_invoices'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf', 'tiff', 'bmp'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB
 
-# Create upload folder if not exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
@@ -68,7 +62,6 @@ def get_current_user():
 
 @app.context_processor
 def inject_user():
-    """Automatically inject `user` and `company` into every template."""
     return {
         "user": session.get("user", {}),
     }
@@ -104,444 +97,6 @@ def super_admin_required(f):
             return redirect(url_for("dashboard"))
         return f(*args, **kwargs)
     return decorated
-
-
-# ── OCR Extraction Service ────────────────────────────────────────────────────
-# OCR via pytesseract has been removed. These stubs keep the rest of the
-# codebase intact; the /purchase/upload-ocr endpoint will return a clear
-# "not available" message instead of crashing.
-
-def extract_invoice_from_image(image_data):
-    """OCR extraction is not available on this deployment."""
-    return ""
-
-
-def extract_invoice_from_pdf(pdf_bytes):
-    """OCR extraction is not available on this deployment."""
-    return ""
-
-
-def normalize_date(date_str):
-    """Convert various date formats to YYYY-MM-DD"""
-    if not date_str:
-        return ""
-
-    MONTH_NAMES = {
-        'january': 1, 'february': 2, 'march': 3, 'april': 4, 'may': 5, 'june': 6,
-        'july': 7, 'august': 8, 'september': 9, 'october': 10, 'november': 11, 'december': 12
-    }
-
-    date_str = date_str.strip()
-
-    # Named month: "January 25, 2016" or "25 January 2016"
-    for month_name, month_num in MONTH_NAMES.items():
-        if month_name in date_str.lower():
-            # Month Day, Year  →  January 25, 2016
-            m = re.search(rf'{month_name}\s+(\d{{1,2}}),?\s+(\d{{4}})', date_str, re.IGNORECASE)
-            if m:
-                return f"{m.group(2)}-{month_num:02d}-{int(m.group(1)):02d}"
-            # Day Month Year  →  25 January 2016
-            m = re.search(rf'(\d{{1,2}})\s+{month_name}\s+(\d{{4}})', date_str, re.IGNORECASE)
-            if m:
-                return f"{m.group(2)}-{month_num:02d}-{int(m.group(1)):02d}"
-
-    # YYYY-MM-DD
-    m = re.search(r'(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})', date_str)
-    if m:
-        return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
-
-    # DD/MM/YYYY (Indian format assumed)
-    m = re.search(r'(\d{1,2})[/\-](\d{1,2})[/\-](\d{2,4})', date_str)
-    if m:
-        day, month, year = m.group(1), m.group(2), m.group(3)
-        if len(year) == 2:
-            year = f"20{year}"
-        return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
-
-    return date_str
-
-
-def _extract_amount(s):
-    """Parse a currency string like '$85.00' or '1,234.50' into float."""
-    cleaned = re.sub(r'[^\d.]', '', s.replace(',', ''))
-    try:
-        return float(cleaned)
-    except ValueError:
-        return 0.0
-
-
-def parse_invoice_data(extracted_text):
-    """Intelligently parse OCR extracted text to extract invoice information"""
-    
-    if not extracted_text or len(extracted_text.strip()) < 10:
-        return {
-            "invoice_number": "",
-            "date": "",
-            "due_date": "",
-            "supplier_name": "",
-            "supplier_gst": "",
-            "items": [],
-            "subtotal": 0,
-            "tax_amount": 0,
-            "grand_total": 0,
-            "payment_terms": "",
-            "error": "Could not extract text"
-        }
-    
-    data = {
-        "invoice_number": "",
-        "date": "",
-        "due_date": "",
-        "supplier_name": "",
-        "supplier_gst": "",
-        "items": [],
-        "subtotal": 0,
-        "tax_amount": 0,
-        "grand_total": 0,
-        "payment_terms": ""
-    }
-    
-    print("=== OCR Extracted Text ===")
-    print(extracted_text[:1000])
-    print("==========================")
-    
-    # Clean and prepare lines
-    lines = [line.strip() for line in extracted_text.split('\n') if line.strip()]
-    
-    # ========== 1. SMART DATE PARSING ==========
-    def parse_smart_date(date_str):
-        """Convert any date format to YYYY-MM-DD"""
-        date_str = date_str.strip()
-        
-        # Month name to number mapping
-        months = {
-            'january': 1, 'jan': 1, 'jan.': 1,
-            'february': 2, 'feb': 2, 'feb.': 2,
-            'march': 3, 'mar': 3, 'mar.': 3,
-            'april': 4, 'apr': 4, 'apr.': 4,
-            'may': 5,
-            'june': 6, 'jun': 6, 'jun.': 6,
-            'july': 7, 'jul': 7, 'jul.': 7,
-            'august': 8, 'aug': 8, 'aug.': 8,
-            'september': 9, 'sep': 9, 'sept': 9, 'sep.': 9,
-            'october': 10, 'oct': 10, 'oct.': 10,
-            'november': 11, 'nov': 11, 'nov.': 11,
-            'december': 12, 'dec': 12, 'dec.': 12
-        }
-        
-        # Try to parse named month format (e.g., "January 25, 2016" or "25 Jan 2016")
-        for month_name, month_num in months.items():
-            if month_name in date_str.lower():
-                # Pattern: Month Day, Year or Day Month Year
-                patterns = [
-                    rf'{month_name}\s+(\d{{1,2}})[,)]?\s+(\d{{4}})',  # Month Day, Year
-                    rf'(\d{{1,2}})\s+{month_name}\s+(\d{{4}})',        # Day Month Year
-                ]
-                for pattern in patterns:
-                    match = re.search(pattern, date_str, re.IGNORECASE)
-                    if match:
-                        if match.group(1).isdigit() and len(match.group(1)) <= 2:
-                            day = int(match.group(1))
-                            year = int(match.group(2))
-                            return f"{year}-{month_num:02d}-{day:02d}"
-        
-        # Try numeric formats
-        # DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
-        match = re.search(r'(\d{1,2})[/\-\.](\d{1,2})[/\-\.](\d{2,4})', date_str)
-        if match:
-            day, month, year = match.groups()
-            year = int(year)
-            if year < 100:
-                year = 2000 + year
-            day = int(day)
-            month = int(month)
-            # If day > 12, assume format is DD/MM/YYYY
-            if day > 12:
-                return f"{year}-{month:02d}-{day:02d}"
-            else:
-                # Assume MM/DD/YYYY (common in US) or DD/MM/YYYY?
-                # Let's check if month > 12, then it must be DD/MM/YYYY
-                if month > 12:
-                    return f"{year}-{day:02d}-{month:02d}"
-                else:
-                    # Default to DD/MM/YYYY for Indian invoices
-                    return f"{year}-{month:02d}-{day:02d}"
-        
-        # YYYY-MM-DD format
-        match = re.search(r'(\d{4})[/\-\.](\d{1,2})[/\-\.](\d{1,2})', date_str)
-        if match:
-            year, month, day = match.groups()
-            return f"{year}-{int(month):02d}-{int(day):02d}"
-        
-        return date_str
-    
-    # ========== 2. FIND ALL DATES IN DOCUMENT ==========
-    dates_found = []
-    for line in lines:
-        # Look for date patterns
-        if re.search(r'\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}', line) or \
-           re.search(r'(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s+\d{4}', line.lower()):
-            dates_found.append(line)
-    
-    # Extract dates (first is invoice date, second might be due date)
-    if dates_found:
-        date_matches = re.findall(r'(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}|\w+\s+\d{1,2},?\s+\d{4})', dates_found[0], re.IGNORECASE)
-        if date_matches:
-            data['date'] = parse_smart_date(date_matches[0])
-            print(f"✓ Invoice Date: {data['date']}")
-        
-        if len(dates_found) > 1:
-            date_matches2 = re.findall(r'(\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}|\w+\s+\d{1,2},?\s+\d{4})', dates_found[1], re.IGNORECASE)
-            if date_matches2:
-                data['due_date'] = parse_smart_date(date_matches2[0])
-                print(f"✓ Due Date: {data['due_date']}")
-    
-    # ========== 3. EXTRACT INVOICE NUMBER (Anywhere in document) ==========
-    invoice_patterns = [
-        r'(?:Invoice|Order|Bill)\s*(?:Number|No|#)?\s*[:.\-]?\s*([A-Z0-9\-/]+)',
-        r'(?:INV|INV-|INV#)\s*[:.\-]?\s*([A-Z0-9\-/]+)',
-        r'([A-Z0-9]{2,}[\/\-][0-9]{4,})',  # Pattern like ORD-2024-001
-        r'(\d{4,}[\/\-][A-Z0-9]+)',         # Pattern like 2024-ORD001
-    ]
-    
-    for pattern in invoice_patterns:
-        match = re.search(pattern, extracted_text, re.IGNORECASE)
-        if match:
-            data['invoice_number'] = match.group(1).strip()
-            print(f"✓ Invoice Number: {data['invoice_number']}")
-            break
-    
-    # ========== 4. EXTRACT SUPPLIER NAME ==========
-    # Look for "From", "Supplier", "Vendor", "Seller" sections
-    for i, line in enumerate(lines):
-        line_lower = line.lower()
-        if any(keyword in line_lower for keyword in ['from:', 'supplier:', 'vendor:', 'seller:', 'bill from:']):
-            # Get the next few lines for the supplier name
-            for j in range(i + 1, min(i + 5, len(lines))):
-                candidate = lines[j]
-                # Skip if it looks like address lines (contains numbers or common address words)
-                if not re.search(r'\d{5,}', candidate) and not any(x in candidate.lower() for x in ['street', 'road', 'lane', 'avenue']):
-                    if len(candidate) > 3 and len(candidate) < 100:
-                        data['supplier_name'] = candidate
-                        print(f"✓ Supplier: {data['supplier_name']}")
-                        break
-            if data['supplier_name']:
-                break
-    
-    # If not found, try to find company name in first few lines
-    if not data['supplier_name']:
-        for line in lines[:10]:
-            if len(line) > 5 and len(line) < 50 and not re.search(r'\d', line):
-                data['supplier_name'] = line
-                print(f"✓ Supplier (fallback): {data['supplier_name']}")
-                break
-    
-    # ========== 5. EXTRACT PAYMENT TERMS ==========
-    payment_keywords = ['payment due', 'terms', 'net \d+', 'due within', 'payment terms']
-    payment_pattern = '|'.join(payment_keywords)
-    for line in lines:
-        if re.search(payment_pattern, line.lower()):
-            data['payment_terms'] = line
-            print(f"✓ Payment Terms: {data['payment_terms'][:50]}")
-            break
-    
-    # ========== 6. SMART TABLE DETECTION ==========
-    # First, identify where the items table might be
-    table_start = -1
-    column_mapping = {}
-    
-    # Common column headers and their mappings
-    header_mapping = {
-        'description': ['description', 'item', 'product', 'particulars', 'service', 'goods', 'name'],
-        'quantity': ['qty', 'quantity', 'qnty', 'quan', 'unit', 'pieces', 'pcs'],
-        'rate': ['rate', 'price', 'unit price', 'cost', 'selling price', '₹', 'rs'],
-        'amount': ['amount', 'total', 'value', 'subtotal', 'net'],
-        'tax': ['tax', 'gst', 'vat', 'cgst', 'sgst', 'igst'],
-        'discount': ['discount', 'disc', 'off']
-    }
-    
-    # Find table headers
-    for i, line in enumerate(lines):
-        line_lower = line.lower()
-        for col_type, keywords in header_mapping.items():
-            for keyword in keywords:
-                if keyword in line_lower and len(line) < 100:  # Header lines are usually short
-                    column_mapping[col_type] = i
-                    print(f"✓ Found column '{col_type}' at line {i}")
-                    
-        # If we found multiple headers, this is likely the table start
-        if len(column_mapping) >= 2:
-            table_start = i
-            break
-    
-    # Extract table data if we found headers
-    if table_start >= 0:
-        print(f"✓ Table detected starting at line {table_start}")
-        
-        # Get the header line to understand column positions
-        header_line = lines[table_start]
-        print(f"  Header: {header_line}")
-        
-        # Find column positions by splitting on whitespace
-        header_parts = re.split(r'\s{2,}', header_line)  # Split on multiple spaces
-        
-        # Now look at rows below the header
-        for i in range(table_start + 1, min(table_start + 30, len(lines))):
-            row = lines[i]
-            
-            # Skip if row looks like total line
-            if any(keyword in row.lower() for keyword in ['total', 'sub total', 'grand total', 'tax', 'payment']):
-                break
-            
-            # Extract numbers from the row
-            numbers = re.findall(r'(\d+(?:\.\d+)?)', row)
-            
-            # Clean the description (remove numbers and special chars)
-            description = re.sub(r'\d+(?:\.\d+)?', '', row)
-            description = re.sub(r'[^\w\s\-\.]', '', description).strip()
-            
-            # Try to map columns based on position
-            if description and len(description) > 2:
-                item = {
-                    "description": description[:80],
-                    "quantity": 1,
-                    "rate": 0,
-                    "amount": 0,
-                    "tax": 0,
-                    "discount": 0
-                }
-                
-                # Map numbers to fields based on what columns we found
-                if 'quantity' in column_mapping and len(numbers) > 0:
-                    item['quantity'] = float(numbers[0]) if numbers else 1
-                    numbers = numbers[1:] if len(numbers) > 1 else []
-                
-                if 'rate' in column_mapping and len(numbers) > 0:
-                    item['rate'] = float(numbers[0]) if numbers else 0
-                    numbers = numbers[1:] if len(numbers) > 1 else []
-                
-                if 'amount' in column_mapping and len(numbers) > 0:
-                    item['amount'] = float(numbers[0]) if numbers else 0
-                elif len(numbers) > 0:
-                    # If no amount column, last number is likely amount
-                    item['amount'] = float(numbers[-1]) if numbers else 0
-                    if item['rate'] == 0 and item['amount'] > 0:
-                        item['rate'] = item['amount'] / item['quantity'] if item['quantity'] > 0 else item['amount']
-                
-                if 'tax' in column_mapping and len(numbers) > 0:
-                    item['tax'] = float(numbers[0]) if numbers else 0
-                
-                # Only add if amount > 0
-                if item['amount'] > 0 and description:
-                    data['items'].append(item)
-                    print(f"  Item: {description[:30]} | Qty: {item['quantity']} | Rate: ₹{item['rate']:.2f} | Amount: ₹{item['amount']:.2f}")
-    
-    # ========== 7. FALLBACK: Extract items if table detection failed ==========
-    if not data['items']:
-        print("✓ Using fallback item extraction")
-        for line in lines:
-            # Skip short lines and lines with common non-item words
-            if len(line) < 10:
-                continue
-            if any(skip in line.lower() for skip in ['total', 'tax', 'invoice', 'date', 'from:', 'to:', 'payment', 'subtotal']):
-                continue
-            
-            # Find numbers in the line
-            numbers = re.findall(r'(\d+(?:\.\d+)?)', line)
-            
-            if numbers:
-                # Clean description
-                description = re.sub(r'\d+(?:\.\d+)?', '', line)
-                description = re.sub(r'[^\w\s\-\.]', '', description).strip()
-                
-                if description and len(description) > 3:
-                    amount = float(numbers[-1]) if numbers else 0
-                    if amount > 0:
-                        item = {
-                            "description": description[:60],
-                            "quantity": float(numbers[0]) if len(numbers) >= 2 else 1,
-                            "rate": float(numbers[1]) if len(numbers) >= 3 else amount,
-                            "amount": amount
-                        }
-                        
-                        # Adjust if rate seems wrong
-                        if item['rate'] > item['amount'] and item['quantity'] > 1:
-                            item['rate'] = item['amount'] / item['quantity']
-                        
-                        data['items'].append(item)
-                        print(f"  Item: {description[:30]} | Qty: {item['quantity']} | Rate: ₹{item['rate']:.2f} | Amount: ₹{item['amount']:.2f}")
-    
-    # ========== 8. EXTRACT AMOUNTS (Total, Tax, Subtotal) ==========
-    # Find total amount
-    total_patterns = [
-        r'(?:Total|Grand Total|Amount Due|Net Payable)\s*:?\s*[₹\$]?\s*([0-9,]+\.?\d*)',
-        r'TOTAL\s+[A-Z]?\s*[₹\$]?\s*([0-9,]+\.?\d*)',
-        r'[₹\$]\s*([0-9,]+\.?\d*)\s*(?:Total|Due)',
-    ]
-    
-    for pattern in total_patterns:
-        match = re.search(pattern, extracted_text, re.IGNORECASE)
-        if match:
-            data['grand_total'] = float(match.group(1).replace(',', ''))
-            print(f"✓ Grand Total: ₹{data['grand_total']}")
-            break
-    
-    # Find tax amount
-    tax_patterns = [
-        r'(?:Tax|GST|VAT|CGST|SGST|IGST)\s*:?\s*[₹\$]?\s*([0-9,]+\.?\d*)',
-        r'Total Tax\s*:?\s*[₹\$]?\s*([0-9,]+\.?\d*)',
-    ]
-    
-    for pattern in tax_patterns:
-        match = re.search(pattern, extracted_text, re.IGNORECASE)
-        if match:
-            data['tax_amount'] = float(match.group(1).replace(',', ''))
-            print(f"✓ Tax Amount: ₹{data['tax_amount']}")
-            break
-    
-    # Find subtotal
-    subtotal_patterns = [
-        r'(?:Sub Total|Subtotal|Taxable Value)\s*:?\s*[₹\$]?\s*([0-9,]+\.?\d*)',
-    ]
-    
-    for pattern in subtotal_patterns:
-        match = re.search(pattern, extracted_text, re.IGNORECASE)
-        if match:
-            data['subtotal'] = float(match.group(1).replace(',', ''))
-            print(f"✓ Subtotal: ₹{data['subtotal']}")
-            break
-    
-    # Calculate missing values
-    if data['grand_total'] > 0 and data['subtotal'] == 0:
-        if data['tax_amount'] > 0:
-            data['subtotal'] = data['grand_total'] - data['tax_amount']
-        else:
-            # Assume 18% GST if not specified
-            data['subtotal'] = data['grand_total'] / 1.18
-            data['tax_amount'] = data['grand_total'] - data['subtotal']
-            print(f"✓ Estimated 18% GST: Subtotal ₹{data['subtotal']:.2f}, Tax ₹{data['tax_amount']:.2f}")
-    
-    # Calculate from items if totals missing
-    if data['grand_total'] == 0 and data['items']:
-        data['grand_total'] = sum(item['amount'] for item in data['items'])
-        print(f"✓ Calculated total from items: ₹{data['grand_total']}")
-    
-    # ========== 9. FINAL SUMMARY ==========
-    print("\n" + "="*50)
-    print("PARSING SUMMARY")
-    print("="*50)
-    print(f"📄 Invoice Number: {data['invoice_number'] or 'Not found'}")
-    print(f"📅 Date: {data['date'] or 'Not found'}")
-    print(f"📅 Due Date: {data['due_date'] or 'Not found'}")
-    print(f"🏢 Supplier: {data['supplier_name'] or 'Not found'}")
-    print(f"💳 Payment Terms: {data['payment_terms'] or 'Not found'}")
-    print(f"📦 Items Found: {len(data['items'])}")
-    print(f"💰 Subtotal: ₹{data['subtotal']:.2f}" if data['subtotal'] else "💰 Subtotal: Not found")
-    print(f"🧾 Tax: ₹{data['tax_amount']:.2f}" if data['tax_amount'] else "🧾 Tax: Not found")
-    print(f"💵 Total: ₹{data['grand_total']:.2f}" if data['grand_total'] else "💵 Total: Not found")
-    print("="*50 + "\n")
-    
-    return data
 
 # ── Seed Data ─────────────────────────────────────────────────────────────────
 SUBSCRIPTION_PLANS_DATA = {
@@ -778,9 +333,7 @@ def seed_database():
     print("✅ Database seeding complete.")
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ── Plan helper (replaces the old SUBSCRIPTION_PLANS dict) ───────────────────
-# ─────────────────────────────────────────────────────────────────────────────
+# ── Plan helper ───────────────────────────────────────────────────────────────
 def get_plan(plan_id):
     p = SubscriptionPlan.query.get(plan_id)
     if not p:
@@ -891,6 +444,79 @@ def login():
         flash("Invalid email or password")
     return render_template("login.html")
 
+@app.route("/company/add", methods=["GET", "POST"])
+@login_required
+@owner_required
+def add_new_company():
+    """Add a new company for the current owner"""
+    company_id = get_current_company()
+    user = get_current_user()
+    
+    if request.method == "POST":
+        company_name = request.form.get("company_name", "").strip()
+        gst_number = request.form.get("gst_number", "")
+        address = request.form.get("address", "")
+        phone = request.form.get("phone", "")
+        
+        if not company_name:
+            flash("Company name is required")
+            return redirect(url_for("add_new_company"))
+        
+        # Check if user can add more companies based on their plan
+        can_add, message = check_new_company_limit(user.get("email"))
+        if not can_add:
+            flash(message)
+            return redirect(url_for("company_settings"))
+        
+        # Create new company
+        comp_count = Company.query.count()
+        new_company_id = f"COMP{comp_count + 1:03d}"
+        
+        # Get user's plan
+        reg_user = RegisteredUser.query.filter_by(email=user.get("email")).first()
+        plan = reg_user.subscription_plan if reg_user else "basic"
+        plan_obj = SubscriptionPlan.query.get(plan) or SubscriptionPlan.query.get("basic")
+        
+        new_company = Company(
+            company_id=new_company_id,
+            company_name=company_name,
+            owner_email=user.get("email"),
+            subscription_plan=plan,
+            subscription_start=date.today(),
+            subscription_end=date.today() + timedelta(days=365),
+            max_companies_allowed=plan_obj.max_companies,
+            max_users_per_company=plan_obj.max_users,
+            gst_number=gst_number,
+            address=address,
+            phone=phone,
+            created_at=date.today(),
+            is_active=True
+        )
+        db.session.add(new_company)
+        db.session.flush()
+        
+        # Create company user for the owner
+        emp_count = CompanyUser.query.count()
+        emp_id = f"EMP{emp_count + 1:03d}"
+        new_emp = CompanyUser(
+            user_id=emp_id,
+            company_id=new_company_id,
+            email=user.get("email"),
+            password_hash=hash_password(request.form.get("password", "Temp@123")),
+            full_name=user.get("full_name", ""),
+            role="owner",
+            department="Management",
+            phone=phone,
+            is_active=True,
+            created_at=date.today()
+        )
+        db.session.add(new_emp)
+        db.session.commit()
+        
+        flash(f"Company '{company_name}' created successfully!")
+        return redirect(url_for("dashboard"))
+    
+    return render_template("add_company.html")
 
 @app.route("/select-company", methods=["GET", "POST"])
 def select_company():
@@ -1065,10 +691,73 @@ def dashboard():
         "total_estimates": Estimate.query.filter_by(company_id=company_id).count(),
     }
 
-    recent_orders   = sorted(orders,  key=lambda o: o.date,    reverse=True)[:5]
-    recent_invoices = sorted(invoices, key=lambda i: i.date,   reverse=True)[:5]
-    recent_purchases= sorted(purchases, key=lambda p: p.date,  reverse=True)[:5]
-    top_clients     = sorted(clients,  key=lambda c: c.pending, reverse=True)[:5]
+    recent_orders_raw    = sorted(orders,    key=lambda o: o.date, reverse=True)[:5]
+    recent_invoices_raw  = sorted(invoices,  key=lambda i: i.date, reverse=True)[:5]
+    recent_purchases_raw = sorted(purchases, key=lambda p: p.date, reverse=True)[:5]
+    top_clients          = sorted(clients,   key=lambda c: c.pending, reverse=True)[:5]
+
+    # Serialize invoices → dicts so template can use .total, .paid, .balance, .status
+    recent_invoices = []
+    for inv in recent_invoices_raw:
+        paid    = getattr(inv, "paid_amount", 0) or 0
+        bal     = getattr(inv, "balance",     0) or 0
+        total   = inv.grand_total or 0
+        st_raw  = (inv.status or "").lower()
+        status  = "paid" if st_raw == "paid" else ("partial" if st_raw == "partial" else "pending")
+        cname   = inv.client_obj.name if inv.client_obj else (inv.contact_person or "—")
+        recent_invoices.append({
+            "id":            inv.invoice_id,
+            "customer_name": cname,
+            "date":          inv.date.strftime("%d %b %Y") if inv.date else "—",
+            "total":         total,
+            "paid":          paid,
+            "balance":       bal,
+            "status":        status,
+        })
+
+    # Serialize orders → dicts
+    recent_orders = []
+    for o in recent_orders_raw:
+        cname = o.client_obj.name if hasattr(o, "client_obj") and o.client_obj else (getattr(o, "contact_person", "") or "—")
+        recent_orders.append({
+            "id":     o.order_id if hasattr(o, "order_id") else str(o.id),
+            "client": cname,
+            "date":   o.date.strftime("%d %b %Y") if o.date else "—",
+            "amount": getattr(o, "grand_total", 0) or 0,
+            "status": o.status or "Pending",
+        })
+
+    # Serialize recent estimates → dicts
+    recent_estimates_raw = (
+        Estimate.query.filter_by(company_id=company_id)
+        .order_by(Estimate.date.desc()).limit(5).all()
+    )
+    recent_estimates = []
+    for e in recent_estimates_raw:
+        meta = {}
+        if e.terms:
+            try:
+                meta = json.loads(e.terms)
+            except (ValueError, TypeError):
+                pass
+        cname = e.client_obj.name if e.client_obj else (e.contact_person or "—")
+        recent_estimates.append({
+            "id":          e.estimate_id,
+            "company":     cname,
+            "date":        e.date.strftime("%d %b %Y") if e.date else "—",
+            "valid_until": e.valid_until.strftime("%d %b %Y") if e.valid_until else "—",
+            "total":       e.grand_total or 0,
+            "status":      e.status or "Draft",
+            "docket_no":   meta.get("docket_no", ""),
+        })
+
+    # Add missing stats fields dashboard.html expects
+    paid_inv_count    = sum(1 for i in invoices if (i.status or "").lower() == "paid")
+    pending_inv_count = sum(1 for i in invoices if (i.status or "").lower() not in ("paid",))
+    approved_est      = Estimate.query.filter_by(company_id=company_id, status="Approved").count()
+    stats["paid_invoices"]      = paid_inv_count
+    stats["pending_invoices"]   = pending_inv_count
+    stats["approved_estimates"] = approved_est
 
     user_companies = []
     user = get_current_user()
@@ -1080,7 +769,8 @@ def dashboard():
                            stats=stats,
                            recent_orders=recent_orders,
                            recent_invoices=recent_invoices,
-                           recent_purchases=recent_purchases,
+                           recent_estimates=recent_estimates,
+                           recent_purchases=recent_purchases_raw,
                            top_clients=top_clients,
                            low_stock=low_stock,
                            user_companies=user_companies,
@@ -1448,7 +1138,63 @@ def stock_adjust():
     return jsonify({"success": True})
 
 
-@app.route("/inventory/add", methods=["GET", "POST"])
+@app.route("/stock/movements/<code>")
+@login_required
+def stock_movements(code):
+    """Return full movement history for a stock item (purchases IN, invoices OUT)."""
+    company_id = get_current_company()
+    item = StockItem.query.filter_by(
+        company_id=company_id, code=code.upper()
+    ).first_or_404()
+
+    history = (
+        StockPurchaseHistory.query
+        .filter_by(stock_item_id=item.id)
+        .order_by(StockPurchaseHistory.purchase_date.desc())
+        .all()
+    )
+
+    movements = []
+    total_in  = 0
+    total_out = 0
+
+    for h in history:
+        qty = h.quantity or 0
+        is_in = qty > 0
+
+        # Determine movement type and reference
+        if h.purchase_invoice_id:
+            inv = PurchaseInvoice.query.get(h.purchase_invoice_id)
+            ref  = inv.invoice_number or inv.invoice_id if inv else f"PUR-{h.purchase_invoice_id}"
+            mtype = "Purchase"
+        else:
+            # Negative qty = dispatched via customer invoice
+            mtype = "Dispatched"
+            ref   = "Customer Invoice"
+
+        if is_in:
+            total_in += abs(qty)
+        else:
+            total_out += abs(qty)
+
+        movements.append({
+            "date":     h.purchase_date.strftime("%d %b %Y") if h.purchase_date else "",
+            "type":     mtype,
+            "ref":      ref,
+            "quantity": qty,
+            "rate":     float(h.purchase_rate or 0),
+        })
+
+    return jsonify({
+        "code":       item.code,
+        "name":       item.name,
+        "movements":  movements,
+        "total_in":   total_in,
+        "total_out":  total_out,
+    })
+
+
+
 @login_required
 def inventory_add():
     company_id = get_current_company()
@@ -1502,24 +1248,23 @@ def inventory_delete(item_pk):
     flash("Stock item deleted.")
     return redirect(url_for("inventory_list"))
 
+# ── Purchase Invoice Routes ─────────────────────────────────────────────────────────
 
-# ── Purchase Invoice Routes ───────────────────────────────────────────────────
 @app.route("/purchase/list")
 @login_required
 def purchase_invoice_list():
     company_id = get_current_company()
     invoices = PurchaseInvoice.query.filter_by(company_id=company_id).order_by(PurchaseInvoice.date.desc()).all()
-    total_amount = sum(p.grand_total  for p in invoices)
-    total_paid   = sum(p.paid_amount  for p in invoices)
-    total_due    = sum(p.balance      for p in invoices)
-
+    total_amount = sum(p.grand_total for p in invoices)
+    total_paid = sum(p.paid_amount for p in invoices)
+    total_due = sum(p.balance for p in invoices)
+    
     return render_template("purchases.html",
-        purchases    = invoices,
-        total_amount = total_amount,
-        total_paid   = total_paid,
-        total_due    = total_due
+        purchases=invoices,
+        total_amount=total_amount,
+        total_paid=total_paid,
+        total_due=total_due
     )
-
 
 @app.route("/purchase/new", methods=["GET", "POST"])
 @login_required
@@ -1531,15 +1276,33 @@ def purchase_invoice_new():
     ).all()
     
     if request.method == "POST":
-        # Get form data
         supplier_id = request.form.get("supplier_id")
+        supplier_name = request.form.get("supplier_name", "").strip()
+
+        if not supplier_id and supplier_name:
+            existing = Client.query.filter_by(
+                company_id=company_id, name=supplier_name
+            ).first()
+            if existing:
+                supplier_id = existing.id
+            else:
+                new_supplier = Client(
+                    company_id=company_id,
+                    name=supplier_name,
+                    client_type="Supplier",
+                    gst_number=request.form.get("supplier_gst", "").strip() or None,
+                    status="Active",
+                    created_at=date.today()
+                )
+                db.session.add(new_supplier)
+                db.session.flush()
+                supplier_id = new_supplier.id
         invoice_number = request.form.get("invoice_number", "")
         invoice_date = request.form.get("invoice_date") or str(date.today())
         due_date = request.form.get("due_date")
         payment_terms = request.form.get("payment_terms", "")
         notes = request.form.get("notes", "")
         
-        # Get line items
         descriptions = request.form.getlist("item_description[]")
         quantities = request.form.getlist("item_quantity[]")
         units = request.form.getlist("item_unit[]")
@@ -1573,7 +1336,6 @@ def purchase_invoice_new():
         
         grand_total = subtotal + tax_total
         
-        # Create purchase invoice
         inv_count = PurchaseInvoice.query.count()
         invoice_id = f"PURCHASE-INV-{datetime.now().strftime('%Y%m%d')}-{inv_count+1:03d}"
         
@@ -1597,16 +1359,13 @@ def purchase_invoice_new():
         db.session.add(purchase_inv)
         db.session.flush()
         
-        # Create line items and update stock
         for item in items_data:
-            # Find or create stock item
             stock_item = StockItem.query.filter_by(
                 company_id=company_id,
                 name=item["description"]
             ).first()
             
             if not stock_item:
-                # Create new stock item
                 stock_count = StockItem.query.filter_by(company_id=company_id).count()
                 stock_item = StockItem(
                     company_id=company_id,
@@ -1615,7 +1374,7 @@ def purchase_invoice_new():
                     category="Purchase",
                     quantity=0,
                     unit=item["unit"],
-                    unit_price=0,  # Will be set by selling price later
+                    unit_price=0,
                     purchase_rate=item["rate"],
                     last_purchase_rate=item["rate"],
                     gst_percent=item["gst"],
@@ -1624,13 +1383,11 @@ def purchase_invoice_new():
                 db.session.add(stock_item)
                 db.session.flush()
             
-            # Update stock quantity
             stock_item.quantity += item["quantity"]
             stock_item.last_purchase_rate = item["rate"]
             stock_item.gst_percent = item["gst"]
             stock_item.last_updated = date.today()
             
-            # Add purchase history
             purchase_history = StockPurchaseHistory(
                 stock_item_id=stock_item.id,
                 purchase_invoice_id=purchase_inv.id,
@@ -1641,7 +1398,6 @@ def purchase_invoice_new():
             )
             db.session.add(purchase_history)
             
-            # Create invoice item
             inv_item = PurchaseInvoiceItem(
                 purchase_invoice_id=purchase_inv.id,
                 stock_item_id=stock_item.id,
@@ -1654,15 +1410,14 @@ def purchase_invoice_new():
             )
             db.session.add(inv_item)
             
-            # Update supplier pending amount
             supplier = Client.query.get(supplier_id)
             if supplier:
-                supplier.pending += (item["total"])  # Add to pending
+                supplier.pending += item["total"]
                 supplier.last_payment = date.today()
         
         db.session.commit()
         
-        # Handle file upload for OCR
+        # Handle file upload for storage
         if 'invoice_file' in request.files:
             file = request.files['invoice_file']
             if file and allowed_file(file.filename):
@@ -1670,19 +1425,6 @@ def purchase_invoice_new():
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
                 purchase_inv.file_path = filepath
-                
-                # Perform OCR extraction
-                extracted_text = ""
-                if filename.lower().endswith('.pdf'):
-                    with open(filepath, 'rb') as f:
-                        extracted_text = extract_invoice_from_pdf(f.read())
-                else:
-                    with open(filepath, 'rb') as f:
-                        extracted_text = extract_invoice_from_image(f.read())
-                
-                # Parse extracted data
-                parsed_data = parse_invoice_data(extracted_text)
-                purchase_inv.ocr_data = json.dumps(parsed_data)
                 db.session.commit()
         
         flash(f"Purchase invoice {invoice_id} created successfully!")
@@ -1690,71 +1432,12 @@ def purchase_invoice_new():
     
     return render_template("purchase_form.html", suppliers=suppliers, today=str(date.today()))
 
-
-@app.route("/purchase/upload-ocr", methods=["POST"])
-@login_required
-def purchase_upload_ocr():
-    """AJAX endpoint to upload file and get OCR extracted data"""
-    company_id = get_current_company()
-    
-    if 'file' not in request.files:
-        return jsonify({"success": False, "error": "No file uploaded"}), 400
-    
-    file = request.files['file']
-    if not file or not allowed_file(file.filename):
-        return jsonify({"success": False, "error": "Invalid file type. Please upload PDF, PNG, JPG, or JPEG"}), 400
-    
-    try:
-        # Read file content
-        file_bytes = file.read()
-        
-        # Extract text based on file type
-        if file.filename.lower().endswith('.pdf'):
-            extracted_text = extract_invoice_from_pdf(file_bytes)
-        else:
-            extracted_text = extract_invoice_from_image(file_bytes)
-        
-        if not extracted_text or len(extracted_text.strip()) < 10:
-            return jsonify({
-                "success": False, 
-                "error": "Could not read text from file. Please ensure the invoice is clear and try again."
-            }), 400
-        
-        # Parse extracted data
-        parsed_data = parse_invoice_data(extracted_text)
-        
-        # Find matching supplier from extracted name
-        if parsed_data.get("supplier_name"):
-            supplier = Client.query.filter(
-                Client.company_id == company_id,
-                db.or_(
-                    Client.name.ilike(f"%{parsed_data['supplier_name']}%"),
-                    Client.client_type == "Supplier"
-                )
-            ).first()
-            if supplier:
-                parsed_data["supplier_id"] = supplier.id
-                parsed_data["supplier_name"] = supplier.name
-                print(f"✓ Matched supplier: {supplier.name}")
-        
-        # Add debug info
-        parsed_data["extracted_text_preview"] = extracted_text[:200]
-        parsed_data["item_count"] = len(parsed_data.get("items", []))
-        
-        return jsonify({"success": True, "data": parsed_data})
-        
-    except Exception as e:
-        print(f"OCR processing error: {e}")
-        return jsonify({"success": False, "error": f"Error processing file: {str(e)}"}), 500
-
-
 @app.route("/purchase/view/<invoice_id>")
 @login_required
 def purchase_invoice_view(invoice_id):
     company_id = get_current_company()
     invoice = PurchaseInvoice.query.filter_by(invoice_id=invoice_id, company_id=company_id).first_or_404()
     return render_template("purchase_view.html", invoice=invoice)
-
 
 @app.route("/purchase/pay/<int:pk>", methods=["POST"])
 @login_required
@@ -1775,7 +1458,6 @@ def purchase_make_payment(pk):
     elif invoice.paid_amount > 0:
         invoice.status = "Partial"
     
-    # Update supplier's pending amount (reduce by payment)
     if invoice.supplier:
         invoice.supplier.pending -= amount
     
@@ -2122,13 +1804,19 @@ def invoice_customer_new():
         docket_no=docket_no,
         today=str(date.today()),
         form_data={},
+        stock_items_json=json.dumps([{
+            "code":     s.code,
+            "name":     s.name,
+            "unit":     s.unit or "pcs",
+            "quantity": s.quantity,
+        } for s in StockItem.query.filter_by(company_id=company_id).order_by(StockItem.name).all()]),
     )
 
 
-@app.route("/invoice/customer/save", methods=["POST"])
+"""@app.route("/invoice/customer/save", methods=["POST"])
 @login_required
 def invoice_customer_save():
-    """Save a customer / shipment invoice submitted from invoice.html."""
+    
     company_id = get_current_company()
 
     # ── Basic fields ──────────────────────────────────────────────────────────
@@ -2224,8 +1912,105 @@ def invoice_customer_save():
         email          = notes,
     )
     db.session.add(inv)
+    db.session.flush()   # get inv.id before processing stock
 
-    # Update client pending balance if credit / unpaid
+    # ── Packaging / consumable stock deduction ────────────────────────────────
+    # Each row submitted as pkg_stock_code[], pkg_stock_qty[]
+    # These represent physical items (boxes, envelopes, packing tape, etc.)
+    # consumed when fulfilling this shipment.  Stock is reduced immediately.
+    pkg_stock_codes = request.form.getlist("pkg_stock_code[]")
+    pkg_stock_qtys  = request.form.getlist("pkg_stock_qty[]")
+
+    stock_deductions = []   # collect for flash summary
+    stock_warnings   = []   # items that went below reorder level
+
+    for code, qty_str in zip(pkg_stock_codes, pkg_stock_qtys):
+        code = (code or "").strip().upper()
+        try:
+            qty_used = float(qty_str or 0)
+        except ValueError:
+            qty_used = 0
+
+        if not code or qty_used <= 0:
+            continue
+
+        stock_item = StockItem.query.filter_by(
+            company_id=company_id, code=code
+        ).first()
+
+        if not stock_item:
+            # Try matching by name (fuzzy-friendly fallback)
+            stock_item = StockItem.query.filter(
+                StockItem.company_id == company_id,
+                StockItem.name.ilike(f"%{code}%")
+            ).first()
+
+        if not stock_item:
+            continue   # item not found in inventory — skip silently
+
+        old_qty = stock_item.quantity
+        stock_item.quantity = max(0, old_qty - qty_used)
+        stock_item.last_updated = date.today()
+
+        # Log movement in StockPurchaseHistory (re-used as generic movement log)
+        # Use negative quantity convention to signal a dispatch/deduction
+        movement = StockPurchaseHistory(
+            stock_item_id       = stock_item.id,
+            purchase_invoice_id = None,   # this is a sales deduction, not a purchase
+            quantity            = -qty_used,
+            purchase_rate       = stock_item.unit_price,
+            gst_percent         = stock_item.gst_percent or 0,
+            purchase_date       = date.fromisoformat(invoice_date),
+        )
+        db.session.add(movement)
+
+        stock_deductions.append(f"{qty_used:.0f}× {stock_item.name}")
+
+        # Warn if now below reorder level
+        if (stock_item.reorder_level and
+                stock_item.quantity <= stock_item.reorder_level and
+                old_qty > stock_item.reorder_level):
+            stock_warnings.append(stock_item.name)
+
+    # ── Also deduct package-type quantities that match inventory items ─────────
+    # Users sometimes name stock items "Box", "Envelope" etc. — auto-match
+    # pkg_type[] rows so the Packages table itself drives deductions when no
+    # explicit pkg_stock_code is supplied.
+    if not pkg_stock_codes:
+        pkg_types = request.form.getlist("pkg_type[]")
+        pkg_qtys  = request.form.getlist("pkg_qty[]")
+        for ptype, pqty_str in zip(pkg_types, pkg_qtys):
+            if not ptype:
+                continue
+            try:
+                pqty = float(pqty_str or 0)
+            except ValueError:
+                pqty = 0
+            if pqty <= 0:
+                continue
+            # look for a stock item whose name contains the package type
+            si = StockItem.query.filter(
+                StockItem.company_id == company_id,
+                StockItem.name.ilike(f"%{ptype}%")
+            ).first()
+            if si:
+                si.quantity = max(0, si.quantity - pqty)
+                si.last_updated = date.today()
+                movement = StockPurchaseHistory(
+                    stock_item_id       = si.id,
+                    purchase_invoice_id = None,
+                    quantity            = -pqty,
+                    purchase_rate       = si.unit_price,
+                    gst_percent         = si.gst_percent or 0,
+                    purchase_date       = date.fromisoformat(invoice_date),
+                )
+                db.session.add(movement)
+                stock_deductions.append(f"{pqty:.0f}× {si.name} (auto)")
+                if (si.reorder_level and
+                        si.quantity <= si.reorder_level):
+                    stock_warnings.append(si.name)
+
+    # ── Update client pending balance if credit / unpaid ──────────────────────
     if balance > 0 and client_id:
         client = Client.query.filter_by(id=client_id, company_id=company_id).first()
         if client and hasattr(client, "pending"):
@@ -2233,26 +2018,267 @@ def invoice_customer_save():
 
     db.session.commit()
 
-    flash(f"Customer invoice {invoice_id} (AWB: {docket_no}) saved successfully!")
+    # ── Build flash message ───────────────────────────────────────────────────
+    msg = f"Customer invoice {invoice_id} (AWB: {docket_no}) saved successfully!"
+    if stock_deductions:
+        msg += f" Stock deducted: {', '.join(stock_deductions)}."
+    if stock_warnings:
+        msg += f" ⚠️ Low stock alert: {', '.join(stock_warnings)}."
+
+    flash(msg)
+    return redirect(url_for("invoice_list"))"""
+
+@app.route("/invoice/customer/save", methods=["POST"])
+@login_required
+def invoice_customer_save():
+    """Save a customer / shipment invoice submitted from invoice.html."""
+    company_id = get_current_company()
+
+    # ── Basic fields ──────────────────────────────────────────────────────────
+    client_id_raw  = request.form.get("customer_id")
+    client_id      = int(client_id_raw) if client_id_raw else None
+    invoice_date   = request.form.get("invoice_date") or str(date.today())
+    docket_no      = request.form.get("docket_no", "")
+    action         = request.form.get("action", "final")   # 'draft' or 'final'
+
+    # ── Charges & totals ──────────────────────────────────────────────────────
+    freight        = float(request.form.get("freight_amount", 0) or 0)
+    fuel           = float(request.form.get("fuel_surcharge",  0) or 0)
+    other          = float(request.form.get("other_charges",   0) or 0)
+    base           = freight + fuel + other
+    gst            = round(base * 0.18, 2)
+    grand_total    = round(base + gst, 2)
+    amount_paid    = float(request.form.get("amount_paid", 0) or 0)
+    balance        = round(grand_total - amount_paid, 2)
+
+    # ── Payment info ─────────────────────────────────────────────────────────
+    payment_mode   = request.form.get("payment_mode", "cash")
+    upi_app        = request.form.get("upi_app", "")
+    upi_ref        = request.form.get("upi_ref", "")
+    cheque_no      = request.form.get("cheque_no", "")
+    cheque_date    = request.form.get("cheque_date", "")
+    cheque_bank    = request.form.get("cheque_bank", "")
+
+    # ── Status ────────────────────────────────────────────────────────────────
+    if action == "draft":
+        status = "Draft"
+    elif balance <= 0:
+        status = "Paid"
+    elif amount_paid > 0:
+        status = "Partial"
+    else:
+        status = "Draft"
+
+    # ── Generate invoice ID ───────────────────────────────────────────────────
+    cust_count = (
+        Invoice.query
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .count()
+    )
+    invoice_id = f"CUST-{datetime.now().strftime('%Y%m%d')}-{cust_count + 1:03d}"
+
+    # ── Shipment / receiver details stored in notes / terms ──────────────────
+    notes = request.form.get("notes", "")
+    
+    # ── Process Packages - ADD TO INVENTORY (not deduct) ─────────────────────
+    pkg_names = request.form.getlist("pkg_name[]")
+    pkg_types = request.form.getlist("pkg_type[]")
+    pkg_qtys  = request.form.getlist("pkg_qty[]")
+    pkg_l     = request.form.getlist("pkg_l[]")
+    pkg_w     = request.form.getlist("pkg_w[]")
+    pkg_h     = request.form.getlist("pkg_h[]")
+    pkg_wt    = request.form.getlist("pkg_wt[]")
+    pkg_rates = request.form.getlist("pkg_rate[]")
+    
+    stock_added = []
+    stock_warnings = []
+    
+    for i in range(len(pkg_names)):
+        item_name = (pkg_names[i] or "").strip()
+        if not item_name:
+            continue
+        
+        qty = float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1
+        rate = float(pkg_rates[i] or 0) if pkg_rates[i] else 0
+        pkg_type = pkg_types[i] if i < len(pkg_types) else "Box"
+        
+        # Generate a unique code for the stock item
+        stock_count = StockItem.query.filter_by(company_id=company_id).count()
+        new_code = f"PKG-{stock_count + 1:03d}"
+        
+        # Check if item already exists (by name)
+        existing_item = StockItem.query.filter_by(
+            company_id=company_id,
+            name=item_name
+        ).first()
+        
+        if existing_item:
+            # Item exists - increase quantity and update rate if needed
+            old_qty = existing_item.quantity
+            existing_item.quantity += qty
+            if rate > 0:
+                existing_item.unit_price = rate
+                existing_item.purchase_rate = rate
+            existing_item.last_updated = date.today()
+            stock_added.append(f"{qty}× {item_name} (added to existing stock)")
+            
+            # Log movement - Use 0 or -1 to indicate no purchase invoice (since column has NOT NULL)
+            # Option 1: Set to 0 (if your DB allows) 
+            # Option 2: Create a dummy purchase invoice or use a special value
+            # We'll use -1 to indicate "package addition" (non-purchase)
+            movement = StockPurchaseHistory(
+                stock_item_id       = existing_item.id,
+                purchase_invoice_id = None,  # -1 indicates package addition (not a real purchase)
+                quantity            = qty,
+                purchase_rate       = rate,
+                gst_percent         = existing_item.gst_percent or 0,
+                purchase_date       = date.fromisoformat(invoice_date),
+            )
+            db.session.add(movement)
+            
+            # Check if stock is now above reorder level
+            if (existing_item.reorder_level and 
+                old_qty <= existing_item.reorder_level and 
+                existing_item.quantity > existing_item.reorder_level):
+                stock_warnings.append(f"{existing_item.name} is now above reorder level")
+        else:
+            # Create new stock item
+            new_item = StockItem(
+                company_id      = company_id,
+                code            = new_code,
+                name            = item_name,
+                category        = "Packaging",
+                quantity        = qty,
+                unit            = "pcs",
+                unit_price      = rate,
+                purchase_rate   = rate,
+                reorder_level   = 10,
+                gst_percent     = 18,
+                hsn             = "",
+                last_updated    = date.today(),
+            )
+            db.session.add(new_item)
+            db.session.flush()
+            
+            # Log movement - Use -1 to indicate package addition
+            movement = StockPurchaseHistory(
+                stock_item_id       = new_item.id,
+                purchase_invoice_id = None,  # -1 indicates package addition
+                quantity            = qty,
+                purchase_rate       = rate,
+                gst_percent         = 18,
+                purchase_date       = date.fromisoformat(invoice_date),
+            )
+            db.session.add(movement)
+            
+            stock_added.append(f"{qty}× {item_name} (new stock item {new_code})")
+    
+    # Collect package data for JSON storage
+    packages_data = []
+    for i in range(len(pkg_names)):
+        if pkg_names[i] and pkg_names[i].strip():
+            packages_data.append({
+                "name": pkg_names[i],
+                "type": pkg_types[i] if i < len(pkg_types) else "",
+                "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
+                "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
+                "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
+                "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
+                "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
+            })
+    
+    # Pack all extra shipment metadata into the terms field as JSON
+    shipment_meta = json.dumps({
+        "docket_no":        docket_no,
+        "shipper_name":     request.form.get("shipper_name", ""),
+        "shipper_address":  request.form.get("shipper_address", ""),
+        "receiver_name":    request.form.get("receiver_name", ""),
+        "receiver_phone":   request.form.get("receiver_phone", ""),
+        "receiver_address": request.form.get("receiver_address", ""),
+        "destination":      request.form.get("destination", ""),
+        "shipment_type":    request.form.get("shipment_type", ""),
+        "mode":             request.form.get("mode", ""),
+        "carrier":          request.form.get("carrier", ""),
+        "carrier_ref":      request.form.get("carrier_ref", ""),
+        "origin":           request.form.get("origin", "India"),
+        "pickup_date":      request.form.get("pickup_date", ""),
+        "departure_time":   request.form.get("departure_time", ""),
+        "expected_delivery":request.form.get("expected_delivery", ""),
+        "comments":         request.form.get("comments", ""),
+        "payment_mode":     payment_mode,
+        "upi_app":          upi_app,
+        "upi_ref":          upi_ref,
+        "cheque_no":        cheque_no,
+        "cheque_date":      cheque_date,
+        "cheque_bank":      cheque_bank,
+        "freight":          freight,
+        "fuel":             fuel,
+        "other":            other,
+        "gst":              gst,
+        "amount_paid":      amount_paid,
+        "packages":         packages_data,
+    })
+
+    inv = Invoice(
+        invoice_id     = invoice_id,
+        company_id     = company_id,
+        client_id      = client_id,
+        date           = date.fromisoformat(invoice_date),
+        status         = status,
+        contact_person = request.form.get("shipper_name", ""),
+        phone          = request.form.get("customer_phone", ""),
+        subtotal       = base,
+        tax_amount     = gst,
+        grand_total    = grand_total,
+        terms          = shipment_meta,
+        email          = notes,
+    )
+    db.session.add(inv)
+
+    # ── Update client pending balance if credit / unpaid ──────────────────────
+    if balance > 0 and client_id:
+        client = Client.query.filter_by(id=client_id, company_id=company_id).first()
+        if client and hasattr(client, "pending"):
+            client.pending = (client.pending or 0) + balance
+
+    db.session.commit()
+
+    # ── Build flash message ───────────────────────────────────────────────────
+    msg = f"Customer invoice {invoice_id} (AWB: {docket_no}) saved successfully!"
+    if stock_added:
+        msg += f" Stock added: {', '.join(stock_added)}."
+    if stock_warnings:
+        msg += f" ℹ️ {', '.join(stock_warnings)}."
+
+    flash(msg)
     return redirect(url_for("invoice_list"))
 
+@app.route("/api/suppliers/list")
+@login_required
+def api_suppliers_list():
+    """Return list of suppliers for the dropdown"""
+    company_id = get_current_company()
+    suppliers = Client.query.filter(
+        Client.company_id == company_id,
+        db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
+    ).order_by(Client.name).all()
+    
+    return jsonify([{
+        "id": s.id,
+        "name": s.name,
+        "gst": s.gst_number or ""
+    } for s in suppliers])
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ── Shipper Invoice (estimate.html) ──────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _get_available_dockets(company_id):
-    """Return customer invoices that have NOT yet had a Shipper Invoice generated.
-    A Shipper Invoice is tracked by storing the linked CUST- invoice_id in the
-    Estimate.terms JSON field as {"linked_invoice_id": "CUST-..."}.
-    """
-    # Find all CUST- invoices that are already linked from a Shipper Invoice
+"""def _get_available_dockets(company_id):
+    
     used_invoice_ids = set()
-    shipper_estimates = (
-        Estimate.query
-        .filter_by(company_id=company_id)
-        .all()
-    )
+    shipper_estimates = Estimate.query.filter_by(company_id=company_id).all()
     for est in shipper_estimates:
         if est.terms:
             try:
@@ -2263,19 +2289,12 @@ def _get_available_dockets(company_id):
             except (ValueError, TypeError):
                 pass
 
-    # Fetch all customer invoices not yet linked
-    all_cust = (
-        Invoice.query
-        .filter_by(company_id=company_id)
-        .filter(Invoice.invoice_id.like("CUST-%"))
-        .order_by(Invoice.date.desc())
-        .all()
-    )
+    all_cust = Invoice.query.filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).order_by(Invoice.date.desc()).all()
 
     dockets = []
     for inv in all_cust:
         if inv.invoice_id in used_invoice_ids:
-            continue  # already has a shipper invoice — skip
+            continue
         meta = {}
         if inv.terms:
             try:
@@ -2287,26 +2306,59 @@ def _get_available_dockets(company_id):
             continue
         cname = inv.client_obj.name if inv.client_obj else (inv.contact_person or inv.invoice_id)
         dockets.append({
-            "invoice_id":    inv.invoice_id,
-            "docket_no":     docket_no,
+            "invoice_id": inv.invoice_id,
+            "docket_no": docket_no,
+            "customer_name": cname,
+        })
+    return dockets"""
+def _get_available_dockets(company_id, exclude_estimate_id=None):
+    """Return customer invoices that have NOT yet had a Shipper Invoice generated.
+    If exclude_estimate_id is provided, include that invoice's docket even if used."""
+    used_invoice_ids = set()
+    shipper_estimates = Estimate.query.filter_by(company_id=company_id).all()
+    
+    for est in shipper_estimates:
+        # Skip the current estimate being edited
+        if exclude_estimate_id and est.estimate_id == exclude_estimate_id:
+            continue
+        if est.terms:
+            try:
+                t = json.loads(est.terms)
+                lid = t.get("linked_invoice_id", "")
+                if lid:
+                    used_invoice_ids.add(lid)
+            except (ValueError, TypeError):
+                pass
+
+    all_cust = Invoice.query.filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).order_by(Invoice.date.desc()).all()
+
+    dockets = []
+    for inv in all_cust:
+        if inv.invoice_id in used_invoice_ids:
+            continue
+        meta = {}
+        if inv.terms:
+            try:
+                meta = json.loads(inv.terms)
+            except (ValueError, TypeError):
+                pass
+        docket_no = meta.get("docket_no", "")
+        if not docket_no:
+            continue
+        cname = inv.client_obj.name if inv.client_obj else (inv.contact_person or inv.invoice_id)
+        dockets.append({
+            "invoice_id": inv.invoice_id,
+            "docket_no": docket_no,
             "customer_name": cname,
         })
     return dockets
 
-
 @app.route("/api/docket-info/<docket_no>")
 @login_required
 def api_docket_info(docket_no):
-    """Return sender/receiver details for a given AWB/docket number so the
-    Shipper Invoice form can auto-fill fields."""
+    """Return sender/receiver details for a given AWB/docket number."""
     company_id = get_current_company()
-    # Find the customer invoice carrying this docket number
-    all_cust = (
-        Invoice.query
-        .filter_by(company_id=company_id)
-        .filter(Invoice.invoice_id.like("CUST-%"))
-        .all()
-    )
+    all_cust = Invoice.query.filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).all()
     for inv in all_cust:
         meta = {}
         if inv.terms:
@@ -2315,199 +2367,26 @@ def api_docket_info(docket_no):
             except (ValueError, TypeError):
                 pass
         if meta.get("docket_no", "") == docket_no:
-            cname  = inv.client_obj.name  if inv.client_obj else (inv.contact_person or "")
+            cname = inv.client_obj.name if inv.client_obj else (inv.contact_person or "")
             cphone = inv.client_obj.phone if inv.client_obj else (inv.phone or "")
             return jsonify({
-                "invoice_id":       inv.invoice_id,
-                "client_id":        inv.client_id,
-                "shipper_name":     meta.get("shipper_name",     cname),
-                "shipper_phone":    meta.get("shipper_phone",    cphone),
-                "shipper_address":  meta.get("shipper_address",  ""),
-                "receiver_name":    meta.get("receiver_name",    ""),
-                "receiver_phone":   meta.get("receiver_phone",   ""),
+                "invoice_id": inv.invoice_id,
+                "client_id": inv.client_id,
+                "shipper_name": meta.get("shipper_name", cname),
+                "shipper_phone": meta.get("shipper_phone", cphone),
+                "shipper_address": meta.get("shipper_address", ""),
+                "receiver_name": meta.get("receiver_name", ""),
+                "receiver_phone": meta.get("receiver_phone", ""),
                 "receiver_address": meta.get("receiver_address", ""),
-                "destination":      meta.get("destination",      ""),
-                "shipment_type":    meta.get("shipment_type",    ""),
-                "mode":             meta.get("mode",             ""),
-                "carrier":          meta.get("carrier",          ""),
+                "destination": meta.get("destination", ""),
+                "shipment_type": meta.get("shipment_type", ""),
+                "mode": meta.get("mode", ""),
+                "carrier": meta.get("carrier", ""),
             })
     return jsonify({"error": "not found"}), 404
 
 
-@app.route("/shipper-invoice/new")
-@login_required
-def shipper_invoice_new():
-    """Show the Shipper Invoice creation form (estimate.html)."""
-    company_id = get_current_company()
-    clients    = Client.query.filter_by(company_id=company_id).all()
 
-    # Auto-generate Shipper Invoice ID
-    ship_count = Estimate.query.filter_by(company_id=company_id).count()
-    shipper_invoice_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
-
-    available_dockets = _get_available_dockets(company_id)
-
-    return render_template(
-        "estimate.html",
-        clients=clients,
-        shipper_invoice_id=shipper_invoice_id,
-        today=str(date.today()),
-        form_data={},
-        available_dockets=available_dockets,
-    )
-
-
-@app.route("/shipper-invoice/save", methods=["POST"])
-@login_required
-def shipper_invoice_save():
-    """Save a Shipper Invoice submitted from estimate.html."""
-    company_id  = get_current_company()
-    action      = request.form.get("action", "final")
-    invoice_date = request.form.get("invoice_date") or str(date.today())
-
-    # Totals
-    descriptions = request.form.getlist("description[]")
-    qtys         = request.form.getlist("qty[]")
-    rates        = request.form.getlist("rate[]")
-    subtotal = 0
-    line_items = []
-    for i in range(len(descriptions)):
-        if descriptions[i] and descriptions[i].strip():
-            qty  = float(qtys[i])  if qtys[i]  else 0
-            rate = float(rates[i]) if rates[i] else 0
-            subtotal += qty * rate
-            line_items.append((descriptions[i], qty, rate))
-
-    charge_descs = request.form.getlist("charge_desc[]")
-    charge_amts  = request.form.getlist("charge_amt[]")
-    extra = 0
-    for amt in charge_amts:
-        extra += float(amt) if amt else 0
-
-    base        = subtotal + extra
-    gst         = round(base * 0.18, 2)
-    grand_total = round(base + gst, 2)
-    amount_paid = float(request.form.get("amount_paid", 0) or 0)
-    balance     = round(grand_total - amount_paid, 2)
-
-    status = "Draft" if action == "draft" else ("Paid" if balance <= 0 else ("Partial" if amount_paid > 0 else "Unpaid"))
-
-    ship_count         = Estimate.query.filter_by(company_id=company_id).count()
-    shipper_invoice_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
-
-    client_id_raw = request.form.get("shipper_id")
-    client_id     = int(client_id_raw) if client_id_raw else None
-
-    # Pack all metadata into terms JSON
-    charges_list = [{"desc": d, "amt": float(a or 0)} for d, a in zip(charge_descs, charge_amts)]
-    terms_data = json.dumps({
-        "docket_no":          request.form.get("docket_no", ""),
-        "linked_invoice_id":  request.form.get("linked_invoice_id", ""),
-        "shipment_type":      request.form.get("shipment_type", ""),
-        "mode":               request.form.get("mode", ""),
-        "carrier":            request.form.get("carrier", ""),
-        "shipper_name":       request.form.get("shipper_name", ""),
-        "shipper_phone":      request.form.get("shipper_phone", ""),
-        "shipper_address":    request.form.get("shipper_address", ""),
-        "receiver_name":      request.form.get("receiver_name", ""),
-        "receiver_phone":     request.form.get("receiver_phone", ""),
-        "receiver_address":   request.form.get("receiver_address", ""),
-        "destination":        request.form.get("destination", ""),
-        "carrier_ref":        request.form.get("carrier_ref", ""),
-        "origin":             request.form.get("origin", "India"),
-        "payment_mode":       request.form.get("payment_mode", "cash"),
-        "upi_app":            request.form.get("upi_app", ""),
-        "upi_ref":            request.form.get("upi_ref", ""),
-        "cheque_no":          request.form.get("cheque_no", ""),
-        "cheque_date":        request.form.get("cheque_date", ""),
-        "cheque_bank":        request.form.get("cheque_bank", ""),
-        "amount_paid":        amount_paid,
-        "balance":            balance,
-        "charges":            charges_list,
-        "line_items":         [{"desc": d, "qty": q, "rate": r} for d, q, r in line_items],
-    })
-
-    est = Estimate(
-        estimate_id   = shipper_invoice_id,
-        company_id    = company_id,
-        client_id     = client_id,
-        date          = date.fromisoformat(invoice_date),
-        status        = status,
-        contact_person= request.form.get("shipper_name", ""),
-        email         = request.form.get("notes", ""),
-        phone         = request.form.get("shipper_phone", ""),
-        subtotal      = base,
-        tax_amount    = gst,
-        grand_total   = grand_total,
-        terms         = terms_data,
-    )
-    db.session.add(est)
-    db.session.flush()
-
-    for desc, qty, rate in line_items:
-        db.session.add(EstimateItem(
-            estimate_id = est.id,
-            description = desc,
-            qty         = qty,
-            rate        = rate,
-        ))
-
-    db.session.commit()
-    flash(f"Shipper Invoice {shipper_invoice_id} saved successfully!")
-    # Redirect to the estimate/shipper-invoice list
-    try:
-        return redirect(url_for("estimate_list"))
-    except Exception:
-        return redirect("/estimate/list")
-
-
-@app.route("/shipper-invoice/pdf/<estimate_id>")
-@login_required
-def shipper_invoice_pdf(estimate_id):
-    """Render the Shipper Invoice as a printable PDF-style page."""
-    company_id = get_current_company()
-    est = Estimate.query.filter_by(estimate_id=estimate_id, company_id=company_id).first_or_404()
-
-    meta = {}
-    if est.terms:
-        try:
-            meta = json.loads(est.terms)
-        except (ValueError, TypeError):
-            pass
-
-    company = Company.query.filter_by(id=company_id).first()
-
-    shipper_data = {
-        "invoice_id":      est.estimate_id,
-        "date":            est.date,
-        "docket_no":       meta.get("docket_no", ""),
-        "shipment_type":   meta.get("shipment_type", ""),
-        "mode":            meta.get("mode", ""),
-        "carrier":         meta.get("carrier", ""),
-        "shipper_name":    meta.get("shipper_name", est.contact_person or ""),
-        "shipper_phone":   meta.get("shipper_phone", est.phone or ""),
-        "shipper_address": meta.get("shipper_address", ""),
-        "receiver_name":   meta.get("receiver_name", ""),
-        "receiver_phone":  meta.get("receiver_phone", ""),
-        "receiver_address":meta.get("receiver_address", ""),
-        "destination":     meta.get("destination", ""),
-        "origin":          meta.get("origin", "India"),
-        "carrier_ref":     meta.get("carrier_ref", ""),
-        "payment_mode":    meta.get("payment_mode", "cash"),
-        "amount_paid":     meta.get("amount_paid", 0),
-        "balance":         meta.get("balance", est.grand_total or 0),
-        "charges":         meta.get("charges", []),
-        "line_items":      meta.get("line_items", []),
-        "subtotal":        est.subtotal or 0,
-        "gst":             est.tax_amount or 0,
-        "grand_total":     est.grand_total or 0,
-        "notes":           est.email or "",
-        "company_name":    company.name if company else "LOGISTIC ERP",
-        "company_address": company.address if company and hasattr(company, "address") else "Nagpur, India",
-        "company_phone":   company.phone if company and hasattr(company, "phone") else "",
-    }
-
-    return render_template("shipper_invoice_pdf.html", inv=shipper_data)
 
 
 
@@ -2546,13 +2425,14 @@ def estimate_list():
             "shipment_type": meta.get("shipment_type", ""),
             "mode":          meta.get("mode", ""),
             "is_shipper":    bool(meta.get("docket_no", "") or est.estimate_id.startswith("SHIP-")),
+            "reference": meta.get("reference", meta.get("aadhar", "")),
         })
 
     return render_template("estimate_list.html", estimates=estimates, current_status=filter_status)
 
 
 
-@app.route("/estimate/new", methods=["GET", "POST"])
+"""@app.route("/estimate/new", methods=["GET", "POST"])
 @login_required
 def estimate_new():
     company_id = get_current_company()
@@ -2647,13 +2527,251 @@ def estimate_new():
                        today=str(date.today()), valid_until=valid_until,
                        form_data={},
                        available_dockets=available_dockets,
-                       shipper_invoice_id=shipper_invoice_id)
+                       shipper_invoice_id=shipper_invoice_id)"""
+
+@app.route("/estimate/new", methods=["GET", "POST"])
+@login_required
+def estimate_new():
+    company_id = get_current_company()
+    clients = Client.query.filter_by(company_id=company_id).all()
+
+    edit_id = request.args.get("edit")
+    existing = Estimate.query.filter_by(estimate_id=edit_id, company_id=company_id).first() if edit_id else None
+
+    # Handle POST (Save)
+    if request.method == "POST":
+        descriptions = request.form.getlist("description[]")
+        hs_codes = request.form.getlist("hs_code[]")
+        units = request.form.getlist("unit[]")
+        qtys = request.form.getlist("qty[]")
+        rates = request.form.getlist("rate[]")
+
+        subtotal = 0
+        line_items = []
+        for i in range(len(descriptions)):
+            if descriptions[i] and descriptions[i].strip():
+                qty = float(qtys[i]) if qtys[i] else 0
+                rate = float(rates[i]) if rates[i] else 0
+                subtotal += qty * rate
+                line_items.append({
+                    "description": descriptions[i],
+                    "hs_code": hs_codes[i] if i < len(hs_codes) else "",
+                    "unit": units[i] if i < len(units) else "Pc",
+                    "qty": qty,
+                    "rate": rate,
+                })
+
+        grand_total = subtotal
+        amount_paid = float(request.form.get("amount_paid", 0) or 0)
+        balance = round(grand_total - amount_paid, 2)
+
+        action = request.form.get("action", "final")
+        if action == "draft":
+            status = "Draft"
+        elif balance <= 0:
+            status = "Paid"
+        elif amount_paid > 0:
+            status = "Partial"
+        else:
+            status = "Unpaid"
+
+        client_id_raw = request.form.get("shipper_id")
+        client_id = int(client_id_raw) if client_id_raw else None
+
+        # Pack metadata into terms
+        terms_data = json.dumps({
+            "docket_no": request.form.get("docket_no", ""),
+            "linked_invoice_id": request.form.get("linked_invoice_id", ""),
+            "shipper_name": request.form.get("shipper_name", ""),
+            "shipper_phone": request.form.get("shipper_phone", ""),
+            "shipper_address": request.form.get("shipper_address", ""),
+            "receiver_name": request.form.get("receiver_name", ""),
+            "receiver_phone": request.form.get("receiver_phone", ""),
+            "receiver_company": request.form.get("receiver_company", ""),
+            "receiver_address": request.form.get("receiver_address", ""),
+            "destination": request.form.get("destination", ""),
+            "payment_mode": request.form.get("payment_mode", "credit"),
+            "upi_app": request.form.get("upi_app", ""),
+            "upi_ref": request.form.get("upi_ref", ""),
+            "cheque_no": request.form.get("cheque_no", ""),
+            "cheque_date": request.form.get("cheque_date", ""),
+            "cheque_bank": request.form.get("cheque_bank", ""),
+            "weight": request.form.get("weight", "0.00"),
+            "reference": request.form.get("reference", ""),
+            "amount_paid": amount_paid,
+            "balance": balance,
+            "line_items": line_items,
+        })
+
+        edit_invoice_id = request.form.get("edit_invoice_id", "").strip()
+        existing_edit = Estimate.query.filter_by(estimate_id=edit_invoice_id, company_id=company_id).first() if edit_invoice_id else None
+
+        if existing_edit:
+            # Update existing
+            existing_edit.client_id = client_id
+            existing_edit.date = date.fromisoformat(request.form.get("invoice_date") or str(date.today()))
+            existing_edit.status = status
+            existing_edit.contact_person = request.form.get("shipper_name", "")
+            existing_edit.email = request.form.get("notes", "")
+            existing_edit.phone = request.form.get("shipper_phone", "")
+            existing_edit.subtotal = subtotal
+            existing_edit.tax_amount = 0
+            existing_edit.grand_total = grand_total
+            existing_edit.terms = terms_data
+
+            # Replace items
+            EstimateItem.query.filter_by(estimate_id=existing_edit.id).delete()
+            for item in line_items:
+                db.session.add(EstimateItem(
+                    estimate_id=existing_edit.id,
+                    description=item["description"],
+                    hs_code=item.get("hs_code", ""),
+                    unit=item.get("unit", "Pc"),
+                    qty=item["qty"],
+                    rate=item["rate"],
+                    discount=0,
+                ))
+            
+            db.session.commit()
+            flash(f"Shipper Invoice {existing_edit.estimate_id} updated successfully!")
+            return redirect(url_for("estimate_list"))
+        
+        # Create new
+        ship_count = Estimate.query.filter_by(company_id=company_id).count()
+        estimate_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+        
+        est = Estimate(
+            estimate_id=estimate_id,
+            company_id=company_id,
+            client_id=client_id,
+            date=date.fromisoformat(request.form.get("invoice_date") or str(date.today())),
+            status=status,
+            contact_person=request.form.get("shipper_name", ""),
+            email=request.form.get("notes", ""),
+            phone=request.form.get("shipper_phone", ""),
+            subtotal=subtotal,
+            tax_amount=0,
+            grand_total=grand_total,
+            terms=terms_data,
+        )
+        db.session.add(est)
+        db.session.flush()
+
+        for item in line_items:
+            db.session.add(EstimateItem(
+                estimate_id=est.id,
+                description=item["description"],
+                hs_code=item.get("hs_code", ""),
+                unit=item.get("unit", "Pc"),
+                qty=item["qty"],
+                rate=item["rate"],
+                discount=0,
+            ))
+        
+        db.session.commit()
+        flash(f"Shipper Invoice {estimate_id} created successfully!")
+        return redirect(url_for("estimate_list"))
+
+    # Handle GET (Display form)
+    # Get available dockets
+    if existing:
+        # For editing, exclude current estimate and add its docket to the list
+        available_dockets = _get_available_dockets(company_id, exclude_estimate_id=existing.estimate_id)
+    else:
+        available_dockets = _get_available_dockets(company_id)
+
+    if existing:
+        # Parse stored data
+        meta = {}
+        try:
+            meta = json.loads(existing.terms or "{}")
+        except (ValueError, TypeError):
+            meta = {}
+        
+        # Get line items from database
+        line_items = []
+        for item in existing.items:
+            line_items.append({
+                "description": item.description or "",
+                "qty": item.qty or 0,
+                "rate": item.rate or 0,
+            })
+        
+        # If no items in DB, fall back to meta
+        if not line_items and meta.get("line_items"):
+            line_items = meta.get("line_items", [])
+        
+        # Add current docket to available_dockets if not already there
+        current_docket_no = meta.get("docket_no", "")
+        if current_docket_no:
+            found = False
+            for d in available_dockets:
+                if d['docket_no'] == current_docket_no:
+                    found = True
+                    break
+            if not found:
+                available_dockets.insert(0, {
+                    "invoice_id": meta.get("linked_invoice_id", ""),
+                    "docket_no": current_docket_no,
+                    "customer_name": "Current Selection",
+                })
+        
+        form_data = {
+            "estimate_id": existing.estimate_id,
+            "invoice_date": existing.date.strftime("%Y-%m-%d") if existing.date else str(date.today()),
+            "shipper_id": existing.client_id or "",
+            "shipper_name": meta.get("shipper_name", existing.contact_person or ""),
+            "shipper_phone": meta.get("shipper_phone", existing.phone or ""),
+            "shipper_address": meta.get("shipper_address", ""),
+            "receiver_name": meta.get("receiver_name", ""),
+            "receiver_phone": meta.get("receiver_phone", ""),
+            "receiver_company": meta.get("receiver_company", ""),
+            "receiver_address": meta.get("receiver_address", ""),
+            "destination": meta.get("destination", ""),
+            "docket_no": current_docket_no,
+            "linked_invoice_id": meta.get("linked_invoice_id", ""),
+            "payment_mode": meta.get("payment_mode", "credit"),
+            "upi_app": meta.get("upi_app", ""),
+            "upi_ref": meta.get("upi_ref", ""),
+            "cheque_no": meta.get("cheque_no", ""),
+            "cheque_date": meta.get("cheque_date", ""),
+            "cheque_bank": meta.get("cheque_bank", ""),
+            "notes": existing.email or "",
+            "weight": meta.get("weight", "0.00"),
+            "reference": meta.get("reference", meta.get("aadhar", "")),
+            "line_items": line_items,
+        }
+        
+        
+        return render_template(
+            "estimate.html",
+            clients=clients,
+            estimate_id=existing.estimate_id,
+            today=str(date.today()),
+            form_data=form_data,
+            available_dockets=available_dockets,
+            edit_mode=True,
+        )
+
+    # New invoice
+    ship_count = Estimate.query.filter_by(company_id=company_id).count()
+    estimate_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+
+    return render_template(
+        "estimate.html",
+        clients=clients,
+        estimate_id=estimate_id,
+        today=str(date.today()),
+        form_data={},
+        available_dockets=available_dockets,
+        edit_mode=False,
+    )
 
 @app.route("/estimate/edit/<estimate_id>")
 @login_required
 def estimate_edit(estimate_id):
+    """Edit a Shipper Invoice"""
     return redirect(url_for("estimate_new", edit=estimate_id))
-
 
 @app.route("/estimate/view/<estimate_id>")
 @login_required
@@ -2669,47 +2787,168 @@ def estimate_view(estimate_id):
             meta = {}
 
     items = []
+    grand_total_calc = 0
     for li in est.items:
-        qty      = li.qty      or 0
-        rate     = li.rate     or 0
-        discount = li.discount or 0
+        qty      = float(li.qty or 0)
+        rate     = float(li.rate or 0)
+        discount = float(li.discount or 0)
+        amount = qty * rate * (1 - discount / 100)
+        grand_total_calc += amount
         items.append({
             "code":     li.code        or "",
             "desc":     li.description or "",
             "qty":      qty,
             "rate":     rate,
             "discount": discount,
-            "amount":   qty * rate * (1 - discount / 100),
+            "amount":   amount,
         })
+
+    # Use the calculated total if est.grand_total is 0 or None
+    display_total = est.grand_total if est.grand_total else grand_total_calc
 
     estimate = {
         "id":            est.estimate_id,
         "date":          est.date.strftime("%d %b %Y") if est.date else "—",
         "valid_until":   est.valid_until.strftime("%d %b %Y") if est.valid_until else "—",
         "status":        est.status or "Draft",
-        "grand_total":   est.grand_total or 0,
-        "subtotal":      est.subtotal or 0,
+        "grand_total":   display_total,
+        "subtotal":      est.subtotal or grand_total_calc,
         "tax_amount":    est.tax_amount or 0,
         "client_name":   est.client_obj.name if est.client_obj else (est.contact_person or "—"),
         "contact_person":est.contact_person or "",
         "email":         est.email or "",
         "phone":         est.phone or "",
         "terms_text":    meta if not meta.get("docket_no") else "",
-        "docket_no":     meta.get("docket_no", ""),
-        "receiver_name": meta.get("receiver_name", ""),
-        "receiver_phone":meta.get("receiver_phone", ""),
-        "receiver_address": meta.get("receiver_address", ""),
-        "destination":   meta.get("destination", ""),
-        "shipment_type": meta.get("shipment_type", ""),
-        "mode":          meta.get("mode", ""),
-        "carrier":       meta.get("carrier", ""),
-        "line_items":    items,
-        "is_shipper":    bool(meta.get("docket_no") or est.estimate_id.startswith("SHIP-")),
+        "docket_no":         meta.get("docket_no", ""),
+        "shipper_address":    meta.get("shipper_address", ""),
+        "receiver_name":     meta.get("receiver_name", ""),
+        "receiver_company":  meta.get("receiver_company", ""),
+        "receiver_phone":    meta.get("receiver_phone", ""),
+        "receiver_address":  meta.get("receiver_address", ""),
+        "destination":       meta.get("destination", ""),
+        "shipment_type":     meta.get("shipment_type", ""),
+        "mode":              meta.get("mode", ""),
+        "carrier":           meta.get("carrier", ""),
+        "line_items":        items,
+        "is_shipper":        bool(meta.get("docket_no") or est.estimate_id.startswith("SHIP-")),
+        "weight":            meta.get("weight", "0.00"),
+        "reference":         meta.get("aadhar", meta.get("reference", "")),
+        "amount_words":      meta.get("amount_words", ""),
+        "hs_codes":          meta.get("hs_codes", []),
     }
 
     return render_template("estimate_view.html", estimate=estimate)
 
+@app.route("/estimate/save", methods=["POST"])
+@login_required
+def estimate_save():
+    """Save a Shipper Invoice"""
+    company_id = get_current_company()
+    
+    descriptions = request.form.getlist("description[]")
+    qtys = request.form.getlist("qty[]")
+    rates = request.form.getlist("rate[]")
 
+    subtotal = 0
+    line_items = []
+    for i in range(len(descriptions)):
+        if descriptions[i] and descriptions[i].strip():
+            qty = float(qtys[i]) if qtys[i] else 0
+            rate = float(rates[i]) if rates[i] else 0
+            subtotal += qty * rate
+            line_items.append({
+                "description": descriptions[i],
+                "qty": qty,
+                "rate": rate,
+            })
+
+    grand_total = subtotal
+    status = "Paid"
+
+    client_id_raw = request.form.get("shipper_id")
+    client_id = int(client_id_raw) if client_id_raw else None
+
+    # Pack metadata into terms (including receiver_company and reference)
+    terms_data = json.dumps({
+        "docket_no": request.form.get("docket_no", ""),
+        "linked_invoice_id": request.form.get("linked_invoice_id", ""),
+        "shipper_name": request.form.get("shipper_name", ""),
+        "shipper_phone": request.form.get("shipper_phone", ""),
+        "shipper_address": request.form.get("shipper_address", ""),
+        "receiver_name": request.form.get("receiver_name", ""),
+        "receiver_phone": request.form.get("receiver_phone", ""),
+        "receiver_company": request.form.get("receiver_company", ""),  # ADDED
+        "receiver_address": request.form.get("receiver_address", ""),
+        "destination": request.form.get("destination", ""),
+        "weight": request.form.get("weight", "0.00"),
+        "reference": request.form.get("reference", ""),  # ADDED (Aadhar/PAN)
+        "line_items": line_items,
+    })
+
+    edit_invoice_id = request.form.get("edit_invoice_id", "").strip()
+    existing = Estimate.query.filter_by(estimate_id=edit_invoice_id, company_id=company_id).first() if edit_invoice_id else None
+
+    if existing:
+        # Update existing
+        existing.client_id = client_id
+        existing.date = date.fromisoformat(request.form.get("invoice_date") or str(date.today()))
+        existing.status = status
+        existing.contact_person = request.form.get("shipper_name", "")
+        existing.email = request.form.get("notes", "")
+        existing.phone = request.form.get("shipper_phone", "")
+        existing.subtotal = subtotal
+        existing.tax_amount = 0
+        existing.grand_total = grand_total
+        existing.terms = terms_data
+
+        # Replace items
+        EstimateItem.query.filter_by(estimate_id=existing.id).delete()
+        for item in line_items:
+            db.session.add(EstimateItem(
+                estimate_id=existing.id,
+                description=item["description"],
+                qty=item["qty"],
+                rate=item["rate"],
+                discount=0,
+            ))
+        
+        db.session.commit()
+        flash(f"Shipper Invoice {existing.estimate_id} updated successfully!")
+        return redirect(url_for("estimate_list"))
+    
+    # Create new
+    ship_count = Estimate.query.filter_by(company_id=company_id).count()
+    estimate_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+    
+    est = Estimate(
+        estimate_id=estimate_id,
+        company_id=company_id,
+        client_id=client_id,
+        date=date.fromisoformat(request.form.get("invoice_date") or str(date.today())),
+        status=status,
+        contact_person=request.form.get("shipper_name", ""),
+        email=request.form.get("notes", ""),
+        phone=request.form.get("shipper_phone", ""),
+        subtotal=subtotal,
+        tax_amount=0,
+        grand_total=grand_total,
+        terms=terms_data,
+    )
+    db.session.add(est)
+    db.session.flush()
+
+    for item in line_items:
+        db.session.add(EstimateItem(
+            estimate_id=est.id,
+            description=item["description"],
+            qty=item["qty"],
+            rate=item["rate"],
+            discount=0,
+        ))
+    
+    db.session.commit()
+    flash(f"Shipper Invoice {estimate_id} created successfully!")
+    return redirect(url_for("estimate_list"))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ── Super Admin ───────────────────────────────────────────────────────────────
@@ -2878,6 +3117,388 @@ def api_products_search():
     } for s in items]})
 
 
+# ============================================
+# BANK ACCOUNTS & FINANCE ROUTES
+# ============================================
+
+@app.route("/bank-accounts")
+@login_required
+def bank_accounts():
+    """Bank Accounts management page"""
+    company_id = get_current_company()
+    return render_template("bank_accounts.html", active='bank_accounts')
+
+@app.route("/cash-in-hand")
+@login_required
+def cash_in_hand():
+    """Cash in hand tracking"""
+    company_id = get_current_company()
+    return render_template("cash_in_hand.html", active='cash_in_hand')
+
+@app.route("/cheques")
+@login_required
+def cheques():
+    """Cheque management"""
+    company_id = get_current_company()
+    return render_template("cheques.html", active='cheques')
+
+@app.route("/loan-accounts")
+@login_required
+def loan_accounts():
+    """Loan accounts management"""
+    company_id = get_current_company()
+    return render_template("loan_accounts.html", active='loan_accounts')
+
+# ============================================
+# LEDGER & TRIAL BALANCE ROUTES
+# ============================================
+
+@app.route("/ledger")
+@login_required
+def ledger():
+    """General Ledger - shows all transactions with filters"""
+    company_id = get_current_company()
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    account_type = request.args.get('account_type', 'all')
+    
+    # Set default dates (last 30 days)
+    if not from_date_str:
+        from_date = date.today() - timedelta(days=30)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    ledger_entries = []
+    
+    # 1. Sales Invoices
+    invoices = Invoice.query.filter(
+        Invoice.company_id == company_id,
+        Invoice.date >= from_date,
+        Invoice.date <= to_date
+    ).order_by(Invoice.date.asc()).all()
+    
+    for inv in invoices:
+        client_name = inv.client_obj.name if inv.client_obj else (inv.contact_person or "Unknown")
+        
+        # Skip if filtering by account type
+        if account_type != 'all' and account_type != 'sales':
+            pass
+        else:
+            ledger_entries.append({
+                'date': inv.date,
+                'voucher_type': 'Sales Invoice',
+                'voucher_no': inv.invoice_id,
+                'party_name': client_name,
+                'debit': inv.grand_total or 0,
+                'credit': 0,
+                'balance': 0,  # Will calculate running balance
+                'type': 'sales'
+            })
+            
+            # Add payment entries if paid
+            paid_amount = (inv.grand_total or 0) - (getattr(inv, 'balance', 0) or 0)
+            if paid_amount > 0:
+                ledger_entries.append({
+                    'date': inv.date,
+                    'voucher_type': 'Payment Received',
+                    'voucher_no': inv.invoice_id,
+                    'party_name': client_name,
+                    'debit': 0,
+                    'credit': paid_amount,
+                    'balance': 0,
+                    'type': 'payment_received'
+                })
+    
+    # 2. Purchase Invoices
+    purchases = PurchaseInvoice.query.filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.date >= from_date,
+        PurchaseInvoice.date <= to_date
+    ).order_by(PurchaseInvoice.date.asc()).all()
+    
+    for pur in purchases:
+        supplier_name = pur.supplier.name if pur.supplier else "Unknown"
+        
+        if account_type != 'all' and account_type != 'purchases':
+            pass
+        else:
+            ledger_entries.append({
+                'date': pur.date,
+                'voucher_type': 'Purchase Invoice',
+                'voucher_no': pur.invoice_number or pur.invoice_id,
+                'party_name': supplier_name,
+                'debit': 0,
+                'credit': pur.grand_total or 0,
+                'balance': 0,
+                'type': 'purchases'
+            })
+            
+            # Add payment entries if paid
+            if pur.paid_amount and pur.paid_amount > 0:
+                ledger_entries.append({
+                    'date': pur.date,
+                    'voucher_type': 'Payment Made',
+                    'voucher_no': pur.invoice_number or pur.invoice_id,
+                    'party_name': supplier_name,
+                    'debit': pur.paid_amount,
+                    'credit': 0,
+                    'balance': 0,
+                    'type': 'payment_made'
+                })
+    
+    # 3. Expenses (if any expense table exists - you can add later)
+    # 4. Bank transactions (if any bank table exists - you can add later)
+    
+    # Sort by date
+    ledger_entries.sort(key=lambda x: x['date'])
+    
+    # Calculate running balance
+    running_balance = 0
+    for entry in ledger_entries:
+        running_balance = running_balance + entry['debit'] - entry['credit']
+        entry['balance'] = running_balance
+    
+    # Calculate totals
+    total_debits = sum(e['debit'] for e in ledger_entries)
+    total_credits = sum(e['credit'] for e in ledger_entries)
+    closing_balance = running_balance
+    
+    return render_template('ledger.html',
+                         ledger_entries=ledger_entries,
+                         from_date=from_date,
+                         to_date=to_date,
+                         account_type=account_type,
+                         total_debits=total_debits,
+                         total_credits=total_credits,
+                         closing_balance=closing_balance,
+                         active='ledger')
+
+
+@app.route("/trial-balance")
+@login_required
+def trial_balance():
+    """Trial Balance - shows all account balances"""
+    company_id = get_current_company()
+    
+    # Get filter parameter
+    as_on_date_str = request.args.get('as_on_date', '')
+    
+    if not as_on_date_str:
+        as_on_date = date.today()
+    else:
+        as_on_date = date.fromisoformat(as_on_date_str)
+    
+    accounts = {}
+    
+    # 1. Sales/Customers (Debtors)
+    clients = Client.query.filter_by(company_id=company_id).all()
+    for client in clients:
+        # Calculate outstanding from invoices
+        invoices = Invoice.query.filter_by(company_id=company_id, client_id=client.id).all()
+        total_sales = sum(i.grand_total or 0 for i in invoices)
+        total_paid = sum((i.grand_total or 0) - (getattr(i, 'balance', 0) or 0) for i in invoices)
+        outstanding = total_sales - total_paid
+        
+        if outstanding != 0:
+            accounts[f"Debtors - {client.name}"] = {
+                'debit': outstanding if outstanding > 0 else 0,
+                'credit': abs(outstanding) if outstanding < 0 else 0
+            }
+    
+    # 2. Suppliers (Creditors)
+    suppliers = Client.query.filter(
+        Client.company_id == company_id,
+        db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
+    ).all()
+    
+    for supplier in suppliers:
+        purchases = PurchaseInvoice.query.filter_by(company_id=company_id, supplier_id=supplier.id).all()
+        total_purchases = sum(p.grand_total or 0 for p in purchases)
+        total_paid = sum(p.paid_amount or 0 for p in purchases)
+        outstanding = total_purchases - total_paid
+        
+        if outstanding != 0:
+            accounts[f"Creditors - {supplier.name}"] = {
+                'debit': 0,
+                'credit': outstanding if outstanding > 0 else 0
+            }
+    
+    # 3. Sales Revenue
+    all_invoices = Invoice.query.filter_by(company_id=company_id).all()
+    total_revenue = sum(i.grand_total or 0 for i in all_invoices)
+    if total_revenue > 0:
+        accounts["Sales Revenue"] = {
+            'debit': 0,
+            'credit': total_revenue
+        }
+    
+    # 4. Purchase Cost
+    all_purchases = PurchaseInvoice.query.filter_by(company_id=company_id).all()
+    total_purchase_cost = sum(p.grand_total or 0 for p in all_purchases)
+    if total_purchase_cost > 0:
+        accounts["Purchase Cost"] = {
+            'debit': total_purchase_cost,
+            'credit': 0
+        }
+    
+    # 5. Stock/Inventory Value
+    stock_items = StockItem.query.filter_by(company_id=company_id).all()
+    total_stock_value = sum((s.purchase_rate or s.unit_price or 0) * s.quantity for s in stock_items)
+    if total_stock_value > 0:
+        accounts["Inventory"] = {
+            'debit': total_stock_value,
+            'credit': 0
+        }
+    
+    # 6. GST Collected (from sales)
+    total_gst_collected = sum(i.tax_amount or 0 for i in all_invoices)
+    if total_gst_collected > 0:
+        accounts["GST Collected (Output)"] = {
+            'debit': 0,
+            'credit': total_gst_collected
+        }
+    
+    # 7. GST Paid (on purchases)
+    total_gst_paid = sum(p.tax_amount or 0 for p in all_purchases)
+    if total_gst_paid > 0:
+        accounts["GST Paid (Input)"] = {
+            'debit': total_gst_paid,
+            'credit': 0
+        }
+    
+    # Calculate totals
+    total_debits = sum(acc['debit'] for acc in accounts.values())
+    total_credits = sum(acc['credit'] for acc in accounts.values())
+    
+    # Convert to list for template
+    account_list = [{'name': name, 'debit': data['debit'], 'credit': data['credit']} 
+                    for name, data in accounts.items()]
+    
+    # Sort by name
+    account_list.sort(key=lambda x: x['name'])
+    
+    return render_template('trial_balance.html',
+                         accounts=account_list,
+                         total_debits=total_debits,
+                         total_credits=total_credits,
+                         as_on_date=as_on_date,
+                         difference=total_debits - total_credits,
+                         active='trial_balance')
+
+# ============================================
+# REPORTS ROUTES
+# ============================================
+
+@app.route("/reports/sales")
+@login_required
+def sales_report():
+    """Sales report"""
+    company_id = get_current_company()
+    return render_template("sales_report.html", active='sales_report')
+
+@app.route("/reports/purchase")
+@login_required
+def purchase_report():
+    """Purchase report"""
+    company_id = get_current_company()
+    return render_template("purchase_report.html", active='purchase_report')
+
+@app.route("/reports/stock")
+@login_required
+def stock_report():
+    """Stock report"""
+    company_id = get_current_company()
+    return render_template("stock_report.html", active='stock_report')
+
+@app.route("/reports/tax")
+@login_required
+def tax_report():
+    """Tax/GST report"""
+    company_id = get_current_company()
+    return render_template("tax_report.html", active='tax_report')
+
+@app.route("/reports/profit-loss")
+@login_required
+def profit_loss():
+    """Profit & Loss statement"""
+    company_id = get_current_company()
+    return render_template("profit_loss.html", active='profit_loss')
+
+# ============================================
+# SYNC, SHARE & BACKUP ROUTES
+# ============================================
+
+@app.route("/sync")
+@login_required
+def sync_data():
+    """Sync data with cloud"""
+    company_id = get_current_company()
+    return render_template("sync.html", active='sync')
+
+@app.route("/backup")
+@login_required
+def backup():
+    """Backup data"""
+    company_id = get_current_company()
+    return render_template("backup.html", active='backup')
+
+@app.route("/share")
+@login_required
+def share_data():
+    """Share data with others"""
+    company_id = get_current_company()
+    return render_template("share.html", active='share')
+
+# ============================================
+# OTHER PRODUCTS ROUTES
+# ============================================
+
+@app.route("/integrations")
+@login_required
+def integrations():
+    """Third-party integrations"""
+    company_id = get_current_company()
+    return render_template("integrations.html", active='integrations')
+
+@app.route("/addons")
+@login_required
+def addons():
+    """Add-ons marketplace"""
+    company_id = get_current_company()
+    return render_template("addons.html", active='addons')
+
+# ============================================
+# UTILITIES ROUTES
+# ============================================
+
+@app.route("/import")
+@login_required
+def import_data():
+    """Import data from files"""
+    company_id = get_current_company()
+    return render_template("import.html", active='import')
+
+@app.route("/export")
+@login_required
+def export_data():
+    """Export data to files"""
+    company_id = get_current_company()
+    return render_template("export.html", active='export')
+
+@app.route("/audit-log")
+@login_required
+def audit_log():
+    """View audit logs"""
+    company_id = get_current_company()
+    return render_template("audit_log.html", active='audit')
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ── Profile ───────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
@@ -2900,23 +3521,24 @@ def company_settings():
     company_id = get_current_company()
     company    = get_company_by_id(company_id)
     users      = CompanyUser.query.filter_by(company_id=company_id).all()
-    plans = {
-        p.id: {
+    
+    # Fix: Convert plans to a dictionary with proper structure
+    plans = {}
+    for p in SubscriptionPlan.query.all():
+        plans[p.id] = {
             "name":          p.name,
             "price":         p.price,
             "max_companies": p.max_companies,
             "max_users":     p.max_users,
             "features":      p.features.split(",") if p.features else [],
         }
-        for p in SubscriptionPlan.query.all()
-    }
+    
     current_plan = plans.get(company.subscription_plan) if company else None
     return render_template("company_settings.html",
                            company=company,
                            users=users,
                            plans=plans,
                            current_plan=current_plan)
-
 
 @app.route("/company/update-info", methods=["POST"])
 @login_required
@@ -3521,7 +4143,7 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
         seed_database()
-    app.run(debug=True, port=5003)
+    app.run(debug=True, port=5010)
 else:
     # When run by Gunicorn / Render, seed after the app is fully loaded
     with app.app_context():

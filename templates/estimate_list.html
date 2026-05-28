@@ -70,7 +70,7 @@
           <th>Destination</th>
           <th>Date</th>
           <th style="text-align:right">Amount (&#8377;)</th>
-          <th>Status</th>
+          <th>Reference (Aadhar/PAN)</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -93,12 +93,7 @@
           <td><span class="sub-text">{{ est.destination or '&#8212;' }}</span></td>
           <td style="color:var(--gray-600);font-size:12px;white-space:nowrap">{{ est.date }}</td>
           <td style="text-align:right"><span class="amt">&#8377;{{ "{:,.0f}".format(est.grand_total) }}</span></td>
-          <td>
-            {% if est.status|lower == 'paid' %}<span class="badge badge-paid">Paid</span>
-            {% elif est.status|lower == 'partial' %}<span class="badge badge-partial">Partial</span>
-            {% elif est.status|lower == 'unpaid' %}<span class="badge badge-unpaid">Unpaid</span>
-            {% else %}<span class="badge badge-draft">{{ est.status }}</span>{% endif %}
-          </td>
+          <td><span class="sub-text">{{ est.reference or '&#8212;' }}</span></td>
           <td style="white-space:nowrap">
             <a href="/shipper-invoice/pdf/{{ est.id }}" class="act-btn act-btn-amber" target="_blank">&#128424; PDF</a>
             <a href="/estimate/view/{{ est.id }}" class="act-btn">&#128065; View</a>

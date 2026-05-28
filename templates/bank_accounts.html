@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block title %}Bank Accounts{% endblock %}
+{% block page_title %}Bank Accounts{% endblock %}
+{% set active = 'bank_accounts' %}
+
+{% block content %}
+<div class="page-header">
+  <h2>🏦 Bank Accounts</h2>
+  <button class="btn btn-primary" onclick="showAddAccountModal()">+ Add Bank Account</button>
+</div>
+
+<div class="grid-2" style="gap: 20px;">
+  {% for account in bank_accounts %}
+  <div class="card">
+    <div class="card-header">
+      <h3>{{ account.bank_name }}</h3>
+      <span class="badge {% if account.status == 'Active' %}badge-success{% else %}badge-danger{% endif %}">
+        {{ account.status }}
+      </span>
+    </div>
+    <div class="card-body">
+      <p><strong>Account Name:</strong> {{ account.account_name }}</p>
+      <p><strong>Account Number:</strong> {{ account.account_number }}</p>
+      <p><strong>IFSC Code:</strong> {{ account.ifsc_code }}</p>
+      <p><strong>Current Balance:</strong> <strong class="text-success">₹{{ "{:,.2f}".format(account.balance) }}</strong></p>
+      <p><strong>Branch:</strong> {{ account.branch }}</p>
+    </div>
+    <div class="card-footer">
+      <button class="btn btn-sm btn-primary" onclick="viewTransactions('{{ account.id }}')">View Transactions</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteAccount('{{ account.id }}')">Delete</button>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <p>No bank accounts added yet. Click "Add Bank Account" to get started.</p>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Add Bank Account Modal -->
+<div id="addAccountModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
+    <h3 style="margin-bottom:20px">Add Bank Account</h3>
+    <form method="POST" action="/bank-accounts/add">
+      <div class="form-group">
+        <label>Bank Name *</label>
+        <input type="text" name="bank_name" required>
+      </div>
+      <div class="form-group">
+        <label>Account Name *</label>
+        <input type="text" name="account_name" required>
+      </div>
+      <div class="form-group">
+        <label>Account Number *</label>
+        <input type="text" name="account_number" required>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>IFSC Code</label>
+          <input type="text" name="ifsc_code">
+        </div>
+        <div class="form-group">
+          <label>Branch</label>
+          <input type="text" name="branch">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Opening Balance</label>
+        <input type="number" name="balance" step="0.01" value="0">
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
+        <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge-success {
+  background: #DCFCE7;
+  color: #16A34A;
+}
+.badge-danger {
+  background: #FEE2E2;
+  color: #DC2626;
+}
+.text-success {
+  color: #16A34A;
+}
+</style>
+
+<script>
+function showAddAccountModal() {
+  document.getElementById('addAccountModal').style.display = 'flex';
+}
+function closeModal() {
+  document.getElementById('addAccountModal').style.display = 'none';
+}
+function viewTransactions(accountId) {
+  window.location.href = `/bank-accounts/${accountId}/transactions`;
+}
+function deleteAccount(accountId) {
+  if(confirm('Are you sure you want to delete this bank account?')) {
+    window.location.href = `/bank-accounts/${accountId}/delete`;
+  }
+}
+</script>
+{% endblock %}

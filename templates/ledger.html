@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}General Ledger{% endblock %}
+{% block page_title %}General Ledger{% endblock %}
+{% set active = 'ledger' %}
+
+{% block content %}
+<div class="page-header">
+  <h2>📒 General Ledger</h2>
+</div>
+
+<!-- Filter Form -->
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-body">
+    <form method="GET" action="{{ url_for('ledger') }}" class="filter-form">
+      <div class="grid-4" style="gap: 16px; align-items: end;">
+        <div class="form-group">
+          <label>From Date</label>
+          <input type="date" name="from_date" value="{{ from_date.isoformat() if from_date else '' }}">
+        </div>
+        <div class="form-group">
+          <label>To Date</label>
+          <input type="date" name="to_date" value="{{ to_date.isoformat() if to_date else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Account Type</label>
+          <select name="account_type">
+            <option value="all" {% if account_type == 'all' %}selected{% endif %}>All Accounts</option>
+            <option value="sales" {% if account_type == 'sales' %}selected{% endif %}>Sales Only</option>
+            <option value="purchases" {% if account_type == 'purchases' %}selected{% endif %}>Purchases Only</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit" class="btn btn-primary">Apply Filter</button>
+          <a href="{{ url_for('ledger') }}" class="btn btn-ghost">Reset</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Summary Cards -->
+<div class="kpi-grid" style="margin-bottom: 24px;">
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">💰</div>
+    <div class="kpi-val" style="color:#4F46E5">₹{{ "{:,.2f}".format(total_debits) }}</div>
+    <div class="kpi-lbl">Total Debits</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">💳</div>
+    <div class="kpi-val" style="color:#16A34A">₹{{ "{:,.2f}".format(total_credits) }}</div>
+    <div class="kpi-lbl">Total Credits</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⚖️</div>
+    <div class="kpi-val" style="color:#D97706">₹{{ "{:,.2f}".format(closing_balance) }}</div>
+    <div class="kpi-lbl">Closing Balance</div>
+  </div>
+</div>
+
+<!-- Ledger Table -->
+<div class="card">
+  <div class="card-header">
+    <strong>Ledger Entries</strong>
+    <span>{{ from_date.strftime('%d %b %Y') if from_date else '-' }} to {{ to_date.strftime('%d %b %Y') if to_date else '-' }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Voucher Type</th>
+          <th>Voucher No.</th>
+          <th>Party Name</th>
+          <th>Debit (₹)</th>
+          <th>Credit (₹)</th>
+          <th>Balance (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in ledger_entries %}
+        <tr>
+          <td>{{ entry.date.strftime('%d-%m-%Y') if entry.date else '-' }}</td>
+          <td>
+            <span class="voucher-badge {% if 'Invoice' in entry.voucher_type %}invoice-badge{% elif 'Payment' in entry.voucher_type %}payment-badge{% endif %}">
+              {{ entry.voucher_type }}
+            </span>
+          </td>
+          <td><strong>{{ entry.voucher_no }}</strong></td>
+          <td>{{ entry.party_name }}</td>
+          <td class="{% if entry.debit > 0 %}text-success{% endif %}">
+            {% if entry.debit > 0 %}₹{{ "{:,.2f}".format(entry.debit) }}{% else %}-{% endif %}
+          </td>
+          <td class="{% if entry.credit > 0 %}text-danger{% endif %}">
+            {% if entry.credit > 0 %}₹{{ "{:,.2f}".format(entry.credit) }}{% else %}-{% endif %}
+          </td>
+          <td class="{% if entry.balance > 0 %}text-success{% elif entry.balance < 0 %}text-danger{% endif %}">
+            ₹{{ "{:,.2f}".format(entry.balance) }}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align: center;">No ledger entries found for the selected period</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr style="background: #F9FAFB; font-weight: bold;">
+          <td colspan="4" style="text-align: right;">Totals:</td>
+          <td>₹{{ "{:,.2f}".format(total_debits) }}</td>
+          <td>₹{{ "{:,.2f}".format(total_credits) }}</td>
+          <td>₹{{ "{:,.2f}".format(closing_balance) }}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</div>
+
+<style>
+.voucher-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.invoice-badge {
+  background: #EEF2FF;
+  color: #4F46E5;
+}
+.payment-badge {
+  background: #DCFCE7;
+  color: #16A34A;
+}
+.text-success {
+  color: #16A34A;
+  font-weight: 600;
+}
+.text-danger {
+  color: #DC2626;
+  font-weight: 600;
+}
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+</style>
+{% endblock %}

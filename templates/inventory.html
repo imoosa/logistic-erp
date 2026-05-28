@@ -22,86 +22,139 @@
   <button class="btn btn-primary" onclick="openStockModal()">+ Add Stock Item</button>
 </div>
 
-<!-- Stock Summary KPIs -->
+<!-- Logistics KPIs -->
 <div class="kpi-grid" style="margin-bottom:20px">
   <div class="kpi">
     <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">📦</div>
     <div class="kpi-val" style="color:#4F46E5">{{ stock_summary.total_items }}</div>
-    <div class="kpi-lbl">Total Items</div>
+    <div class="kpi-lbl">Total Shipments</div>
   </div>
   <div class="kpi">
-    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">✅</div>
+    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">🚚</div>
     <div class="kpi-val" style="color:#16A34A">{{ stock_summary.in_stock }}</div>
-    <div class="kpi-lbl">In Stock</div>
+    <div class="kpi-lbl">In Transit</div>
   </div>
   <div class="kpi">
-    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⚠️</div>
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⏳</div>
     <div class="kpi-val" style="color:#D97706">{{ stock_summary.low_stock }}</div>
-    <div class="kpi-lbl">Low Stock (&lt;10)</div>
+    <div class="kpi-lbl">Pending Pickup</div>
   </div>
   <div class="kpi">
-    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">❌</div>
+    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">✅</div>
     <div class="kpi-val" style="color:#DC2626">{{ stock_summary.out_stock }}</div>
-    <div class="kpi-lbl">Out of Stock</div>
+    <div class="kpi-lbl">Delivered</div>
   </div>
 </div>
 
-<!-- Stock Table -->
+<!-- Packaging / Box Stock Table -->
 <div class="stock-card">
   <div class="stock-header">
-    <strong>All Stock Items</strong>
-    <div style="display:flex;gap:8px">
-      <input type="text" id="searchStock" placeholder="🔍 Search item..." style="width:200px" onkeyup="filterStock()">
+    <strong>📦 Box &amp; Packaging Stock (from Shipments)</strong>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="searchStock" placeholder="🔍 Search docket, shipper, consignee…" style="width:260px" onkeyup="filterStock()">
+      <select id="filterStatus" onchange="filterStock()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
+        <option value="">All Status</option>
+        <option value="In Stock">In Stock</option>
+        <option value="Low Stock">Low Stock</option>
+        <option value="Out of Stock">Out of Stock</option>
+      </select>
     </div>
   </div>
   <div class="table-wrap">
     <table id="stockTable">
       <thead>
         <tr>
-          <th>Product Code</th>
-          <th>Product Name</th>
-          <th>Category</th>
-          <th>Quantity</th>
-          <th>Purchase Rate</th>
-          <th>Selling Price</th>
-          <th>Margin</th>
-          <th>Actions</th>
-          <th>Unit Price</th>
-          <th>GST %</th>
-          <th>Total Value</th>
-          <th>Status</th>
+          <th style="width:40px;text-align:center">S.No</th>
+          <th>Box / Package Name</th>
+          <th>Docket / AWB No.</th>
+          <th>Shipper (Customer)</th>
+          <th>Consignee</th>
+          <th>Destination</th>
+          <th style="text-align:center">Qty</th>
+          <th style="text-align:right">Actual Wt (kg)</th>
+          <th style="text-align:right">Vol. Wt (kg)</th>
+          <th style="text-align:center">Mode</th>
+          <th style="text-align:center">Status</th>
           <th>Last Updated</th>
-          <th>Actions</th>
+          <th style="text-align:center">Actions</th>
         </tr>
       </thead>
       <tbody>
-        {% for item in stock_items %}
+        {% for e in stock_items %}
+        {% set item = e.item %}
         <tr>
-          <td><strong style="color:#4F46E5">{{ item.code }}</strong></td>
-          <td>{{ item.name }}</td>
-          <td>{{ item.category }}</td>
+          <td style="text-align:center;color:#9CA3AF;font-size:12px;font-weight:600">{{ loop.index }}</td>
+
+          <!-- Box / Package Name -->
           <td>
-            <strong>{{ item.quantity }}</strong> {{ item.unit }}
-            {% if item.reorder_level and item.quantity <= item.reorder_level %}
-              <span class="stock-badge {% if item.quantity <= 0 %}out-stock{% else %}low-stock{% endif %}" style="margin-left:8px">
-                {% if item.quantity <= 0 %}Out{% else %}Low{% endif %}
-              </span>
+            <div style="font-weight:700;color:#111827">{{ item.name }}</div>
+            <div style="font-size:11px;color:#6B7280">{{ item.code }} &bull; {{ item.unit }}</div>
+          </td>
+
+          <!-- Docket / AWB No. -->
+          <td>
+            <span style="font-weight:700;color:#4F46E5;font-size:13px">
+              {{ e.docket if e.docket else '—' }}
+            </span>
+          </td>
+
+          <!-- Shipper (Customer) -->
+          <td>
+            <div style="font-weight:600;color:#374151">{{ e.shipper if e.shipper else '—' }}</div>
+          </td>
+
+          <!-- Consignee -->
+          <td>
+            <div style="font-weight:600;color:#374151">{{ e.consignee if e.consignee else '—' }}</div>
+          </td>
+
+          <!-- Destination -->
+          <td>
+            <span style="font-size:13px;color:#6B7280">{{ e.destination if e.destination else '—' }}</span>
+          </td>
+
+          <!-- Qty -->
+          <td style="text-align:center">
+            <strong>{{ item.quantity | int }}</strong>
+            <span style="font-size:11px;color:#9CA3AF"> {{ item.unit }}</span>
+          </td>
+
+          <!-- Actual Weight -->
+          <td style="text-align:right;font-weight:700;color:#374151">
+            {% if e.actual_wt %}
+              {{ "{:,.2f}".format(e.actual_wt) }} kg
+            {% else %}
+              <span style="color:#9CA3AF">—</span>
             {% endif %}
           </td>
-          <td>₹{{ "{:,.2f}".format(item.purchase_rate or 0) }}</td>
-<td>₹{{ "{:,.2f}".format(item.selling_price or item.unit_price or 0) }}</td>
-<td class="{% if (item.selling_price or item.unit_price or 0) > (item.purchase_rate or 0) %}text-success{% else %}text-danger{% endif %}">
-    {% if item.purchase_rate and item.purchase_rate > 0 %}
-        {{ "%.1f"|format(((item.selling_price or item.unit_price or 0) - item.purchase_rate) / item.purchase_rate * 100) }}%
-    {% else %}
-        -
-    {% endif %}
-</td>
 
-          <td>₹{{ "{:,.2f}".format(item.unit_price) }}</td>
-          <td>{{ item.gst_percent or 18 }}%</td>
-          <td>₹{{ "{:,.2f}".format(item.quantity * item.unit_price) }}</td>
-          <td>
+          <!-- Volumetric Weight -->
+          <td style="text-align:right;color:#6B7280">
+            {% if e.vol_wt %}
+              {{ "{:,.2f}".format(e.vol_wt) }} kg
+            {% else %}
+              <span style="color:#9CA3AF">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Mode badge -->
+          <td style="text-align:center">
+            {% set mode = (e.mode or '') | upper %}
+            {% if 'AIR' in mode %}
+              <span class="stock-badge" style="background:#EEF2FF;color:#4F46E5">✈ Air</span>
+            {% elif 'SEA' in mode or 'OCEAN' in mode %}
+              <span class="stock-badge" style="background:#DBEAFE;color:#1D4ED8">🚢 Sea</span>
+            {% elif 'ROAD' in mode or 'SURFACE' in mode or 'TRUCK' in mode %}
+              <span class="stock-badge" style="background:#FEF3C7;color:#D97706">🚛 Road</span>
+            {% elif mode %}
+              <span class="stock-badge" style="background:#F3F4F6;color:#374151">📦 {{ e.mode }}</span>
+            {% else %}
+              <span class="stock-badge" style="background:#F3F4F6;color:#9CA3AF">📦 Courier</span>
+            {% endif %}
+          </td>
+
+          <!-- Stock Status -->
+          <td style="text-align:center">
             {% if item.quantity <= 0 %}
               <span class="stock-badge out-stock">Out of Stock</span>
             {% elif item.reorder_level and item.quantity <= item.reorder_level %}
@@ -110,10 +163,13 @@
               <span class="stock-badge in-stock">In Stock</span>
             {% endif %}
           </td>
-          <td style="color:#6B7280;font-size:12px">{{ item.last_updated }}</td>
-          <td>
-            <button class="btn btn-ghost btn-sm" onclick="editStockItem('{{ item.code }}')">✏️</button>
-            <button class="btn btn-ghost btn-sm" onclick="adjustStock('{{ item.code }}')">📊 Adj</button>
+
+          <td style="color:#6B7280;font-size:12px;white-space:nowrap">{{ item.last_updated }}</td>
+
+          <td style="text-align:center;white-space:nowrap">
+            <button class="btn btn-ghost btn-sm" onclick="editStockItem('{{ item.code }}')" title="Edit">✏️</button>
+            <button class="btn btn-ghost btn-sm" onclick="adjustStock('{{ item.code }}')" title="Adjust Qty">📊</button>
+            <button class="btn btn-ghost btn-sm" onclick="viewMovements('{{ item.code }}')" title="Movement history" style="color:#4F46E5">📋</button>
           </td>
         </tr>
         {% endfor %}
@@ -122,7 +178,97 @@
   </div>
 </div>
 
-<!-- Stock Adjustment Modal -->
+</div>
+
+<!-- Stock Movement History Modal -->
+<div id="movementModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:#fff; border-radius:16px; width:680px; max-width:95%; padding:24px; max-height:85vh; overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h3 id="movModalTitle" style="margin:0">📊 Stock Movement History</h3>
+      <button class="btn btn-ghost btn-sm" onclick="closeMovementModal()">✕ Close</button>
+    </div>
+
+    <!-- Summary chips -->
+    <div id="movSummary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
+
+    <div class="table-wrap">
+      <table id="movTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Reference</th>
+            <th style="text-align:right">Qty In</th>
+            <th style="text-align:right">Qty Out</th>
+            <th style="text-align:right">Rate (₹)</th>
+          </tr>
+        </thead>
+        <tbody id="movBody">
+          <tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:24px">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function viewMovements(code) {
+  document.getElementById('movementModal').style.display = 'flex';
+  document.getElementById('movModalTitle').textContent = `📊 Movement History — ${code}`;
+  document.getElementById('movBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:24px">Loading…</td></tr>';
+  document.getElementById('movSummary').innerHTML = '';
+
+  fetch(`/stock/movements/${code}`)
+    .then(r => r.json())
+    .then(data => {
+      const tbody = document.getElementById('movBody');
+      tbody.innerHTML = '';
+
+      if (!data.movements || data.movements.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:24px">No movement records found.</td></tr>';
+      } else {
+        data.movements.forEach(m => {
+          const isIn  = m.quantity > 0;
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="color:#6B7280;font-size:12px">${m.date}</td>
+            <td>
+              <span class="stock-badge ${isIn ? 'in-stock' : 'out-stock'}">
+                ${isIn ? '⬆ IN' : '⬇ OUT'}
+              </span>
+              <span style="font-size:12px;color:#6B7280;margin-left:6px">${m.type}</span>
+            </td>
+            <td style="color:#4F46E5;font-size:12px;font-weight:600">${m.ref}</td>
+            <td style="text-align:right;color:#16A34A;font-weight:700">${isIn  ? '+'+Math.abs(m.quantity) : '—'}</td>
+            <td style="text-align:right;color:#DC2626;font-weight:700">${!isIn ? '−'+Math.abs(m.quantity) : '—'}</td>
+            <td style="text-align:right;color:#374151">₹${parseFloat(m.rate||0).toLocaleString('en-IN',{minimumFractionDigits:2})}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // Summary chips
+      const summary = document.getElementById('movSummary');
+      const chips = [
+        { label: 'Total IN',  val: data.total_in,  color: '#16A34A', bg: '#DCFCE7' },
+        { label: 'Total OUT', val: data.total_out, color: '#DC2626', bg: '#FEE2E2' },
+        { label: 'Net',       val: data.total_in - data.total_out, color: '#4F46E5', bg: '#EEF2FF' },
+      ];
+      chips.forEach(c => {
+        const el = document.createElement('div');
+        el.style.cssText = `padding:8px 16px;border-radius:20px;background:${c.bg};color:${c.color};font-weight:700;font-size:13px`;
+        el.textContent = `${c.label}: ${c.val}`;
+        summary.appendChild(el);
+      });
+    })
+    .catch(() => {
+      document.getElementById('movBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#DC2626;padding:24px">Failed to load movements.</td></tr>';
+    });
+}
+
+function closeMovementModal() {
+  document.getElementById('movementModal').style.display = 'none';
+}
+</script>
 <div id="stockModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
   <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
     <h3 id="modalTitle" style="margin-bottom:20px">Add Stock Item</h3>
@@ -232,10 +378,13 @@ document.getElementById('stockForm').addEventListener('submit', async (e) => {
 
 function filterStock() {
   const search = document.getElementById('searchStock').value.toLowerCase();
+  const statusFilter = document.getElementById('filterStatus').value.toLowerCase();
   const rows = document.querySelectorAll('#stockTable tbody tr');
   rows.forEach(row => {
     const text = row.innerText.toLowerCase();
-    row.style.display = text.includes(search) ? '' : 'none';
+    const matchSearch = text.includes(search);
+    const matchStatus = !statusFilter || text.includes(statusFilter);
+    row.style.display = (matchSearch && matchStatus) ? '' : 'none';
   });
 }
 </script>

@@ -70,8 +70,8 @@
 {% block content %}
 
 <div class="page-header">
-  <h2>🚚 Shipment Invoices</h2>
-  <a href="/invoice/customer" class="btn btn-primary">+ New Invoice</a>
+  <h2>🚚 Customer Invoices</h2>
+  
 </div>
 
 {% set total_billed  = invoices | sum(attribute='total') %}
@@ -94,6 +94,7 @@
     <div class="s-label">Balance Pending</div>
     <div class="s-val red">₹{{ "{:,.0f}".format(total_balance) }}</div>
   </div>
+  <a href="/invoice/customer" class="btn btn-primary">+ New Invoice</a>
 </div>
 
 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">
