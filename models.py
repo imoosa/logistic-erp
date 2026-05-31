@@ -293,11 +293,15 @@ class StockPurchaseHistory(db.Model):
     
     id                 = db.Column(db.Integer,     primary_key=True, autoincrement=True)
     stock_item_id      = db.Column(db.Integer,     db.ForeignKey("stock_items.id"), nullable=False)
-    purchase_invoice_id = db.Column(db.Integer,    db.ForeignKey("purchase_invoices.id"), nullable=False)
+    purchase_invoice_id = db.Column(db.Integer,    db.ForeignKey("purchase_invoices.id"), nullable=True)
     quantity           = db.Column(db.Float,       nullable=False)
     purchase_rate      = db.Column(db.Float,       nullable=False)
     gst_percent        = db.Column(db.Float,       nullable=False, default=0.0)
     purchase_date      = db.Column(db.Date,        nullable=False, default=date.today)
+    # movement_type: 'IN' (customer invoice received) or 'OUT' (purchase/logistics invoice)
+    movement_type      = db.Column(db.String(10),  nullable=True, default='IN')
+    # reference: stores the invoice ID string for display (e.g. CUST-20260101-001 or PURCHASE-INV-...)
+    reference          = db.Column(db.String(100), nullable=True)
     
     # relationships
     stock_item      = db.relationship("StockItem", back_populates="purchase_history")
@@ -365,6 +369,9 @@ class Invoice(db.Model):
     terms          = db.Column(db.Text,        nullable=True)
     created_at     = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
 
+    paid_amount = db.Column(db.Numeric(12,2), default=0.0)  
+    balance = db.Column(db.Numeric(12,2), default=0.0)
+
     # relationships
     company    = db.relationship("Company", back_populates="invoices")
     client_obj = db.relationship("Client",  back_populates="invoices")
@@ -396,16 +403,18 @@ class InvoiceItem(db.Model):
 
 
 # ── 9. Estimates ──────────────────────────────────────────────────────────────
+# In models.py, update the Estimate class - remove payment_mode and related columns
+
 class Estimate(db.Model):
     __tablename__ = "estimates"
 
     id             = db.Column(db.Integer,     primary_key=True, autoincrement=True)
-    estimate_id    = db.Column(db.String(30),  unique=True, nullable=False)     # EST-20240120-123
+    estimate_id    = db.Column(db.String(30),  unique=True, nullable=False)
     company_id     = db.Column(db.String(20),  db.ForeignKey("companies.company_id"), nullable=False)
     client_id      = db.Column(db.Integer,     db.ForeignKey("clients.id"),     nullable=True)
     date           = db.Column(db.Date,        nullable=False, default=date.today)
     valid_until    = db.Column(db.Date,        nullable=True)
-    status         = db.Column(db.String(50),  nullable=False, default="Draft")  # Draft/Sent/Accepted/Rejected
+    status         = db.Column(db.String(50),  nullable=False, default="Draft")
     subtotal       = db.Column(db.Float,       nullable=False, default=0.0)
     tax_amount     = db.Column(db.Float,       nullable=False, default=0.0)
     grand_total    = db.Column(db.Float,       nullable=False, default=0.0)
@@ -414,6 +423,22 @@ class Estimate(db.Model):
     phone          = db.Column(db.String(20),  nullable=True)
     terms          = db.Column(db.Text,        nullable=True)
     created_at     = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+    
+    # Shipper Invoice specific columns
+    docket_no      = db.Column(db.String(50),  nullable=True)
+    receiver_company = db.Column(db.String(200), nullable=True)
+    reference      = db.Column(db.String(100), nullable=True)
+    weight         = db.Column(db.Float,       nullable=True, default=0.0)
+    shipper_name   = db.Column(db.String(200), nullable=True)
+    shipper_address = db.Column(db.String(400), nullable=True)
+    receiver_name  = db.Column(db.String(200), nullable=True)
+    receiver_phone = db.Column(db.String(20),  nullable=True)
+    receiver_address = db.Column(db.String(400), nullable=True)
+    destination    = db.Column(db.String(200), nullable=True)
+    linked_invoice_id = db.Column(db.String(30), nullable=True)
+    
+    # REMOVED: payment_mode, upi_app, upi_ref, cheque_no, cheque_date, cheque_bank
+    # Payment will always be cash
 
     # relationships
     company    = db.relationship("Company", back_populates="estimates")
@@ -447,11 +472,7 @@ class EstimateItem(db.Model):
 
 # ═════════════════════════════════════════════════════════════════════════════
 # ── LOGISTICS MODELS ─────────────────────────────────────────────────────────
-# ═════════════════════════════════════════════════════════════════════════════
 
-# ── 12. Customer Invoice (Logistics) ─────────────────────────────────────────
-# Raised on the end-customer for a shipment.
-# Automatically feeds into the Debtors ledger (client.pending is incremented).
 # ─────────────────────────────────────────────────────────────────────────────
 class CustomerInvoice(db.Model):
     __tablename__ = "customer_invoices"
@@ -687,3 +708,137 @@ class ShipperInvoiceCharge(db.Model):
 
     def __repr__(self):
         return f"<ShipperInvoiceCharge {self.id} – {self.description}: {self.amount}>"
+
+
+
+# ── Cash Transaction Model ─────────────────────────────────────────────────────
+class CashTransaction(db.Model):
+    __tablename__ = "cash_transactions"
+
+    id               = db.Column(db.Integer,     primary_key=True, autoincrement=True)
+    company_id       = db.Column(db.String(20),  db.ForeignKey("companies.company_id"), nullable=False)
+    type             = db.Column(db.String(20),  nullable=False)      # 'income' or 'expense'
+    date             = db.Column(db.Date,        nullable=False, default=date.today)
+    category         = db.Column(db.String(100), nullable=False)      # Sales, Salary, Rent, etc.
+    description      = db.Column(db.String(300), nullable=False)
+    amount           = db.Column(db.Float,       nullable=False, default=0.0)
+    reference        = db.Column(db.String(100), nullable=True)       # Invoice/Bill/Ref number
+    notes            = db.Column(db.Text,        nullable=True)
+    created_at       = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by       = db.Column(db.String(50),  nullable=True)
+
+    # relationships
+    company = db.relationship("Company", backref="cash_transactions")
+
+    def __repr__(self):
+        return f"<CashTransaction {self.id} - {self.type} - ₹{self.amount}>"
+
+# ── Bank Account Model ─────────────────────────────────────────────────────
+class BankAccount(db.Model):
+    __tablename__ = "bank_accounts"
+
+    id               = db.Column(db.Integer,     primary_key=True, autoincrement=True)
+    company_id       = db.Column(db.String(20),  db.ForeignKey("companies.company_id"), nullable=False)
+    bank_name        = db.Column(db.String(200), nullable=False)
+    account_name     = db.Column(db.String(200), nullable=False)
+    account_number   = db.Column(db.String(50),  nullable=False, unique=True)
+    ifsc_code        = db.Column(db.String(20),  nullable=True)
+    branch           = db.Column(db.String(200), nullable=True)
+    balance          = db.Column(db.Float,       nullable=False, default=0.0)
+    opening_balance  = db.Column(db.Float,       nullable=False, default=0.0)
+    status           = db.Column(db.String(30),  nullable=False, default="Active")  # Active, Inactive
+    notes            = db.Column(db.Text,        nullable=True)
+    created_at       = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+    updated_at       = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # relationships
+    company = db.relationship("Company", backref="bank_accounts")
+    transactions = db.relationship("BankTransaction", back_populates="bank_account", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<BankAccount {self.bank_name} - {self.account_number}>"
+
+
+# ── Bank Transaction Model ─────────────────────────────────────────────────
+class BankTransaction(db.Model):
+    __tablename__ = "bank_transactions"
+
+    id               = db.Column(db.Integer,     primary_key=True, autoincrement=True)
+    bank_account_id  = db.Column(db.Integer,     db.ForeignKey("bank_accounts.id"), nullable=False)
+    company_id       = db.Column(db.String(20),  db.ForeignKey("companies.company_id"), nullable=False)
+    type             = db.Column(db.String(20),  nullable=False)      # 'credit' or 'debit'
+    date             = db.Column(db.Date,        nullable=False, default=date.today)
+    description      = db.Column(db.String(300), nullable=False)
+    amount           = db.Column(db.Float,       nullable=False, default=0.0)
+    reference        = db.Column(db.String(100), nullable=True)       # Cheque no, UTR, etc.
+    transaction_mode = db.Column(db.String(30),  nullable=True)       # NEFT, RTGS, IMPS, Cheque, Cash, Transfer
+    notes            = db.Column(db.Text,        nullable=True)
+    created_at       = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by       = db.Column(db.String(50),  nullable=True)
+
+    # relationships
+    bank_account = db.relationship("BankAccount", back_populates="transactions")
+    company = db.relationship("Company", backref="bank_transactions")
+
+    def __repr__(self):
+        return f"<BankTransaction {self.id} - {self.type} - ₹{self.amount}>"
+
+# ── Loan Model ────────────────────────────────────────────────────────────────
+class Loan(db.Model):
+    __tablename__ = "loans"
+
+    id               = db.Column(db.Integer,     primary_key=True, autoincrement=True)
+    company_id       = db.Column(db.String(20),  db.ForeignKey("companies.company_id"), nullable=False)
+    type             = db.Column(db.String(20),  nullable=False)      # 'given' or 'taken'
+    party_name       = db.Column(db.String(200), nullable=False)      # Borrower or Lender name
+    loan_date        = db.Column(db.Date,        nullable=False, default=date.today)
+    amount           = db.Column(db.Float,       nullable=False, default=0.0)
+    interest_rate    = db.Column(db.Float,       nullable=False, default=0.0)
+    tenure           = db.Column(db.Integer,     nullable=False, default=12)   # in months
+    emi_amount       = db.Column(db.Float,       nullable=False, default=0.0)
+    purpose          = db.Column(db.String(300), nullable=True)
+    notes            = db.Column(db.Text,        nullable=True)
+    status           = db.Column(db.String(30),  nullable=False, default="Active")  # Active, Completed, Overdue
+    created_at       = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by       = db.Column(db.String(50),  nullable=True)
+
+    # relationships
+    company = db.relationship("Company", backref="loans")
+    repayments = db.relationship("LoanRepayment", back_populates="loan", cascade="all, delete-orphan")
+
+    @property
+    def repaid_amount(self):
+        return sum(r.amount for r in self.repayments)
+
+    @property
+    def remaining_amount(self):
+        return max(0, self.amount - self.repaid_amount)
+
+    @property
+    def repayment_percentage(self):
+        if self.amount > 0:
+            return (self.repaid_amount / self.amount) * 100
+        return 0
+
+    def __repr__(self):
+        return f"<Loan {self.id} - {self.type} - ₹{self.amount}>"
+
+
+# ── Loan Repayment Model ──────────────────────────────────────────────────────
+class LoanRepayment(db.Model):
+    __tablename__ = "loan_repayments"
+
+    id               = db.Column(db.Integer,     primary_key=True, autoincrement=True)
+    loan_id          = db.Column(db.Integer,     db.ForeignKey("loans.id"), nullable=False)
+    date             = db.Column(db.Date,        nullable=False, default=date.today)
+    amount           = db.Column(db.Float,       nullable=False, default=0.0)
+    payment_mode     = db.Column(db.String(30),  nullable=False, default="Cash")
+    reference        = db.Column(db.String(100), nullable=True)
+    notes            = db.Column(db.Text,        nullable=True)
+    created_at       = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    # relationships
+    loan = db.relationship("Loan", back_populates="repayments")
+
+    def __repr__(self):
+        return f"<LoanRepayment {self.id} - ₹{self.amount}>"
