@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Tax/GST Report{% endblock %}
+{% block page_title %}Tax/GST Report{% endblock %}
+{% set active = 'tax_report' %}
+
+{% block extra_style %}
+<style>
+  .gst-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .gst-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #E5E7EB;
+  }
+  .gst-card h4 {
+    font-size: 12px;
+    color: #6B7280;
+    margin: 0 0 8px 0;
+  }
+  .gst-card .amount {
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .filter-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    border: 1px solid #E5E7EB;
+  }
+  .net-payable {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    color: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+  .net-payable .amount {
+    font-size: 36px;
+    font-weight: 800;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>📋 Tax / GST Report</h2>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Print Report</button>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <form method="GET" action="/reports/tax" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>From Date</label>
+      <input type="date" name="from_date" value="{{ from_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>To Date</label>
+      <input type="date" name="to_date" value="{{ to_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <button type="submit" class="btn btn-primary">Apply Filter</button>
+    <a href="/reports/tax" class="btn btn-ghost">Reset</a>
+  </form>
+</div>
+
+<!-- Net GST Payable -->
+<div class="net-payable">
+  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+    <div>
+      <div style="font-size: 14px; opacity: 0.9;">Total GST Payable</div>
+      <div class="amount">₹{{ "{:,.2f}".format(total_net_gst) }}</div>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-size: 12px; opacity: 0.8;">Period: {{ from_date.strftime('%d %b %Y') }} - {{ to_date.strftime('%d %b %Y') }}</div>
+    </div>
+  </div>
+</div>
+
+<!-- GST Summary Cards -->
+<div class="gst-summary">
+  <div class="gst-card">
+    <h4>Output GST (Sales)</h4>
+    <div class="amount" style="color: #4F46E5;">₹{{ "{:,.2f}".format(output_cgst + output_sgst) }}</div>
+    <div style="font-size: 12px; margin-top: 8px;">
+      CGST: ₹{{ "{:,.2f}".format(output_cgst) }} | SGST: ₹{{ "{:,.2f}".format(output_sgst) }}
+    </div>
+  </div>
+  <div class="gst-card">
+    <h4>Input GST (Purchases)</h4>
+    <div class="amount" style="color: #D97706;">₹{{ "{:,.2f}".format(input_cgst + input_sgst) }}</div>
+    <div style="font-size: 12px; margin-top: 8px;">
+      CGST: ₹{{ "{:,.2f}".format(input_cgst) }} | SGST: ₹{{ "{:,.2f}".format(input_sgst) }}
+    </div>
+  </div>
+  <div class="gst-card">
+    <h4>Total Sales Value</h4>
+    <div class="amount">₹{{ "{:,.2f}".format(total_sales) }}</div>
+    <div style="font-size: 12px; margin-top: 8px;">Taxable Value</div>
+  </div>
+  <div class="gst-card">
+    <h4>Total Purchase Value</h4>
+    <div class="amount">₹{{ "{:,.2f}".format(total_purchases) }}</div>
+    <div style="font-size: 12px; margin-top: 8px;">Taxable Value</div>
+  </div>
+</div>
+
+<!-- Net GST Breakdown -->
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header">
+    <h3>Net GST Breakdown</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th style="text-align: right">Output Tax</th>
+          <th style="text-align: right">Input Tax</th>
+          <th style="text-align: right">Net Payable</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CGST</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(output_cgst) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(input_cgst) }}</td>
+          <td style="text-align: right"><strong>₹{{ "{:,.2f}".format(net_cgst) }}</strong></td>
+        </tr>
+        <tr>
+          <td>SGST/UTGST</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(output_sgst) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(input_sgst) }}</td>
+          <td style="text-align: right"><strong>₹{{ "{:,.2f}".format(net_sgst) }}</strong></td>
+        </tr>
+        <tr>
+          <td><strong>Total</strong></td>
+          <td style="text-align: right"><strong>₹{{ "{:,.2f}".format(output_cgst + output_sgst) }}</strong></td>
+          <td style="text-align: right"><strong>₹{{ "{:,.2f}".format(input_cgst + input_sgst) }}</strong></td>
+          <td style="text-align: right"><strong>₹{{ "{:,.2f}".format(total_net_gst) }}</strong></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Monthly GST Summary -->
+{% if monthly_summary %}
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header">
+    <h3>Monthly GST Summary</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Month</th>
+          <th style="text-align: right">Sales (₹)</th>
+          <th style="text-align: right">Purchases (₹)</th>
+          <th style="text-align: right">Output GST (₹)</th>
+          <th style="text-align: right">Input GST (₹)</th>
+          <th style="text-align: right">Net GST (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for month in monthly_summary %}
+        <tr>
+          <td>{{ month.month }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(month.sales_amount) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(month.purchase_amount) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(month.gst_amount) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(month.input_gst) }}</td>
+          <td style="text-align: right"><strong>₹{{ "{:,.2f}".format(month.gst_amount - month.input_gst) }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- HSN Summary -->
+{% if hsn_summary %}
+<div class="card">
+  <div class="card-header">
+    <h3>HSN-wise Summary</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>HSN Code</th>
+          <th style="text-align: right">Quantity</th>
+          <th style="text-align: right">Total Value (₹)</th>
+          <th style="text-align: right">GST Amount (₹)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for hsn, data in hsn_summary.items() %}
+        <tr>
+          <td>{{ hsn }}</td>
+          <td style="text-align: right">{{ data.quantity|int }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(data.value) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(data.gst) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

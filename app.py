@@ -18,6 +18,8 @@ from models import (
     Invoice, InvoiceItem,
     Estimate, EstimateItem,
     PurchaseInvoice, PurchaseInvoiceItem, StockPurchaseHistory,
+    CashTransaction, Loan, LoanRepayment,
+    BankAccount, BankTransaction
 )
 
 app = Flask(__name__)
@@ -38,6 +40,7 @@ db.init_app(app)
 
 # ── Create tables and seed on first startup ────────────────────────────────────
 with app.app_context():
+    db.drop_all()
     db.create_all()
 
 UPLOAD_FOLDER = 'uploads/purchase_invoices'
@@ -629,10 +632,15 @@ def logout():
     return redirect(url_for("login"))
 
 
+
+
+
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
-@app.route("/dashboard")
+"""@app.route("/dashboard")
 @login_required
 def dashboard():
     company_id = get_current_company()
@@ -774,8 +782,469 @@ def dashboard():
                            top_clients=top_clients,
                            low_stock=low_stock,
                            user_companies=user_companies,
+                           user=user)"""
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    company_id = get_current_company()
+    company    = get_company_by_id(company_id)
+
+    # Get date filters from request
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    
+    # Set default dates (current month)
+    if not from_date_str:
+        from_date = date.today().replace(day=1)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # KPI Calculations
+    # ─────────────────────────────────────────────────────────────────────────
+    
+    # Cash in Hand
+    cash_transactions = CashTransaction.query.filter_by(company_id=company_id).all()
+    cash_balance = sum(t.amount for t in cash_transactions if t.type == 'income') - \
+                   sum(t.amount for t in cash_transactions if t.type == 'expense')
+    
+    # Bank Balance
+    bank_accounts = BankAccount.query.filter_by(company_id=company_id, status='Active').all()
+    bank_balance = sum(acc.balance for acc in bank_accounts)
+    
+    # Filtered Sales Invoices (Revenue)
+    sales_invoices = Invoice.query.filter(
+        Invoice.company_id == company_id,
+        Invoice.date >= from_date,
+        Invoice.date <= to_date
+    ).all()
+    total_revenue = sum(float(inv.grand_total or 0) for inv in sales_invoices)
+    
+    # Filtered Purchase Invoices
+    purchase_invoices = PurchaseInvoice.query.filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.date >= from_date,
+        PurchaseInvoice.date <= to_date
+    ).all()
+    total_purchases = sum(float(pur.grand_total or 0) for pur in purchase_invoices)
+    
+    # Gross Profit
+    profit = total_revenue - total_purchases
+    
+    # Pending Amount (from unpaid invoices)
+    all_invoices = Invoice.query.filter_by(company_id=company_id).all()
+    # FIX: Convert Decimal to float
+    pending_amount = sum(float(getattr(inv, 'balance', 0) or 0) for inv in all_invoices)
+    
+    # Cash flow for the period
+    period_cash_income = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.type == 'income',
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    ).all()
+    period_cash_expense = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.type == 'expense',
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    ).all()
+    cash_inflow_period = sum(t.amount for t in period_cash_income)
+    cash_outflow_period = sum(t.amount for t in period_cash_expense)
+    cash_net_period = cash_inflow_period - cash_outflow_period
+    
+    kpi = {
+        "cash_balance": cash_balance,
+        "bank_balance": bank_balance,
+        "total_revenue": total_revenue,
+        "total_purchases": total_purchases,
+        "profit": profit,
+        "pending_amount": pending_amount,
+        "cash_inflow_period": cash_inflow_period,
+        "cash_outflow_period": cash_outflow_period,
+        "cash_net_period": cash_net_period,
+    }
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Chart Data: Revenue vs Purchase (Last 6 months)
+    # ─────────────────────────────────────────────────────────────────────────
+    chart_labels = []
+    revenue_data = []
+    purchase_data = []
+    profit_trend = []
+    profit_labels = []
+    
+    for i in range(5, -1, -1):
+        month_date = date.today().replace(day=1) - timedelta(days=30 * i)
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            month_end = month_date.replace(day=31)
+        else:
+            month_end = month_date.replace(month=month_date.month + 1, day=1) - timedelta(days=1)
+        
+        month_label = month_date.strftime('%b %Y')
+        chart_labels.append(month_label)
+        
+        # Revenue for month
+        month_revenue = sum(
+            float(inv.grand_total or 0) for inv in Invoice.query.filter(
+                Invoice.company_id == company_id,
+                Invoice.date >= month_start,
+                Invoice.date <= month_end
+            ).all()
+        )
+        revenue_data.append(month_revenue / 100000)  # Convert to Lakhs
+        
+        # Purchases for month
+        month_purchases = sum(
+            float(pur.grand_total or 0) for pur in PurchaseInvoice.query.filter(
+                PurchaseInvoice.company_id == company_id,
+                PurchaseInvoice.date >= month_start,
+                PurchaseInvoice.date <= month_end
+            ).all()
+        )
+        purchase_data.append(month_purchases / 100000)
+        
+        # Profit trend (last 6 months)
+        if i <= 5:
+            profit_labels.append(month_label)
+            profit_trend.append((month_revenue - month_purchases) / 1000)  # In thousands
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Top Clients Data
+    # ─────────────────────────────────────────────────────────────────────────
+    clients = Client.query.filter_by(company_id=company_id).all()
+    top_clients_data = []
+    for client in clients[:10]:
+        client_invoices = Invoice.query.filter_by(company_id=company_id, client_id=client.id).all()
+        total_billed = sum(float(inv.grand_total or 0) for inv in client_invoices)
+        pending = sum(float(getattr(inv, 'balance', 0) or 0) for inv in client_invoices)
+        top_clients_data.append({
+            "name": client.name,
+            "total_billed": total_billed,
+            "pending": pending,
+            "status": client.status or "Active"
+        })
+    top_clients_data.sort(key=lambda x: x["total_billed"], reverse=True)
+    top_clients_data = top_clients_data[:5]
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Recent Invoices (last 10)
+    # ─────────────────────────────────────────────────────────────────────────
+    recent_invoices_raw = Invoice.query.filter_by(company_id=company_id).order_by(Invoice.date.desc()).limit(10).all()
+    recent_invoices_data = []
+    for inv in recent_invoices_raw:
+        client_name = inv.client_obj.name if inv.client_obj else (inv.contact_person or "—")
+        total = float(inv.grand_total or 0)
+        balance = float(getattr(inv, 'balance', 0) or 0)
+        if balance <= 0:
+            status = "Paid"
+        elif inv.status == "Partial":
+            status = "Partial"
+        else:
+            status = "Pending"
+        recent_invoices_data.append({
+            "id": inv.invoice_id,
+            "customer": client_name,
+            "date": inv.date.strftime("%d %b %Y") if inv.date else "—",
+            "total": total,
+            "status": status
+        })
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Low Stock Items
+    # ─────────────────────────────────────────────────────────────────────────
+    stock_items = StockItem.query.filter_by(company_id=company_id).all()
+    low_stock_items = []
+    for item in stock_items:
+        reorder = item.reorder_level or 10
+        if item.quantity <= reorder and item.quantity > 0:
+            low_stock_items.append({
+                "code": item.code,
+                "name": item.name,
+                "quantity": item.quantity,
+                "reorder_level": reorder
+            })
+    low_stock_items = low_stock_items[:8]
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Get employee count
+    # ─────────────────────────────────────────────────────────────────────────
+    employees = CompanyUser.query.filter_by(company_id=company_id, is_active=True).all()
+    
+    # ─────────────────────────────────────────────────────────────────────────
+    # Orders data (for any additional metrics)
+    # ─────────────────────────────────────────────────────────────────────────
+    orders = Order.query.filter_by(company_id=company_id).all()
+    clients_list = Client.query.filter_by(company_id=company_id).all()
+    
+    # Invoice billing totals - FIX Decimal conversion
+    invoices = Invoice.query.filter_by(company_id=company_id).all()
+    total_billing = sum(float(i.grand_total or 0) for i in invoices)
+    total_inv_paid = sum(float(i.grand_total or 0) - float(getattr(i, "balance", 0) or 0) for i in invoices)
+    total_inv_due = sum(float(getattr(i, "balance", 0) or 0) for i in invoices)
+    
+    stats = {
+        "total_orders": len(orders),
+        "total_revenue": total_revenue,
+        "total_received": sum(o.received for o in orders),
+        "pending_amount": pending_amount,
+        "pending_orders": len([o for o in orders if o.status == "Pending"]),
+        "total_clients": len(clients_list),
+        "total_employees": len(employees),
+        "total_billing": total_billing,
+        "total_inv_paid": total_inv_paid,
+        "total_inv_due": total_inv_due,
+        "total_invoices": len(invoices),
+        "paid_invoices": sum(1 for i in invoices if (i.status or "").lower() == "paid"),
+        "pending_invoices": sum(1 for i in invoices if (i.status or "").lower() not in ("paid",)),
+    }
+    
+    user_companies = []
+    user = get_current_user()
+    if user.get("role") == "owner":
+        user_companies = get_owner_companies(user.get("email"))
+    
+    # Recent orders for quick view
+    recent_orders_raw = sorted(orders, key=lambda o: o.date, reverse=True)[:5]
+    recent_orders = []
+    for o in recent_orders_raw:
+        cname = o.client_obj.name if hasattr(o, "client_obj") and o.client_obj else (getattr(o, "contact_person", "") or "—")
+        recent_orders.append({
+            "id": o.order_id if hasattr(o, "order_id") else str(o.id),
+            "client": cname,
+            "date": o.date.strftime("%d %b %Y") if o.date else "—",
+            "amount": float(getattr(o, "grand_total", 0) or 0),
+            "status": o.status or "Pending",
+        })
+    
+    # Recent estimates
+    recent_estimates_raw = Estimate.query.filter_by(company_id=company_id).order_by(Estimate.date.desc()).limit(5).all()
+    recent_estimates = []
+    for e in recent_estimates_raw:
+        meta = {}
+        if e.terms:
+            try:
+                meta = json.loads(e.terms)
+            except (ValueError, TypeError):
+                pass
+        cname = e.client_obj.name if e.client_obj else (e.contact_person or "—")
+        recent_estimates.append({
+            "id": e.estimate_id,
+            "company": cname,
+            "date": e.date.strftime("%d %b %Y") if e.date else "—",
+            "valid_until": e.valid_until.strftime("%d %b %Y") if e.valid_until else "—",
+            "total": float(e.grand_total or 0),
+            "status": e.status or "Draft",
+            "docket_no": meta.get("docket_no", ""),
+        })
+    
+    stats["approved_estimates"] = Estimate.query.filter_by(company_id=company_id, status="Approved").count()
+
+    return render_template("dashboard.html",
+                           company=company,
+                           stats=stats,
+                           kpi=kpi,
+                           from_date=from_date.strftime('%Y-%m-%d'),
+                           to_date=to_date.strftime('%Y-%m-%d'),
+                           chart_labels=chart_labels,
+                           revenue_data=revenue_data,
+                           purchase_data=purchase_data,
+                           profit_labels=profit_labels,
+                           profit_trend=profit_trend,
+                           top_clients_data=top_clients_data,
+                           recent_invoices_data=recent_invoices_data,
+                           low_stock_items=low_stock_items,
+                           cash_inflow_period=cash_inflow_period,
+                           cash_outflow_period=cash_outflow_period,
+                           cash_net_period=cash_net_period,
+                           recent_orders=recent_orders,
+                           recent_estimates=recent_estimates,
+                           user_companies=user_companies,
                            user=user)
 
+@app.route("/api/dashboard-data")
+@login_required
+def api_dashboard_data():
+    """API endpoint for dashboard data with date filters"""
+    company_id = get_current_company()
+    
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    
+    if not from_date_str:
+        from_date = date.today().replace(day=1)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    # Cash in Hand
+    cash_transactions = CashTransaction.query.filter_by(company_id=company_id).all()
+    cash_balance = sum(t.amount for t in cash_transactions if t.type == 'income') - \
+                   sum(t.amount for t in cash_transactions if t.type == 'expense')
+    
+    # Bank Balance
+    bank_accounts = BankAccount.query.filter_by(company_id=company_id, status='Active').all()
+    bank_balance = sum(acc.balance for acc in bank_accounts)
+    
+    # Filtered Sales Invoices
+    sales_invoices = Invoice.query.filter(
+        Invoice.company_id == company_id,
+        Invoice.date >= from_date,
+        Invoice.date <= to_date
+    ).all()
+    total_revenue = sum(inv.grand_total or 0 for inv in sales_invoices)
+    
+    # Filtered Purchase Invoices
+    purchase_invoices = PurchaseInvoice.query.filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.date >= from_date,
+        PurchaseInvoice.date <= to_date
+    ).all()
+    total_purchases = sum(pur.grand_total or 0 for pur in purchase_invoices)
+    
+    profit = total_revenue - total_purchases
+    
+    all_invoices = Invoice.query.filter_by(company_id=company_id).all()
+    pending_amount = sum(getattr(inv, 'balance', 0) or 0 for inv in all_invoices)
+    
+    period_cash_income = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.type == 'income',
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    ).all()
+    period_cash_expense = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.type == 'expense',
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    ).all()
+    cash_inflow_period = sum(t.amount for t in period_cash_income)
+    cash_outflow_period = sum(t.amount for t in period_cash_expense)
+    
+    # Chart data (last 6 months)
+    chart_labels = []
+    revenue_data = []
+    purchase_data = []
+    profit_trend = []
+    profit_labels = []
+    
+    for i in range(5, -1, -1):
+        month_date = date.today().replace(day=1) - timedelta(days=30 * i)
+        month_start = month_date.replace(day=1)
+        if month_date.month == 12:
+            month_end = month_date.replace(day=31)
+        else:
+            month_end = month_date.replace(month=month_date.month + 1, day=1) - timedelta(days=1)
+        
+        month_label = month_date.strftime('%b %Y')
+        chart_labels.append(month_label)
+        
+        month_revenue = sum(
+            inv.grand_total or 0 for inv in Invoice.query.filter(
+                Invoice.company_id == company_id,
+                Invoice.date >= month_start,
+                Invoice.date <= month_end
+            ).all()
+        )
+        revenue_data.append(month_revenue / 100000)
+        
+        month_purchases = sum(
+            pur.grand_total or 0 for pur in PurchaseInvoice.query.filter(
+                PurchaseInvoice.company_id == company_id,
+                PurchaseInvoice.date >= month_start,
+                PurchaseInvoice.date <= month_end
+            ).all()
+        )
+        purchase_data.append(month_purchases / 100000)
+        
+        if i <= 5:
+            profit_labels.append(month_label)
+            profit_trend.append((month_revenue - month_purchases) / 1000)
+    
+    # Top clients
+    clients = Client.query.filter_by(company_id=company_id).all()
+    top_clients_data = []
+    for client in clients[:10]:
+        client_invoices = Invoice.query.filter_by(company_id=company_id, client_id=client.id).all()
+        total_billed = sum(inv.grand_total or 0 for inv in client_invoices)
+        pending = sum(getattr(inv, 'balance', 0) or 0 for inv in client_invoices)
+        top_clients_data.append({
+            "name": client.name,
+            "total_billed": total_billed,
+            "pending": pending,
+            "status": client.status or "Active"
+        })
+    top_clients_data.sort(key=lambda x: x["total_billed"], reverse=True)
+    top_clients_data = top_clients_data[:5]
+    
+    # Recent invoices
+    recent_invoices_raw = Invoice.query.filter_by(company_id=company_id).order_by(Invoice.date.desc()).limit(10).all()
+    recent_invoices_data = []
+    for inv in recent_invoices_raw:
+        client_name = inv.client_obj.name if inv.client_obj else (inv.contact_person or "—")
+        total = inv.grand_total or 0
+        balance = getattr(inv, 'balance', 0) or 0
+        if balance <= 0:
+            status = "Paid"
+        elif inv.status == "Partial":
+            status = "Partial"
+        else:
+            status = "Pending"
+        recent_invoices_data.append({
+            "id": inv.invoice_id,
+            "customer": client_name,
+            "date": inv.date.strftime("%d %b %Y") if inv.date else "—",
+            "total": total,
+            "status": status
+        })
+    
+    # Low stock
+    stock_items = StockItem.query.filter_by(company_id=company_id).all()
+    low_stock_items = []
+    for item in stock_items:
+        reorder = item.reorder_level or 10
+        if item.quantity <= reorder and item.quantity > 0:
+            low_stock_items.append({
+                "code": item.code,
+                "name": item.name,
+                "quantity": item.quantity,
+                "reorder_level": reorder
+            })
+    low_stock_items = low_stock_items[:8]
+    
+    return jsonify({
+        "kpi": {
+            "cash_balance": cash_balance,
+            "bank_balance": bank_balance,
+            "total_revenue": total_revenue,
+            "total_purchases": total_purchases,
+            "profit": profit,
+            "pending_amount": pending_amount,
+            "cash_inflow_period": cash_inflow_period,
+            "cash_outflow_period": cash_outflow_period,
+            "cash_net_period": cash_inflow_period - cash_outflow_period,
+        },
+        "chart_labels": chart_labels,
+        "revenue_data": revenue_data,
+        "purchase_data": purchase_data,
+        "profit_labels": profit_labels,
+        "profit_trend": profit_trend,
+        "top_clients": top_clients_data,
+        "recent_invoices": recent_invoices_data,
+        "low_stock": low_stock_items,
+    })
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ── Orders ────────────────────────────────────────────────────────────────────
@@ -1081,6 +1550,25 @@ def stock_item_get(code):
         "hsn":           item.hsn or "",
     })
 
+@app.route("/api/stock/items")
+@login_required
+def api_stock_items():
+    
+    company_id = get_current_company()
+    items = StockItem.query.filter_by(company_id=company_id).order_by(StockItem.name).all()
+    return jsonify([{
+        "id":            item.id,
+        "code":          item.code or "",
+        "name":          item.name,
+        "unit":          item.unit or "pcs",
+        "quantity":      item.quantity,
+        "unit_price":    float(item.unit_price or 0),
+        "purchase_rate": float(item.purchase_rate or item.last_purchase_rate or 0),
+        "gst_percent":   float(item.gst_percent or 18),
+        "hsn":           item.hsn or "",
+        "category":      item.category or "",
+        "reorder_level": item.reorder_level or 10,
+    } for item in items])
 
 @app.route("/stock/save", methods=["POST"])
 @login_required
@@ -1266,7 +1754,7 @@ def purchase_invoice_list():
         total_due=total_due
     )
 
-@app.route("/purchase/new", methods=["GET", "POST"])
+"""@app.route("/purchase/new", methods=["GET", "POST"])
 @login_required
 def purchase_invoice_new():
     company_id = get_current_company()
@@ -1430,7 +1918,199 @@ def purchase_invoice_new():
         flash(f"Purchase invoice {invoice_id} created successfully!")
         return redirect(url_for("purchase_invoice_list"))
     
-    return render_template("purchase_form.html", suppliers=suppliers, today=str(date.today()))
+    return render_template("purchase_form.html", suppliers=suppliers, today=str(date.today()))"""
+
+@app.route("/purchase/new", methods=["GET", "POST"])
+@login_required
+def purchase_invoice_new():
+    company_id = get_current_company()
+    suppliers = Client.query.filter(
+        Client.company_id == company_id,
+        db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
+    ).all()
+
+    if request.method == "POST":
+        supplier_id   = request.form.get("supplier_id")
+        supplier_name = request.form.get("supplier_name", "").strip()
+        supplier_gst  = request.form.get("supplier_gst", "").strip()
+
+        # Auto-create supplier if not selected from dropdown
+        if not supplier_id and supplier_name:
+            existing = Client.query.filter_by(
+                company_id=company_id, name=supplier_name
+            ).first()
+            if existing:
+                supplier_id = existing.id
+            else:
+                new_supplier = Client(
+                    company_id=company_id,
+                    name=supplier_name,
+                    client_type="Supplier",
+                    gst_number=supplier_gst or None,
+                    status="Active",
+                    created_at=date.today()
+                )
+                db.session.add(new_supplier)
+                db.session.flush()
+                supplier_id = new_supplier.id
+        elif supplier_id and supplier_gst:
+            # Update GST on existing supplier if provided
+            sup = Client.query.get(int(supplier_id))
+            if sup and not sup.gst_number:
+                sup.gst_number = supplier_gst
+
+        invoice_number = request.form.get("invoice_number", "")
+        invoice_date   = request.form.get("invoice_date") or str(date.today())
+        due_date       = request.form.get("due_date")
+        payment_terms  = request.form.get("payment_terms", "")
+        notes          = request.form.get("notes", "")
+
+        # Item arrays from the form
+        descriptions = request.form.getlist("item_description[]")
+        quantities   = request.form.getlist("item_quantity[]")
+        units        = request.form.getlist("item_unit[]")
+        rates        = request.form.getlist("item_rate[]")
+        gst_percents = request.form.getlist("item_gst[]")
+        stock_ids    = request.form.getlist("item_stock_id[]")   # NEW: pre-linked stock items
+
+        subtotal   = 0
+        tax_total  = 0
+        items_data = []
+
+        for i in range(len(descriptions)):
+            if descriptions[i] and descriptions[i].strip():
+                qty  = float(quantities[i])  if quantities[i]  else 0
+                rate = float(rates[i])       if rates[i]       else 0
+                gst  = float(gst_percents[i])if gst_percents[i]else 0
+
+                line_total = qty * rate
+                tax_amount = line_total * (gst / 100)
+
+                subtotal  += line_total
+                tax_total += tax_amount
+
+                items_data.append({
+                    "description": descriptions[i],
+                    "quantity":    qty,
+                    "unit":        units[i] if units[i] else "pcs",
+                    "rate":        rate,
+                    "gst":         gst,
+                    "total":       line_total + tax_amount,
+                    "stock_id":    int(stock_ids[i]) if (i < len(stock_ids) and stock_ids[i]) else None,
+                })
+
+        grand_total = subtotal + tax_total
+
+        inv_count  = PurchaseInvoice.query.count()
+        invoice_id = f"PURCHASE-INV-{datetime.now().strftime('%Y%m%d')}-{inv_count+1:03d}"
+
+        purchase_inv = PurchaseInvoice(
+            invoice_id=invoice_id,
+            company_id=company_id,
+            supplier_id=int(supplier_id) if supplier_id else None,
+            invoice_number=invoice_number,
+            date=date.fromisoformat(invoice_date),
+            due_date=date.fromisoformat(due_date) if due_date else None,
+            subtotal=subtotal,
+            tax_amount=tax_total,
+            grand_total=grand_total,
+            paid_amount=0,
+            balance=grand_total,
+            status="Pending",
+            payment_terms=payment_terms,
+            notes=notes,
+            created_at=datetime.utcnow()
+        )
+        db.session.add(purchase_inv)
+        db.session.flush()
+
+        for item in items_data:
+            # Try to use the pre-linked stock item first
+            stock_item = None
+            if item["stock_id"]:
+                stock_item = StockItem.query.filter_by(
+                    id=item["stock_id"], company_id=company_id
+                ).first()
+
+            # Fallback: match by name
+            if not stock_item:
+                stock_item = StockItem.query.filter_by(
+                    company_id=company_id, name=item["description"]
+                ).first()
+
+            # Still not found: auto-create
+            if not stock_item:
+                stock_count = StockItem.query.filter_by(company_id=company_id).count()
+                stock_item = StockItem(
+                    company_id=company_id,
+                    code=f"AUTO-{stock_count+1:03d}",
+                    name=item["description"],
+                    category="Purchase",
+                    quantity=0,
+                    unit=item["unit"],
+                    unit_price=0,
+                    purchase_rate=item["rate"],
+                    last_purchase_rate=item["rate"],
+                    gst_percent=item["gst"],
+                    last_updated=date.today()
+                )
+                db.session.add(stock_item)
+                db.session.flush()
+
+            # Update stock
+            stock_item.quantity           += item["quantity"]
+            stock_item.last_purchase_rate  = item["rate"]
+            stock_item.purchase_rate       = item["rate"]
+            stock_item.gst_percent         = item["gst"]
+            stock_item.last_updated        = date.today()
+
+            purchase_history = StockPurchaseHistory(
+                stock_item_id=stock_item.id,
+                purchase_invoice_id=purchase_inv.id,
+                quantity=item["quantity"],
+                purchase_rate=item["rate"],
+                gst_percent=item["gst"],
+                purchase_date=date.fromisoformat(invoice_date)
+            )
+            db.session.add(purchase_history)
+
+            inv_item = PurchaseInvoiceItem(
+                purchase_invoice_id=purchase_inv.id,
+                stock_item_id=stock_item.id,
+                description=item["description"],
+                quantity=item["quantity"],
+                unit=item["unit"],
+                purchase_rate=item["rate"],
+                gst_percent=item["gst"],
+                total_amount=item["total"]
+            )
+            db.session.add(inv_item)
+
+        # Update supplier pending payable
+        if supplier_id:
+            supplier = Client.query.get(int(supplier_id))
+            if supplier:
+                supplier.pending = (supplier.pending or 0) + grand_total
+                supplier.last_payment = date.today()
+
+        db.session.commit()
+
+        # Handle file upload
+        if "invoice_file" in request.files:
+            file = request.files["invoice_file"]
+            if file and file.filename and allowed_file(file.filename):
+                filename = secure_filename(f"{invoice_id}_{file.filename}")
+                filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+                file.save(filepath)
+                purchase_inv.file_path = filepath
+                db.session.commit()
+
+        flash(f"Purchase invoice {invoice_id} created successfully!")
+        return redirect(url_for("purchase_invoice_list"))
+
+    return render_template("purchase_form.html",
+                           suppliers=suppliers,
+                           today=str(date.today()))
 
 @app.route("/purchase/view/<invoice_id>")
 @login_required
@@ -1439,7 +2119,7 @@ def purchase_invoice_view(invoice_id):
     invoice = PurchaseInvoice.query.filter_by(invoice_id=invoice_id, company_id=company_id).first_or_404()
     return render_template("purchase_view.html", invoice=invoice)
 
-@app.route("/purchase/pay/<int:pk>", methods=["POST"])
+"""@app.route("/purchase/pay/<int:pk>", methods=["POST"])
 @login_required
 def purchase_make_payment(pk):
     company_id = get_current_company()
@@ -1463,6 +2143,37 @@ def purchase_make_payment(pk):
     
     db.session.commit()
     flash(f"Payment of ₹{amount:,.2f} recorded!")
+    return redirect(url_for("purchase_invoice_view", invoice_id=invoice.invoice_id))"""
+@app.route("/purchase/pay/<int:pk>", methods=["POST"])
+@login_required
+def purchase_make_payment(pk):
+    company_id = get_current_company()
+    invoice = PurchaseInvoice.query.filter_by(id=pk, company_id=company_id).first_or_404()
+
+    amount   = float(request.form.get("amount", 0))
+    pay_mode = request.form.get("pay_mode", "Cash")
+    narration= request.form.get("narration", "")
+
+    if amount <= 0:
+        flash("Invalid payment amount.")
+        return redirect(url_for("purchase_invoice_view", invoice_id=invoice.invoice_id))
+
+    if amount > (invoice.balance or 0):
+        amount = invoice.balance or 0
+
+    invoice.paid_amount = (invoice.paid_amount or 0) + amount
+    invoice.balance     = max(0, (invoice.balance or 0) - amount)
+
+    if invoice.balance <= 0:
+        invoice.status = "Paid"
+    elif invoice.paid_amount > 0:
+        invoice.status = "Partial"
+
+    if invoice.supplier:
+        invoice.supplier.pending = max(0, (invoice.supplier.pending or 0) - amount)
+
+    db.session.commit()
+    flash(f"Payment of ₹{amount:,.2f} via {pay_mode} recorded. {narration}")
     return redirect(url_for("purchase_invoice_view", invoice_id=invoice.invoice_id))
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1549,7 +2260,7 @@ def invoice_list():
                            current_status=filter_status)
 
 
-@app.route("/invoice/new", methods=["GET", "POST"])
+"""@app.route("/invoice/new", methods=["GET", "POST"])
 @login_required
 def invoice_new():
     company_id = get_current_company()
@@ -1637,8 +2348,377 @@ def invoice_new():
                            clients=clients, invoice=existing,
                            today=str(date.today()),
                            due_date=str(date.today() + timedelta(days=30)),
-                           form_data={})
+                           form_data={})"""
 
+@app.route("/invoice/new", methods=["GET", "POST"])
+@login_required
+def invoice_new():
+    company_id = get_current_company()
+    clients = Client.query.filter_by(company_id=company_id).all()
+
+    # Check if we're editing an existing invoice
+    edit_id = request.args.get("edit")
+    existing_invoice = None
+    if edit_id:
+        existing_invoice = Invoice.query.filter_by(invoice_id=edit_id, company_id=company_id).first()
+        if not existing_invoice:
+            flash("Invoice not found")
+            return redirect(url_for("invoice_list"))
+
+    if request.method == "POST":
+        # Handle customer invoice POST (save/update)
+        # This is for the customer invoice form
+        client_id_raw = request.form.get("customer_id")
+        client_id = int(client_id_raw) if client_id_raw else None
+        invoice_date = request.form.get("invoice_date") or str(date.today())
+        docket_no = request.form.get("docket_no", "")
+        action = request.form.get("action", "final")
+
+        # Charges & totals
+        freight = float(request.form.get("freight_amount", 0) or 0)
+        fuel = float(request.form.get("fuel_surcharge", 0) or 0)
+        other = float(request.form.get("other_charges", 0) or 0)
+        base = freight + fuel + other
+        gst = round(base * 0.18, 2)
+        grand_total = round(base + gst, 2)
+        amount_paid = float(request.form.get("amount_paid", 0) or 0)
+        balance = round(grand_total - amount_paid, 2)
+
+        # Payment info
+        payment_mode = request.form.get("payment_mode", "cash")
+        upi_app = request.form.get("upi_app", "")
+        upi_ref = request.form.get("upi_ref", "")
+        cheque_no = request.form.get("cheque_no", "")
+        cheque_date = request.form.get("cheque_date", "")
+        cheque_bank = request.form.get("cheque_bank", "")
+
+        # Status
+        if action == "draft":
+            status = "Draft"
+        elif balance <= 0:
+            status = "Paid"
+        elif amount_paid > 0:
+            status = "Partial"
+        else:
+            status = "Draft"
+
+        notes = request.form.get("notes", "")
+        
+        # Process Packages
+        pkg_names = request.form.getlist("pkg_name[]")
+        pkg_types = request.form.getlist("pkg_type[]")
+        pkg_qtys = request.form.getlist("pkg_qty[]")
+        pkg_l = request.form.getlist("pkg_l[]")
+        pkg_w = request.form.getlist("pkg_w[]")
+        pkg_h = request.form.getlist("pkg_h[]")
+        pkg_wt = request.form.getlist("pkg_wt[]")
+        pkg_rates = request.form.getlist("pkg_rate[]")
+        
+        packages_data = []
+        for i in range(len(pkg_names)):
+            if pkg_names[i] and pkg_names[i].strip():
+                packages_data.append({
+                    "name": pkg_names[i],
+                    "type": pkg_types[i] if i < len(pkg_types) else "",
+                    "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
+                    "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
+                    "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
+                    "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
+                    "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                    "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
+                })
+        
+        # Shipment metadata
+        shipment_meta = json.dumps({
+            "docket_no": docket_no,
+            "shipper_name": request.form.get("shipper_name", ""),
+            "shipper_address": request.form.get("shipper_address", ""),
+            "receiver_name": request.form.get("receiver_name", ""),
+            "receiver_phone": request.form.get("receiver_phone", ""),
+            "receiver_address": request.form.get("receiver_address", ""),
+            "destination": request.form.get("destination", ""),
+            "shipment_type": request.form.get("shipment_type", ""),
+            "mode": request.form.get("mode", ""),
+            "carrier": request.form.get("carrier", ""),
+            "carrier_ref": request.form.get("carrier_ref", ""),
+            "origin": request.form.get("origin", "India"),
+            "pickup_date": request.form.get("pickup_date", ""),
+            "departure_time": request.form.get("departure_time", ""),
+            "expected_delivery": request.form.get("expected_delivery", ""),
+            "comments": request.form.get("comments", ""),
+            "payment_mode": payment_mode,
+            "upi_app": upi_app,
+            "upi_ref": upi_ref,
+            "cheque_no": cheque_no,
+            "cheque_date": cheque_date,
+            "cheque_bank": cheque_bank,
+            "freight": freight,
+            "fuel": fuel,
+            "other": other,
+            "gst": gst,
+            "amount_paid": amount_paid,
+            "packages": packages_data,
+        })
+
+        # Check if we're updating an existing invoice
+        edit_invoice_id = request.form.get("edit_invoice_id")
+        if edit_invoice_id:
+            # Update existing invoice
+            invoice = Invoice.query.filter_by(invoice_id=edit_invoice_id, company_id=company_id).first()
+            if invoice:
+                invoice.client_id = client_id
+                invoice.date = date.fromisoformat(invoice_date)
+                invoice.status = status
+                invoice.contact_person = request.form.get("shipper_name", "")
+                invoice.phone = request.form.get("customer_phone", "")
+                invoice.subtotal = base
+                invoice.tax_amount = gst
+                invoice.grand_total = grand_total
+                invoice.terms = shipment_meta
+                invoice.email = notes
+                invoice.paid_amount = amount_paid
+                invoice.balance = balance
+                
+                db.session.commit()
+                flash(f"Customer invoice {invoice.invoice_id} updated successfully!")
+                return redirect(url_for("invoice_list"))
+        else:
+            # Create new invoice
+            cust_count = Invoice.query.filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).count()
+            invoice_id = f"CUST-{datetime.now().strftime('%Y%m%d')}-{cust_count + 1:03d}"
+            
+            inv = Invoice(
+                invoice_id=invoice_id,
+                company_id=company_id,
+                client_id=client_id,
+                date=date.fromisoformat(invoice_date),
+                status=status,
+                contact_person=request.form.get("shipper_name", ""),
+                phone=request.form.get("customer_phone", ""),
+                subtotal=base,
+                tax_amount=gst,
+                grand_total=grand_total,
+                terms=shipment_meta,
+                email=notes,
+                paid_amount=amount_paid,
+                balance=balance,
+            )
+            db.session.add(inv)
+            db.session.commit()
+            
+            flash(f"Customer invoice {invoice_id} created successfully!")
+            return redirect(url_for("invoice_list"))
+
+    # GET request - prepare form data
+    form_data = {}
+    packages = []
+    invoice_id = None
+    invoice_date = str(date.today())
+    docket_no = ""
+    is_edit = False
+    
+    if existing_invoice:
+        is_edit = True
+        invoice_id = existing_invoice.invoice_id
+        invoice_date = existing_invoice.date.strftime('%Y-%m-%d')
+        
+        # Parse the terms JSON to get all the stored data
+        try:
+            meta = json.loads(existing_invoice.terms) if existing_invoice.terms else {}
+        except:
+            meta = {}
+        
+        # Build form_data with all existing values
+        form_data = {
+            "customer_id": existing_invoice.client_id,
+            "customer_phone": existing_invoice.phone or "",
+            "shipper_name": meta.get("shipper_name", existing_invoice.contact_person or ""),
+            "shipper_address": meta.get("shipper_address", ""),
+            "receiver_name": meta.get("receiver_name", ""),
+            "receiver_phone": meta.get("receiver_phone", ""),
+            "receiver_address": meta.get("receiver_address", ""),
+            "destination": meta.get("destination", ""),
+            "shipment_type": meta.get("shipment_type", ""),
+            "mode": meta.get("mode", ""),
+            "carrier": meta.get("carrier", ""),
+            "carrier_ref": meta.get("carrier_ref", ""),
+            "origin": meta.get("origin", "India"),
+            "pickup_date": meta.get("pickup_date", ""),
+            "departure_time": meta.get("departure_time", ""),
+            "expected_delivery": meta.get("expected_delivery", ""),
+            "comments": meta.get("comments", ""),
+            "freight": meta.get("freight", existing_invoice.subtotal or 0),
+            "fuel": meta.get("fuel", 0),
+            "other": meta.get("other", 0),
+            "amount_paid": meta.get("amount_paid", existing_invoice.paid_amount or 0),
+            "payment_mode": meta.get("payment_mode", "cash"),
+            "upi_app": meta.get("upi_app", ""),
+            "upi_ref": meta.get("upi_ref", ""),
+            "cheque_no": meta.get("cheque_no", ""),
+            "cheque_date": meta.get("cheque_date", ""),
+            "cheque_bank": meta.get("cheque_bank", ""),
+            "notes": existing_invoice.email or "",
+            "docket_no": meta.get("docket_no", ""),
+        }
+        
+        docket_no = meta.get("docket_no", "")
+        
+        # Get packages from meta
+        packages = meta.get("packages", [])
+        
+        # If no packages in meta, create default empty package
+        if not packages:
+            packages = [{"name": "", "type": "", "qty": 1, "length": "", "width": "", "height": "", "weight": "", "rate": 0}]
+    else:
+        # New invoice - default values
+        cust_count = Invoice.query.filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).count()
+        invoice_id = f"CUST-{datetime.now().strftime('%Y%m%d')}-{cust_count + 1:03d}"
+        docket_no = _next_awb_number(company_id)
+        form_data = {
+            "payment_mode": "cash"
+        }
+        packages = [{"name": "Box", "type": "Box", "qty": 1, "length": "", "width": "", "height": "", "weight": "", "rate": 0}]
+
+    return render_template("invoice.html",
+                           clients=clients,
+                           form_data=form_data,
+                           packages=packages,
+                           invoice_id=invoice_id,
+                           invoice_date=invoice_date,
+                           docket_no=docket_no,
+                           is_edit=is_edit,
+                           today=str(date.today()))
+
+@app.route("/invoice/customer/update", methods=["POST"])
+@login_required
+def invoice_customer_update():
+    """Update an existing customer invoice"""
+    company_id = get_current_company()
+    edit_invoice_id = request.form.get("edit_invoice_id")
+    
+    # Find the existing invoice
+    invoice = Invoice.query.filter_by(invoice_id=edit_invoice_id, company_id=company_id).first()
+    if not invoice:
+        flash("Invoice not found")
+        return redirect(url_for("invoice_list"))
+    
+    # Parse the existing terms JSON
+    try:
+        old_meta = json.loads(invoice.terms) if invoice.terms else {}
+    except:
+        old_meta = {}
+    
+    # ── Basic fields ──────────────────────────────────────────────────────────
+    client_id_raw = request.form.get("customer_id")
+    client_id = int(client_id_raw) if client_id_raw else None
+    invoice_date = request.form.get("invoice_date") or str(date.today())
+    docket_no = request.form.get("docket_no", "")
+    action = request.form.get("action", "final")
+
+    # ── Charges & totals ──────────────────────────────────────────────────────
+    freight = float(request.form.get("freight_amount", 0) or 0)
+    fuel = float(request.form.get("fuel_surcharge", 0) or 0)
+    other = float(request.form.get("other_charges", 0) or 0)
+    base = freight + fuel + other
+    gst = round(base * 0.18, 2)
+    grand_total = round(base + gst, 2)
+    amount_paid = float(request.form.get("amount_paid", 0) or 0)
+    balance = round(grand_total - amount_paid, 2)
+
+    # ── Payment info ─────────────────────────────────────────────────────────
+    payment_mode = request.form.get("payment_mode", "cash")
+    upi_app = request.form.get("upi_app", "")
+    upi_ref = request.form.get("upi_ref", "")
+    cheque_no = request.form.get("cheque_no", "")
+    cheque_date = request.form.get("cheque_date", "")
+    cheque_bank = request.form.get("cheque_bank", "")
+
+    # ── Status ────────────────────────────────────────────────────────────────
+    if action == "draft":
+        status = "Draft"
+    elif balance <= 0:
+        status = "Paid"
+    elif amount_paid > 0:
+        status = "Partial"
+    else:
+        status = "Draft"
+
+    notes = request.form.get("notes", "")
+    
+    # ── Process Packages ─────────────────────────────────────────────────────
+    pkg_names = request.form.getlist("pkg_name[]")
+    pkg_types = request.form.getlist("pkg_type[]")
+    pkg_qtys = request.form.getlist("pkg_qty[]")
+    pkg_l = request.form.getlist("pkg_l[]")
+    pkg_w = request.form.getlist("pkg_w[]")
+    pkg_h = request.form.getlist("pkg_h[]")
+    pkg_wt = request.form.getlist("pkg_wt[]")
+    pkg_rates = request.form.getlist("pkg_rate[]")
+    
+    packages_data = []
+    for i in range(len(pkg_names)):
+        if pkg_names[i] and pkg_names[i].strip():
+            packages_data.append({
+                "name": pkg_names[i],
+                "type": pkg_types[i] if i < len(pkg_types) else "",
+                "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
+                "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
+                "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
+                "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
+                "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
+            })
+    
+    # Update shipment metadata
+    shipment_meta = json.dumps({
+        "docket_no": docket_no,
+        "shipper_name": request.form.get("shipper_name", ""),
+        "shipper_address": request.form.get("shipper_address", ""),
+        "receiver_name": request.form.get("receiver_name", ""),
+        "receiver_phone": request.form.get("receiver_phone", ""),
+        "receiver_address": request.form.get("receiver_address", ""),
+        "destination": request.form.get("destination", ""),
+        "shipment_type": request.form.get("shipment_type", ""),
+        "mode": request.form.get("mode", ""),
+        "carrier": request.form.get("carrier", ""),
+        "carrier_ref": request.form.get("carrier_ref", ""),
+        "origin": request.form.get("origin", "India"),
+        "pickup_date": request.form.get("pickup_date", ""),
+        "departure_time": request.form.get("departure_time", ""),
+        "expected_delivery": request.form.get("expected_delivery", ""),
+        "comments": request.form.get("comments", ""),
+        "payment_mode": payment_mode,
+        "upi_app": upi_app,
+        "upi_ref": upi_ref,
+        "cheque_no": cheque_no,
+        "cheque_date": cheque_date,
+        "cheque_bank": cheque_bank,
+        "freight": freight,
+        "fuel": fuel,
+        "other": other,
+        "gst": gst,
+        "amount_paid": amount_paid,
+        "packages": packages_data,
+    })
+
+    # Update invoice fields
+    invoice.client_id = client_id
+    invoice.date = date.fromisoformat(invoice_date)
+    invoice.status = status
+    invoice.contact_person = request.form.get("shipper_name", "")
+    invoice.phone = request.form.get("customer_phone", "")
+    invoice.subtotal = base
+    invoice.tax_amount = gst
+    invoice.grand_total = grand_total
+    invoice.terms = shipment_meta
+    invoice.email = notes
+    invoice.paid_amount = amount_paid
+    invoice.balance = balance
+
+    db.session.commit()
+
+    flash(f"Customer invoice {invoice.invoice_id} updated successfully!")
+    return redirect(url_for("invoice_list"))
 
 @app.route("/invoice/view/<invoice_id>")
 @login_required
@@ -1748,15 +2828,8 @@ AWB_START    = 81000          # first number: AHL81000
 AWB_COUNTER_KEY = "awb_last" # we store the last-used counter in a tiny helper
 
 
-def _next_awb_number(company_id: int) -> str:
-    """Generate the next sequential AWB/docket number for this company.
-
-    Format: AHL81000, AHL81001, AHL81002, …
-
-    We count existing customer invoices that already have a docket_no
-    beginning with 'AHL' to determine the next sequence number, so the
-    series is always gapless even after a server restart.
-    """
+"""def _next_awb_number(company_id: int) -> str:
+    
     # Count how many customer invoices already have an AHL docket number
     existing_count = (
         Invoice.query
@@ -1777,8 +2850,14 @@ def _next_awb_number(company_id: int) -> str:
         .count()
     )
     seq = AWB_START + cust_count
+    return f"{AWB_PREFIX}{seq}"""
+def _next_awb_number(company_id):
+    """Generate the next sequential AWB/docket number for this company."""
+    cust_count = Invoice.query.filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).count()
+    AWB_PREFIX = "AHL"
+    AWB_START = 81000
+    seq = AWB_START + cust_count
     return f"{AWB_PREFIX}{seq}"
-
 
 @app.route("/invoice/customer")
 @login_required
@@ -2026,12 +3105,11 @@ def invoice_customer_save():
         msg += f" ⚠️ Low stock alert: {', '.join(stock_warnings)}."
 
     flash(msg)
-    return redirect(url_for("invoice_list"))"""
+    return redirect(url_for("invoice_list"))
 
 @app.route("/invoice/customer/save", methods=["POST"])
 @login_required
 def invoice_customer_save():
-    """Save a customer / shipment invoice submitted from invoice.html."""
     company_id = get_current_company()
 
     # ── Basic fields ──────────────────────────────────────────────────────────
@@ -2251,6 +3329,333 @@ def invoice_customer_save():
         msg += f" Stock added: {', '.join(stock_added)}."
     if stock_warnings:
         msg += f" ℹ️ {', '.join(stock_warnings)}."
+
+    flash(msg)
+    return redirect(url_for("invoice_list"))"""
+
+@app.route("/invoice/customer/save", methods=["POST"])
+@login_required
+def invoice_customer_save():
+    """Save a customer / shipment invoice submitted from invoice.html."""
+    company_id = get_current_company()
+
+    # ── Basic fields ──────────────────────────────────────────────────────────
+    client_id_raw  = request.form.get("customer_id")
+    client_id      = int(client_id_raw) if client_id_raw else None
+    invoice_date   = request.form.get("invoice_date") or str(date.today())
+    docket_no      = request.form.get("docket_no", "")
+    action         = request.form.get("action", "final")   # 'draft' or 'final'
+
+    # ── Charges & totals ──────────────────────────────────────────────────────
+    freight        = float(request.form.get("freight_amount", 0) or 0)
+    fuel           = float(request.form.get("fuel_surcharge",  0) or 0)
+    other          = float(request.form.get("other_charges",   0) or 0)
+    base           = freight + fuel + other
+    gst            = round(base * 0.18, 2)
+    grand_total    = round(base + gst, 2)
+    amount_paid    = float(request.form.get("amount_paid", 0) or 0)
+    balance        = round(grand_total - amount_paid, 2)
+
+    # ── Payment info ─────────────────────────────────────────────────────────
+    payment_mode   = request.form.get("payment_mode", "cash")
+    upi_app        = request.form.get("upi_app", "")
+    upi_ref        = request.form.get("upi_ref", "")
+    cheque_no      = request.form.get("cheque_no", "")
+    cheque_date    = request.form.get("cheque_date", "")
+    cheque_bank    = request.form.get("cheque_bank", "")
+
+    # ── Status ────────────────────────────────────────────────────────────────
+    if action == "draft":
+        status = "Draft"
+    elif balance <= 0:
+        status = "Paid"
+    elif amount_paid > 0:
+        status = "Partial"
+    else:
+        status = "Draft"
+
+    # ── Generate invoice ID ───────────────────────────────────────────────────
+    cust_count = (
+        Invoice.query
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .count()
+    )
+    invoice_id = f"CUST-{datetime.now().strftime('%Y%m%d')}-{cust_count + 1:03d}"
+
+    # ── Shipment / receiver details stored in notes / terms ──────────────────
+    notes = request.form.get("notes", "")
+    
+    # ── Process Packages - ADD TO INVENTORY ─────────────────────────────────────
+    pkg_names = request.form.getlist("pkg_name[]")
+    pkg_types = request.form.getlist("pkg_type[]")
+    pkg_qtys  = request.form.getlist("pkg_qty[]")
+    pkg_l     = request.form.getlist("pkg_l[]")
+    pkg_w     = request.form.getlist("pkg_w[]")
+    pkg_h     = request.form.getlist("pkg_h[]")
+    pkg_wt    = request.form.getlist("pkg_wt[]")
+    pkg_rates = request.form.getlist("pkg_rate[]")
+    
+    stock_added = []
+    stock_warnings = []
+    
+    for i in range(len(pkg_names)):
+        item_name = (pkg_names[i] or "").strip()
+        if not item_name:
+            continue
+        
+        qty = float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1
+        rate = float(pkg_rates[i] or 0) if pkg_rates[i] else 0
+        pkg_type = pkg_types[i] if i < len(pkg_types) else "Box"
+        
+        # Check if item already exists (by name)
+        existing_item = StockItem.query.filter_by(
+            company_id=company_id,
+            name=item_name
+        ).first()
+        
+        if existing_item:
+            old_qty = existing_item.quantity
+            existing_item.quantity += qty
+            if rate > 0:
+                existing_item.unit_price = rate
+                existing_item.purchase_rate = rate
+            existing_item.last_updated = date.today()
+            stock_added.append(f"{qty}× {item_name} (added to existing stock)")
+            
+            # Log movement
+            movement = StockPurchaseHistory(
+                stock_item_id       = existing_item.id,
+                purchase_invoice_id = None,
+                quantity            = qty,
+                purchase_rate       = rate,
+                gst_percent         = existing_item.gst_percent or 0,
+                purchase_date       = date.fromisoformat(invoice_date),
+            )
+            db.session.add(movement)
+        else:
+            # Generate a unique code for the stock item
+            stock_count = StockItem.query.filter_by(company_id=company_id).count()
+            new_code = f"PKG-{stock_count + 1:03d}"
+            
+            # Create new stock item
+            new_item = StockItem(
+                company_id      = company_id,
+                code            = new_code,
+                name            = item_name,
+                category        = "Packaging",
+                quantity        = qty,
+                unit            = "pcs",
+                unit_price      = rate,
+                purchase_rate   = rate,
+                reorder_level   = 10,
+                gst_percent     = 18,
+                hsn             = "",
+                last_updated    = date.today(),
+            )
+            db.session.add(new_item)
+            db.session.flush()
+            
+            movement = StockPurchaseHistory(
+                stock_item_id       = new_item.id,
+                purchase_invoice_id = None,
+                quantity            = qty,
+                purchase_rate       = rate,
+                gst_percent         = 18,
+                purchase_date       = date.fromisoformat(invoice_date),
+            )
+            db.session.add(movement)
+            stock_added.append(f"{qty}× {item_name} (new stock item {new_code})")
+    
+    # Collect package data for JSON storage
+    packages_data = []
+    for i in range(len(pkg_names)):
+        if pkg_names[i] and pkg_names[i].strip():
+            packages_data.append({
+                "name": pkg_names[i],
+                "type": pkg_types[i] if i < len(pkg_types) else "",
+                "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
+                "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
+                "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
+                "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
+                "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
+            })
+    
+    # Pack all extra shipment metadata into the terms field as JSON
+    shipment_meta = json.dumps({
+        "docket_no":        docket_no,
+        "shipper_name":     request.form.get("shipper_name", ""),
+        "shipper_address":  request.form.get("shipper_address", ""),
+        "receiver_name":    request.form.get("receiver_name", ""),
+        "receiver_phone":   request.form.get("receiver_phone", ""),
+        "receiver_address": request.form.get("receiver_address", ""),
+        "destination":      request.form.get("destination", ""),
+        "shipment_type":    request.form.get("shipment_type", ""),
+        "mode":             request.form.get("mode", ""),
+        "carrier":          request.form.get("carrier", ""),
+        "carrier_ref":      request.form.get("carrier_ref", ""),
+        "origin":           request.form.get("origin", "India"),
+        "pickup_date":      request.form.get("pickup_date", ""),
+        "departure_time":   request.form.get("departure_time", ""),
+        "expected_delivery":request.form.get("expected_delivery", ""),
+        "comments":         request.form.get("comments", ""),
+        "payment_mode":     payment_mode,
+        "upi_app":          upi_app,
+        "upi_ref":          upi_ref,
+        "cheque_no":        cheque_no,
+        "cheque_date":      cheque_date,
+        "cheque_bank":      cheque_bank,
+        "freight":          freight,
+        "fuel":             fuel,
+        "other":            other,
+        "gst":              gst,
+        "amount_paid":      amount_paid,
+        "packages":         packages_data,
+    })
+
+    # CREATE INVOICE WITHOUT paid_amount/balance in constructor
+    inv = Invoice(
+        invoice_id     = invoice_id,
+        company_id     = company_id,
+        client_id      = client_id,
+        date           = date.fromisoformat(invoice_date),
+        status         = status,
+        contact_person = request.form.get("shipper_name", ""),
+        phone          = request.form.get("customer_phone", ""),
+        subtotal       = base,
+        tax_amount     = gst,
+        grand_total    = grand_total,
+        terms          = shipment_meta,
+        email          = notes,
+    )
+    
+    # SET paid_amount and balance AFTER creation
+    inv.paid_amount = amount_paid
+    inv.balance = balance
+    
+    db.session.add(inv)
+    db.session.flush()  # Get the ID
+
+    # ── RECORD PAYMENT IN CASH IN HAND OR BANK ACCOUNT ──────────────────────────
+    if amount_paid > 0:
+        transaction_date = date.fromisoformat(invoice_date)
+        
+        if payment_mode == "cash":
+            # Record in Cash in Hand
+            cash_txn = CashTransaction(
+                company_id=company_id,
+                type="income",
+                date=transaction_date,
+                category="Sales",
+                description=f"Payment received for invoice {invoice_id} - Customer Invoice",
+                amount=amount_paid,
+                reference=invoice_id,
+                notes=f"Payment via Cash from customer",
+                created_by=get_current_user().get("email")
+            )
+            db.session.add(cash_txn)
+            
+        elif payment_mode == "online":
+            # Record in Bank Account
+            bank_account = BankAccount.query.filter_by(
+                company_id=company_id, 
+                status='Active'
+            ).first()
+            
+            if not bank_account:
+                # Create a default bank account
+                bank_account = BankAccount(
+                    company_id=company_id,
+                    bank_name="Default Bank Account",
+                    account_name="Sales Receipts",
+                    account_number="SALES001",
+                    ifsc_code="DEFAULT0001",
+                    branch="Main Branch",
+                    opening_balance=0,
+                    balance=amount_paid,
+                    status='Active',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(bank_account)
+                db.session.flush()
+            else:
+                bank_account.balance += amount_paid
+                bank_account.updated_at = datetime.utcnow()
+            
+            # Record bank transaction
+            bank_txn = BankTransaction(
+                bank_account_id=bank_account.id,
+                company_id=company_id,
+                type="credit",
+                date=transaction_date,
+                description=f"Payment received for invoice {invoice_id} - via {upi_app or 'Online'}",
+                amount=amount_paid,
+                reference=upi_ref or invoice_id,
+                transaction_mode="Online",
+                notes=f"UPI App: {upi_app}, Ref: {upi_ref}",
+                created_by=get_current_user().get("email")
+            )
+            db.session.add(bank_txn)
+            
+        elif payment_mode == "cheque":
+            # Record in Bank Account
+            bank_account = BankAccount.query.filter_by(
+                company_id=company_id, 
+                status='Active'
+            ).first()
+            
+            if not bank_account:
+                # Create a default bank account
+                bank_account = BankAccount(
+                    company_id=company_id,
+                    bank_name=cheque_bank or "Cheque Account",
+                    account_name="Cheque Receipts",
+                    account_number="CHEQ001",
+                    ifsc_code="CHEQ0001",
+                    branch="Main Branch",
+                    opening_balance=0,
+                    balance=amount_paid,
+                    status='Active',
+                    created_at=datetime.utcnow()
+                )
+                db.session.add(bank_account)
+                db.session.flush()
+            else:
+                bank_account.balance += amount_paid
+                bank_account.updated_at = datetime.utcnow()
+            
+            # Record cheque transaction
+            bank_txn = BankTransaction(
+                bank_account_id=bank_account.id,
+                company_id=company_id,
+                type="credit",
+                date=transaction_date,
+                description=f"Cheque payment received for invoice {invoice_id}",
+                amount=amount_paid,
+                reference=cheque_no or invoice_id,
+                transaction_mode="Cheque",
+                notes=f"Cheque No: {cheque_no}, Bank: {cheque_bank}, Date: {cheque_date}",
+                created_by=get_current_user().get("email")
+            )
+            db.session.add(bank_txn)
+
+    # ── Update client pending balance if credit / unpaid ──────────────────────
+    if balance > 0 and client_id:
+        client = Client.query.filter_by(id=client_id, company_id=company_id).first()
+        if client and hasattr(client, "pending"):
+            client.pending = (client.pending or 0) + balance
+
+    db.session.commit()
+
+    # ── Build flash message ───────────────────────────────────────────────────
+    msg = f"Customer invoice {invoice_id} (AWB: {docket_no}) saved successfully!"
+    if stock_added:
+        msg += f" Stock added: {', '.join(stock_added)}."
+    if amount_paid > 0:
+        msg += f" Payment of ₹{amount_paid:,.2f} recorded via {payment_mode}."
+    if balance > 0:
+        msg += f" Balance of ₹{balance:,.2f} added to debtors."
 
     flash(msg)
     return redirect(url_for("invoice_list"))
@@ -3121,19 +4526,395 @@ def api_products_search():
 # BANK ACCOUNTS & FINANCE ROUTES
 # ============================================
 
-@app.route("/bank-accounts")
-@login_required
-def bank_accounts():
-    """Bank Accounts management page"""
-    company_id = get_current_company()
-    return render_template("bank_accounts.html", active='bank_accounts')
+# ============================================
+# CASH IN HAND ROUTES
+# ============================================
 
 @app.route("/cash-in-hand")
 @login_required
 def cash_in_hand():
     """Cash in hand tracking"""
     company_id = get_current_company()
-    return render_template("cash_in_hand.html", active='cash_in_hand')
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    filter_type = request.args.get('type', 'all')
+    
+    # Set default dates (last 30 days)
+    if not from_date_str:
+        from_date = date.today() - timedelta(days=30)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    # Build query
+    query = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    )
+    
+    if filter_type != 'all':
+        query = query.filter(CashTransaction.type == filter_type)
+    
+    transactions = query.order_by(CashTransaction.date.desc()).all()
+    
+    # Calculate totals
+    total_inflow = sum(t.amount for t in transactions if t.type == 'income')
+    total_outflow = sum(t.amount for t in transactions if t.type == 'expense')
+    
+    # Calculate current balance (all time)
+    all_income = CashTransaction.query.filter_by(company_id=company_id, type='income').all()
+    all_expense = CashTransaction.query.filter_by(company_id=company_id, type='expense').all()
+    current_balance = sum(t.amount for t in all_income) - sum(t.amount for t in all_expense)
+    
+    # Format transactions for template
+    running_balance = 0
+    all_transactions = CashTransaction.query.filter_by(company_id=company_id).order_by(CashTransaction.date.asc()).all()
+    
+    # Create a dict of running balances
+    balance_map = {}
+    for t in all_transactions:
+        if t.type == 'income':
+            running_balance += t.amount
+        else:
+            running_balance -= t.amount
+        balance_map[t.id] = running_balance
+    
+    transactions_list = []
+    for t in transactions:
+        transactions_list.append({
+            'id': t.id,
+            'date': t.date.strftime('%d %b %Y'),
+            'type': t.type,
+            'category': t.category,
+            'description': t.description,
+            'amount': t.amount,
+            'reference': t.reference or '',
+            'notes': t.notes or '',
+            'balance_after': balance_map.get(t.id, 0)
+        })
+    
+    return render_template("cash_in_hand.html",
+                         active='cash_in_hand',
+                         current_balance=current_balance,
+                         total_inflow=total_inflow,
+                         total_outflow=total_outflow,
+                         transactions=transactions_list,
+                         from_date=from_date.strftime('%Y-%m-%d'),
+                         to_date=to_date.strftime('%Y-%m-%d'),
+                         today=date.today().strftime('%Y-%m-%d'))
+
+
+@app.route("/api/cash-transaction/save", methods=["POST"])
+@login_required
+def save_cash_transaction():
+    """Save a cash transaction"""
+    company_id = get_current_company()
+    data = request.get_json()
+    
+    try:
+        transaction = CashTransaction(
+            company_id=company_id,
+            type=data.get('type'),
+            date=date.fromisoformat(data.get('date')),
+            category=data.get('category'),
+            description=data.get('description'),
+            amount=data.get('amount'),
+            reference=data.get('reference', ''),
+            notes=data.get('notes', ''),
+            created_by=get_current_user().get('email')
+        )
+        db.session.add(transaction)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Transaction saved successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+
+@app.route("/api/cash-transaction/delete/<int:txn_id>", methods=["DELETE"])
+@login_required
+def delete_cash_transaction(txn_id):
+    """Delete a cash transaction"""
+    company_id = get_current_company()
+    transaction = CashTransaction.query.filter_by(id=txn_id, company_id=company_id).first()
+    
+    if not transaction:
+        return jsonify({'success': False, 'message': 'Transaction not found'}), 404
+    
+    try:
+        db.session.delete(transaction)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Transaction deleted'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+# ============================================
+# BANK ACCOUNTS ROUTES
+# ============================================
+
+@app.route("/bank-accounts")
+@login_required
+def bank_accounts():
+    """Bank Accounts management page"""
+    company_id = get_current_company()
+    bank_accounts = BankAccount.query.filter_by(company_id=company_id, status='Active').all()
+    
+    # Calculate total balance
+    total_balance = sum(acc.balance for acc in bank_accounts)
+    
+    return render_template("bank_accounts.html", 
+                         active='bank_accounts',
+                         bank_accounts=bank_accounts,
+                         total_balance=total_balance)
+
+
+@app.route("/bank-accounts/add", methods=["POST"])
+@login_required
+def add_bank_account():
+    """Add a new bank account"""
+    company_id = get_current_company()
+    
+    bank_name = request.form.get("bank_name", "").strip()
+    account_name = request.form.get("account_name", "").strip()
+    account_number = request.form.get("account_number", "").strip()
+    ifsc_code = request.form.get("ifsc_code", "").strip()
+    branch = request.form.get("branch", "").strip()
+    opening_balance = float(request.form.get("balance", 0) or 0)
+    
+    if not bank_name or not account_name or not account_number:
+        flash("Bank Name, Account Name, and Account Number are required!")
+        return redirect(url_for("bank_accounts"))
+    
+    # Check if account number already exists for this company
+    existing = BankAccount.query.filter_by(company_id=company_id, account_number=account_number).first()
+    if existing:
+        flash(f"Account number {account_number} already exists!")
+        return redirect(url_for("bank_accounts"))
+    
+    new_account = BankAccount(
+        company_id=company_id,
+        bank_name=bank_name,
+        account_name=account_name,
+        account_number=account_number,
+        ifsc_code=ifsc_code,
+        branch=branch,
+        opening_balance=opening_balance,
+        balance=opening_balance,
+        status='Active',
+        created_at=datetime.utcnow()
+    )
+    
+    db.session.add(new_account)
+    
+    # Add opening balance transaction if opening_balance > 0
+    if opening_balance > 0:
+        opening_txn = BankTransaction(
+            bank_account_id=new_account.id,
+            company_id=company_id,
+            type='credit',
+            date=date.today(),
+            description=f"Opening Balance for {bank_name} - {account_name}",
+            amount=opening_balance,
+            reference="Opening Balance",
+            transaction_mode="Cash",
+            created_by=get_current_user().get('email')
+        )
+        db.session.add(opening_txn)
+    
+    db.session.commit()
+    flash(f"Bank account {bank_name} - {account_name} added successfully!")
+    return redirect(url_for("bank_accounts"))
+
+
+@app.route("/bank-accounts/<int:account_id>/transactions")
+@login_required
+def bank_transactions(account_id):
+    """View transactions for a specific bank account"""
+    company_id = get_current_company()
+    account = BankAccount.query.filter_by(id=account_id, company_id=company_id).first_or_404()
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    txn_type = request.args.get('type', 'all')
+    
+    # Set default dates (last 30 days)
+    if not from_date_str:
+        from_date = date.today() - timedelta(days=30)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    # Build query
+    query = BankTransaction.query.filter(
+        BankTransaction.bank_account_id == account_id,
+        BankTransaction.company_id == company_id,
+        BankTransaction.date >= from_date,
+        BankTransaction.date <= to_date
+    )
+    
+    if txn_type != 'all':
+        query = query.filter(BankTransaction.type == txn_type)
+    
+    transactions = query.order_by(BankTransaction.date.desc()).all()
+    
+    # Calculate totals
+    total_credits = sum(t.amount for t in transactions if t.type == 'credit')
+    total_debits = sum(t.amount for t in transactions if t.type == 'debit')
+    
+    return render_template("bank_transactions.html",
+                         active='bank_accounts',
+                         account=account,
+                         transactions=transactions,
+                         total_credits=total_credits,
+                         total_debits=total_debits,
+                         from_date=from_date.strftime('%Y-%m-%d'),
+                         to_date=to_date.strftime('%Y-%m-%d'),
+                         today=date.today().strftime('%Y-%m-%d'))
+
+
+@app.route("/bank-accounts/<int:account_id>/add-transaction", methods=["POST"])
+@login_required
+def add_bank_transaction(account_id):
+    """Add a transaction to a bank account"""
+    company_id = get_current_company()
+    account = BankAccount.query.filter_by(id=account_id, company_id=company_id).first_or_404()
+    
+    txn_type = request.form.get("type")
+    date_str = request.form.get("date")
+    description = request.form.get("description", "").strip()
+    amount = float(request.form.get("amount", 0))
+    reference = request.form.get("reference", "").strip()
+    transaction_mode = request.form.get("transaction_mode", "Transfer")
+    notes = request.form.get("notes", "").strip()
+    
+    if not description or amount <= 0:
+        flash("Description and valid amount are required!")
+        return redirect(url_for("bank_transactions", account_id=account_id))
+    
+    # Create transaction
+    transaction = BankTransaction(
+        bank_account_id=account.id,
+        company_id=company_id,
+        type=txn_type,
+        date=date.fromisoformat(date_str) if date_str else date.today(),
+        description=description,
+        amount=amount,
+        reference=reference,
+        transaction_mode=transaction_mode,
+        notes=notes,
+        created_by=get_current_user().get('email')
+    )
+    db.session.add(transaction)
+    
+    # Update account balance
+    if txn_type == 'credit':
+        account.balance += amount
+    else:
+        account.balance -= amount
+    
+    account.updated_at = datetime.utcnow()
+    
+    db.session.commit()
+    flash(f"{'Deposit' if txn_type == 'credit' else 'Withdrawal'} of ₹{amount:,.2f} recorded successfully!")
+    return redirect(url_for("bank_transactions", account_id=account_id))
+
+
+@app.route("/bank-accounts/<int:account_id>/delete", methods=["GET", "POST"])
+@login_required
+def delete_bank_account(account_id):
+    """Delete a bank account (soft delete by setting status to Inactive)"""
+    company_id = get_current_company()
+    account = BankAccount.query.filter_by(id=account_id, company_id=company_id).first_or_404()
+    
+    # Soft delete - just mark as inactive
+    account.status = 'Inactive'
+    db.session.commit()
+    
+    flash(f"Bank account {account.bank_name} - {account.account_name} has been deactivated.")
+    return redirect(url_for("bank_accounts"))
+
+
+@app.route("/bank-accounts/<int:account_id>/transfer", methods=["POST"])
+@login_required
+def bank_transfer(account_id):
+    """Transfer money between bank accounts"""
+    company_id = get_current_company()
+    from_account = BankAccount.query.filter_by(id=account_id, company_id=company_id).first_or_404()
+    
+    to_account_id = request.form.get("to_account_id", type=int)
+    amount = float(request.form.get("amount", 0))
+    date_str = request.form.get("date")
+    description = request.form.get("description", "").strip()
+    reference = request.form.get("reference", "").strip()
+    
+    to_account = BankAccount.query.filter_by(id=to_account_id, company_id=company_id).first()
+    
+    if not to_account:
+        flash("Destination account not found!")
+        return redirect(url_for("bank_transactions", account_id=account_id))
+    
+    if amount <= 0:
+        flash("Amount must be greater than 0!")
+        return redirect(url_for("bank_transactions", account_id=account_id))
+    
+    if from_account.balance < amount:
+        flash(f"Insufficient balance in {from_account.bank_name} - {from_account.account_name}!")
+        return redirect(url_for("bank_transactions", account_id=account_id))
+    
+    txn_date = date.fromisoformat(date_str) if date_str else date.today()
+    
+    # Debit transaction from source account
+    debit_txn = BankTransaction(
+        bank_account_id=from_account.id,
+        company_id=company_id,
+        type='debit',
+        date=txn_date,
+        description=f"Transfer to {to_account.bank_name} - {to_account.account_name}: {description}" if description else f"Transfer to {to_account.bank_name} - {to_account.account_name}",
+        amount=amount,
+        reference=reference,
+        transaction_mode="Transfer",
+        notes=f"Transfer from {from_account.bank_name} to {to_account.bank_name}",
+        created_by=get_current_user().get('email')
+    )
+    db.session.add(debit_txn)
+    from_account.balance -= amount
+    
+    # Credit transaction to destination account
+    credit_txn = BankTransaction(
+        bank_account_id=to_account.id,
+        company_id=company_id,
+        type='credit',
+        date=txn_date,
+        description=f"Transfer from {from_account.bank_name} - {from_account.account_name}: {description}" if description else f"Transfer from {from_account.bank_name} - {from_account.account_name}",
+        amount=amount,
+        reference=reference,
+        transaction_mode="Transfer",
+        notes=f"Transfer from {from_account.bank_name} to {to_account.bank_name}",
+        created_by=get_current_user().get('email')
+    )
+    db.session.add(credit_txn)
+    to_account.balance += amount
+    
+    from_account.updated_at = datetime.utcnow()
+    to_account.updated_at = datetime.utcnow()
+    
+    db.session.commit()
+    flash(f"Transferred ₹{amount:,.2f} from {from_account.bank_name} to {to_account.bank_name} successfully!")
+    return redirect(url_for("bank_transactions", account_id=account_id))
 
 @app.route("/cheques")
 @login_required
@@ -3142,12 +4923,138 @@ def cheques():
     company_id = get_current_company()
     return render_template("cheques.html", active='cheques')
 
+# ============================================
+# LOAN ACCOUNTS ROUTES
+# ============================================
+
 @app.route("/loan-accounts")
 @login_required
 def loan_accounts():
     """Loan accounts management"""
     company_id = get_current_company()
-    return render_template("loan_accounts.html", active='loan_accounts')
+    
+    # Get all loans
+    all_loans = Loan.query.filter_by(company_id=company_id).all()
+    
+    # Separate by type
+    loans_given = []
+    loans_taken = []
+    
+    for loan in all_loans:
+        payments = []
+        for payment in loan.repayments:
+            payments.append({
+                'id': payment.id,
+                'date': payment.date.strftime('%d %b %Y'),
+                'amount': payment.amount,
+                'payment_mode': payment.payment_mode,
+                'reference': payment.reference or '',
+                'notes': payment.notes or ''
+            })
+        
+        loan_dict = {
+            'id': loan.id,
+            'type': loan.type,
+            'party_name': loan.party_name,
+            'loan_date': loan.loan_date.strftime('%d %b %Y'),
+            'amount': loan.amount,
+            'remaining_amount': loan.remaining_amount,
+            'repaid_amount': loan.repaid_amount,
+            'repayment_percentage': loan.repayment_percentage,
+            'interest_rate': loan.interest_rate,
+            'tenure': loan.tenure,
+            'emi_amount': loan.emi_amount,
+            'purpose': loan.purpose or '',
+            'notes': loan.notes or '',
+            'status': loan.status,
+            'payments': payments
+        }
+        
+        if loan.type == 'given':
+            loans_given.append(loan_dict)
+        else:
+            loans_taken.append(loan_dict)
+    
+    # Calculate totals
+    total_given = sum(l.amount for l in all_loans if l.type == 'given')
+    total_taken = sum(l.amount for l in all_loans if l.type == 'taken')
+    total_repaid = sum(l.repaid_amount for l in all_loans)
+    
+    return render_template("loan_accounts.html",
+                         active='loan_accounts',
+                         loans_given=loans_given,
+                         loans_taken=loans_taken,
+                         total_given=total_given,
+                         total_taken=total_taken,
+                         total_repaid=total_repaid,
+                         today=date.today().strftime('%Y-%m-%d'))
+
+
+@app.route("/api/loan/save", methods=["POST"])
+@login_required
+def save_loan():
+    """Save a new loan"""
+    company_id = get_current_company()
+    data = request.get_json()
+    
+    try:
+        loan = Loan(
+            company_id=company_id,
+            type=data.get('type'),
+            party_name=data.get('party_name'),
+            loan_date=date.fromisoformat(data.get('loan_date')),
+            amount=data.get('amount'),
+            interest_rate=data.get('interest_rate', 0),
+            tenure=data.get('tenure', 12),
+            emi_amount=data.get('emi_amount', 0),
+            purpose=data.get('purpose', ''),
+            notes=data.get('notes', ''),
+            status='Active',
+            created_by=get_current_user().get('email')
+        )
+        db.session.add(loan)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Loan saved successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
+
+
+@app.route("/api/loan/repayment/save", methods=["POST"])
+@login_required
+def save_loan_repayment():
+    """Save a loan repayment"""
+    company_id = get_current_company()
+    data = request.get_json()
+    
+    try:
+        loan_id = data.get('loan_id')
+        loan = Loan.query.filter_by(id=loan_id, company_id=company_id).first()
+        
+        if not loan:
+            return jsonify({'success': False, 'message': 'Loan not found'}), 404
+        
+        repayment = LoanRepayment(
+            loan_id=loan.id,
+            date=date.fromisoformat(data.get('date')),
+            amount=data.get('amount'),
+            payment_mode=data.get('payment_mode', 'Cash'),
+            reference=data.get('reference', ''),
+            notes=data.get('notes', '')
+        )
+        db.session.add(repayment)
+        
+        # Update loan status if fully repaid
+        if loan.remaining_amount - repayment.amount <= 0:
+            loan.status = 'Completed'
+        
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Repayment recorded successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 400
 
 # ============================================
 # LEDGER & TRIAL BALANCE ROUTES
@@ -3399,37 +5306,506 @@ def trial_balance():
 @app.route("/reports/sales")
 @login_required
 def sales_report():
-    """Sales report"""
+    """Sales Report - Shows all sales invoices with filters"""
     company_id = get_current_company()
-    return render_template("sales_report.html", active='sales_report')
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    client_id = request.args.get('client_id', type=int)
+    status = request.args.get('status', 'all')
+    
+    # Set default dates (current month)
+    if not from_date_str:
+        from_date = date.today().replace(day=1)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    # Build query
+    query = Invoice.query.filter(
+        Invoice.company_id == company_id,
+        Invoice.date >= from_date,
+        Invoice.date <= to_date
+    )
+    
+    if client_id:
+        query = query.filter(Invoice.client_id == client_id)
+    if status != 'all':
+        query = query.filter(Invoice.status == status.title())
+    
+    invoices = query.order_by(Invoice.date.desc()).all()
+    
+    # Calculate totals
+    total_invoices = len(invoices)
+    total_amount = sum(inv.grand_total or 0 for inv in invoices)
+    total_tax = sum(inv.tax_amount or 0 for inv in invoices)
+    total_paid = sum((inv.grand_total or 0) - (getattr(inv, 'balance', 0) or 0) for inv in invoices)
+    total_due = sum(getattr(inv, 'balance', 0) or 0 for inv in invoices)
+    
+    # Get clients for filter dropdown
+    clients = Client.query.filter_by(company_id=company_id).order_by(Client.name).all()
+    
+    # Monthly summary for chart
+    monthly_data = {}
+    for inv in invoices:
+        month_key = inv.date.strftime('%Y-%m')
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {'month': inv.date.strftime('%b %Y'), 'amount': 0, 'count': 0}
+        monthly_data[month_key]['amount'] += inv.grand_total or 0
+        monthly_data[month_key]['count'] += 1
+    
+    monthly_summary = list(monthly_data.values())
+    
+    return render_template("sales_report.html",
+                         active='sales_report',
+                         invoices=invoices,
+                         from_date=from_date,
+                         to_date=to_date,
+                         clients=clients,
+                         selected_client=client_id,
+                         selected_status=status,
+                         total_invoices=total_invoices,
+                         total_amount=total_amount,
+                         total_tax=total_tax,
+                         total_paid=total_paid,
+                         total_due=total_due,
+                         monthly_summary=monthly_summary,
+                         today=date.today())
+
 
 @app.route("/reports/purchase")
 @login_required
 def purchase_report():
-    """Purchase report"""
+    """Purchase Report - Shows all purchase invoices with filters"""
     company_id = get_current_company()
-    return render_template("purchase_report.html", active='purchase_report')
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    supplier_id = request.args.get('supplier_id', type=int)
+    status = request.args.get('status', 'all')
+    
+    # Set default dates (current month)
+    if not from_date_str:
+        from_date = date.today().replace(day=1)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    # Build query
+    query = PurchaseInvoice.query.filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.date >= from_date,
+        PurchaseInvoice.date <= to_date
+    )
+    
+    if supplier_id:
+        query = query.filter(PurchaseInvoice.supplier_id == supplier_id)
+    if status != 'all':
+        query = query.filter(PurchaseInvoice.status == status.title())
+    
+    purchases = query.order_by(PurchaseInvoice.date.desc()).all()
+    
+    # Calculate totals
+    total_purchases = len(purchases)
+    total_amount = sum(p.grand_total or 0 for p in purchases)
+    total_tax = sum(p.tax_amount or 0 for p in purchases)
+    total_paid = sum(p.paid_amount or 0 for p in purchases)
+    total_due = sum(p.balance or 0 for p in purchases)
+    
+    # Get suppliers for filter dropdown
+    suppliers = Client.query.filter(
+        Client.company_id == company_id,
+        db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
+    ).order_by(Client.name).all()
+    
+    # Monthly summary for chart
+    monthly_data = {}
+    for p in purchases:
+        month_key = p.date.strftime('%Y-%m')
+        if month_key not in monthly_data:
+            monthly_data[month_key] = {'month': p.date.strftime('%b %Y'), 'amount': 0, 'count': 0}
+        monthly_data[month_key]['amount'] += p.grand_total or 0
+        monthly_data[month_key]['count'] += 1
+    
+    monthly_summary = list(monthly_data.values())
+    
+    return render_template("purchase_report.html",
+                         active='purchase_report',
+                         purchases=purchases,
+                         from_date=from_date,
+                         to_date=to_date,
+                         suppliers=suppliers,
+                         selected_supplier=supplier_id,
+                         selected_status=status,
+                         total_purchases=total_purchases,
+                         total_amount=total_amount,
+                         total_tax=total_tax,
+                         total_paid=total_paid,
+                         total_due=total_due,
+                         monthly_summary=monthly_summary,
+                         today=date.today())
+
 
 @app.route("/reports/stock")
 @login_required
 def stock_report():
-    """Stock report"""
+    """Stock Report - Shows current inventory status"""
     company_id = get_current_company()
-    return render_template("stock_report.html", active='stock_report')
+    
+    # Get filter parameters
+    category = request.args.get('category', 'all')
+    stock_status = request.args.get('stock_status', 'all')
+    search = request.args.get('search', '')
+    
+    # Build query
+    query = StockItem.query.filter(StockItem.company_id == company_id)
+    
+    if category != 'all':
+        query = query.filter(StockItem.category == category)
+    
+    if search:
+        query = query.filter(
+            db.or_(
+                StockItem.name.ilike(f'%{search}%'),
+                StockItem.code.ilike(f'%{search}%')
+            )
+        )
+    
+    stock_items = query.order_by(StockItem.name).all()
+    
+    # Filter by stock status
+    filtered_items = []
+    for item in stock_items:
+        if stock_status == 'all':
+            filtered_items.append(item)
+        elif stock_status == 'low' and 0 < item.quantity <= (item.reorder_level or 10):
+            filtered_items.append(item)
+        elif stock_status == 'out' and item.quantity <= 0:
+            filtered_items.append(item)
+        elif stock_status == 'in' and item.quantity > (item.reorder_level or 10):
+            filtered_items.append(item)
+        else:
+            filtered_items.append(item)
+    
+    # Calculate summary
+    total_items = len(stock_items)
+    total_value = sum((item.purchase_rate or item.unit_price or 0) * item.quantity for item in stock_items)
+    low_stock_count = sum(1 for i in stock_items if 0 < i.quantity <= (i.reorder_level or 10))
+    out_stock_count = sum(1 for i in stock_items if i.quantity <= 0)
+    in_stock_count = total_items - low_stock_count - out_stock_count
+    
+    # Get unique categories for filter
+    categories = list(set(item.category for item in stock_items if item.category))
+    
+    # Top selling items (based on invoice items)
+    invoice_items = db.session.query(
+        InvoiceItem.code,
+        InvoiceItem.description,
+        db.func.sum(InvoiceItem.qty).label('total_qty')
+    ).join(Invoice).filter(
+        Invoice.company_id == company_id
+    ).group_by(InvoiceItem.code).order_by(db.func.sum(InvoiceItem.qty).desc()).limit(10).all()
+    
+    top_items = [{'code': i[0], 'name': i[1], 'qty': i[2] or 0} for i in invoice_items]
+    
+    return render_template("stock_report.html",
+                         active='stock_report',
+                         stock_items=filtered_items,
+                         categories=categories,
+                         selected_category=category,
+                         selected_status=stock_status,
+                         search_query=search,
+                         total_items=total_items,
+                         total_value=total_value,
+                         in_stock_count=in_stock_count,
+                         low_stock_count=low_stock_count,
+                         out_stock_count=out_stock_count,
+                         top_items=top_items,
+                         today=date.today())
+
 
 @app.route("/reports/tax")
 @login_required
 def tax_report():
-    """Tax/GST report"""
+    """Tax/GST Report - Shows GST summary"""
     company_id = get_current_company()
-    return render_template("tax_report.html", active='tax_report')
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    tax_type = request.args.get('tax_type', 'all')
+    
+    # Set default dates (current quarter)
+    if not from_date_str:
+        # First day of current quarter
+        current_month = date.today().month
+        if current_month <= 3:
+            from_date = date(date.today().year, 1, 1)
+        elif current_month <= 6:
+            from_date = date(date.today().year, 4, 1)
+        elif current_month <= 9:
+            from_date = date(date.today().year, 7, 1)
+        else:
+            from_date = date(date.today().year, 10, 1)
+    else:
+        from_date = date.fromisoformat(from_date_str)
+    
+    if not to_date_str:
+        to_date = date.today()
+    else:
+        to_date = date.fromisoformat(to_date_str)
+    
+    # Get sales invoices (Output GST)
+    sales_invoices = Invoice.query.filter(
+        Invoice.company_id == company_id,
+        Invoice.date >= from_date,
+        Invoice.date <= to_date,
+        Invoice.status != 'Draft'
+    ).all()
+    
+    # Get purchase invoices (Input GST)
+    purchase_invoices = PurchaseInvoice.query.filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.date >= from_date,
+        PurchaseInvoice.date <= to_date,
+        PurchaseInvoice.status != 'Draft'
+    ).all()
+    
+    # Calculate Output GST (from sales)
+    output_cgst = sum(i.tax_amount / 2 for i in sales_invoices if i.tax_amount) if sales_invoices else 0
+    output_sgst = output_cgst
+    output_igst = 0  # For interstate sales, would be calculated separately
+    
+    # Calculate Input GST (from purchases)
+    input_cgst = sum(p.tax_amount / 2 for p in purchase_invoices if p.tax_amount) if purchase_invoices else 0
+    input_sgst = input_cgst
+    input_igst = 0
+    
+    # Net GST payable
+    net_cgst = output_cgst - input_cgst
+    net_sgst = output_sgst - input_sgst
+    net_igst = output_igst - input_igst
+    total_net_gst = net_cgst + net_sgst + net_igst
+    
+    # Monthly GST summary
+    monthly_gst = {}
+    for inv in sales_invoices:
+        month_key = inv.date.strftime('%Y-%m')
+        if month_key not in monthly_gst:
+            monthly_gst[month_key] = {
+                'month': inv.date.strftime('%b %Y'),
+                'sales_amount': 0,
+                'gst_amount': 0,
+                'purchase_amount': 0,
+                'input_gst': 0
+            }
+        monthly_gst[month_key]['sales_amount'] += inv.grand_total or 0
+        monthly_gst[month_key]['gst_amount'] += inv.tax_amount or 0
+    
+    for pur in purchase_invoices:
+        month_key = pur.date.strftime('%Y-%m')
+        if month_key not in monthly_gst:
+            monthly_gst[month_key] = {
+                'month': pur.date.strftime('%b %Y'),
+                'sales_amount': 0,
+                'gst_amount': 0,
+                'purchase_amount': 0,
+                'input_gst': 0
+            }
+        monthly_gst[month_key]['purchase_amount'] += pur.grand_total or 0
+        monthly_gst[month_key]['input_gst'] += pur.tax_amount or 0
+    
+    monthly_summary = list(monthly_gst.values())
+    monthly_summary.sort(key=lambda x: x['month'])
+    
+    # HSN-wise summary
+    hsn_summary = {}
+    for inv in sales_invoices:
+        for item in inv.items:
+            hsn = item.code[:6] if item.code else 'Other'
+            if hsn not in hsn_summary:
+                hsn_summary[hsn] = {'quantity': 0, 'value': 0, 'gst': 0}
+            hsn_summary[hsn]['quantity'] += item.qty or 0
+            hsn_summary[hsn]['value'] += (item.qty or 0) * (item.rate or 0)
+            hsn_summary[hsn]['gst'] += ((item.qty or 0) * (item.rate or 0) * 0.18)
+    
+    return render_template("tax_report.html",
+                         active='tax_report',
+                         from_date=from_date,
+                         to_date=to_date,
+                         sales_invoices=sales_invoices,
+                         purchase_invoices=purchase_invoices,
+                         total_sales=sum(i.grand_total or 0 for i in sales_invoices),
+                         total_purchases=sum(p.grand_total or 0 for p in purchase_invoices),
+                         output_cgst=output_cgst,
+                         output_sgst=output_sgst,
+                         input_cgst=input_cgst,
+                         input_sgst=input_sgst,
+                         net_cgst=net_cgst,
+                         net_sgst=net_sgst,
+                         total_net_gst=total_net_gst,
+                         monthly_summary=monthly_summary,
+                         hsn_summary=hsn_summary,
+                         today=date.today())
+
 
 @app.route("/reports/profit-loss")
 @login_required
 def profit_loss():
-    """Profit & Loss statement"""
+    """Profit & Loss Statement"""
     company_id = get_current_company()
-    return render_template("profit_loss.html", active='profit_loss')
+    
+    # Get filter parameters
+    from_date_str = request.args.get('from_date', '')
+    to_date_str = request.args.get('to_date', '')
+    period = request.args.get('period', 'custom')
+    
+    # Set date range based on period
+    if period == 'month':
+        from_date = date.today().replace(day=1)
+        to_date = date.today()
+    elif period == 'quarter':
+        current_month = date.today().month
+        if current_month <= 3:
+            from_date = date(date.today().year, 1, 1)
+        elif current_month <= 6:
+            from_date = date(date.today().year, 4, 1)
+        elif current_month <= 9:
+            from_date = date(date.today().year, 7, 1)
+        else:
+            from_date = date(date.today().year, 10, 1)
+        to_date = date.today()
+    elif period == 'year':
+        from_date = date(date.today().year, 1, 1)
+        to_date = date.today()
+    else:
+        if not from_date_str:
+            from_date = date.today().replace(day=1)
+        else:
+            from_date = date.fromisoformat(from_date_str)
+        
+        if not to_date_str:
+            to_date = date.today()
+        else:
+            to_date = date.fromisoformat(to_date_str)
+    
+    # INCOME: Sales Revenue
+    sales_invoices = Invoice.query.filter(
+        Invoice.company_id == company_id,
+        Invoice.date >= from_date,
+        Invoice.date <= to_date,
+        Invoice.status != 'Draft'
+    ).all()
+    
+    total_revenue = sum(i.grand_total or 0 for i in sales_invoices)
+    
+    # EXPENSES: Purchase Cost
+    purchase_invoices = PurchaseInvoice.query.filter(
+        PurchaseInvoice.company_id == company_id,
+        PurchaseInvoice.date >= from_date,
+        PurchaseInvoice.date <= to_date,
+        PurchaseInvoice.status != 'Draft'
+    ).all()
+    
+    cost_of_goods_sold = sum(p.grand_total or 0 for p in purchase_invoices)
+    
+    # GROSS PROFIT
+    gross_profit = total_revenue - cost_of_goods_sold
+    
+    # Calculate other income (cash transactions)
+    cash_income = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.type == 'income',
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    ).all()
+    other_income = sum(i.amount for i in cash_income)
+    
+    # Calculate expenses (cash transactions)
+    cash_expenses = CashTransaction.query.filter(
+        CashTransaction.company_id == company_id,
+        CashTransaction.type == 'expense',
+        CashTransaction.date >= from_date,
+        CashTransaction.date <= to_date
+    ).all()
+    
+    # Categorize expenses
+    expense_categories = {}
+    for exp in cash_expenses:
+        if exp.category not in expense_categories:
+            expense_categories[exp.category] = 0
+        expense_categories[exp.category] += exp.amount
+    
+    total_expenses = sum(expense_categories.values())
+    
+    # NET PROFIT
+    net_profit = gross_profit + other_income - total_expenses
+    
+    # Calculate ratios
+    gross_margin = (gross_profit / total_revenue * 100) if total_revenue > 0 else 0
+    net_margin = (net_profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Monthly profit trend
+    monthly_profit = {}
+    all_months = set()
+    
+    for inv in sales_invoices:
+        month_key = inv.date.strftime('%Y-%m')
+        all_months.add(month_key)
+    
+    for pur in purchase_invoices:
+        month_key = pur.date.strftime('%Y-%m')
+        all_months.add(month_key)
+    
+    for month in sorted(all_months):
+        month_date = datetime.strptime(month, '%Y-%m')
+        monthly_profit[month] = {
+            'month': month_date.strftime('%b %Y'),
+            'revenue': 0,
+            'expenses': 0,
+            'profit': 0
+        }
+    
+    for inv in sales_invoices:
+        month_key = inv.date.strftime('%Y-%m')
+        monthly_profit[month_key]['revenue'] += inv.grand_total or 0
+    
+    for exp in cash_expenses:
+        month_key = exp.date.strftime('%Y-%m')
+        if month_key in monthly_profit:
+            monthly_profit[month_key]['expenses'] += exp.amount
+    
+    for month in monthly_profit:
+        monthly_profit[month]['profit'] = monthly_profit[month]['revenue'] - monthly_profit[month]['expenses']
+    
+    profit_trend = list(monthly_profit.values())
+    
+    return render_template("profit_loss.html",
+                         active='profit_loss',
+                         from_date=from_date,
+                         to_date=to_date,
+                         period=period,
+                         total_revenue=total_revenue,
+                         cost_of_goods_sold=cost_of_goods_sold,
+                         gross_profit=gross_profit,
+                         other_income=other_income,
+                         expense_categories=expense_categories,
+                         total_expenses=total_expenses,
+                         net_profit=net_profit,
+                         gross_margin=gross_margin,
+                         net_margin=net_margin,
+                         profit_trend=profit_trend,
+                         today=date.today())
 
 # ============================================
 # SYNC, SHARE & BACKUP ROUTES
@@ -3643,14 +6019,20 @@ def upgrade_plan():
 
 def _debtor_summary(company_id):
     """
-    For every client that has at least one outstanding sales invoice,
+    For every client that has at least one sales invoice (paid or unpaid),
     return a summary dict with the key financial fields.
     """
-    clients = Client.query.filter_by(company_id=company_id).all()
+    # Get all clients who have invoices
+    clients_with_invoices = db.session.query(Client).join(
+        Invoice, Invoice.client_id == Client.id
+    ).filter(
+        Client.company_id == company_id
+    ).distinct().all()
+    
     today   = date.today()
     rows    = []
 
-    for c in clients:
+    for c in clients_with_invoices:
         invoices = (Invoice.query
                     .filter_by(company_id=company_id, client_id=c.id)
                     .order_by(Invoice.date.desc())
@@ -3658,32 +6040,37 @@ def _debtor_summary(company_id):
         if not invoices:
             continue
 
-        total_pending = sum(getattr(i, "balance", 0) or 0 for i in invoices)
-        if total_pending <= 0:
-            continue  # fully settled – skip
+        # Calculate total pending (unpaid balance)
+        total_pending = sum(float(getattr(i, "balance", 0) or 0) for i in invoices)
+        
+        # Calculate total invoiced amount
+        total_invoiced = sum(float(i.grand_total or 0) for i in invoices)
+        
+        # Calculate total paid
+        total_paid = total_invoiced - total_pending
 
         last_invoice_date = invoices[0].date  # already desc sorted
 
         # nearest due invoice (unpaid, due_date set)
-        unpaid       = [i for i in invoices if (getattr(i, "balance", 0) or 0) > 0]
+        unpaid       = [i for i in invoices if (float(getattr(i, "balance", 0) or 0)) > 0]
         due_invoices = [i for i in unpaid if getattr(i, "due_date", None)]
         if due_invoices:
             future  = [i for i in due_invoices if i.due_date >= today]
             nearest = min(future, key=lambda i: i.due_date) if future else \
                       max(due_invoices, key=lambda i: i.due_date)
             nearest_due_date = nearest.due_date
-            nearest_due_amt  = getattr(nearest, "balance", 0) or 0
+            nearest_due_amt  = float(getattr(nearest, "balance", 0) or 0)
         else:
             nearest_due_date = None
             nearest_due_amt  = None
 
         # last payment: invoice with highest amount paid
         paid_invoices = [i for i in invoices
-                         if (i.grand_total - (getattr(i, "balance", 0) or 0)) > 0]
+                         if (float(i.grand_total or 0) - (float(getattr(i, "balance", 0) or 0))) > 0]
         if paid_invoices:
             last_paid_inv     = max(paid_invoices, key=lambda i: i.date)
             last_payment_date = last_paid_inv.date
-            last_payment_amt  = last_paid_inv.grand_total - (getattr(last_paid_inv, "balance", 0) or 0)
+            last_payment_amt  = float(last_paid_inv.grand_total or 0) - (float(getattr(last_paid_inv, "balance", 0) or 0))
         else:
             last_payment_date = None
             last_payment_amt  = None
@@ -3693,6 +6080,8 @@ def _debtor_summary(company_id):
             "name":              c.name,
             "phone":             c.phone or "",
             "city":              c.city or "",
+            "total_invoiced":    total_invoiced,
+            "total_paid":        total_paid,
             "total_pending":     total_pending,
             "last_invoice_date": last_invoice_date,
             "nearest_due_date":  nearest_due_date,

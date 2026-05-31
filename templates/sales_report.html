@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Sales Report{% endblock %}
+{% block page_title %}Sales Report{% endblock %}
+{% set active = 'sales_report' %}
+
+{% block extra_style %}
+<style>
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #E5E7EB;
+  }
+  .summary-card h4 {
+    font-size: 12px;
+    color: #6B7280;
+    margin: 0 0 8px 0;
+  }
+  .summary-card .amount {
+    font-size: 24px;
+    font-weight: 800;
+  }
+  .filter-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    border: 1px solid #E5E7EB;
+  }
+  .chart-container {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    border: 1px solid #E5E7EB;
+  }
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .report-table th {
+    background: #F9FAFB;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 12px;
+    color: #374151;
+    border-bottom: 1px solid #E5E7EB;
+  }
+  .report-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .badge-paid { background: #DCFCE7; color: #16A34A; padding: 4px 8px; border-radius: 12px; font-size: 11px; }
+  .badge-partial { background: #FEF3C7; color: #D97706; padding: 4px 8px; border-radius: 12px; font-size: 11px; }
+  .badge-draft { background: #F3F4F6; color: #6B7280; padding: 4px 8px; border-radius: 12px; font-size: 11px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>📊 Sales Report</h2>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Print Report</button>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <form method="GET" action="/reports/sales" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>From Date</label>
+      <input type="date" name="from_date" value="{{ from_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>To Date</label>
+      <input type="date" name="to_date" value="{{ to_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Client</label>
+      <select name="client_id">
+        <option value="">All Clients</option>
+        {% for client in clients %}
+        <option value="{{ client.id }}" {% if selected_client == client.id %}selected{% endif %}>{{ client.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Status</label>
+      <select name="status">
+        <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All</option>
+        <option value="paid" {% if selected_status == 'paid' %}selected{% endif %}>Paid</option>
+        <option value="partial" {% if selected_status == 'partial' %}selected{% endif %}>Partial</option>
+        <option value="draft" {% if selected_status == 'draft' %}selected{% endif %}>Draft</option>
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Apply Filter</button>
+    <a href="/reports/sales" class="btn btn-ghost">Reset</a>
+  </form>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-cards">
+  <div class="summary-card">
+    <h4>Total Invoices</h4>
+    <div class="amount">{{ total_invoices }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Total Sales</h4>
+    <div class="amount" style="color: #4F46E5;">₹{{ "{:,.2f}".format(total_amount) }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Total Tax (GST)</h4>
+    <div class="amount" style="color: #D97706;">₹{{ "{:,.2f}".format(total_tax) }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Amount Paid</h4>
+    <div class="amount" style="color: #16A34A;">₹{{ "{:,.2f}".format(total_paid) }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Pending Amount</h4>
+    <div class="amount" style="color: #DC2626;">₹{{ "{:,.2f}".format(total_due) }}</div>
+  </div>
+</div>
+
+<!-- Monthly Trend Chart -->
+{% if monthly_summary %}
+<div class="chart-container">
+  <h3 style="margin-bottom: 16px;">Monthly Sales Trend</h3>
+  <canvas id="salesChart" height="100"></canvas>
+</div>
+{% endif %}
+
+<!-- Sales Table -->
+<div class="card">
+  <div class="card-header">
+    <h3>Sales Invoices</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Date</th>
+          <th>Customer</th>
+          <th>Subtotal</th>
+          <th>Tax</th>
+          <th>Total</th>
+          <th>Paid</th>
+          <th>Balance</th>
+          <th>Status</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><a href="/invoice/view/{{ inv.invoice_id }}" style="color: #4F46E5;">{{ inv.invoice_id }}</a></td>
+          <td>{{ inv.date.strftime('%d %b %Y') }}</td>
+          <td>{{ inv.client_obj.name if inv.client_obj else inv.contact_person or '—' }}</td>
+          <td>₹{{ "{:,.2f}".format(inv.subtotal or 0) }}</td>
+          <td>₹{{ "{:,.2f}".format(inv.tax_amount or 0) }}</td>
+          <td><strong>₹{{ "{:,.2f}".format(inv.grand_total or 0) }}</strong></td>
+          <td>₹{{ "{:,.2f}".format((inv.grand_total or 0) - (inv.balance or 0)) }}</td>
+          <td>₹{{ "{:,.2f}".format(inv.balance or 0) }}</td>
+          <td>
+            {% if inv.status == 'Paid' %}
+            <span class="badge-paid">Paid</span>
+            {% elif inv.status == 'Partial' %}
+            <span class="badge-partial">Partial</span>
+            {% else %}
+            <span class="badge-draft">Draft</span>
+            {% endif %}
+          </td>
+          <td><a href="/invoice/view/{{ inv.invoice_id }}" class="btn btn-sm btn-ghost">View</a></td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="10" style="text-align: center; padding: 40px;">No sales invoices found for the selected period.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if monthly_summary %}
+const ctx = document.getElementById('salesChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: {{ monthly_summary|map(attribute='month')|list|tojson }},
+    datasets: [{
+      label: 'Sales Amount (₹)',
+      data: {{ monthly_summary|map(attribute='amount')|list|tojson }},
+      borderColor: '#4F46E5',
+      backgroundColor: 'rgba(79, 70, 229, 0.1)',
+      tension: 0.4,
+      fill: true
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' }
+    }
+  }
+});
+{% endif %}
+</script>
+
+{% endblock %}

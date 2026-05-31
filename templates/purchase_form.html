@@ -1,312 +1,500 @@
 {% extends "base.html" %}
 {% block title %}New Purchase Invoice{% endblock %}
 {% block page_title %}New Purchase Invoice{% endblock %}
-{% set active = 'purchase' %}
+{% set active = 'purchases' %}
 
 {% block extra_style %}
 <style>
-    .item-row {
-        background: #f9fafb;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        transition: all 0.2s ease;
-        border: 1px solid #e5e7eb;
-    }
-    .item-row:hover {
-        background: #f3f4f6;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-    .remove-item {
-        cursor: pointer;
-        color: #dc2626;
-        transition: color 0.2s;
-    }
-    .remove-item:hover { color: #b91c1c; }
-    .item-amount-display {
-        font-weight: 600;
-        color: #059669;
-        font-size: 14px;
-        padding: 8px 0;
-    }
-    .totals-box {
-        background: #f0f9ff;
-        border: 1px solid #bae6fd;
-        border-radius: 10px;
-        padding: 16px 20px;
-        margin-top: 16px;
-    }
-    .totals-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 4px 0;
-        font-size: 14px;
-    }
-    .totals-row.grand {
-        font-size: 18px;
-        font-weight: 700;
-        color: #1e40af;
-        border-top: 2px solid #bae6fd;
-        padding-top: 10px;
-        margin-top: 6px;
-    }
-    .items-grid-header {
-        display: grid;
-        grid-template-columns: 3fr 1fr 1fr 1fr 80px 60px;
-        gap: 8px;
-        padding: 8px 15px;
-        background: #e5e7eb;
-        border-radius: 8px;
-        font-size: 12px;
-        font-weight: 600;
-        color: #374151;
-        margin-bottom: 6px;
-    }
-    .items-grid-row {
-        display: grid;
-        grid-template-columns: 3fr 1fr 1fr 1fr 80px 60px;
-        gap: 8px;
-        align-items: center;
-        background: #f9fafb;
-        padding: 12px 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        border: 1px solid #e5e7eb;
-    }
-    .supplier-suggestion {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        max-height: 200px;
-        overflow-y: auto;
-        position: absolute;
-        z-index: 1000;
-        width: calc(100% - 2px);
-        display: none;
-    }
-    .supplier-suggestion div {
-        padding: 8px 12px;
-        cursor: pointer;
-    }
-    .supplier-suggestion div:hover {
-        background: #f3f4f6;
-    }
+  .pf-page { max-width: 1300px; margin: 0 auto; }
+
+  /* Section card */
+  .sec-card {
+    background: #fff; border-radius: 18px; border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04); margin-bottom: 20px; overflow: hidden;
+  }
+  .sec-head {
+    padding: 16px 22px; border-bottom: 1px solid #F1F5F9;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 700; color: #0F172A;
+    background: #FAFBFC;
+  }
+  .sec-head .sec-icon { font-size: 18px; }
+  .sec-body { padding: 22px; }
+
+  /* Form grid */
+  .fg-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .fg-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .fg-1 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  label { font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .4px; display: block; margin-bottom: 6px; }
+  input, select, textarea {
+    width: 100%; padding: 10px 13px; border: 1.5px solid #E2E8F0;
+    border-radius: 10px; font-size: 13.5px; font-family: inherit;
+    outline: none; transition: border .15s; background: #fff; color: #0F172A;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
+  .hint { font-size: 11px; color: #94A3B8; margin-top: 4px; }
+
+  /* Autocomplete */
+  .ac-wrap { position: relative; }
+  .ac-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #fff; border: 1.5px solid #E2E8F0; border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 200;
+    max-height: 220px; overflow-y: auto; display: none;
+  }
+  .ac-item {
+    padding: 10px 14px; cursor: pointer; font-size: 13px;
+    border-bottom: 1px solid #F8FAFC; display: flex; flex-direction: column; gap: 2px;
+  }
+  .ac-item:last-child { border-bottom: none; }
+  .ac-item:hover { background: #EFF6FF; }
+  .ac-item-name { font-weight: 600; color: #0F172A; }
+  .ac-item-sub  { font-size: 11px; color: #94A3B8; }
+
+  /* Items Table */
+  .items-table-wrap { overflow-x: auto; }
+  .items-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  .items-table th {
+    padding: 10px 12px; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: #64748B; background: #F8FAFC;
+    border-bottom: 1.5px solid #E2E8F0; text-align: left; white-space: nowrap;
+  }
+  .items-table td { padding: 8px 8px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
+  .items-table tbody tr:hover { background: #FAFBFF; }
+  .items-table input, .items-table select {
+    padding: 7px 10px; font-size: 13px; border-radius: 8px; border: 1.5px solid #E2E8F0;
+  }
+  .items-table input:focus, .items-table select:focus {
+    border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.06);
+  }
+  .item-select-wrap { position: relative; min-width: 200px; }
+  .item-ac { display: none; }  /* same ac-dropdown class reused */
+
+  .row-total { font-size: 14px; font-weight: 800; color: #2563EB; white-space: nowrap; text-align: right; }
+  .row-gst-amt { font-size: 11px; color: #D97706; white-space: nowrap; }
+
+  .del-btn {
+    background: #FEE2E2; color: #DC2626; border: none; border-radius: 8px;
+    width: 30px; height: 30px; cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s; flex-shrink: 0;
+  }
+  .del-btn:hover { background: #DC2626; color: #fff; }
+
+  .add-row-btn {
+    border: 2px dashed #CBD5E1; border-radius: 10px; background: none;
+    padding: 10px 20px; color: #64748B; font-size: 13px; font-weight: 600;
+    cursor: pointer; width: 100%; margin-top: 10px; transition: all .15s;
+    font-family: inherit;
+  }
+  .add-row-btn:hover { border-color: #2563EB; color: #2563EB; background: #EFF6FF; }
+
+  /* Totals bar */
+  .totals-bar {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 12px; margin-top: 20px; background: #EFF6FF;
+    border-radius: 14px; padding: 18px 20px; border: 1.5px solid #DBEAFE;
+  }
+  .tb-item { text-align: center; }
+  .tb-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; }
+  .tb-val { font-size: 22px; font-weight: 800; color: #2563EB; margin-top: 4px; }
+  .tb-val.green { color: #059669; }
+  .tb-val.amber { color: #D97706; }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed #CBD5E1; border-radius: 14px; padding: 30px 20px;
+    text-align: center; cursor: pointer; transition: all .2s; background: #F8FAFC;
+  }
+  .upload-zone:hover, .upload-zone.dragover { border-color: #2563EB; background: #EFF6FF; }
+  .upload-zone .uz-icon { font-size: 36px; margin-bottom: 8px; }
+  .upload-zone h4 { font-size: 14px; font-weight: 700; color: #334155; margin-bottom: 4px; }
+  .upload-zone p  { font-size: 12px; color: #94A3B8; }
+  .file-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #D1FAE5; color: #059669; border-radius: 8px;
+    padding: 8px 14px; font-size: 12px; font-weight: 600; margin-top: 10px;
+  }
+
+  /* Actions row */
+  .form-actions {
+    display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px;
+  }
+
+  @media(max-width:900px) {
+    .fg-3 { grid-template-columns: 1fr 1fr; }
+    .fg-2 { grid-template-columns: 1fr; }
+  }
+  @media(max-width:600px) {
+    .fg-3 { grid-template-columns: 1fr; }
+    .totals-bar { grid-template-columns: 1fr; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-body">
+<div class="pf-page">
 
-        <form method="POST" enctype="multipart/form-data" id="purchaseForm">
-            <div class="grid-2">
-                <div class="form-group">
-                    <label>Supplier Name *</label>
-                    <input type="hidden" name="supplier_id" id="supplier_id_hidden">
-                    <input type="text" name="supplier_name" id="supplier_name" placeholder="Enter supplier name" class="form-control" required autocomplete="off">
-                    <small class="text-muted">If supplier doesn't exist, it will be created automatically</small>
-                    <div id="supplier_suggestions" class="supplier-suggestion"></div>
-                </div>
-                <div class="form-group">
-                    <label>Supplier GST (Optional)</label>
-                    <input type="text" name="supplier_gst" id="supplier_gst" placeholder="GST Number" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Supplier Invoice Number</label>
-                    <input type="text" name="invoice_number" id="invoice_number" placeholder="Original invoice number" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Invoice Date</label>
-                    <input type="date" name="invoice_date" id="invoice_date" value="{{ today }}" class="form-control" required>
-                </div>
-                <div class="form-group">
-                    <label>Due Date</label>
-                    <input type="date" name="due_date" id="due_date" class="form-control">
-                </div>
-                <div class="form-group">
-                    <label>Payment Terms</label>
-                    <input type="text" name="payment_terms" id="payment_terms" placeholder="e.g., Net 30 days" class="form-control">
-                </div>
+  <form method="POST" enctype="multipart/form-data" id="purchaseForm">
+
+    <!-- ── Row 1: Supplier + Invoice Details side by side ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+      <!-- Supplier Details -->
+      <div class="sec-card">
+        <div class="sec-head"><span class="sec-icon">🏭</span> Supplier Details</div>
+        <div class="sec-body">
+          <input type="hidden" name="supplier_id" id="supplier_id_hidden">
+
+          <div class="form-group">
+            <label>Supplier Name *</label>
+            <div class="ac-wrap">
+              <input type="text" name="supplier_name" id="supplier_name"
+                     placeholder="Type to search supplier…" autocomplete="off" required>
+              <div class="ac-dropdown" id="sup_dropdown"></div>
             </div>
+            <div class="hint">If not found, will be auto-created</div>
+          </div>
 
-            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:24px;">
-                <h4 style="margin:0;">📦 Items Received</h4>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="addItemRow()">+ Add Item</button>
+          <div class="form-group" style="margin-top:14px;">
+            <label>Supplier GST Number</label>
+            <input type="text" name="supplier_gst" id="supplier_gst" placeholder="22AAAAA0000A1Z5">
+          </div>
+        </div>
+      </div>
+
+      <!-- Invoice Details -->
+      <div class="sec-card">
+        <div class="sec-head"><span class="sec-icon">📋</span> Invoice Details</div>
+        <div class="sec-body">
+          <div class="fg-2">
+            <div class="form-group">
+              <label>Supplier Invoice No.</label>
+              <input type="text" name="invoice_number" placeholder="e.g. INV-2025-001">
             </div>
-
-            <!-- Table header -->
-            <div class="items-grid-header" style="margin-top:10px;">
-                <span>Item Description</span>
-                <span>Qty</span>
-                <span>Rate (₹)</span>
-                <span>GST %</span>
-                <span>Amount</span>
-                <span></span>
+            <div class="form-group">
+              <label>Invoice Date *</label>
+              <input type="date" name="invoice_date" value="{{ today }}" required>
             </div>
-
-            <div id="items_container"></div>
-
-            <!-- Live totals display -->
-            <div class="totals-box" id="totals_box" style="display:none;">
-                <div class="totals-row"><span>Subtotal</span><span id="t_subtotal">₹0.00</span></div>
-                <div class="totals-row"><span>GST</span><span id="t_tax">₹0.00</span></div>
-                <div class="totals-row grand"><span>Grand Total</span><span id="t_grand">₹0.00</span></div>
+            <div class="form-group">
+              <label>Due Date</label>
+              <input type="date" name="due_date">
             </div>
-
-            <div class="form-group mt-4">
-                <label>Notes</label>
-                <textarea name="notes" id="notes" rows="3" class="form-control"></textarea>
+            <div class="form-group">
+              <label>Payment Terms</label>
+              <input type="text" name="payment_terms" placeholder="Net 30 days">
             </div>
-
-            <div class="mt-4" style="display:flex; gap:10px; align-items:center;">
-                <button type="submit" class="btn btn-primary">Create Purchase Invoice</button>
-                <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
-            </div>
-        </form>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- ── Items Section ── -->
+    <div class="sec-card">
+      <div class="sec-head" style="justify-content:space-between;">
+        <span><span class="sec-icon">📦</span> Items Received</span>
+        <button type="button" class="btn btn-primary btn-sm" onclick="addItemRow()">+ Add Item</button>
+      </div>
+      <div class="sec-body">
+        <div class="items-table-wrap">
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th style="width:36px">#</th>
+                <th style="min-width:220px">Item / Product</th>
+                <th style="width:90px">Code</th>
+                <th style="width:80px">Qty</th>
+                <th style="width:70px">Unit</th>
+                <th style="width:110px">Rate (₹)</th>
+                <th style="width:90px">GST %</th>
+                <th style="width:80px">GST Amt</th>
+                <th style="width:110px">Total (₹)</th>
+                <th style="width:36px"></th>
+              </tr>
+            </thead>
+            <tbody id="items_body"></tbody>
+          </table>
+        </div>
+        <button type="button" class="add-row-btn" onclick="addItemRow()">+ Add Another Item</button>
+
+        <!-- Totals -->
+        <div class="totals-bar">
+          <div class="tb-item">
+            <div class="tb-lbl">Taxable Value</div>
+            <div class="tb-val amber" id="t_taxable">₹0.00</div>
+          </div>
+          <div class="tb-item">
+            <div class="tb-lbl">Total GST</div>
+            <div class="tb-val amber" id="t_gst">₹0.00</div>
+          </div>
+          <div class="tb-item">
+            <div class="tb-lbl">Grand Total</div>
+            <div class="tb-val" id="t_grand">₹0.00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Notes + Upload ── -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+
+      <div class="sec-card">
+        <div class="sec-head"><span class="sec-icon">📝</span> Notes</div>
+        <div class="sec-body">
+          <textarea name="notes" rows="4" placeholder="Optional remarks about this purchase…"></textarea>
+        </div>
+      </div>
+
+      <div class="sec-card">
+        <div class="sec-head"><span class="sec-icon">📎</span> Upload Bill / Invoice</div>
+        <div class="sec-body">
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('invoiceFile').click()">
+            <div class="uz-icon">📄</div>
+            <h4>Drop or click to upload</h4>
+            <p>PDF, PNG, JPG, WEBP — max 10 MB</p>
+            <div id="fileNameDisplay"></div>
+          </div>
+          <input type="file" id="invoiceFile" name="invoice_file"
+                 accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none"
+                 onchange="onFileChosen(this)">
+          <div class="hint" style="margin-top:8px;">
+            📁 The uploaded bill is stored and linked to this purchase for future reference.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── Action Buttons ── -->
+    <div class="form-actions">
+      <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary" style="padding:11px 32px;font-size:14px;">
+        💾 Create Purchase Invoice
+      </button>
+    </div>
+
+  </form>
 </div>
 
 <script>
-// ── Supplier Autocomplete ─────────────────────────────────────────────────────
+// ── Stock items loaded from API ────────────────────────────────────────────────
+let stockItems = [];
 let supplierList = [];
+let rowIdx = 0;
 
-// Load existing suppliers for autocomplete
+// Fetch stock items for the dropdown
+async function loadStockItems() {
+  try {
+    const r = await fetch('/api/stock/items');
+    const d = await r.json();
+    stockItems = d;
+  } catch(e) { console.warn('Could not load stock items:', e); }
+}
+
+// Fetch suppliers for autocomplete
 async function loadSuppliers() {
-    try {
-        const response = await fetch('/api/suppliers/list');
-        const data = await response.json();
-        supplierList = data;
-    } catch(e) {
-        console.log('Could not load suppliers:', e);
-    }
+  try {
+    const r = await fetch('/api/suppliers/list');
+    const d = await r.json();
+    supplierList = d;
+  } catch(e) { console.warn('Could not load suppliers:', e); }
 }
 
-// Show supplier suggestions
-document.getElementById('supplier_name')?.addEventListener('input', function(e) {
-    const input = e.target.value.toLowerCase();
-    const suggestionsDiv = document.getElementById('supplier_suggestions');
-    
-    if (input.length < 2) {
-        suggestionsDiv.style.display = 'none';
-        return;
-    }
-    
-    const matches = supplierList.filter(s => s.name.toLowerCase().includes(input));
-    
-    if (matches.length > 0) {
-        suggestionsDiv.innerHTML = matches.map(s => 
-            `<div onclick="selectSupplier('${escapeHtml(s.name)}', '${s.gst || ''}', ${s.id})">
-                <strong>${escapeHtml(s.name)}</strong>
-                ${s.gst ? `<small class="text-muted"> (GST: ${s.gst})</small>` : ''}
-            </div>`
-        ).join('');
-        suggestionsDiv.style.display = 'block';
-    } else {
-        suggestionsDiv.style.display = 'none';
-    }
+// ── Supplier autocomplete ─────────────────────────────────────────────────────
+document.getElementById('supplier_name').addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  const dd = document.getElementById('sup_dropdown');
+  if (q.length < 1) { dd.style.display = 'none'; return; }
+  const matches = supplierList.filter(s => s.name.toLowerCase().includes(q)).slice(0,8);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = matches.map(s => `
+    <div class="ac-item" onclick="selectSupplier(${s.id},'${esc(s.name)}','${esc(s.gst||'')}')">
+      <span class="ac-item-name">${esc(s.name)}</span>
+      ${s.gst ? `<span class="ac-item-sub">GST: ${s.gst}</span>` : ''}
+    </div>`).join('');
+  dd.style.display = 'block';
 });
 
-function selectSupplier(name, gst, id) {
-    document.getElementById('supplier_name').value = name;
-    document.getElementById('supplier_id_hidden').value = id;
-    if (gst) document.getElementById('supplier_gst').value = gst;
-    document.getElementById('supplier_suggestions').style.display = 'none';
+function selectSupplier(id, name, gst) {
+  document.getElementById('supplier_name').value = name;
+  document.getElementById('supplier_id_hidden').value = id;
+  if (gst) document.getElementById('supplier_gst').value = gst;
+  document.getElementById('sup_dropdown').style.display = 'none';
 }
 
-// Close suggestions when clicking outside
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('#supplier_name')) {
-        document.getElementById('supplier_suggestions').style.display = 'none';
-    }
+document.addEventListener('click', e => {
+  if (!e.target.closest('#supplier_name') && !e.target.closest('#sup_dropdown'))
+    document.getElementById('sup_dropdown').style.display = 'none';
 });
 
-// ── Item Row Functions ────────────────────────────────────────────────────────
-function addItemRow(desc = '', qty = '', rate = '', gst = '18', unit = 'pcs') {
-    const container = document.getElementById('items_container');
-    const row = document.createElement('div');
-    row.className = 'items-grid-row';
-    row.innerHTML = `
-        <input type="text" name="item_description[]" placeholder="Item / Product name" class="form-control" value="${escapeHtml(desc)}" required oninput="updateItemAmount(this); recalcTotals()">
-        <input type="number" name="item_quantity[]" placeholder="Qty" step="0.01" min="0" class="form-control" value="${qty}" required oninput="updateItemAmount(this); recalcTotals()">
-        <input type="number" name="item_rate[]" placeholder="Rate ₹" step="0.01" min="0" class="form-control" value="${rate}" required oninput="updateItemAmount(this); recalcTotals()">
-        <input type="number" name="item_gst[]" placeholder="GST%" step="0.01" min="0" max="100" class="form-control" value="${gst}" oninput="updateItemAmount(this); recalcTotals()">
-        <div class="item-amount-display amount-display">₹0.00</div>
-        <button type="button" class="btn btn-danger btn-sm" onclick="removeItem(this)">✕</button>
-        <input type="hidden" name="item_unit[]" value="${escapeHtml(unit)}">
-    `;
-    container.appendChild(row);
-    updateItemAmount(row.querySelector('[name="item_quantity[]"]'));
+// ── Item Rows ─────────────────────────────────────────────────────────────────
+function addItemRow(data = {}) {
+  const i = rowIdx++;
+  const tbody = document.getElementById('items_body');
+  const tr = document.createElement('tr');
+  tr.id = `row-${i}`;
+  tr.innerHTML = `
+    <td style="color:#94A3B8;font-weight:600;text-align:center">${tbody.children.length + 1}</td>
+    <td>
+      <div class="item-select-wrap">
+        <input type="text" name="item_description[]" id="item_name_${i}"
+               value="${esc(data.name||'')}" placeholder="Select or type item…"
+               autocomplete="off"
+               oninput="filterItemDropdown(${i}); recalcRow(${i})"
+               required style="min-width:200px">
+        <div class="ac-dropdown" id="item_dd_${i}"></div>
+      </div>
+    </td>
+    <td>
+      <input type="text" name="item_code_disp[]" id="item_code_${i}"
+             value="${esc(data.code||'')}" placeholder="—" readonly
+             style="background:#F8FAFC;width:80px;cursor:default;">
+      <input type="hidden" name="item_stock_id[]" id="item_sid_${i}" value="${data.stock_id||''}">
+    </td>
+    <td>
+      <input type="number" name="item_quantity[]" id="qty_${i}"
+             value="${data.qty||1}" min="0.01" step="any" style="width:70px"
+             oninput="recalcRow(${i})">
+    </td>
+    <td>
+      <input type="text" name="item_unit[]" id="unit_${i}"
+             value="${esc(data.unit||'pcs')}" style="width:60px">
+    </td>
+    <td>
+      <input type="number" name="item_rate[]" id="rate_${i}"
+             value="${data.rate||''}" min="0" step="any" placeholder="0.00" style="width:100px"
+             oninput="recalcRow(${i})">
+    </td>
+    <td>
+      <select name="item_gst[]" id="gst_${i}" onchange="recalcRow(${i})" style="width:75px">
+        ${[0,5,12,18,28].map(g => `<option value="${g}" ${g==(data.gst||18)?'selected':''}>${g}%</option>`).join('')}
+      </select>
+    </td>
+    <td>
+      <div class="row-gst-amt" id="gst_amt_${i}">₹0.00</div>
+    </td>
+    <td>
+      <div class="row-total" id="row_total_${i}">₹0.00</div>
+    </td>
+    <td>
+      <button type="button" class="del-btn" onclick="delRow(${i})">✕</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  recalcRow(i);
+  renumberRows();
+
+  // Attach input listener for autocomplete
+  document.getElementById(`item_name_${i}`).addEventListener('focus', () => filterItemDropdown(i));
+  document.addEventListener('click', e => {
+    if (!e.target.closest(`#item_name_${i}`) && !e.target.closest(`#item_dd_${i}`))
+      document.getElementById(`item_dd_${i}`).style.display = 'none';
+  });
 }
 
-function removeItem(btn) {
-    btn.closest('.items-grid-row').remove();
-    recalcTotals();
+function filterItemDropdown(i) {
+  const q = (document.getElementById(`item_name_${i}`)?.value || '').toLowerCase();
+  const dd = document.getElementById(`item_dd_${i}`);
+  const matches = stockItems.filter(s =>
+    s.name.toLowerCase().includes(q) || (s.code||'').toLowerCase().includes(q)
+  ).slice(0, 10);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.innerHTML = matches.map(s => `
+    <div class="ac-item" onclick="selectItem(${i}, ${JSON.stringify(s).replace(/"/g,'&quot;')})">
+      <span class="ac-item-name">${esc(s.name)}</span>
+      <span class="ac-item-sub">
+        Code: ${esc(s.code||'—')} · Stock: ${s.quantity} ${esc(s.unit||'pcs')}
+        ${s.purchase_rate ? ` · Last Rate: ₹${parseFloat(s.purchase_rate).toLocaleString('en-IN')}` : ''}
+      </span>
+    </div>`).join('');
+  dd.style.display = 'block';
 }
 
-function updateItemAmount(input) {
-    const row = input.closest('.items-grid-row');
-    if (!row) return;
-    
-    const qty = parseFloat(row.querySelector('[name="item_quantity[]"]')?.value) || 0;
-    const rate = parseFloat(row.querySelector('[name="item_rate[]"]')?.value) || 0;
-    const gst = parseFloat(row.querySelector('[name="item_gst[]"]')?.value) || 0;
-    
-    const amount = qty * rate;
-    const taxAmount = amount * (gst / 100);
-    const totalAmount = amount + taxAmount;
-    
-    const amountDisplay = row.querySelector('.amount-display');
-    if (amountDisplay) {
-        amountDisplay.textContent = '₹' + totalAmount.toFixed(2);
-    }
+function selectItem(i, item) {
+  document.getElementById(`item_name_${i}`).value  = item.name;
+  document.getElementById(`item_code_${i}`).value  = item.code || '';
+  document.getElementById(`item_sid_${i}`).value   = item.id || '';
+  document.getElementById(`unit_${i}`).value        = item.unit || 'pcs';
+  if (item.purchase_rate) document.getElementById(`rate_${i}`).value = item.purchase_rate;
+  // Set GST
+  const gstSel = document.getElementById(`gst_${i}`);
+  if (item.gst_percent != null) {
+    for (let o of gstSel.options) { if (parseFloat(o.value) === parseFloat(item.gst_percent)) { o.selected = true; break; } }
+  }
+  document.getElementById(`item_dd_${i}`).style.display = 'none';
+  recalcRow(i);
 }
 
-// ── Live Totals Calculation ──────────────────────────────────────────────────
+function delRow(i) {
+  const el = document.getElementById(`row-${i}`);
+  if (el) el.remove();
+  renumberRows(); recalcTotals();
+}
+
+function renumberRows() {
+  document.querySelectorAll('#items_body tr').forEach((tr, idx) => {
+    const first = tr.querySelector('td:first-child');
+    if (first) first.textContent = idx + 1;
+  });
+}
+
+function recalcRow(i) {
+  const qty  = parseFloat(document.getElementById(`qty_${i}`)?.value) || 0;
+  const rate = parseFloat(document.getElementById(`rate_${i}`)?.value) || 0;
+  const gst  = parseFloat(document.getElementById(`gst_${i}`)?.value) || 0;
+  const taxable  = qty * rate;
+  const gstAmt   = taxable * gst / 100;
+  const total    = taxable + gstAmt;
+  const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (document.getElementById(`gst_amt_${i}`)) document.getElementById(`gst_amt_${i}`).textContent = fmt(gstAmt);
+  if (document.getElementById(`row_total_${i}`)) document.getElementById(`row_total_${i}`).textContent = fmt(total);
+  recalcTotals();
+}
+
 function recalcTotals() {
-    const rows = document.querySelectorAll('#items_container .items-grid-row');
-    let subtotal = 0, taxTotal = 0;
-
-    rows.forEach(row => {
-        const qty = parseFloat(row.querySelector('[name="item_quantity[]"]')?.value) || 0;
-        const rate = parseFloat(row.querySelector('[name="item_rate[]"]')?.value) || 0;
-        const gst = parseFloat(row.querySelector('[name="item_gst[]"]')?.value) || 0;
-        
-        const lineTotal = qty * rate;
-        const taxAmt = lineTotal * (gst / 100);
-        
-        subtotal += lineTotal;
-        taxTotal += taxAmt;
-    });
-
-    const grandTotal = subtotal + taxTotal;
-    const box = document.getElementById('totals_box');
-    
-    if (rows.length > 0 && (subtotal > 0 || grandTotal > 0)) {
-        box.style.display = 'block';
-        document.getElementById('t_subtotal').textContent = '₹' + subtotal.toFixed(2);
-        document.getElementById('t_tax').textContent = '₹' + taxTotal.toFixed(2);
-        document.getElementById('t_grand').textContent = '₹' + grandTotal.toFixed(2);
-    } else {
-        box.style.display = 'none';
-    }
+  let taxable = 0, gstAmt = 0;
+  document.querySelectorAll('#items_body tr').forEach(tr => {
+    const i = tr.id.replace('row-','');
+    const qty  = parseFloat(document.getElementById(`qty_${i}`)?.value) || 0;
+    const rate = parseFloat(document.getElementById(`rate_${i}`)?.value) || 0;
+    const gst  = parseFloat(document.getElementById(`gst_${i}`)?.value) || 0;
+    const t = qty * rate;
+    taxable += t; gstAmt += t * gst / 100;
+  });
+  const grand = taxable + gstAmt;
+  const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('t_taxable').textContent = fmt(taxable);
+  document.getElementById('t_gst').textContent     = fmt(gstAmt);
+  document.getElementById('t_grand').textContent   = fmt(grand);
 }
 
-// ── Utilities ────────────────────────────────────────────────────────────────
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = String(text);
-    return div.innerHTML;
+// ── File upload ───────────────────────────────────────────────────────────────
+function onFileChosen(inp) {
+  const f = inp.files[0]; if (!f) return;
+  document.getElementById('fileNameDisplay').innerHTML =
+    `<div class="file-badge">📎 ${esc(f.name)}</div>`;
+}
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+zone.addEventListener('drop', e => {
+  e.preventDefault(); zone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0]; if (!f) return;
+  const dt = new DataTransfer(); dt.items.add(f);
+  document.getElementById('invoiceFile').files = dt.files;
+  onFileChosen(document.getElementById('invoiceFile'));
+});
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML;
 }
 
-// ── Initialize Form ─────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    loadSuppliers();
-    
-    if (document.getElementById('items_container').children.length === 0) {
-        addItemRow();
-    }
-    recalcTotals();
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await Promise.all([loadStockItems(), loadSuppliers()]);
+  addItemRow();
 });
 </script>
 {% endblock %}

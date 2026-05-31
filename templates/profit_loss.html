@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% block title %}Profit & Loss Statement{% endblock %}
+{% block page_title %}Profit & Loss Statement{% endblock %}
+{% set active = 'profit_loss' %}
+
+{% block extra_style %}
+<style>
+  .pl-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .pl-card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #E5E7EB;
+    text-align: center;
+  }
+  .pl-card.gross { border-top: 4px solid #4F46E5; }
+  .pl-card.net { border-top: 4px solid #10B981; }
+  .pl-card.loss { border-top: 4px solid #DC2626; }
+  .pl-card .amount {
+    font-size: 28px;
+    font-weight: 800;
+  }
+  .filter-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    border: 1px solid #E5E7EB;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    padding: 12px;
+    background: #F9FAFB;
+    border-radius: 8px;
+    margin: 16px 0 12px 0;
+  }
+  .pl-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .pl-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #F3F4F6;
+  }
+  .pl-table .amount {
+    text-align: right;
+    font-weight: 600;
+  }
+  .total-row {
+    font-weight: 800;
+    background: #F9FAFB;
+    border-top: 2px solid #E5E7EB;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>📈 Profit & Loss Statement</h2>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Print Report</button>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <form method="GET" action="/reports/profit-loss" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Period</label>
+      <select name="period" onchange="this.form.submit()">
+        <option value="custom" {% if period == 'custom' %}selected{% endif %}>Custom Range</option>
+        <option value="month" {% if period == 'month' %}selected{% endif %}>This Month</option>
+        <option value="quarter" {% if period == 'quarter' %}selected{% endif %}>This Quarter</option>
+        <option value="year" {% if period == 'year' %}selected{% endif %}>This Year</option>
+      </select>
+    </div>
+    {% if period == 'custom' %}
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>From Date</label>
+      <input type="date" name="from_date" value="{{ from_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>To Date</label>
+      <input type="date" name="to_date" value="{{ to_date.strftime('%Y-%m-%d') }}">
+    </div>
+    <button type="submit" class="btn btn-primary">Apply</button>
+    {% endif %}
+    <a href="/reports/profit-loss" class="btn btn-ghost">Reset</a>
+  </form>
+</div>
+
+<!-- Summary Cards -->
+<div class="pl-summary">
+  <div class="pl-card">
+    <h4>Period</h4>
+    <div style="font-size: 14px;">{{ from_date.strftime('%d %b %Y') }} - {{ to_date.strftime('%d %b %Y') }}</div>
+  </div>
+  <div class="pl-card gross">
+    <h4>Gross Profit</h4>
+    <div class="amount" style="color: #4F46E5;">₹{{ "{:,.2f}".format(gross_profit) }}</div>
+    <div style="font-size: 12px;">Margin: {{ "%.1f"|format(gross_margin) }}%</div>
+  </div>
+  <div class="pl-card {% if net_profit >= 0 %}net{% else %}loss{% endif %}">
+    <h4>{% if net_profit >= 0 %}Net Profit{% else %}Net Loss{% endif %}</h4>
+    <div class="amount" style="color: {% if net_profit >= 0 %}#10B981{% else %}#DC2626{% endif %};">
+      ₹{{ "{:,.2f}".format(net_profit|abs) }}
+    </div>
+    <div style="font-size: 12px;">Margin: {{ "%.1f"|format(net_margin) }}%</div>
+  </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+  <!-- INCOME Section -->
+  <div class="card">
+    <div class="card-header" style="background: #DCFCE7;">
+      <h3>📈 INCOME</h3>
+    </div>
+    <div class="card-body">
+      <table class="pl-table">
+        <tr>
+          <td><strong>Sales Revenue</strong></td>
+          <td class="amount">₹{{ "{:,.2f}".format(total_revenue) }}</td>
+        </tr>
+        {% if other_income > 0 %}
+        <tr>
+          <td><strong>Other Income</strong></td>
+          <td class="amount">₹{{ "{:,.2f}".format(other_income) }}</td>
+        </tr>
+        {% endif %}
+        <tr class="total-row">
+          <td><strong>Total Income</strong></td>
+          <td class="amount"><strong>₹{{ "{:,.2f}".format(total_revenue + other_income) }}</strong></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <!-- EXPENSES Section -->
+  <div class="card">
+    <div class="card-header" style="background: #FEE2E2;">
+      <h3>📉 EXPENSES</h3>
+    </div>
+    <div class="card-body">
+      <table class="pl-table">
+        <tr>
+          <td><strong>Cost of Goods Sold</strong></td>
+          <td class="amount">₹{{ "{:,.2f}".format(cost_of_goods_sold) }}</td>
+        </tr>
+        {% for category, amount in expense_categories.items() %}
+        <tr>
+          <td>{{ category }}</td>
+          <td class="amount">₹{{ "{:,.2f}".format(amount) }}</td>
+        </tr>
+        {% endfor %}
+        <tr class="total-row">
+          <td><strong>Total Expenses</strong></td>
+          <td class="amount"><strong>₹{{ "{:,.2f}".format(cost_of_goods_sold + total_expenses) }}</strong></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Profit Calculation -->
+<div class="card" style="margin-top: 24px;">
+  <div class="card-header">
+    <h3>Profit Calculation</h3>
+  </div>
+  <div class="card-body">
+    <table class="pl-table">
+      <tr>
+        <td>Total Income</td>
+        <td class="amount">₹{{ "{:,.2f}".format(total_revenue + other_income) }}</td>
+      </tr>
+      <tr>
+        <td>Less: Total Expenses</td>
+        <td class="amount">- ₹{{ "{:,.2f}".format(cost_of_goods_sold + total_expenses) }}</td>
+      </tr>
+      <tr class="total-row">
+        <td><strong>{% if net_profit >= 0 %}Net Profit{% else %}Net Loss{% endif %}</strong></td>
+        <td class="amount" style="color: {% if net_profit >= 0 %}#10B981{% else %}#DC2626{% endif %};">
+          <strong>₹{{ "{:,.2f}".format(net_profit|abs) }}</strong>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<!-- Monthly Profit Trend -->
+{% if profit_trend %}
+<div class="card" style="margin-top: 24px;">
+  <div class="card-header">
+    <h3>Monthly Profit Trend</h3>
+  </div>
+  <div class="card-body">
+    <canvas id="profitChart" height="80"></canvas>
+  </div>
+</div>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+{% if profit_trend %}
+const ctx = document.getElementById('profitChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels: {{ profit_trend|map(attribute='month')|list|tojson }},
+    datasets: [
+      {
+        label: 'Revenue',
+        data: {{ profit_trend|map(attribute='revenue')|list|tojson }},
+        backgroundColor: '#4F46E5',
+        borderRadius: 8
+      },
+      {
+        label: 'Expenses',
+        data: {{ profit_trend|map(attribute='expenses')|list|tojson }},
+        backgroundColor: '#DC2626',
+        borderRadius: 8
+      },
+      {
+        label: 'Profit',
+        data: {{ profit_trend|map(attribute='profit')|list|tojson }},
+        backgroundColor: '#10B981',
+        borderRadius: 8
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        title: { display: true, text: 'Amount (₹)' }
+      }
+    }
+  }
+});
+{% endif %}
+</script>
+
+{% endblock %}

@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Purchase Report{% endblock %}
+{% block page_title %}Purchase Report{% endblock %}
+{% set active = 'purchase_report' %}
+
+{% block extra_style %}
+<style>
+  .pr-page { max-width: 1400px; margin: 0 auto; }
+
+  /* Filter bar */
+  .filter-bar {
+    background: #fff; border-radius: 16px; padding: 18px 22px;
+    margin-bottom: 22px; border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .filter-bar form { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .filter-bar .fg { display: flex; flex-direction: column; gap: 5px; }
+  .filter-bar label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; }
+  .filter-bar input, .filter-bar select { padding: 9px 13px; border-radius: 10px; border: 1.5px solid #E2E8F0; font-size: 13px; min-width: 150px; font-family: inherit; }
+
+  /* KPI grid */
+  .kpi-grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; margin-bottom: 22px; }
+  .kpi-c {
+    background: #fff; border-radius: 16px; padding: 18px 20px;
+    border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    position: relative; overflow: hidden;
+  }
+  .kpi-c::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; border-radius:16px 16px 0 0; }
+  .kpi-c.c1::before { background: linear-gradient(90deg,#6366F1,#A78BFA); }
+  .kpi-c.c2::before { background: linear-gradient(90deg,#DC2626,#F87171); }
+  .kpi-c.c3::before { background: linear-gradient(90deg,#D97706,#FCD34D); }
+  .kpi-c.c4::before { background: linear-gradient(90deg,#059669,#34D399); }
+  .kpi-c.c5::before { background: linear-gradient(90deg,#2563EB,#60A5FA); }
+  .kpi-c .kc-lbl { font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
+  .kpi-c .kc-val { font-size: 22px; font-weight: 800; margin-top: 6px; color: #0F172A; }
+  .kpi-c .kc-icon { font-size: 26px; position: absolute; right: 16px; top: 16px; opacity: .15; }
+
+  /* Charts row */
+  .charts-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; margin-bottom: 22px; }
+  .chart-card { background: #fff; border-radius: 16px; padding: 20px 22px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .chart-card h3 { font-size: 14px; font-weight: 700; color: #0F172A; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+
+  /* Table card */
+  .table-card2 { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow: hidden; }
+  .tc2-head { padding: 16px 22px; border-bottom: 1px solid #F1F5F9; display: flex; justify-content: space-between; align-items: center; }
+  .tc2-title { font-size: 14px; font-weight: 700; color: #0F172A; }
+  .tc2-export { display: inline-flex; align-items: center; gap: 6px; background: #F1F5F9; color: #475569; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .tc2-export:hover { background: #334155; color: #fff; }
+
+  .rep-table { width: 100%; border-collapse: collapse; }
+  .rep-table th { padding: 11px 14px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; text-align: left; white-space: nowrap; }
+  .rep-table td { padding: 12px 14px; font-size: 12.5px; border-bottom: 1px solid #F8FAFC; color: #334155; }
+  .rep-table tbody tr:hover { background: #F8FAFC; }
+  .rep-table tbody tr:last-child td { border-bottom: none; }
+  .rep-id { color: #4F46E5; font-weight: 700; text-decoration: none; }
+  .rep-id:hover { text-decoration: underline; }
+
+  .sbadge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .sbadge.paid    { background: #DCFCE7; color: #16A34A; }
+  .sbadge.partial { background: #FEF3C7; color: #D97706; }
+  .sbadge.pending { background: #FEE2E2; color: #DC2626; }
+
+  /* Supplier breakdown table */
+  .split-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+  .mini-card { background: #fff; border-radius: 16px; padding: 18px 20px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .mini-card h3 { font-size: 14px; font-weight: 700; color: #0F172A; margin-bottom: 12px; }
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .mini-table th { padding: 8px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #94A3B8; border-bottom: 1px solid #F1F5F9; text-align: left; }
+  .mini-table td { padding: 9px 10px; border-bottom: 1px solid #F8FAFC; color: #334155; }
+  .mini-table tr:last-child td { border-bottom: none; }
+
+  @media print {
+    .filter-bar, .btn, .tc2-export { display: none !important; }
+    .pr-page { max-width: 100%; }
+  }
+  @media(max-width:1100px) {
+    .kpi-grid-5 { grid-template-columns: repeat(3,1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .split-row  { grid-template-columns: 1fr; }
+  }
+  @media(max-width:700px) {
+    .kpi-grid-5 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="pr-page">
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <form method="GET" action="/reports/purchase">
+      <div class="fg">
+        <label>📅 From Date</label>
+        <input type="date" name="from_date" value="{{ from_date.strftime('%Y-%m-%d') }}">
+      </div>
+      <div class="fg">
+        <label>📅 To Date</label>
+        <input type="date" name="to_date" value="{{ to_date.strftime('%Y-%m-%d') }}">
+      </div>
+      <div class="fg">
+        <label>🏭 Supplier</label>
+        <select name="supplier_id">
+          <option value="">All Suppliers</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if selected_supplier == s.id %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="fg">
+        <label>📊 Status</label>
+        <select name="status">
+          <option value="all"     {% if selected_status=='all'     %}selected{% endif %}>All</option>
+          <option value="paid"    {% if selected_status=='paid'    %}selected{% endif %}>Paid</option>
+          <option value="partial" {% if selected_status=='partial' %}selected{% endif %}>Partial</option>
+          <option value="pending" {% if selected_status=='pending' %}selected{% endif %}>Pending</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">↻ Apply Filter</button>
+      <a href="/reports/purchase" class="btn btn-ghost">Reset</a>
+      <button type="button" class="btn btn-ghost" onclick="window.print()">🖨 Print</button>
+    </form>
+  </div>
+
+  <!-- KPI Cards -->
+  <div class="kpi-grid-5">
+    <div class="kpi-c c1">
+      <div class="kc-icon">🧾</div>
+      <div class="kc-lbl">Total Invoices</div>
+      <div class="kc-val">{{ total_purchases }}</div>
+    </div>
+    <div class="kpi-c c2">
+      <div class="kc-icon">💸</div>
+      <div class="kc-lbl">Purchase Value</div>
+      <div class="kc-val" style="font-size:18px">₹{{ "{:,.0f}".format(total_amount) }}</div>
+    </div>
+    <div class="kpi-c c3">
+      <div class="kc-icon">🏛</div>
+      <div class="kc-lbl">Total GST</div>
+      <div class="kc-val" style="font-size:18px">₹{{ "{:,.0f}".format(total_tax) }}</div>
+    </div>
+    <div class="kpi-c c4">
+      <div class="kc-icon">✅</div>
+      <div class="kc-lbl">Amount Paid</div>
+      <div class="kc-val" style="font-size:18px;color:#059669">₹{{ "{:,.0f}".format(total_paid) }}</div>
+    </div>
+    <div class="kpi-c c5">
+      <div class="kc-icon">⏳</div>
+      <div class="kc-lbl">Pending</div>
+      <div class="kc-val" style="font-size:18px;color:#DC2626">₹{{ "{:,.0f}".format(total_due) }}</div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  {% if monthly_summary %}
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>📈 Monthly Purchase Trend</h3>
+      <canvas id="barChart" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🍩 Payment Status Breakdown</h3>
+      <canvas id="donutChart" height="200" style="max-height:200px"></canvas>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Main Table -->
+  <div class="table-card2">
+    <div class="tc2-head">
+      <div class="tc2-title">🛒 Purchase Invoices ({{ total_purchases }} records)</div>
+      <button class="tc2-export" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+    <div class="table-wrap">
+      <table class="rep-table" id="repTable">
+        <thead>
+          <tr>
+            <th>Purchase ID</th>
+            <th>Date</th>
+            <th>Supplier</th>
+            <th>Supplier Invoice</th>
+            <th>Taxable</th>
+            <th>GST</th>
+            <th>Grand Total</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in purchases %}
+          <tr>
+            <td><a href="/purchase/view/{{ p.purchase_id }}" class="rep-id">{{ p.purchase_id }}</a></td>
+            <td style="white-space:nowrap">{{ p.date.strftime('%d %b %Y') if p.date else '—' }}</td>
+            <td><strong>{{ p.supplier.name if p.supplier else '—' }}</strong></td>
+            <td style="color:#64748B">{{ p.invoice_number or '—' }}</td>
+            <td>₹{{ "{:,.2f}".format(p.subtotal or 0) }}</td>
+            <td style="color:#D97706">₹{{ "{:,.2f}".format(p.tax_amount or 0) }}</td>
+            <td><strong>₹{{ "{:,.2f}".format(p.grand_total or 0) }}</strong></td>
+            <td style="color:#059669">₹{{ "{:,.2f}".format(p.paid_amount or 0) }}</td>
+            <td style="color:{% if (p.balance or 0) > 0 %}#DC2626{% else %}#059669{% endif %};font-weight:700">
+              ₹{{ "{:,.2f}".format(p.balance or 0) }}
+            </td>
+            <td>
+              {% set st = (p.status or 'Pending')|lower %}
+              <span class="sbadge {{ st }}">
+                {% if st=='paid' %}✓{% elif st=='partial' %}⏳{% else %}⚠{% endif %}
+                {{ p.status or 'Pending' }}
+              </span>
+            </td>
+            <td><a href="/purchase/view/{{ p.purchase_id }}" class="btn btn-ghost btn-sm">View</a></td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="11" style="text-align:center;padding:48px;color:#94A3B8;">
+              No purchase invoices found for the selected period.
+              <a href="/purchase/new" style="margin-left:8px;color:#2563EB">Create one →</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Supplier Breakdown + Payment Breakdown mini tables -->
+  <div class="split-row">
+    <div class="mini-card">
+      <h3>🏭 Supplier-wise Summary</h3>
+      <table class="mini-table" id="supTable">
+        <thead><tr><th>Supplier</th><th>Bills</th><th>Total</th><th>Pending</th></tr></thead>
+        <tbody>
+          {% set supplier_map = {} %}
+          {% for p in purchases %}
+            {% set sname = p.supplier.name if p.supplier else '—' %}
+            {% if sname not in supplier_map %}
+              {% set _ = supplier_map.update({sname: {'count':0,'total':0,'pending':0}}) %}
+            {% endif %}
+            {% set _ = supplier_map[sname].update({
+              'count': supplier_map[sname]['count'] + 1,
+              'total': supplier_map[sname]['total'] + (p.grand_total or 0),
+              'pending': supplier_map[sname]['pending'] + (p.balance or 0)
+            }) %}
+          {% endfor %}
+          {% for sname, d in supplier_map.items() %}
+          <tr>
+            <td><strong>{{ sname }}</strong></td>
+            <td>{{ d.count }}</td>
+            <td>₹{{ "{:,.0f}".format(d.total) }}</td>
+            <td style="color:{% if d.pending > 0 %}#DC2626{% else %}#059669{% endif %};font-weight:700">
+              ₹{{ "{:,.0f}".format(d.pending) }}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:16px;">No data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="mini-card">
+      <h3>📊 Monthly Summary</h3>
+      <table class="mini-table">
+        <thead><tr><th>Month</th><th>Bills</th><th>Total Amount</th></tr></thead>
+        <tbody>
+          {% for m in monthly_summary %}
+          <tr>
+            <td>{{ m.month }}</td>
+            <td>{{ m.count }}</td>
+            <td><strong>₹{{ "{:,.0f}".format(m.amount) }}</strong></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="3" style="text-align:center;color:#94A3B8;padding:16px;">No data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+{% if monthly_summary %}
+// Bar chart
+new Chart(document.getElementById('barChart').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: {{ monthly_summary|map(attribute='month')|list|tojson }},
+    datasets: [{
+      label: 'Purchase Amount (₹)',
+      data: {{ monthly_summary|map(attribute='amount')|list|tojson }},
+      backgroundColor: 'rgba(37,99,235,0.8)',
+      borderRadius: 8, borderSkipped: false,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false } },
+      y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => '₹' + (v>=100000 ? (v/100000).toFixed(1)+'L' : v>=1000 ? (v/1000).toFixed(0)+'K' : v) } }
+    }
+  }
+});
+
+// Donut chart
+new Chart(document.getElementById('donutChart').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Paid', 'Partial', 'Pending'],
+    datasets: [{
+      data: [
+        {{ purchases | selectattr('status','equalto','Paid') | list | length }},
+        {{ purchases | selectattr('status','equalto','Partial') | list | length }},
+        {{ purchases | selectattr('status','equalto','Pending') | list | length }}
+      ],
+      backgroundColor: ['#059669','#D97706','#DC2626'],
+      borderWidth: 0, hoverOffset: 6
+    }]
+  },
+  options: {
+    responsive: true, cutout: '65%',
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} invoice(s)` } }
+    }
+  }
+});
+{% endif %}
+
+// CSV Export
+function exportCSV() {
+  const rows = [['Purchase ID','Date','Supplier','Invoice No','Taxable','GST','Grand Total','Paid','Balance','Status']];
+  document.querySelectorAll('#repTable tbody tr').forEach(tr => {
+    const cols = Array.from(tr.querySelectorAll('td')).map(td => `"${td.innerText.trim().replace(/"/g,'""')}"`);
+    if (cols.length > 3) rows.push(cols.slice(0, 10));
+  });
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'purchase_report_{{ from_date.strftime("%Y%m%d") }}_{{ to_date.strftime("%Y%m%d") }}.csv';
+  a.click();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% block title %}Stock Report{% endblock %}
+{% block page_title %}Stock Report{% endblock %}
+{% set active = 'stock_report' %}
+
+{% block extra_style %}
+<style>
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid #E5E7EB;
+    text-align: center;
+  }
+  .summary-card h4 {
+    font-size: 12px;
+    color: #6B7280;
+    margin: 0 0 8px 0;
+  }
+  .summary-card .amount {
+    font-size: 28px;
+    font-weight: 800;
+  }
+  .filter-bar {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    border: 1px solid #E5E7EB;
+  }
+  .status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .status-in { background: #DCFCE7; color: #16A34A; }
+  .status-low { background: #FEF3C7; color: #D97706; }
+  .status-out { background: #FEE2E2; color: #DC2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>📦 Stock Report</h2>
+  <button onclick="window.print()" class="btn btn-primary">🖨️ Print Report</button>
+</div>
+
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <form method="GET" action="/reports/stock" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Category</label>
+      <select name="category">
+        <option value="all" {% if selected_category == 'all' %}selected{% endif %}>All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if selected_category == cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Stock Status</label>
+      <select name="stock_status">
+        <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All Items</option>
+        <option value="in" {% if selected_status == 'in' %}selected{% endif %}>In Stock</option>
+        <option value="low" {% if selected_status == 'low' %}selected{% endif %}>Low Stock</option>
+        <option value="out" {% if selected_status == 'out' %}selected{% endif %}>Out of Stock</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom: 0;">
+      <label>Search</label>
+      <input type="text" name="search" placeholder="Name or Code" value="{{ search_query }}">
+    </div>
+    <button type="submit" class="btn btn-primary">Apply Filter</button>
+    <a href="/reports/stock" class="btn btn-ghost">Reset</a>
+  </form>
+</div>
+
+<!-- Summary Cards -->
+<div class="summary-cards">
+  <div class="summary-card">
+    <h4>Total Items</h4>
+    <div class="amount">{{ total_items }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Total Stock Value</h4>
+    <div class="amount" style="color: #4F46E5;">₹{{ "{:,.2f}".format(total_value) }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>In Stock</h4>
+    <div class="amount" style="color: #16A34A;">{{ in_stock_count }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Low Stock</h4>
+    <div class="amount" style="color: #D97706;">{{ low_stock_count }}</div>
+  </div>
+  <div class="summary-card">
+    <h4>Out of Stock</h4>
+    <div class="amount" style="color: #DC2626;">{{ out_stock_count }}</div>
+  </div>
+</div>
+
+<!-- Top Selling Items -->
+{% if top_items %}
+<div class="card" style="margin-bottom: 24px;">
+  <div class="card-header">
+    <h3>🏆 Top 10 Selling Items</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Product Code</th>
+          <th>Product Name</th>
+          <th style="text-align: right;">Quantity Sold</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in top_items %}
+        <tr>
+          <td>{{ item.code }}</td>
+          <td>{{ item.name }}</td>
+          <td style="text-align: right;"><strong>{{ item.qty|int }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<!-- Stock Items Table -->
+<div class="card">
+  <div class="card-header">
+    <h3>Current Stock Inventory</h3>
+  </div>
+  <div class="table-wrap">
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Product Name</th>
+          <th>Category</th>
+          <th style="text-align: center">Quantity</th>
+          <th>Unit</th>
+          <th style="text-align: right">Unit Price</th>
+          <th style="text-align: right">Total Value</th>
+          <th style="text-align: center">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in stock_items %}
+        <tr>
+          <td>{{ item.code }}</td>
+          <td><strong>{{ item.name }}</strong></td>
+          <td>{{ item.category or '—' }}</td>
+          <td style="text-align: center"><strong>{{ item.quantity }}</strong></td>
+          <td>{{ item.unit or 'pcs' }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(item.unit_price) }}</td>
+          <td style="text-align: right">₹{{ "{:,.2f}".format(item.quantity * item.unit_price) }}</td>
+          <td style="text-align: center">
+            {% if item.quantity <= 0 %}
+            <span class="status-badge status-out">Out of Stock</span>
+            {% elif item.reorder_level and item.quantity <= item.reorder_level %}
+            <span class="status-badge status-low">Low Stock</span>
+            {% else %}
+            <span class="status-badge status-in">In Stock</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align: center; padding: 40px;">No stock items found.{% if search_query %} Try a different search.{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

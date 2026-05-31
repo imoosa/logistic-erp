@@ -3,75 +3,156 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NexaERP · {% block title %}{% endblock %}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <title>LogisticERP · {% block title %}{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --primary: #4F46E5; --primary-light: #EEF2FF; --primary-dark: #3730A3;
-      --success: #16A34A; --success-light: #DCFCE7;
-      --danger:  #DC2626; --danger-light:  #FEE2E2;
+      --primary: #2563EB; --primary-light: #EFF6FF; --primary-dark: #1D4ED8;
+      --primary-glow: rgba(37,99,235,0.12);
+      --success: #059669; --success-light: #D1FAE5;
+      --danger: #DC2626; --danger-light: #FEE2E2;
       --warning: #D97706; --warning-light: #FEF3C7;
-      --gray-50: #F9FAFB; --gray-100: #F3F4F6; --gray-200: #E5E7EB;
-      --gray-400: #9CA3AF; --gray-500: #6B7280; --gray-600: #4B5563;
-      --gray-700: #374151; --gray-800: #1F2937; --gray-900: #111827;
-      --font: 'Poppins', sans-serif;
+      --accent: #7C3AED; --accent-light: #EDE9FE;
+      --gray-50: #F8FAFC; --gray-100: #F1F5F9; --gray-200: #E2E8F0;
+      --gray-400: #94A3B8; --gray-500: #64748B; --gray-600: #475569;
+      --gray-700: #334155; --gray-800: #1E293B; --gray-900: #0F172A;
+      --font: 'Plus Jakarta Sans', sans-serif;
+      --sidebar-w: 265px;
+      --topbar-h: 70px;
+      --radius: 14px;
     }
     body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); }
 
-    /* Sidebar */
-    .sidebar { width: 260px; background: #fff; border-right: 1px solid var(--gray-200); position: fixed; top: 0; left: 0; height: 100vh; display: flex; flex-direction: column; z-index: 100; overflow-y: auto; }
-    .sidebar-logo { padding: 20px 24px; border-bottom: 1px solid var(--gray-100); }
-    .sidebar-logo span { font-size: 22px; font-weight: 800; color: var(--primary); }
-    .sidebar-logo small { display: block; font-size: 11px; color: var(--gray-400); margin-top: 4px; }
-    
-    .company-info { padding: 16px 20px; background: var(--primary-light); margin: 12px; border-radius: 12px; }
-    .company-name { font-weight: 700; font-size: 13px; color: var(--primary-dark); }
-    .plan-badge { background: var(--primary); color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; display: inline-block; margin-top: 6px; }
-    
-    .sidebar nav { flex: 1; padding: 12px; }
-    .sidebar nav a {
-      display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-      border-radius: 10px; font-size: 13.5px; font-weight: 500; color: var(--gray-600);
-      text-decoration: none; margin-bottom: 2px; transition: all .15s;
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--gray-900);
+      position: fixed; top: 0; left: 0; height: 100vh;
+      display: flex; flex-direction: column;
+      z-index: 100; overflow-y: auto;
+      scrollbar-width: thin; scrollbar-color: #334155 transparent;
     }
-    .sidebar nav a:hover  { background: var(--gray-100); color: var(--gray-900); }
-    .sidebar nav a.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-    .nav-group-label { font-size: 10px; font-weight: 700; text-transform: uppercase;
-                       letter-spacing: .6px; color: var(--gray-400); padding: 10px 14px 4px;
-                       margin-top: 4px; }
-    
-    .sidebar-foot { padding: 16px; border-top: 1px solid var(--gray-100); }
-    .sidebar-foot a { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 10px; font-size: 13.5px; font-weight: 500; color: var(--danger); text-decoration: none; }
-    .sidebar-foot a:hover { background: var(--danger-light); }
+    .sidebar-header {
+      padding: 22px 20px 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .sidebar-logo {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
+    }
+    .sidebar-logo-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .sidebar-logo-text { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+    .sidebar-logo-sub  { font-size: 10px; color: var(--gray-400); margin-top: 1px; }
 
-    /* Topbar */
-    .topbar { height: 60px; background: #fff; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; padding: 0 24px; position: sticky; top: 0; z-index: 50; }
-    .topbar-title { font-size: 17px; font-weight: 700; color: var(--gray-900); }
-    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 16px; }
-    .user-chip { display: flex; align-items: center; gap: 10px; background: var(--gray-100); padding: 6px 14px 6px 8px; border-radius: 30px; cursor: pointer; }
-    .avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
-    .user-name { font-size: 13px; font-weight: 600; }
-    .user-role { font-size: 11px; color: var(--gray-400); }
+    .company-pill {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; padding: 10px 14px;
+    }
+    .company-pill-name { font-size: 12px; font-weight: 700; color: #e2e8f0; }
+    .company-pill-plan {
+      display: inline-block; margin-top: 5px;
+      background: linear-gradient(90deg, #2563EB, #7C3AED);
+      color: #fff; font-size: 9px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
 
-    /* Main */
-    .wrapper { display: flex; }
-    .main { margin-left: 260px; flex: 1; min-height: 100vh; }
-    .content { padding: 24px; }
+    /* Nav */
+    .sidebar-nav { flex: 1; padding: 14px 12px; }
+    .nav-section { margin-bottom: 6px; }
+    .nav-section-title {
+      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: #475569;
+      padding: 10px 10px 5px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 12px; border-radius: 9px;
+      font-size: 13px; font-weight: 500; color: #94a3b8;
+      text-decoration: none; margin-bottom: 1px;
+      transition: all .15s;
+    }
+    .nav-item:hover  { background: rgba(255,255,255,0.06); color: #e2e8f0; }
+    .nav-item.active { background: rgba(37,99,235,0.2); color: #60a5fa; font-weight: 600; }
+    .nav-item.active .nav-icon { color: #60a5fa; }
+    .nav-icon { font-size: 15px; flex-shrink: 0; }
 
-    /* Buttons, Cards, Tables */
+    /* Sidebar footer with logout */
+    .sidebar-foot {
+      padding: 12px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .sidebar-foot a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 9px;
+      font-size: 13px; font-weight: 600;
+      text-decoration: none; transition: all .15s;
+    }
+    .logout-btn { color: #f87171; }
+    .logout-btn:hover { background: rgba(220,38,38,0.15); color: #ef4444; }
+
+    /* ── TOPBAR ── */
+    .topbar {
+      height: var(--topbar-h);
+      background: #fff;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex; align-items: center;
+      padding: 0 28px;
+      gap: 16px;
+    }
+    .topbar-title { font-size: 16px; font-weight: 700; color: var(--gray-900); }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+    /* Welcome greeting in topbar */
+    .topbar-welcome {
+      display: flex; align-items: center; gap: 12px;
+      background: linear-gradient(135deg, #EFF6FF 0%, #EDE9FE 100%);
+      border: 1px solid #DBEAFE;
+      border-radius: 40px; padding: 8px 18px 8px 12px;
+    }
+    .topbar-welcome-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      color: #fff; display: flex; align-items: center;
+      justify-content: center; font-size: 13px; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .topbar-welcome-text { line-height: 1.2; }
+    .topbar-welcome-name { font-size: 13px; font-weight: 700; color: var(--gray-900); }
+    .topbar-welcome-greeting { font-size: 11px; color: var(--gray-500); }
+
+    .topbar-logout {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--danger-light); color: var(--danger);
+      border: 1px solid #FECACA;
+      border-radius: 40px; padding: 8px 16px;
+      font-size: 13px; font-weight: 600;
+      text-decoration: none; transition: all .15s;
+    }
+    .topbar-logout:hover { background: var(--danger); color: #fff; }
+
+    /* layout defined in CORE LAYOUT FIX section below */
+
+    /* ── COMMON COMPONENTS ── */
     .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; transition: all .15s; }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-primary:hover { background: var(--primary-dark); }
     .btn-success { background: var(--success); color: #fff; }
-    .btn-success:hover { background: #15803D; }
+    .btn-success:hover { background: #047857; }
     .btn-ghost { background: #fff; color: var(--gray-600); border: 1.5px solid var(--gray-200); }
     .btn-ghost:hover { background: var(--gray-100); }
     .btn-danger { background: var(--danger); color: #fff; }
     .btn-sm { padding: 6px 12px; font-size: 12px; }
 
-    .card { background: #fff; border-radius: 14px; border: 1px solid var(--gray-100); box-shadow: 0 1px 3px rgba(0,0,0,.07); margin-bottom: 20px; }
+    .card { background: #fff; border-radius: var(--radius); border: 1px solid var(--gray-100); box-shadow: 0 1px 3px rgba(0,0,0,.05); margin-bottom: 20px; }
     .card-body { padding: 20px; }
 
     .table-wrap { overflow-x: auto; }
@@ -83,7 +164,7 @@
     .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
     .badge-success { background: var(--success-light); color: var(--success); }
     .badge-warning { background: var(--warning-light); color: var(--warning); }
-    .badge-danger  { background: var(--danger-light);  color: var(--danger);  }
+    .badge-danger  { background: var(--danger-light);  color: var(--danger); }
     .badge-primary { background: var(--primary-light); color: var(--primary); }
 
     .flash { background: var(--success-light); color: var(--success); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 500; }
@@ -95,276 +176,216 @@
 
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid var(--gray-100); }
-    .kpi-val { font-size: 26px; font-weight: 800; margin: 8px 0 4px; }
-    .kpi-lbl { font-size: 12px; color: var(--gray-500); }
-
     .page-header { margin-bottom: 24px; }
     .page-header h2 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
 
-    @media(max-width:768px) { .sidebar{display:none;} .main{margin-left:0;} .kpi-grid{grid-template-columns:1fr 1fr;} .grid-2{grid-template-columns:1fr;} }
+    /* ── CORE LAYOUT FIX ── */
+    html, body { height: 100%; }
+    .wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+    /* Sidebar is fixed — push .main away from it */
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-height: 100vh;
+      min-width: 0;          /* prevent flex overflow */
+      display: flex;
+      flex-direction: column;
+    }
+    /* Topbar stays on top of page content but BELOW sidebar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;           /* sidebar is 100, topbar is 40 — sidebar always wins */
+      flex-shrink: 0;
+    }
+    .content {
+      padding: 28px;
+      flex: 1;
+    }
+
+    @media(max-width:768px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .topbar-welcome { display: none; }
+    }
   </style>
   {% block extra_style %}{% endblock %}
 </head>
 <body>
 <div class="wrapper">
 
-  <!-- Sidebar -
-  <div class="sidebar">
-    <div class="sidebar-logo">
-      <span>⚡ NexaERP</span>
-      <small>Enterprise Suite</small>
-    </div>
-    
-    {% if session.user and session.user.company_name %}
-    <div class="company-info">
-      <div class="company-name">{{ session.user.company_name }}</div>
-      <div class="plan-badge">{{ session.user.subscription_plan|capitalize }} Plan</div>
-    </div>
-    {% endif %}
-    
-    <nav>
-      {% if session.user %}
-        {% if session.user.is_super_admin %}
-          <a href="/admin/dashboard" class="{% if active=='admin' %}active{% endif %}">🔐 Super Admin</a>
-          <a href="/admin/companies" class="{% if active=='companies' %}active{% endif %}">🏢 Companies</a>
-        {% else %}
-          <a href="/dashboard" class="{% if active=='dashboard' %}active{% endif %}">📊 Dashboard</a>
-
-          <div class="nav-group-label">Sales</div>
-          <a href="/invoice/list"   class="{% if active=='invoice'   %}active{% endif %}">🧾 Customer Invoices</a>
-          <a href="/estimate/list"  class="{% if active=='estimate'  %}active{% endif %}">📄 Shipper Invoice</a>
-          <!--<a href="/orders"         class="{% if active=='orders'    %}active{% endif %}">📋 Orders</a>
-          <a href="/receipts/new"   class="{% if active=='receipts'  %}active{% endif %}">💰 Record Receipt</a>-->
-
-          <!--<div class="nav-group-label">Purchases</div>
-          <a href="/purchase/list"  class="{% if active=='purchase'  %}active{% endif %}">📥 Purchase Invoices</a>
-          <a href="/payments/new"   class="{% if active=='payments'  %}active{% endif %}">💸 Record Payment</a>
-
-          <div class="nav-group-label">Ledger</div>
-          <a href="/debtors"        class="{% if active=='debtors'   %}active{% endif %}">📥 Debtors</a>
-          <a href="/creditors"      class="{% if active=='creditors' %}active{% endif %}">📤 Creditors</a>
-          <a href="/clients"        class="{% if active=='clients'   %}active{% endif %}">👥 Clients</a>
-          <a href="/stock"          class="{% if active=='stock'     %}active{% endif %}">📦 Stock</a>
-          
-          {% if session.user.role == 'owner' %}
-            <hr style="margin: 12px 0; border-color: #E5E7EB;">
-            <a href="/company/settings" class="{% if active=='settings' %}active{% endif %}">⚙️ Company Settings</a>
-          {% endif %}
-        {% endif %}
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🚚</div>
+        <div>
+          <div class="sidebar-logo-text">LogisticERP</div>
+          <div class="sidebar-logo-sub">Enterprise Suite</div>
+        </div>
+      </div>
+      {% if company %}
+      <div class="company-pill">
+        <div class="company-pill-name">{{ company.company_name }}</div>
+        <span class="company-pill-plan">{{ company.subscription_plan|upper if company.subscription_plan else 'FREE' }} Plan</span>
+      </div>
       {% endif %}
+    </div>
+
+    <nav class="sidebar-nav">
+      <!-- Main Dashboard -->
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">📊</span>
+        <span>Dashboard</span>
+      </a>
+
+      <!-- Sales Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">Sales</div>
+        <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
+          <span class="nav-icon">📄</span><span>Customer Invoices</span>
+        </a>
+        <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
+          <span class="nav-icon">📝</span><span>Shipper Invoices</span>
+        </a>
+        <a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
+          <span class="nav-icon">📦</span><span>Orders</span>
+        </a>
+        <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
+          <span class="nav-icon">👥</span><span>Clients</span>
+        </a>
+      </div>
+
+      <!-- Purchases Section -->
+      <div class="nav-section">
+        <div class="nav-section-title">Purchases</div>
+        <a href="{{ url_for('purchase_invoice_list') }}" class="nav-item {% if active == 'purchases' %}active{% endif %}">
+          <span class="nav-icon">🛒</span><span>Purchase Invoices</span>
+        </a>
+        <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
+          <span class="nav-icon">📦</span><span>Stock / Inventory</span>
+        </a>
+      </div>
+
+      <!-- Banking & Finance -->
+      <div class="nav-section">
+        <div class="nav-section-title">Banking & Finance</div>
+        <a href="{{ url_for('bank_accounts') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
+          <span class="nav-icon">🏦</span><span>Bank Accounts</span>
+        </a>
+        <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
+          <span class="nav-icon">💵</span><span>Cash In Hand</span>
+        </a>
+        <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
+          <span class="nav-icon">📝</span><span>Cheques</span>
+        </a>
+        <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
+          <span class="nav-icon">🏦</span><span>Loan Accounts</span>
+        </a>
+      </div>
+
+      <!-- Accounting -->
+      <div class="nav-section">
+        <div class="nav-section-title">Accounting</div>
+        <a href="{{ url_for('debtors_list') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
+          <span class="nav-icon">💰</span><span>Debtors (Customers)</span>
+        </a>
+        <a href="{{ url_for('creditors_list') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
+          <span class="nav-icon">💳</span><span>Creditors (Suppliers)</span>
+        </a>
+        <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
+          <span class="nav-icon">📥</span><span>Receipts</span>
+        </a>
+        <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
+          <span class="nav-icon">📤</span><span>Payments</span>
+        </a>
+        <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
+          <span class="nav-icon">📒</span><span>General Ledger</span>
+        </a>
+        <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
+          <span class="nav-icon">⚖️</span><span>Trial Balance</span>
+        </a>
+      </div>
+
+      <!-- Reports -->
+      <div class="nav-section">
+        <div class="nav-section-title">Reports</div>
+        <a href="{{ url_for('sales_report') }}" class="nav-item {% if active == 'sales_report' %}active{% endif %}">
+          <span class="nav-icon">📈</span><span>Sales Report</span>
+        </a>
+        <a href="{{ url_for('purchase_report') }}" class="nav-item {% if active == 'purchase_report' %}active{% endif %}">
+          <span class="nav-icon">📉</span><span>Purchase Report</span>
+        </a>
+        <a href="{{ url_for('stock_report') }}" class="nav-item {% if active == 'stock_report' %}active{% endif %}">
+          <span class="nav-icon">📊</span><span>Stock Report</span>
+        </a>
+        <a href="{{ url_for('tax_report') }}" class="nav-item {% if active == 'tax_report' %}active{% endif %}">
+          <span class="nav-icon">🧾</span><span>Tax Report (GST)</span>
+        </a>
+        <a href="{{ url_for('profit_loss') }}" class="nav-item {% if active == 'profit_loss' %}active{% endif %}">
+          <span class="nav-icon">📊</span><span>Profit & Loss</span>
+        </a>
+      </div>
+
+      <!-- Sync & Backup -->
+      <div class="nav-section">
+        <div class="nav-section-title">Sync & Backup</div>
+        <a href="{{ url_for('sync_data') }}" class="nav-item {% if active == 'sync' %}active{% endif %}">
+          <span class="nav-icon">🔄</span><span>Sync Data</span>
+        </a>
+        <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
+          <span class="nav-icon">💾</span><span>Backup</span>
+        </a>
+        <a href="{{ url_for('share_data') }}" class="nav-item {% if active == 'share' %}active{% endif %}">
+          <span class="nav-icon">📤</span><span>Share Data</span>
+        </a>
+      </div>
+
+      <!-- Settings -->
+      <div class="nav-section">
+        <div class="nav-section-title">Settings</div>
+        <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
+          <span class="nav-icon">⚙️</span><span>Company Settings</span>
+        </a>
+        <a href="{{ url_for('employee_list') }}" class="nav-item {% if active == 'employees' %}active{% endif %}">
+          <span class="nav-icon">👥</span><span>Employees</span>
+        </a>
+        <a href="{{ url_for('profile') }}" class="nav-item {% if active == 'profile' %}active{% endif %}">
+          <span class="nav-icon">👤</span><span>My Profile</span>
+        </a>
+      </div>
     </nav>
-    
+
+    <!-- Sidebar Logout -->
     <div class="sidebar-foot">
-      <a href="/profile">👤 My Profile</a>
-      <a href="/logout">🚪 Sign Out</a>
+      <a href="{{ url_for('logout') }}" class="logout-btn">
+        <span>🚪</span>
+        <span>Sign Out</span>
+      </a>
     </div>
-  </div>-->
+  </aside>
 
-  <!-- In your base.html - Update the sidebar navigation -->
-<aside class="sidebar">
-  <div class="sidebar-header">
-    <h2>🚚 LogisticERP</h2>
-    <p>{{ company.company_name if company else 'Your Company' }}</p>
-  </div>
-  
-  <nav class="sidebar-nav">
-    <!-- Main Dashboard -->
-    <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
-      <span class="nav-icon">📊</span>
-      <span>Dashboard</span>
-    </a>
-    
-    <!-- Sales Section -->
-    <div class="nav-section">
-      <div class="nav-section-title">SALES</div>
-      <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
-        <span class="nav-icon">📄</span>
-        <span>Customer Invoices</span>
-      </a>
-      <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
-        <span class="nav-icon">📝</span>
-        <span>Shipper Invoices</span>
-      </a>
-      <a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
-        <span class="nav-icon">📦</span>
-        <span>Orders</span>
-      </a>
-      <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
-        <span class="nav-icon">👥</span>
-        <span>Clients</span>
-      </a>
-    </div>
-    
-    <!-- Purchases Section -->
-    <div class="nav-section">
-      <div class="nav-section-title">PURCHASES</div>
-      <a href="{{ url_for('purchase_invoice_list') }}" class="nav-item {% if active == 'purchases' %}active{% endif %}">
-        <span class="nav-icon">🛒</span>
-        <span>Purchase Invoices</span>
-      </a>
-      <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
-        <span class="nav-icon">📦</span>
-        <span>Stock / Inventory</span>
-      </a>
-    </div>
-    
-    <!-- Banking & Finance Section (NEW) -->
-    <div class="nav-section">
-      <div class="nav-section-title">BANKING & FINANCE</div>
-      <a href="{{ url_for('bank_accounts') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
-        <span class="nav-icon">🏦</span>
-        <span>Bank Accounts</span>
-      </a>
-      <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
-        <span class="nav-icon">💵</span>
-        <span>Cash In Hand</span>
-      </a>
-      <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
-        <span class="nav-icon">📝</span>
-        <span>Cheques</span>
-      </a>
-      <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
-        <span class="nav-icon">🏦</span>
-        <span>Loan Accounts</span>
-      </a>
-    </div>
-    
-    <!-- Accounting Section (NEW) -->
-    <div class="nav-section">
-      <div class="nav-section-title">ACCOUNTING</div>
-      <a href="{{ url_for('debtors_list') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
-        <span class="nav-icon">💰</span>
-        <span>Debtors (Customers)</span>
-      </a>
-      <a href="{{ url_for('creditors_list') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
-        <span class="nav-icon">💳</span>
-        <span>Creditors (Suppliers)</span>
-      </a>
-      <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
-        <span class="nav-icon">📥</span>
-        <span>Receipts</span>
-      </a>
-      <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
-        <span class="nav-icon">📤</span>
-        <span>Payments</span>
-      </a>
-      <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
-        <span class="nav-icon">📒</span>
-        <span>General Ledger</span>
-      </a>
-      <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
-        <span class="nav-icon">⚖️</span>
-        <span>Trial Balance</span>
-      </a>
-    </div>
-    
-    <!-- Reports Section (NEW) -->
-    <div class="nav-section">
-      <div class="nav-section-title">REPORTS</div>
-      <a href="{{ url_for('sales_report') }}" class="nav-item {% if active == 'sales_report' %}active{% endif %}">
-        <span class="nav-icon">📈</span>
-        <span>Sales Report</span>
-      </a>
-      <a href="{{ url_for('purchase_report') }}" class="nav-item {% if active == 'purchase_report' %}active{% endif %}">
-        <span class="nav-icon">📉</span>
-        <span>Purchase Report</span>
-      </a>
-      <a href="{{ url_for('stock_report') }}" class="nav-item {% if active == 'stock_report' %}active{% endif %}">
-        <span class="nav-icon">📊</span>
-        <span>Stock Report</span>
-      </a>
-      <a href="{{ url_for('tax_report') }}" class="nav-item {% if active == 'tax_report' %}active{% endif %}">
-        <span class="nav-icon">🧾</span>
-        <span>Tax Report (GST)</span>
-      </a>
-      <a href="{{ url_for('profit_loss') }}" class="nav-item {% if active == 'profit_loss' %}active{% endif %}">
-        <span class="nav-icon">📊</span>
-        <span>Profit & Loss</span>
-      </a>
-    </div>
-    
-    <!-- Sync, Share & Backup (NEW) -->
-    <div class="nav-section">
-      <div class="nav-section-title">SYNC & BACKUP</div>
-      <a href="{{ url_for('sync_data') }}" class="nav-item {% if active == 'sync' %}active{% endif %}">
-        <span class="nav-icon">🔄</span>
-        <span>Sync Data</span>
-      </a>
-      <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
-        <span class="nav-icon">💾</span>
-        <span>Backup</span>
-      </a>
-      <a href="{{ url_for('share_data') }}" class="nav-item {% if active == 'share' %}active{% endif %}">
-        <span class="nav-icon">📤</span>
-        <span>Share Data</span>
-      </a>
-    </div>
-    
-    <!-- Other Products (NEW) -->
-    <div class="nav-section">
-      <div class="nav-section-title">OTHER PRODUCTS</div>
-      <a href="{{ url_for('integrations') }}" class="nav-item {% if active == 'integrations' %}active{% endif %}">
-        <span class="nav-icon">🔌</span>
-        <span>Integrations</span>
-      </a>
-      <a href="{{ url_for('addons') }}" class="nav-item {% if active == 'addons' %}active{% endif %}">
-        <span class="nav-icon">🧩</span>
-        <span>Add-ons</span>
-      </a>
-    </div>
-    
-    <!-- Utilities (NEW) -->
-    <div class="nav-section">
-      <div class="nav-section-title">UTILITIES</div>
-      <a href="{{ url_for('import_data') }}" class="nav-item {% if active == 'import' %}active{% endif %}">
-        <span class="nav-icon">📥</span>
-        <span>Import Data</span>
-      </a>
-      <a href="{{ url_for('export_data') }}" class="nav-item {% if active == 'export' %}active{% endif %}">
-        <span class="nav-icon">📤</span>
-        <span>Export Data</span>
-      </a>
-      <a href="{{ url_for('audit_log') }}" class="nav-item {% if active == 'audit' %}active{% endif %}">
-        <span class="nav-icon">📋</span>
-        <span>Audit Log</span>
-      </a>
-    </div>
-    
-    <!-- Settings (Keep as is) -->
-    <div class="nav-section">
-      <div class="nav-section-title">SETTINGS</div>
-      <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
-        <span class="nav-icon">⚙️</span>
-        <span>Company Settings</span>
-      </a>
-      <a href="{{ url_for('employee_list') }}" class="nav-item {% if active == 'employees' %}active{% endif %}">
-        <span class="nav-icon">👥</span>
-        <span>Employees</span>
-      </a>
-      <a href="{{ url_for('profile') }}" class="nav-item {% if active == 'profile' %}active{% endif %}">
-        <span class="nav-icon">👤</span>
-        <span>My Profile</span>
-      </a>
-    </div>
-  </nav>
-</aside>
-
-  <!-- Main -->
+  <!-- ── MAIN ── -->
   <div class="main">
+    <!-- Topbar with Welcome + Logout -->
     <div class="topbar">
       <span class="topbar-title">{% block page_title %}{% endblock %}</span>
       <div class="topbar-right">
         {% if session.user %}
-        <div class="user-chip">
-          <div class="avatar">{{ session.user.full_name[0]|upper }}</div>
-          <div>
-            <div class="user-name">{{ session.user.full_name.split()[0] }}</div>
-            <div class="user-role">{{ session.user.role|replace('_', ' ')|title }}</div>
+        <div class="topbar-welcome">
+          <div class="topbar-welcome-avatar">{{ session.user.full_name[0]|upper if session.user.full_name else 'U' }}</div>
+          <div class="topbar-welcome-text">
+            <div class="topbar-welcome-name">Welcome, {{ session.user.full_name.split()[0] if session.user.full_name else 'User' }}! 👋</div>
+            <div class="topbar-welcome-greeting">{{ session.user.role|replace('_',' ')|title }}</div>
           </div>
         </div>
+        <a href="{{ url_for('logout') }}" class="topbar-logout">
+          <span>🚪</span> Logout
+        </a>
         {% endif %}
       </div>
     </div>

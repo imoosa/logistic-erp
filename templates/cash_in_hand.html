@@ -1,0 +1,439 @@
+{% extends "base.html" %}
+{% block title %}Cash In Hand{% endblock %}
+{% block page_title %}Cash In Hand Management{% endblock %}
+{% set active = 'cash_in_hand' %}
+
+{% block extra_style %}
+<style>
+  .cash-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+  
+  .stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  }
+  
+  .stat-card.income {
+    background: linear-gradient(135deg, #11998e, #38ef7d);
+  }
+  
+  .stat-card.expense {
+    background: linear-gradient(135deg, #eb3349, #f45c43);
+  }
+  
+  .stat-card h3 {
+    font-size: 14px;
+    margin: 0 0 10px 0;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  
+  .stat-card .amount {
+    font-size: 32px;
+    font-weight: bold;
+    margin: 0;
+  }
+  
+  .stat-card .sub-text {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 8px;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 25px;
+  }
+  
+  .btn-primary {
+    background: #4F46E5;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  
+  .btn-primary:hover {
+    background: #4338CA;
+  }
+  
+  .btn-secondary {
+    background: #10B981;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  
+  .transactions-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  }
+  
+  .transactions-table th {
+    background: #1F2937;
+    color: white;
+    padding: 12px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  
+  .transactions-table td {
+    padding: 12px;
+    border-bottom: 1px solid #E5E7EB;
+  }
+  
+  .transactions-table tr:hover {
+    background: #F9FAFB;
+  }
+  
+  .badge-income {
+    background: #D1FAE5;
+    color: #065F46;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  
+  .badge-expense {
+    background: #FEE2E2;
+    color: #991B1B;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .filter-bar input, .filter-bar select {
+    padding: 8px 12px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  
+  .modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #E5E7EB;
+  }
+  
+  .close-modal {
+    cursor: pointer;
+    font-size: 24px;
+    color: #6B7280;
+  }
+  
+  .form-group {
+    margin-bottom: 15px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #374151;
+  }
+  
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #D1D5DB;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  
+  .form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+  
+  .running-balance {
+    font-size: 13px;
+    color: #6B7280;
+    margin-top: 5px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="cash-stats">
+  <div class="stat-card">
+    <h3>💰 Current Cash Balance</h3>
+    <div class="amount">₹{{ "%.2f"|format(current_balance) }}</div>
+    <div class="sub-text">As of {{ today }}</div>
+  </div>
+  <div class="stat-card income">
+    <h3>📈 Total Cash Inflow</h3>
+    <div class="amount">₹{{ "%.2f"|format(total_inflow) }}</div>
+    <div class="sub-text">Last 30 days</div>
+  </div>
+  <div class="stat-card expense">
+    <h3>📉 Total Cash Outflow</h3>
+    <div class="amount">₹{{ "%.2f"|format(total_outflow) }}</div>
+    <div class="sub-text">Last 30 days</div>
+  </div>
+</div>
+
+<div class="action-buttons">
+  <button class="btn-primary" onclick="openAddTransactionModal('income')">+ Add Income</button>
+  <button class="btn-secondary" onclick="openAddTransactionModal('expense')">- Add Expense</button>
+</div>
+
+<div class="filter-bar">
+  <input type="date" id="filterFromDate" value="{{ from_date }}">
+  <input type="date" id="filterToDate" value="{{ to_date }}">
+  <select id="filterType">
+    <option value="all">All Transactions</option>
+    <option value="income">Income Only</option>
+    <option value="expense">Expense Only</option>
+  </select>
+  <button class="btn-primary" onclick="applyFilters()" style="padding: 8px 16px;">Apply Filter</button>
+  <button onclick="resetFilters()" style="padding: 8px 16px; background: #6B7280; color: white; border: none; border-radius: 6px;">Reset</button>
+</div>
+
+<table class="transactions-table">
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Type</th>
+      <th>Category</th>
+      <th>Description</th>
+      <th>Amount (₹)</th>
+      <th>Reference</th>
+      <th>Balance After</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="transactionsBody">
+    {% for txn in transactions %}
+    <tr>
+      <td>{{ txn.date }}</td>
+      <td>
+        <span class="{% if txn.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+          {{ 'Income' if txn.type == 'income' else 'Expense' }}
+        </span>
+      </td>
+      <td>{{ txn.category }}</td>
+      <td>{{ txn.description }}</td>
+      <td style="{% if txn.type == 'income' %}color: #065F46; font-weight: 600;{% else %}color: #991B1B; font-weight: 600;{% endif %}">
+        {{ '+' if txn.type == 'income' else '-' }} ₹{{ "%.2f"|format(txn.amount) }}
+      </td>
+      <td>{{ txn.reference or '—' }}</td>
+      <td>₹{{ "%.2f"|format(txn.balance_after) }}</td>
+      <td>
+        <button onclick="deleteTransaction({{ txn.id }})" style="background: none; border: none; color: #DC2626; cursor: pointer;">🗑️</button>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="8" style="text-align: center; padding: 40px;">No cash transactions found</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Add Transaction Modal -->
+<div id="transactionModal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modalTitle">Add Transaction</h3>
+      <span class="close-modal" onclick="closeModal()">&times;</span>
+    </div>
+    <form id="transactionForm" onsubmit="saveTransaction(event)">
+      <input type="hidden" id="transactionType">
+      <div class="form-group">
+        <label>Date *</label>
+        <input type="date" id="txnDate" required value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label>Category *</label>
+        <select id="txnCategory" required>
+          <option value="">Select Category</option>
+          <optgroup label="Income Categories">
+            <option value="Sales">Sales Revenue</option>
+            <option value="Customer Payment">Customer Payment</option>
+            <option value="Refund Received">Refund Received</option>
+            <option value="Loan Received">Loan Received</option>
+            <option value="Investment">Investment</option>
+            <option value="Other Income">Other Income</option>
+          </optgroup>
+          <optgroup label="Expense Categories">
+            <option value="Purchase">Purchase</option>
+            <option value="Salary">Salary</option>
+            <option value="Rent">Rent</option>
+            <option value="Utilities">Utilities</option>
+            <option value="Transport">Transport</option>
+            <option value="Office Supplies">Office Supplies</option>
+            <option value="Maintenance">Maintenance</option>
+            <option value="Loan Payment">Loan Payment</option>
+            <option value="Tax Payment">Tax Payment</option>
+            <option value="Other Expense">Other Expense</option>
+          </optgroup>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Description *</label>
+        <input type="text" id="txnDescription" required placeholder="Enter description">
+      </div>
+      <div class="form-group">
+        <label>Amount *</label>
+        <input type="number" id="txnAmount" required step="0.01" min="0.01" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Reference / Bill No.</label>
+        <input type="text" id="txnReference" placeholder="Invoice/Bill/Reference number">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea id="txnNotes" rows="3" placeholder="Additional notes..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" onclick="closeModal()" style="padding: 8px 16px; background: #9CA3AF; color: white; border: none; border-radius: 6px;">Cancel</button>
+        <button type="submit" style="padding: 8px 16px; background: #4F46E5; color: white; border: none; border-radius: 6px;">Save Transaction</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openAddTransactionModal(type) {
+  document.getElementById('transactionType').value = type;
+  document.getElementById('modalTitle').innerText = type === 'income' ? 'Add Income' : 'Add Expense';
+  document.getElementById('txnDate').value = '{{ today }}';
+  document.getElementById('txnCategory').value = '';
+  document.getElementById('txnDescription').value = '';
+  document.getElementById('txnAmount').value = '';
+  document.getElementById('txnReference').value = '';
+  document.getElementById('txnNotes').value = '';
+  document.getElementById('transactionModal').style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('transactionModal').style.display = 'none';
+}
+
+function saveTransaction(e) {
+  e.preventDefault();
+  
+  const data = {
+    type: document.getElementById('transactionType').value,
+    date: document.getElementById('txnDate').value,
+    category: document.getElementById('txnCategory').value,
+    description: document.getElementById('txnDescription').value,
+    amount: parseFloat(document.getElementById('txnAmount').value),
+    reference: document.getElementById('txnReference').value,
+    notes: document.getElementById('txnNotes').value
+  };
+  
+  fetch('/api/cash-transaction/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(result => {
+    if (result.success) {
+      location.reload();
+    } else {
+      alert(result.message || 'Error saving transaction');
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert('Error saving transaction');
+  });
+}
+
+function deleteTransaction(id) {
+  if (confirm('Are you sure you want to delete this transaction?')) {
+    fetch(`/api/cash-transaction/delete/${id}`, {
+      method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(result => {
+      if (result.success) {
+        location.reload();
+      } else {
+        alert(result.message || 'Error deleting transaction');
+      }
+    });
+  }
+}
+
+function applyFilters() {
+  const fromDate = document.getElementById('filterFromDate').value;
+  const toDate = document.getElementById('filterToDate').value;
+  const type = document.getElementById('filterType').value;
+  window.location.href = `/cash-in-hand?from_date=${fromDate}&to_date=${toDate}&type=${type}`;
+}
+
+function resetFilters() {
+  window.location.href = '/cash-in-hand';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  const modal = document.getElementById('transactionModal');
+  if (event.target == modal) {
+    closeModal();
+  }
+}
+</script>
+
+{% endblock %}

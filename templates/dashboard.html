@@ -1,249 +1,721 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
+{% block page_title %}Financial Dashboard{% endblock %}
 {% set active = 'dashboard' %}
 
 {% block extra_style %}
 <style>
-  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-  .stat-card { background: #fff; border-radius: 14px; padding: 20px; border: 1px solid #E5E7EB; transition: all 0.2s; }
-  .stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
-  .stat-icon { font-size: 28px; margin-bottom: 12px; }
-  .stat-value { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
-  .stat-label { font-size: 12px; color: #6B7280; font-weight: 500; }
-  .stat-trend { font-size: 11px; margin-top: 8px; }
-  
-  .section-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #F3F4F6; }
-  .section-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
-  
-  .invoice-row { cursor: pointer; }
-  .invoice-row:hover { background: #F9FAFB; }
-  
-  .status-paid { background: #DCFCE7; color: #16A34A; }
-  .status-partial { background: #FEF3C7; color: #D97706; }
-  .status-pending { background: #FEE2E2; color: #DC2626; }
-  
-  .quick-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
-  .quick-btn { background: #fff; border: 1px solid #E5E7EB; border-radius: 10px; padding: 12px 20px; text-decoration: none; color: #374151; font-weight: 500; font-size: 13px; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
-  .quick-btn:hover { border-color: #4F46E5; background: #EEF2FF; color: #4F46E5; transform: translateY(-2px); }
+  .dash { max-width: 1480px; margin: 0 auto; }
+
+  /* ── Date Filter ── */
+  .filter-bar {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px 22px;
+    margin-bottom: 26px;
+    display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .fg { display: flex; flex-direction: column; gap: 5px; }
+  .fg label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #64748B; }
+  .fg input, .fg select {
+    padding: 9px 13px; border-radius: 10px;
+    border: 1.5px solid #E2E8F0; font-size: 13px; min-width: 155px;
+    font-family: inherit; outline: none;
+    transition: border .15s;
+  }
+  .fg input:focus, .fg select:focus { border-color: #2563EB; }
+  .fb { background: #2563EB; color: #fff; border: none; border-radius: 10px; padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .15s; }
+  .fb:hover { background: #1D4ED8; }
+  .fb-reset { background: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; }
+  .fb-reset:hover { background: #E2E8F0; }
+
+  /* ── Mini Balance Row ── */
+  .balance-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .balance-mini {
+    background: #fff;
+    border-radius: 14px;
+    padding: 14px 18px;
+    border: 1px solid #E2E8F0;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .balance-mini-icon {
+    width: 42px; height: 42px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .balance-mini-icon.cash { background: #ECFDF5; }
+  .balance-mini-icon.bank { background: #EFF6FF; }
+  .balance-mini-label { font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
+  .balance-mini-val { font-size: 20px; font-weight: 800; color: #0F172A; line-height: 1.2; margin-top: 2px; }
+
+  /* ── KPI Cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 26px;
+  }
+  .kpi-card {
+    background: #fff;
+    border-radius: 18px;
+    padding: 20px 22px;
+    border: 1px solid #E2E8F0;
+    position: relative; overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  .kpi-card::before {
+    content: ''; position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 18px 18px 0 0;
+  }
+  .kpi-card.sale::before   { background: linear-gradient(90deg, #2563EB, #60A5FA); }
+  .kpi-card.purchase::before { background: linear-gradient(90deg, #D97706, #FCD34D); }
+  .kpi-card.profit::before { background: linear-gradient(90deg, #059669, #34D399); }
+  .kpi-card.pending::before { background: linear-gradient(90deg, #7C3AED, #A78BFA); }
+
+  .kpi-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .kpi-icon-wrap {
+    width: 44px; height: 44px; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .kpi-icon-wrap.sale    { background: #EFF6FF; }
+  .kpi-icon-wrap.purchase{ background: #FEF3C7; }
+  .kpi-icon-wrap.profit  { background: #D1FAE5; }
+  .kpi-icon-wrap.pending { background: #EDE9FE; }
+
+  .kpi-badge { font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+  .kpi-badge.up   { background: #D1FAE5; color: #059669; }
+  .kpi-badge.down { background: #FEE2E2; color: #DC2626; }
+
+  .kpi-label { font-size: 12px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
+  .kpi-value { font-size: 28px; font-weight: 800; color: #0F172A; margin: 6px 0 4px; line-height: 1.1; }
+  .kpi-value.up   { color: #059669; }
+  .kpi-value.down { color: #DC2626; }
+  .kpi-sub { font-size: 11.5px; color: #94A3B8; border-top: 1px solid #F1F5F9; padding-top: 10px; margin-top: 10px; }
+
+  /* ── Charts Grid ── */
+  .charts-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  .chart-panel {
+    background: #fff;
+    border-radius: 18px;
+    padding: 20px 22px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .chart-panel-hd {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 18px;
+  }
+  .chart-panel-title {
+    font-size: 15px; font-weight: 700; color: #0F172A;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chart-panel-title::before {
+    content: ''; width: 4px; height: 18px; border-radius: 4px;
+    display: inline-block;
+  }
+  .chart-panel-title.blue::before  { background: linear-gradient(180deg, #2563EB, #60A5FA); }
+  .chart-panel-title.green::before { background: linear-gradient(180deg, #059669, #34D399); }
+  .chart-panel-title.purple::before{ background: linear-gradient(180deg, #7C3AED, #A78BFA); }
+  .chart-panel-title.amber::before { background: linear-gradient(180deg, #D97706, #FCD34D); }
+
+  .chart-legend { display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend-dot { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748B; font-weight: 500; }
+  .legend-dot span { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  canvas { width: 100% !important; }
+  .donut-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .donut-stats {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 10px; width: 100%;
+  }
+  .donut-stat {
+    background: #F8FAFC; border-radius: 10px; padding: 12px 14px;
+    border: 1px solid #E2E8F0; text-align: center;
+  }
+  .donut-stat-val { font-size: 16px; font-weight: 800; color: #0F172A; }
+  .donut-stat-lbl { font-size: 11px; color: #64748B; margin-top: 2px; }
+
+  /* ── Three-col charts ── */
+  .charts-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+
+  /* ── Tables Row ── */
+  .tables-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  .table-panel {
+    background: #fff;
+    border-radius: 18px;
+    padding: 20px 22px;
+    border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .tp-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .tp-title { font-size: 15px; font-weight: 700; color: #0F172A; }
+  .tp-link { font-size: 12px; color: #2563EB; text-decoration: none; font-weight: 600; }
+  .tp-link:hover { text-decoration: underline; }
+  .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .mini-table th { padding: 8px 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #94A3B8; border-bottom: 1px solid #F1F5F9; text-align: left; }
+  .mini-table td { padding: 9px 6px; border-bottom: 1px solid #F8FAFC; color: #334155; }
+  .mini-table tr:last-child td { border-bottom: none; }
+  .mini-badge { background: #EFF6FF; color: #2563EB; padding: 3px 9px; border-radius: 30px; font-size: 10.5px; font-weight: 600; }
+  .mini-badge.warn { background: #FEF3C7; color: #D97706; }
+  .mini-badge.danger { background: #FEE2E2; color: #DC2626; }
+  .trend-up   { color: #059669; font-weight: 700; }
+  .trend-down { color: #DC2626; font-weight: 700; }
+
+  /* Alert stock row */
+  .stock-alert-row td:nth-child(3) { font-weight: 700; }
+
+  /* Cash flow summary box */
+  .cf-summary {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px; margin-top: 14px;
+  }
+  .cf-box { background: #F8FAFC; border-radius: 10px; padding: 10px 12px; text-align: center; border: 1px solid #E2E8F0; }
+  .cf-box-val { font-size: 15px; font-weight: 800; }
+  .cf-box-lbl { font-size: 10.5px; color: #64748B; margin-top: 2px; }
+
+  @media (max-width: 1100px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-row, .charts-row-3 { grid-template-columns: 1fr; }
+    .tables-row { grid-template-columns: 1fr; }
+    .balance-row { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 650px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+    .balance-row { grid-template-columns: 1fr; }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="dash">
 
-<!-- Welcome Banner -->
-<div style="background: linear-gradient(135deg, #4F46E5, #7C3AED); border-radius: 16px; padding: 24px 32px; margin-bottom: 24px; color: #fff;">
-  <h2 style="font-size: 24px; margin-bottom: 8px;">Welcome back, {{ user.full_name.split()[0] }}! 👋</h2>
-  <p style="opacity: 0.9;">Here's what's happening with your business today.</p>
-</div>
-
-<!-- Stats Grid -->
-<div class="stats-grid">
-  <div class="stat-card">
-    <div class="stat-icon">📦</div>
-    <div class="stat-value" style="color: #4F46E5;">{{ stats.total_orders }}</div>
-    <div class="stat-label">Total Orders</div>
-    <div class="stat-trend">{{ stats.pending_orders }} pending</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">💰</div>
-    <div class="stat-value" style="color: #16A34A;">₹{{ "{:,.0f}".format(stats.total_billing/100000) }}L</div>
-    <div class="stat-label">Total Revenue</div>
-    <div class="stat-trend">₹{{ "{:,.0f}".format(stats.total_billing) }}</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">🧾</div>
-    <div class="stat-value" style="color: #D97706;">{{ stats.total_invoices }}</div>
-    <div class="stat-label">Invoices Generated</div>
-    <div class="stat-trend">{{ stats.paid_invoices }} paid, {{ stats.pending_invoices }} pending</div>
-  </div>
-  <div class="stat-card">
-    <div class="stat-icon">📄</div>
-    <div class="stat-value" style="color: #7C3AED;">{{ stats.total_estimates }}</div>
-    <div class="stat-label">Estimates</div>
-    <div class="stat-trend">{{ stats.approved_estimates }} approved</div>
-  </div>
-</div>
-
-<!-- Quick Actions -->
-<div class="quick-actions">
-  <a href="/new-order" class="quick-btn">📋 + New Order</a>
-  <a href="/invoice/new" class="quick-btn">🧾 + New Invoice</a>
-  <a href="/estimate/new" class="quick-btn">📄 + New Estimate</a>
-  <a href="/clients/add" class="quick-btn" onclick="showAddClientModal()">👥 + Add Client</a>
-</div>
-
-<!-- Recent Invoices Section -->
-<div class="card" style="margin-bottom: 24px;">
-  <div class="section-header">
-    <div class="section-title">
-      <span>🧾</span> Recent Invoices
+  <!-- ── Date Filter Bar ── -->
+  <div class="filter-bar">
+    <div class="fg">
+      <label>📅 From Date</label>
+      <input type="date" id="fromDate" value="{{ from_date }}">
     </div>
-    <a href="/invoice/list" class="btn btn-ghost btn-sm">View All →</a>
+    <div class="fg">
+      <label>📅 To Date</label>
+      <input type="date" id="toDate" value="{{ to_date }}">
+    </div>
+    <div class="fg">
+      <label>⏱️ Quick Range</label>
+      <select id="presetSelect">
+        <option value="custom">Custom Range</option>
+        <option value="today">Today</option>
+        <option value="week">This Week</option>
+        <option value="month">This Month</option>
+        <option value="quarter">This Quarter</option>
+        <option value="year">This Year</option>
+      </select>
+    </div>
+    <button class="fb" id="applyFilterBtn">↻ Apply</button>
+    <button class="fb fb-reset" id="resetFilterBtn">Reset</button>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th>Invoice ID</th>
-          <th>Customer</th>
-          <th>Date</th>
-          <th>Amount</th>
-          <th>Paid</th>
-          <th>Balance</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for inv in recent_invoices %}
-        <tr class="invoice-row" onclick="window.location='/invoice/view/{{ inv.id }}'">
-          <td><strong style="color:#4F46E5">{{ inv.id }}</strong></td>
-          <td>{{ inv.customer_name }}</td>
-          <td style="color:#6B7280">{{ inv.date }}</td>
-          <td><strong>₹{{ "{:,.0f}".format(inv.total) }}</strong></td>
-          <td style="color:#16A34A">₹{{ "{:,.0f}".format(inv.paid) }}</td>
-          <td style="color:{% if inv.balance > 0 %}#DC2626{% else %}#16A34A{% endif %}">
-            ₹{{ "{:,.0f}".format(inv.balance) }}
-          </td>
-          <td>
-            {% if inv.status == 'paid' %}
-              <span class="badge status-paid">✓ Paid</span>
-            {% elif inv.status == 'partial' %}
-              <span class="badge status-partial">⏳ Partial</span>
-            {% else %}
-              <span class="badge status-pending">⚠️ Pending</span>
-            {% endif %}
-          </td>
-          <td>
-            <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">View →</a>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="8" style="text-align:center; padding:40px; color:#9CA3AF;">
-            No invoices yet. <a href="/invoice/new">Create your first invoice →</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
 
-<div class="grid-2" style="gap: 24px;">
-  
-  <!-- Recent Orders -->
-  <div class="card">
-    <div class="section-header">
-      <div class="section-title">
-        <span>📋</span> Recent Orders
+  <!-- ── Mini Balance Cards (Cash + Bank) ── -->
+  <div class="balance-row">
+    <div class="balance-mini">
+      <div class="balance-mini-icon cash">💵</div>
+      <div>
+        <div class="balance-mini-label">Cash in Hand</div>
+        <div class="balance-mini-val" id="cashVal">₹{{ "{:,.0f}".format(kpi.cash_balance) }}</div>
       </div>
-      <a href="/orders" class="btn btn-ghost btn-sm">View All →</a>
     </div>
-    <div class="table-wrap">
-      <table>
+    <div class="balance-mini">
+      <div class="balance-mini-icon bank">🏦</div>
+      <div>
+        <div class="balance-mini-label">Bank Balance</div>
+        <div class="balance-mini-val" id="bankVal">₹{{ "{:,.0f}".format(kpi.bank_balance) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Main KPI Cards ── -->
+  <div class="kpi-grid">
+    <!-- Total Sales -->
+    <div class="kpi-card sale">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap sale">📈</div>
+        <span class="kpi-badge up">Sales</span>
+      </div>
+      <div class="kpi-label">Total Sales</div>
+      <div class="kpi-value" id="saleVal">₹{{ "{:,.0f}".format(kpi.total_revenue) }}</div>
+      <div class="kpi-sub">💼 Invoiced amount in period</div>
+    </div>
+
+    <!-- Total Purchase -->
+    <div class="kpi-card purchase">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap purchase">📦</div>
+        <span class="kpi-badge down">Purchase</span>
+      </div>
+      <div class="kpi-label">Total Purchase</div>
+      <div class="kpi-value" id="purchaseVal">₹{{ "{:,.0f}".format(kpi.total_purchases) }}</div>
+      <div class="kpi-sub">🛒 Goods & services procured</div>
+    </div>
+
+    <!-- Total Profit -->
+    <div class="kpi-card profit">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap profit">💎</div>
+        <span class="kpi-badge {% if kpi.profit >= 0 %}up{% else %}down{% endif %}">
+          {% if kpi.profit >= 0 %}▲ Profit{% else %}▼ Loss{% endif %}
+        </span>
+      </div>
+      <div class="kpi-label">Total Profit</div>
+      <div class="kpi-value {% if kpi.profit >= 0 %}up{% else %}down{% endif %}" id="profitVal">
+        ₹{{ "{:,.0f}".format(kpi.profit) }}
+      </div>
+      <div class="kpi-sub">📊 Revenue − Purchases</div>
+    </div>
+
+    <!-- Pending Amount -->
+    <div class="kpi-card pending">
+      <div class="kpi-top">
+        <div class="kpi-icon-wrap pending">⏳</div>
+        <span class="kpi-badge down">Pending</span>
+      </div>
+      <div class="kpi-label">Pending Amount</div>
+      <div class="kpi-value" id="pendingVal">₹{{ "{:,.0f}".format(kpi.pending_amount) }}</div>
+      <div class="kpi-sub">📋 Unpaid invoices</div>
+    </div>
+  </div>
+
+  <!-- ── Chart Row 1: Bar + Donut ── -->
+  <div class="charts-row">
+    <!-- Bar chart: Sales vs Purchase Monthly -->
+    <div class="chart-panel">
+      <div class="chart-panel-hd">
+        <div class="chart-panel-title blue">Sales vs Purchase (Monthly)</div>
+        <div class="chart-legend">
+          <div class="legend-dot"><span style="background:#2563EB"></span>Sales</div>
+          <div class="legend-dot"><span style="background:#F59E0B"></span>Purchase</div>
+        </div>
+      </div>
+      <canvas id="revenuePurchaseChart" height="230"></canvas>
+    </div>
+
+    <!-- Donut: Sales Breakdown -->
+    <div class="chart-panel">
+      <div class="chart-panel-hd">
+        <div class="chart-panel-title purple">Sales Breakdown</div>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="salesDonutChart" height="200" style="max-height:200px;"></canvas>
+        <div class="donut-stats">
+          <div class="donut-stat">
+            <div class="donut-stat-val trend-up" id="paidAmt">₹{{ "{:,.0f}".format(kpi.total_revenue - kpi.pending_amount) }}</div>
+            <div class="donut-stat-lbl">Collected</div>
+          </div>
+          <div class="donut-stat">
+            <div class="donut-stat-val trend-down" id="pendAmt">₹{{ "{:,.0f}".format(kpi.pending_amount) }}</div>
+            <div class="donut-stat-lbl">Pending</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Chart Row 2: Profit Trend + Purchase Donut + Cash Flow ── -->
+  <div class="charts-row-3">
+    <!-- Profit Trend Line/Bar -->
+    <div class="chart-panel">
+      <div class="chart-panel-hd">
+        <div class="chart-panel-title green">Monthly Profit Trend</div>
+      </div>
+      <canvas id="profitTrendChart" height="200"></canvas>
+    </div>
+
+    <!-- Purchase Donut -->
+    <div class="chart-panel">
+      <div class="chart-panel-hd">
+        <div class="chart-panel-title amber">Purchase vs Sales Ratio</div>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="purchaseDonutChart" height="190" style="max-height:190px;"></canvas>
+        <div class="donut-stats">
+          <div class="donut-stat">
+            <div class="donut-stat-val" style="color:#2563EB" id="saleRatioAmt">₹{{ "{:,.0f}".format(kpi.total_revenue) }}</div>
+            <div class="donut-stat-lbl">Sales</div>
+          </div>
+          <div class="donut-stat">
+            <div class="donut-stat-val" style="color:#F59E0B" id="purchRatioAmt">₹{{ "{:,.0f}".format(kpi.total_purchases) }}</div>
+            <div class="donut-stat-lbl">Purchase</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cash Flow Donut -->
+    <div class="chart-panel">
+      <div class="chart-panel-hd">
+        <div class="chart-panel-title blue">Cash Flow Summary</div>
+      </div>
+      <div class="donut-wrap">
+        <canvas id="cashFlowChart" height="190" style="max-height:190px;"></canvas>
+        <div class="cf-summary">
+          <div class="cf-box">
+            <div class="cf-box-val trend-up">₹{{ "{:,.0f}".format(cash_inflow_period) }}</div>
+            <div class="cf-box-lbl">Inflow</div>
+          </div>
+          <div class="cf-box">
+            <div class="cf-box-val trend-down">₹{{ "{:,.0f}".format(cash_outflow_period) }}</div>
+            <div class="cf-box-lbl">Outflow</div>
+          </div>
+          <div class="cf-box">
+            <div class="cf-box-val {% if cash_net_period >= 0 %}trend-up{% else %}trend-down{% endif %}">₹{{ "{:,.0f}".format(cash_net_period) }}</div>
+            <div class="cf-box-lbl">Net</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tables Row ── -->
+  <div class="tables-row">
+    <!-- Top Clients -->
+    <div class="table-panel">
+      <div class="tp-hd">
+        <div class="tp-title">🏆 Top Clients</div>
+        <a href="/invoice/list" class="tp-link">View all →</a>
+      </div>
+      <table class="mini-table">
         <thead>
-          <tr><th>Order ID</th><th>Client</th><th>Date</th><th>Amount</th><th>Status</th></td>
+          <tr><th>Client</th><th>Billed</th><th>Pending</th><th>Status</th></tr>
         </thead>
         <tbody>
-          {% for o in recent_orders %}
+          {% for c in top_clients_data %}
           <tr>
-            <td><strong style="color:#4F46E5">{{ o.id }}</strong></td>
-            <td>{{ o.client }}</td>
-            <td style="color:#6B7280">{{ o.date }}</td>
-            <td>₹{{ "{:,.0f}".format(o.amount) }}</td>
-            <td>
-              <span class="badge badge-{{ 'success' if o.status=='Delivered' else 'warning' if o.status=='Pending' else 'primary' }}">
-                {{ o.status }}
-              </span>
-            </td>
+            <td><strong>{{ c.name }}</strong></td>
+            <td>₹{{ "{:,.0f}".format(c.total_billed) }}</td>
+            <td>₹{{ "{:,.0f}".format(c.pending) }}</td>
+            <td><span class="mini-badge">{{ c.status }}</span></td>
           </tr>
           {% else %}
-          <tr><td colspan="5" style="text-align:center; padding:30px;">No orders yet. <a href="/new-order">Create order →</a></td></tr>
+          <tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:20px;">No client data</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Invoices -->
+    <div class="table-panel">
+      <div class="tp-hd">
+        <div class="tp-title">🧾 Recent Invoices</div>
+        <a href="/invoice/list" class="tp-link">View all →</a>
+      </div>
+      <table class="mini-table">
+        <thead>
+          <tr><th>Invoice</th><th>Customer</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for inv in recent_invoices_data %}
+          <tr>
+            <td>{{ inv.id }}</td>
+            <td>{{ inv.customer }}</td>
+            <td>{{ inv.date }}</td>
+            <td>₹{{ "{:,.0f}".format(inv.total) }}</td>
+            <td><span class="mini-badge {% if inv.status == 'Unpaid' %}danger{% elif inv.status == 'Partial' %}warn{% endif %}">{{ inv.status }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No recent invoices</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
-  
-  <!-- Recent Estimates -->
-  <div class="card">
-    <div class="section-header">
-      <div class="section-title">
-        <span>📄</span> Recent Estimates
+
+  <!-- ── Bottom Row: Low Stock + Recent Purchases ── -->
+  <div class="tables-row">
+    <div class="table-panel">
+      <div class="tp-hd">
+        <div class="tp-title">⚠️ Low Stock Alerts</div>
       </div>
-      <a href="/estimate/list" class="btn btn-ghost btn-sm">View All →</a>
-    </div>
-    <div class="table-wrap">
-      <table>
+      <table class="mini-table">
         <thead>
-          <tr><th>Estimate #</th><th>Client</th><th>Date</th><th>Valid Until</th><th>Amount</th><th>Status</th></tr>
+          <tr><th>Code</th><th>Product</th><th>Stock</th><th>Reorder At</th></tr>
         </thead>
         <tbody>
-          {% for e in recent_estimates %}
-          <tr>
-            <td><strong style="color:#7C3AED">{{ e.id }}</strong></td>
-            <td>{{ e.company }}</td>
-            <td style="color:#6B7280">{{ e.date }}</td>
-            <td style="font-size:12px; color:#9CA3AF">{{ e.valid_until }}</td>
-            <td>₹{{ "{:,.0f}".format(e.total) }}</td>
-            <td>
-              <span class="badge badge-{{ 'success' if e.status=='Approved' else 'warning' if e.status=='Sent' else 'secondary' }}">
-                {{ e.status }}
-              </span>
-            </td>
+          {% for item in low_stock_items %}
+          <tr class="stock-alert-row">
+            <td>{{ item.code }}</td>
+            <td>{{ item.name }}</td>
+            <td class="trend-down">{{ item.quantity }}</td>
+            <td>{{ item.reorder_level }}</td>
           </tr>
           {% else %}
-          <tr><td colspan="6" style="text-align:center; padding:30px;">No estimates yet. <a href="/estimate/new">Create estimate →</a></td></tr>
+          <tr><td colspan="4" style="text-align:center;color:#059669;padding:18px;font-weight:600;">✅ All stock levels healthy</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Purchases -->
+    <div class="table-panel">
+      <div class="tp-hd">
+        <div class="tp-title">🛒 Recent Purchases</div>
+        <a href="/purchase/list" class="tp-link">View all →</a>
+      </div>
+      <table class="mini-table">
+        <thead>
+          <tr><th>Invoice</th><th>Supplier</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {% for p in recent_purchases_data if recent_purchases_data is defined %}
+          <tr>
+            <td>{{ p.id }}</td>
+            <td>{{ p.supplier }}</td>
+            <td>{{ p.date }}</td>
+            <td>₹{{ "{:,.0f}".format(p.total) }}</td>
+            <td><span class="mini-badge {% if p.status == 'Unpaid' %}danger{% elif p.status == 'Partial' %}warn{% endif %}">{{ p.status }}</span></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No purchase data</td></tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
-</div>
 
-<!-- Add Client Modal -->
-<div id="addClientModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-  <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
-    <h3 style="margin-bottom:20px">Add New Client</h3>
-    <form method="POST" action="/clients/add">
-      <div class="form-group">
-        <label>Client Name *</label>
-        <input type="text" name="name" required>
-      </div>
-      <div class="form-group">
-        <label>Phone Number</label>
-        <input type="text" name="phone">
-      </div>
-      <div class="form-group">
-        <label>Pending Amount</label>
-        <input type="number" name="pending" step="0.01" value="0">
-      </div>
-      <div class="form-group">
-        <label>Status</label>
-        <select name="status">
-          <option value="Active">Active</option>
-          <option value="Paid">Paid</option>
-          <option value="Pending">Pending</option>
-          <option value="Overdue">Overdue</option>
-        </select>
-      </div>
-      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
-        <button type="button" class="btn btn-ghost" onclick="closeClientModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add Client</button>
-      </div>
-    </form>
-  </div>
-</div>
+</div><!-- /dash -->
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-function showAddClientModal() {
-  document.getElementById('addClientModal').style.display = 'flex';
-}
-function closeClientModal() {
-  document.getElementById('addClientModal').style.display = 'none';
-}
-</script>
+  // ── Chart defaults ──
+  Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = '#64748B';
 
+  let charts = {};
+
+  const fmt = v => '₹' + new Intl.NumberFormat('en-IN').format(Math.round(v || 0));
+  function escHtml(s) {
+    if (!s) return '';
+    return s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]||m));
+  }
+
+  // ── Initial chart data from Jinja ──
+  const initLabels   = {{ chart_labels | tojson }};
+  const initRevenue  = {{ revenue_data | tojson }};
+  const initPurchase = {{ purchase_data | tojson }};
+  const initProfitL  = {{ profit_labels | tojson }};
+  const initProfit   = {{ profit_trend | tojson }};
+  const initSaleTot  = {{ kpi.total_revenue | default(0) }};
+  const initPend     = {{ kpi.pending_amount | default(0) }};
+  const initPurch    = {{ kpi.total_purchases | default(0) }};
+  const initInflow   = {{ cash_inflow_period | default(0) }};
+  const initOutflow  = {{ cash_outflow_period | default(0) }};
+
+  function buildCharts(rl, rv, pv, pl, pf, saleTot, pend, purch, inflow, outflow) {
+    Object.values(charts).forEach(c => { if(c) c.destroy(); });
+
+    // 1. Sales vs Purchase Bar
+    charts.bar = new Chart(document.getElementById('revenuePurchaseChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: rl,
+        datasets: [
+          { label: 'Sales', data: rv, backgroundColor: '#2563EB', borderRadius: 7, borderSkipped: false },
+          { label: 'Purchase', data: pv, backgroundColor: '#F59E0B', borderRadius: 7, borderSkipped: false }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+          y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1)+'L' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v) } }
+        }
+      }
+    });
+
+    // 2. Sales Donut (Collected vs Pending)
+    const paid = saleTot - pend;
+    charts.salesDonut = new Chart(document.getElementById('salesDonutChart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Collected', 'Pending'],
+        datasets: [{ data: [paid < 0 ? 0 : paid, pend], backgroundColor: ['#059669', '#DC2626'], borderWidth: 0, hoverOffset: 6 }]
+      },
+      options: {
+        responsive: true, cutout: '68%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } },
+          tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+        }
+      }
+    });
+
+    // 3. Profit Trend Bar
+    charts.profit = new Chart(document.getElementById('profitTrendChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: pl,
+        datasets: [{
+          label: 'Profit (₹)',
+          data: pf,
+          backgroundColor: pf.map(v => v >= 0 ? 'rgba(5,150,105,0.75)' : 'rgba(220,38,38,0.75)'),
+          borderRadius: 6, borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false } },
+          y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => '₹' + (Math.abs(v) >= 100000 ? (v/100000).toFixed(1)+'L' : Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'K' : v) } }
+        }
+      }
+    });
+
+    // 4. Purchase vs Sales Donut
+    charts.purchDonut = new Chart(document.getElementById('purchaseDonutChart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Sales', 'Purchase'],
+        datasets: [{ data: [rv.reduce((a,b)=>a+b,0), pv.reduce((a,b)=>a+b,0)], backgroundColor: ['#2563EB', '#F59E0B'], borderWidth: 0, hoverOffset: 6 }]
+      },
+      options: {
+        responsive: true, cutout: '68%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 16 } },
+          tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+        }
+      }
+    });
+
+    // 5. Cash Flow Donut
+    charts.cash = new Chart(document.getElementById('cashFlowChart').getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: ['Inflow', 'Outflow'],
+        datasets: [{ data: [inflow, outflow], backgroundColor: ['#059669', '#EF4444'], borderWidth: 0, hoverOffset: 6 }]
+      },
+      options: {
+        responsive: true, cutout: '65%',
+        plugins: {
+          legend: { position: 'bottom', labels: { padding: 14 } },
+          tooltip: { callbacks: { label: ctx => ' ' + fmt(ctx.raw) } }
+        }
+      }
+    });
+  }
+
+  // Build on load
+  buildCharts(initLabels, initRevenue, initPurchase, initProfitL, initProfit, initSaleTot, initPend, initPurch, initInflow, initOutflow);
+
+  // ── Refresh dashboard ──
+  async function refreshDashboard() {
+    const fd = document.getElementById('fromDate').value;
+    const td = document.getElementById('toDate').value;
+    try {
+      const resp = await fetch(`/api/dashboard-data?from_date=${fd}&to_date=${td}`);
+      const data = await resp.json();
+      const k = data.kpi;
+
+      // Update mini balance
+      document.getElementById('cashVal').innerText    = fmt(k.cash_balance);
+      document.getElementById('bankVal').innerText    = fmt(k.bank_balance);
+      // Update KPI
+      document.getElementById('saleVal').innerText    = fmt(k.total_revenue);
+      document.getElementById('purchaseVal').innerText= fmt(k.total_purchases);
+      const pv = document.getElementById('profitVal');
+      pv.innerText = fmt(k.profit);
+      pv.className = 'kpi-value ' + (k.profit >= 0 ? 'up' : 'down');
+      document.getElementById('pendingVal').innerText = fmt(k.pending_amount);
+      // Update donut stat amounts
+      document.getElementById('paidAmt').innerText    = fmt(k.total_revenue - k.pending_amount);
+      document.getElementById('pendAmt').innerText    = fmt(k.pending_amount);
+      document.getElementById('saleRatioAmt').innerText  = fmt(k.total_revenue);
+      document.getElementById('purchRatioAmt').innerText = fmt(k.total_purchases);
+
+      // Rebuild charts
+      buildCharts(data.chart_labels, data.revenue_data, data.purchase_data, data.profit_labels, data.profit_trend, k.total_revenue, k.pending_amount, k.total_purchases, k.cash_inflow_period, k.cash_outflow_period);
+
+      // Update top clients
+      const cb = document.querySelector('#clientTbody');
+      if (cb && data.top_clients) {
+        cb.innerHTML = data.top_clients.length
+          ? data.top_clients.map(c => `<tr><td><strong>${escHtml(c.name)}</strong></td><td>${fmt(c.total_billed)}</td><td>${fmt(c.pending)}</td><td><span class="mini-badge">${c.status}</span></td></tr>`).join('')
+          : '<tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:20px;">No client data</td></tr>';
+      }
+      // Update recent invoices
+      const ib = document.querySelector('#invTbody');
+      if (ib && data.recent_invoices) {
+        ib.innerHTML = data.recent_invoices.length
+          ? data.recent_invoices.map(i => `<tr><td>${escHtml(i.id)}</td><td>${escHtml(i.customer)}</td><td>${i.date}</td><td>${fmt(i.total)}</td><td><span class="mini-badge">${i.status}</span></td></tr>`).join('')
+          : '<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No invoices</td></tr>';
+      }
+      // Low stock
+      const sb = document.querySelector('#stockTbody');
+      if (sb && data.low_stock) {
+        sb.innerHTML = data.low_stock.length
+          ? data.low_stock.map(s => `<tr class="stock-alert-row"><td>${escHtml(s.code)}</td><td>${escHtml(s.name)}</td><td class="trend-down">${s.quantity}</td><td>${s.reorder_level}</td></tr>`).join('')
+          : '<tr><td colspan="4" style="text-align:center;color:#059669;padding:18px;font-weight:600;">✅ All stock levels healthy</td></tr>';
+      }
+      // Cash flow boxes
+      const cfboxes = document.querySelectorAll('.cf-box .cf-box-val');
+      if (cfboxes.length >= 3) {
+        cfboxes[0].innerText = fmt(k.cash_inflow_period);
+        cfboxes[0].className = 'cf-box-val trend-up';
+        cfboxes[1].innerText = fmt(k.cash_outflow_period);
+        cfboxes[1].className = 'cf-box-val trend-down';
+        cfboxes[2].innerText = fmt(k.cash_net_period);
+        cfboxes[2].className = 'cf-box-val ' + (k.cash_net_period >= 0 ? 'trend-up' : 'trend-down');
+      }
+    } catch(e) { console.error('Dashboard refresh failed', e); }
+  }
+
+  function setPreset() {
+    const p = document.getElementById('presetSelect').value;
+    if (p === 'custom') return;
+    const today = new Date();
+    let from = new Date(today);
+    if (p === 'week')    from.setDate(today.getDate() - today.getDay());
+    else if (p === 'month') from = new Date(today.getFullYear(), today.getMonth(), 1);
+    else if (p === 'quarter') from = new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3, 1);
+    else if (p === 'year') from = new Date(today.getFullYear(), 0, 1);
+    document.getElementById('fromDate').value = from.toISOString().slice(0,10);
+    document.getElementById('toDate').value   = today.toISOString().slice(0,10);
+    refreshDashboard();
+  }
+
+  document.getElementById('applyFilterBtn').addEventListener('click', refreshDashboard);
+  document.getElementById('presetSelect').addEventListener('change', setPreset);
+  document.getElementById('resetFilterBtn').addEventListener('click', () => {
+    const today = new Date();
+    document.getElementById('fromDate').value = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0,10);
+    document.getElementById('toDate').value   = today.toISOString().slice(0,10);
+    document.getElementById('presetSelect').value = 'custom';
+    refreshDashboard();
+  });
+</script>
 {% endblock %}
