@@ -161,7 +161,7 @@
         {% for p in purchases %}
         <tr class="pur-row" data-status="{{ p.status|lower }}"
             data-search="{{ (p.supplier.name if p.supplier else p.supplier_name or '')|lower }} {{ (p.invoice_number or '')|lower }} {{ p.purchase_id|lower }}"
-            onclick="window.location='/purchase/view/{{ p.purchase_id }}'">
+            onclick="window.location='/purchase/view/{{ p.invoice_id }}'">
           <td><span class="pur-id">{{ p.purchase_id }}</span></td>
           <td><span class="sup-name">{{ p.supplier.name if p.supplier else p.supplier_name or '—' }}</span></td>
           <td><span class="inv-no">{{ p.invoice_number or '—' }}</span></td>
@@ -183,7 +183,7 @@
             </span>
           </td>
           <td onclick="event.stopPropagation()">
-            <a href="/purchase/view/{{ p.purchase_id }}" class="view-btn">View →</a>
+            <a href="/purchase/view/{{ p.invoice_id }}" class="view-btn">View →</a>
           </td>
         </tr>
         {% else %}

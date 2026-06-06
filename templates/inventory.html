@@ -1,113 +1,201 @@
 {% extends "base.html" %}
-{% block title %}Stock Management{% endblock %}
-{% block page_title %}Stock Management{% endblock %}
+{% block title %}Shipment Tracking{% endblock %}
+{% block page_title %}Shipment Tracking{% endblock %}
 {% set active = 'stock' %}
 
 {% block extra_style %}
 <style>
   .stock-card { background:#fff; border-radius:14px; border:1px solid #E5E7EB; overflow:hidden; }
   .stock-header { padding:16px 20px; border-bottom:1px solid #F3F4F6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-  .stock-qty { font-size:24px; font-weight:800; }
-  .low-stock { background:#FEF3C7; color:#D97706; }
-  .out-stock { background:#FEE2E2; color:#DC2626; }
-  .in-stock { background:#DCFCE7; color:#16A34A; }
-  .stock-badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
+  
+  /* Status badges */
+  .status-badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block; }
+  .status-delivered { background:#DCFCE7; color:#16A34A; }
+  .status-in-transit { background:#FEF3C7; color:#D97706; }
+  .status-pending { background:#FEE2E2; color:#DC2626; }
+  .status-draft { background:#F3F4F6; color:#6B7280; }
+  
+  /* KPI cards */
+  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  .kpi { background:#fff; border-radius:12px; padding:16px; border:1px solid #E5E7EB; display:flex; align-items:center; gap:12px; }
+  .kpi-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .kpi-val { font-size:24px; font-weight:800; }
+  .kpi-lbl { font-size:12px; color:#6B7280; }
+  
+  .shipment-row:hover { background:#F9FAFB; cursor:pointer; }
+  .view-btn { background:#F5F3FF; color:#7C3AED; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
+  .view-btn:hover { background:#7C3AED; color:#fff; }
+  
+  /* Package tags */
+  .package-tag { display:inline-block; background:#F3F4F6; padding:2px 8px; border-radius:12px; font-size:11px; margin:2px 4px 2px 0; }
+  .package-tag-box { background:#E0E7FF; color:#3730A3; }
+  .package-tag-envelope { background:#FCE7F3; color:#9D174D; }
+  .package-tag-pallet { background:#D1FAE5; color:#047857; }
+  .package-tag-other { background:#FEF3C7; color:#92400E; }
+  
+  .shipment-items { max-width: 200px; white-space: normal; word-wrap: break-word; }
 </style>
 {% endblock %}
 
 {% block content %}
 
 <div class="page-header">
-  <h2>📦 Stock Inventory</h2>
-  <button class="btn btn-primary" onclick="openStockModal()">+ Add Stock Item</button>
+  <h2>📋 Shipment / Docket Tracking</h2>
+  <button class="btn btn-primary" onclick="window.location='/invoice/customer'">+ New Shipment</button>
 </div>
 
-<!-- Stock KPIs -->
-<div class="kpi-grid" style="margin-bottom:20px">
+<!-- Shipment KPIs -->
+<div class="kpi-grid">
   <div class="kpi">
     <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">📦</div>
-    <div class="kpi-val" style="color:#4F46E5">{{ stock_summary.total_items }}</div>
-    <div class="kpi-lbl">Total Items</div>
+    <div>
+      <div class="kpi-val" style="color:#4F46E5">{{ total_shipments or 0 }}</div>
+      <div class="kpi-lbl">Total Shipments</div>
+    </div>
   </div>
   <div class="kpi">
     <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">✅</div>
-    <div class="kpi-val" style="color:#16A34A">{{ stock_summary.in_stock }}</div>
-    <div class="kpi-lbl">In Stock</div>
+    <div>
+      <div class="kpi-val" style="color:#16A34A">{{ delivered_count or 0 }}</div>
+      <div class="kpi-lbl">Delivered</div>
+    </div>
   </div>
   <div class="kpi">
-    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⚠️</div>
-    <div class="kpi-val" style="color:#D97706">{{ stock_summary.low_stock }}</div>
-    <div class="kpi-lbl">Low Stock</div>
+    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">🚚</div>
+    <div>
+      <div class="kpi-val" style="color:#D97706">{{ in_transit_count or 0 }}</div>
+      <div class="kpi-lbl">In Transit</div>
+    </div>
   </div>
   <div class="kpi">
-    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">❌</div>
-    <div class="kpi-val" style="color:#DC2626">{{ stock_summary.out_stock }}</div>
-    <div class="kpi-lbl">Out of Stock</div>
+    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">⏳</div>
+    <div>
+      <div class="kpi-val" style="color:#DC2626">{{ pending_count or 0 }}</div>
+      <div class="kpi-lbl">Pending</div>
+    </div>
   </div>
 </div>
 
-<!-- Stock Table -->
-<div class="stock-card">
-  <div class="stock-header">
-    <strong>📦 Inventory Items</strong>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input type="text" id="searchStock" placeholder="🔍 Search by name or code..." style="width:260px" onkeyup="filterStock()">
-      <select id="filterStatus" onchange="filterStock()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
-        <option value="">All Status</option>
-        <option value="in-stock">In Stock</option>
-        <option value="low-stock">Low Stock</option>
-        <option value="out-of-stock">Out of Stock</option>
-      </select>
-    </div>
+<!-- Search / Filter Bar -->
+<div class="stock-header">
+  <strong>📋 All Shipments</strong>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input type="text" id="searchShipment" placeholder="🔍 Search by docket, customer, receiver, items..." style="width:260px" onkeyup="filterShipments()">
+    <select id="filterStatus" onchange="filterShipments()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
+      <option value="">All Status</option>
+      <option value="delivered">Delivered</option>
+      <option value="in-transit">In Transit</option>
+      <option value="pending">Pending</option>
+      <option value="draft">Draft</option>
+    </select>
+    <input type="date" id="filterFromDate" onchange="filterShipments()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
+    <span style="color:#6B7280">to</span>
+    <input type="date" id="filterToDate" onchange="filterShipments()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
   </div>
-  <div class="table-wrap">
-    <table id="stockTable">
+</div>
+
+<!-- Shipments Table -->
+<div class="stock-card">
+  <div class="table-wrap" style="overflow-x: auto;">
+    <table id="shipmentTable" style="min-width: 1200px;">
       <thead>
         <tr>
-          <th style="width:40px;text-align:center">#</th>
-          <th>Code</th>
-          <th>Product Name</th>
-          <th>Category</th>
-          <th style="text-align:center">Quantity</th>
-          <th>Unit</th>
-          <th style="text-align:right">Unit Price (₹)</th>
-          <th style="text-align:right">Total Value (₹)</th>
-          <th style="text-align:center">Status</th>
-          <th>Last Updated</th>
-          <th style="text-align:center">Actions</th>
+          <th style="width:40px">#</th>
+          <th>Docket / AWB</th>
+          <th>Customer</th>
+          <th>Booking Date</th>
+          <th>From → To</th>
+          <th>Receiver</th>
+          <th>📦 Items Sent<br><span style="font-weight:normal;font-size:10px">(Boxes/Envelopes/Packages)</span></th>
+          <th>Qty</th>
+          <th>Total Weight</th>
+          <th>Mode</th>
+          <th>Carrier</th>
+          <th>Status</th>
+          <th style="text-align:right">Amount</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
-        {% for item in stock_items %}
-        <tr>
+        {% for shipment in shipments %}
+        <tr class="shipment-row" onclick="window.location='/invoice/view/{{ shipment.invoice_id }}'">
           <td style="text-align:center;color:#9CA3AF;font-size:12px;font-weight:600">{{ loop.index }}</td>
-          <td><span style="font-weight:600;color:#4F46E5">{{ item.code }}</span></td>
-          <td><div style="font-weight:700;color:#111827">{{ item.name }}</div></td>
-          <td><span style="font-size:13px;color:#6B7280">{{ item.category or '—' }}</span></td>
-          <td style="text-align:center"><strong>{{ item.quantity }}</strong></td>
-          <td style="text-align:center">{{ item.unit or 'pcs' }}</td>
-          <td style="text-align:right;font-weight:600;color:#374151">₹{{ "%.2f"|format(item.unit_price) }}</td>
-          <td style="text-align:right;font-weight:600;color:#16A34A">₹{{ "%.2f"|format(item.quantity * item.unit_price) }}</td>
-          <td style="text-align:center">
-            {% if item.quantity <= 0 %}
-              <span class="stock-badge out-stock">Out of Stock</span>
-            {% elif item.reorder_level and item.quantity <= item.reorder_level %}
-              <span class="stock-badge low-stock">Low Stock</span>
+          <td><span style="font-weight:700;color:#4F46E5">{{ shipment.docket_no or shipment.invoice_id }}</span></td>
+          <td>
+            <div style="font-weight:600;color:#111827">{{ shipment.customer_name }}</div>
+            <div style="font-size:11px;color:#6B7280">{{ shipment.customer_phone or '' }}</div>
+          </td>
+          <td style="white-space:nowrap">{{ shipment.booking_date }}</td>
+          <td>
+            <div style="font-size:12px;">📍 {{ shipment.origin or 'India' }}</div>
+            <div style="font-size:12px;color:#DC2626;">→ {{ shipment.destination or '—' }}</div>
+          </td>
+          <td>
+            <div style="font-size:13px;">{{ shipment.receiver_name or '—' }}</div>
+            <div style="font-size:11px;color:#6B7280">{{ shipment.receiver_phone or '' }}</div>
+          </td>
+          <td class="shipment-items">
+            {% if shipment.packages and shipment.packages|length > 0 %}
+              {% for pkg in shipment.packages %}
+                {% if pkg.type == 'Box' or pkg.name|lower == 'box' %}
+                  <span class="package-tag package-tag-box">📦 Box: {{ pkg.name }}</span>
+                {% elif pkg.type == 'Envelope' or pkg.name|lower == 'envelope' %}
+                  <span class="package-tag package-tag-envelope">✉️ Envelope: {{ pkg.name }}</span>
+                {% elif pkg.type == 'Pallet' or pkg.name|lower == 'pallet' %}
+                  <span class="package-tag package-tag-pallet">📦 Pallet: {{ pkg.name }}</span>
+                {% else %}
+                  <span class="package-tag package-tag-other">📦 {{ pkg.name or pkg.type or 'Package' }}</span>
+                {% endif %}
+              {% endfor %}
+            {% elif shipment.items and shipment.items|length > 0 %}
+              {% for item in shipment.items %}
+                <span class="package-tag">📦 {{ item.desc or item.name or 'Item' }}</span>
+              {% endfor %}
             {% else %}
-              <span class="stock-badge in-stock">In Stock</span>
+              <span style="color:#9CA3AF;font-size:11px;">— No items —</span>
             {% endif %}
           </td>
-          <td style="color:#6B7280;font-size:12px;white-space:nowrap">{{ item.last_updated or '—' }}</td>
-          <td style="text-align:center;white-space:nowrap">
-            <button class="btn btn-ghost btn-sm" onclick="editStockItem('{{ item.code }}')" title="Edit">✏️</button>
-            <button class="btn btn-ghost btn-sm" onclick="adjustStock('{{ item.code }}')" title="Adjust Qty">📊</button>
-            <button class="btn btn-ghost btn-sm" onclick="viewMovements('{{ item.code }}')" title="Movement history" style="color:#4F46E5">📋</button>
+          <td style="text-align:center;font-weight:600;">
+            {% if shipment.packages %}
+              {% set total_qty = shipment.packages|sum(attribute='qty') %}
+              {{ total_qty }}
+            {% elif shipment.total_qty %}
+              {{ shipment.total_qty }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td style="text-align:center;">
+            {% if shipment.total_weight %}
+              {{ "%.1f"|format(shipment.total_weight) }} kg
+            {% elif shipment.weight %}
+              {{ shipment.weight }} kg
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td><span style="font-size:12px">{{ shipment.mode or '—' }}</span></td>
+          <td><span style="font-size:12px">{{ shipment.carrier or '—' }}</span></td>
+          <td>
+            {% if shipment.status == 'Paid' %}
+              <span class="status-badge status-delivered">✓ Delivered</span>
+            {% elif shipment.status == 'Partial' %}
+              <span class="status-badge status-in-transit">🚚 In Transit</span>
+            {% elif shipment.status == 'Draft' %}
+              <span class="status-badge status-draft">📝 Draft</span>
+            {% else %}
+              <span class="status-badge status-pending">⏳ Pending</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right;font-weight:700;color:#16A34A">₹{{ "%.2f"|format(shipment.total or 0) }}</td>
+          <td onclick="event.stopPropagation()">
+            <a href="/invoice/view/{{ shipment.invoice_id }}" class="view-btn">View →</a>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="11" style="text-align:center;padding:40px;color:#9CA3AF">
-            No stock items found. Click "Add Stock Item" to get started.
+          <td colspan="14" style="text-align:center;padding:48px;color:#9CA3AF">
+            🚚 No shipments found. Click "New Shipment" to create one.
           </td>
         </tr>
         {% endfor %}
@@ -116,243 +204,77 @@
   </div>
 </div>
 
-<!-- Stock Movement History Modal -->
-<div id="movementModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-  <div style="background:#fff; border-radius:16px; width:680px; max-width:95%; padding:24px; max-height:85vh; overflow-y:auto;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
-      <h3 id="movModalTitle" style="margin:0">📊 Stock Movement History</h3>
-      <button class="btn btn-ghost btn-sm" onclick="closeMovementModal()">✕ Close</button>
-    </div>
-
-    <!-- Summary chips -->
-    <div id="movSummary" style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px"></div>
-
-    <div class="table-wrap">
-      <table id="movTable">
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Type</th>
-            <th>Reference</th>
-            <th style="text-align:right">Qty In</th>
-            <th style="text-align:right">Qty Out</th>
-            <th style="text-align:right">Rate (₹)</th>
-          </tr>
-        </thead>
-        <tbody id="movBody">
-          <tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:24px">Loading…</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- Stock Modal (Add/Edit) -->
-<div id="stockModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-  <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
-    <h3 id="modalTitle" style="margin-bottom:20px">Add Stock Item</h3>
-    <form id="stockForm">
-      <input type="hidden" id="stockCode" name="code">
-      <div class="form-group">
-        <label>Product Name *</label>
-        <input type="text" id="stockName" name="name" required>
-      </div>
-      <div class="form-group">
-        <label>Category</label>
-        <select id="stockCategory" name="category">
-          <option value="Electronics">Electronics</option>
-          <option value="Furniture">Furniture</option>
-          <option value="Stationery">Stationery</option>
-          <option value="Raw Material">Raw Material</option>
-          <option value="Packaging">Packaging</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Quantity *</label>
-          <input type="number" id="stockQuantity" name="quantity" step="1" required>
-        </div>
-        <div class="form-group">
-          <label>Unit</label>
-          <select id="stockUnit" name="unit">
-            <option value="pcs">Pieces</option>
-            <option value="kg">Kilograms</option>
-            <option value="m">Meters</option>
-            <option value="box">Box</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="form-group">
-          <label>Unit Price (₹) *</label>
-          <input type="number" id="stockPrice" name="unit_price" step="0.01" required>
-        </div>
-        <div class="form-group">
-          <label>Reorder Level</label>
-          <input type="number" id="stockReorder" name="reorder_level" value="10">
-        </div>
-      </div>
-      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
-        <button type="button" class="btn btn-ghost" onclick="closeStockModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Item</button>
-      </div>
-    </form>
-  </div>
-</div>
-
 <script>
-function openStockModal(itemCode=null) {
-  document.getElementById('stockModal').style.display = 'flex';
-  if (itemCode) {
-    document.getElementById('modalTitle').innerText = 'Edit Stock Item';
-    fetch(`/stock/item/${itemCode}`)
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById('stockCode').value = data.code;
-        document.getElementById('stockName').value = data.name;
-        document.getElementById('stockCategory').value = data.category;
-        document.getElementById('stockQuantity').value = data.quantity;
-        document.getElementById('stockUnit').value = data.unit;
-        document.getElementById('stockPrice').value = data.unit_price;
-        document.getElementById('stockReorder').value = data.reorder_level || 10;
-      });
-  } else {
-    document.getElementById('modalTitle').innerText = 'Add Stock Item';
-    document.getElementById('stockForm').reset();
-    document.getElementById('stockCode').value = '';
-  }
-}
-
-function closeStockModal() {
-  document.getElementById('stockModal').style.display = 'none';
-}
-
-function editStockItem(code) {
-  openStockModal(code);
-}
-
-function adjustStock(code) {
-  let newQty = prompt('Enter new quantity:');
-  if (newQty !== null && !isNaN(parseFloat(newQty))) {
-    fetch('/stock/adjust', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({code: code, quantity: parseFloat(newQty)})
-    }).then(() => location.reload());
-  }
-}
-
-function viewMovements(code) {
-  document.getElementById('movementModal').style.display = 'flex';
-  document.getElementById('movModalTitle').textContent = `📊 Movement History — ${code}`;
-  document.getElementById('movBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:24px">Loading…</td></tr>';
-  document.getElementById('movSummary').innerHTML = '';
-
-  fetch(`/stock/movements/${code}`)
-    .then(r => r.json())
-    .then(data => {
-      const tbody = document.getElementById('movBody');
-      tbody.innerHTML = '';
-
-      if (!data.movements || data.movements.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#9CA3AF;padding:24px">No movement records found.</td></tr>';
-      } else {
-        data.movements.forEach(m => {
-          const isIn = m.quantity > 0;
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td style="color:#6B7280;font-size:12px">${m.date}</td>
-            <td>
-              <span class="stock-badge ${isIn ? 'in-stock' : 'out-stock'}">
-                ${isIn ? '⬆ IN' : '⬇ OUT'}
-              </span>
-              <span style="font-size:12px;color:#6B7280;margin-left:6px">${m.type}</span>
-            </td>
-            <td style="color:#4F46E5;font-size:12px;font-weight:600">${m.ref}</td>
-            <td style="text-align:right;color:#16A34A;font-weight:700">${isIn ? '+' + Math.abs(m.quantity) : '—'}</td>
-            <td style="text-align:right;color:#DC2626;font-weight:700">${!isIn ? '−' + Math.abs(m.quantity) : '—'}</td>
-            <td style="text-align:right;color:#374151">₹${parseFloat(m.rate || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</td>`;
-          tbody.appendChild(tr);
-        });
-      }
-
-      // Summary chips
-      const summary = document.getElementById('movSummary');
-      summary.innerHTML = '';
-      const chips = [
-        { label: 'Total IN', val: data.total_in || 0, color: '#16A34A', bg: '#DCFCE7' },
-        { label: 'Total OUT', val: data.total_out || 0, color: '#DC2626', bg: '#FEE2E2' },
-        { label: 'Net', val: (data.total_in || 0) - (data.total_out || 0), color: '#4F46E5', bg: '#EEF2FF' },
-      ];
-      chips.forEach(c => {
-        const el = document.createElement('div');
-        el.style.cssText = `padding:8px 16px;border-radius:20px;background:${c.bg};color:${c.color};font-weight:700;font-size:13px`;
-        el.textContent = `${c.label}: ${c.val}`;
-        summary.appendChild(el);
-      });
-    })
-    .catch(() => {
-      document.getElementById('movBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#DC2626;padding:24px">Failed to load movements.</td></tr>';
-    });
-}
-
-function closeMovementModal() {
-  document.getElementById('movementModal').style.display = 'none';
-}
-
-document.getElementById('stockForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const formData = new FormData(e.target);
-  const data = Object.fromEntries(formData);
-  await fetch('/stock/save', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(data)
-  });
-  closeStockModal();
-  location.reload();
-});
-
-function filterStock() {
-  const search = document.getElementById('searchStock').value.toLowerCase();
+function filterShipments() {
+  const search = document.getElementById('searchShipment').value.toLowerCase();
   const statusFilter = document.getElementById('filterStatus').value.toLowerCase();
-  const rows = document.querySelectorAll('#stockTable tbody tr');
+  const fromDate = document.getElementById('filterFromDate').value;
+  const toDate = document.getElementById('filterToDate').value;
+  
+  const rows = document.querySelectorAll('#shipmentTable tbody tr');
+  
   rows.forEach(row => {
-    const text = row.innerText.toLowerCase();
-    let matchSearch = text.includes(search);
-    let matchStatus = true;
+    // Skip the "no data" row
+    if (row.querySelector('td[colspan]')) return;
     
-    if (statusFilter === 'in-stock') {
-      matchStatus = !text.includes('low stock') && !text.includes('out of stock');
-    } else if (statusFilter === 'low-stock') {
-      matchStatus = text.includes('low stock');
-    } else if (statusFilter === 'out-of-stock') {
-      matchStatus = text.includes('out of stock');
+    const docket = (row.cells[1]?.innerText || '').toLowerCase();
+    const customer = (row.cells[2]?.innerText || '').toLowerCase();
+    const receiver = (row.cells[5]?.innerText || '').toLowerCase();
+    const items = (row.cells[6]?.innerText || '').toLowerCase();
+    const destination = (row.cells[4]?.innerText || '').toLowerCase();
+    const statusCell = row.cells[11]?.innerText || '';
+    let status = '';
+    if (statusCell.includes('Delivered')) status = 'delivered';
+    else if (statusCell.includes('Transit')) status = 'in-transit';
+    else if (statusCell.includes('Draft')) status = 'draft';
+    else status = 'pending';
+    
+    const bookingDate = row.cells[3]?.innerText || '';
+    
+    // Check search match (includes items now)
+    const matchSearch = docket.includes(search) || customer.includes(search) || 
+                        receiver.includes(search) || destination.includes(search) ||
+                        items.includes(search);
+    
+    // Check status match
+    const matchStatus = !statusFilter || status === statusFilter;
+    
+    // Check date range
+    let matchDate = true;
+    if (fromDate && bookingDate) {
+      const bookingDateObj = new Date(bookingDate);
+      const fromDateObj = new Date(fromDate);
+      if (bookingDateObj < fromDateObj) matchDate = false;
+    }
+    if (toDate && bookingDate && matchDate) {
+      const bookingDateObj = new Date(bookingDate);
+      const toDateObj = new Date(toDate);
+      if (bookingDateObj > toDateObj) matchDate = false;
     }
     
-    row.style.display = (matchSearch && matchStatus) ? '' : 'none';
+    row.style.display = (matchSearch && matchStatus && matchDate) ? '' : 'none';
   });
 }
 
-// Close modal when clicking outside
-window.onclick = function(event) {
-  const modal = document.getElementById('stockModal');
-  const movementModal = document.getElementById('movementModal');
-  if (event.target == modal) {
-    closeStockModal();
+// Set default date filters to last 30 days
+function setDefaultDates() {
+  const today = new Date();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(today.getDate() - 30);
+  
+  const toDateInput = document.getElementById('filterToDate');
+  const fromDateInput = document.getElementById('filterFromDate');
+  
+  if (!toDateInput.value) {
+    toDateInput.value = today.toISOString().split('T')[0];
   }
-  if (event.target == movementModal) {
-    closeMovementModal();
+  if (!fromDateInput.value) {
+    fromDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
   }
 }
-</script>
 
-<style>
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 600px) {
-  .grid-2 { grid-template-columns: 1fr; }
-}
-</style>
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', setDefaultDates);
+</script>
 
 {% endblock %}

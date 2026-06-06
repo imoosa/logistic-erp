@@ -237,11 +237,23 @@
     </div>
 
     <nav class="sidebar-nav">
-      <!-- Main Dashboard -->
+      <!-- Main Dashboard --
       <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
         <span class="nav-icon">📊</span>
         <span>Dashboard</span>
-      </a>
+      </a>-->
+      
+   <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
+    <span class="nav-icon">📊</span>
+    <span>Dashboard</span>
+</a>
+
+<!-- Reports Dashboard -->
+<a href="{{ url_for('reports_dashboard') }}" class="nav-item {% if active == 'reports_dashboard' %}active{% endif %}">
+    <span class="nav-icon">📈</span>
+    <span>Analytics</span>
+</a>
+
 
       <!-- Sales Section -->
       <div class="nav-section">
@@ -311,25 +323,8 @@
         </a>
       </div>
 
-      <!-- Reports -->
-      <div class="nav-section">
-        <div class="nav-section-title">Reports</div>
-        <a href="{{ url_for('sales_report') }}" class="nav-item {% if active == 'sales_report' %}active{% endif %}">
-          <span class="nav-icon">📈</span><span>Sales Report</span>
-        </a>
-        <a href="{{ url_for('purchase_report') }}" class="nav-item {% if active == 'purchase_report' %}active{% endif %}">
-          <span class="nav-icon">📉</span><span>Purchase Report</span>
-        </a>
-        <a href="{{ url_for('stock_report') }}" class="nav-item {% if active == 'stock_report' %}active{% endif %}">
-          <span class="nav-icon">📊</span><span>Stock Report</span>
-        </a>
-        <a href="{{ url_for('tax_report') }}" class="nav-item {% if active == 'tax_report' %}active{% endif %}">
-          <span class="nav-icon">🧾</span><span>Tax Report (GST)</span>
-        </a>
-        <a href="{{ url_for('profit_loss') }}" class="nav-item {% if active == 'profit_loss' %}active{% endif %}">
-          <span class="nav-icon">📊</span><span>Profit & Loss</span>
-        </a>
-      </div>
+     
+      
 
       <!-- Sync & Backup -->
       <div class="nav-section">

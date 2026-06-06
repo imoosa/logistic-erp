@@ -3,424 +3,511 @@
 {% block page_title %}New Purchase Invoice{% endblock %}
 {% set active = 'purchases' %}
 
-{% block extra_style %}
-<style>
-  .pf-page { max-width: 1300px; margin: 0 auto; }
-
-  /* Section card */
-  .sec-card {
-    background: #fff; border-radius: 18px; border: 1px solid #E2E8F0;
-    box-shadow: 0 1px 4px rgba(0,0,0,.04); margin-bottom: 20px; overflow: hidden;
-  }
-  .sec-head {
-    padding: 16px 22px; border-bottom: 1px solid #F1F5F9;
-    display: flex; align-items: center; gap: 10px;
-    font-size: 14px; font-weight: 700; color: #0F172A;
-    background: #FAFBFC;
-  }
-  .sec-head .sec-icon { font-size: 18px; }
-  .sec-body { padding: 22px; }
-
-  /* Form grid */
-  .fg-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-  .fg-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  .fg-1 { display: grid; grid-template-columns: 1fr; gap: 16px; }
-  label { font-size: 11.5px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .4px; display: block; margin-bottom: 6px; }
-  input, select, textarea {
-    width: 100%; padding: 10px 13px; border: 1.5px solid #E2E8F0;
-    border-radius: 10px; font-size: 13.5px; font-family: inherit;
-    outline: none; transition: border .15s; background: #fff; color: #0F172A;
-  }
-  input:focus, select:focus, textarea:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.08); }
-  .hint { font-size: 11px; color: #94A3B8; margin-top: 4px; }
-
-  /* Autocomplete */
-  .ac-wrap { position: relative; }
-  .ac-dropdown {
-    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-    background: #fff; border: 1.5px solid #E2E8F0; border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.12); z-index: 200;
-    max-height: 220px; overflow-y: auto; display: none;
-  }
-  .ac-item {
-    padding: 10px 14px; cursor: pointer; font-size: 13px;
-    border-bottom: 1px solid #F8FAFC; display: flex; flex-direction: column; gap: 2px;
-  }
-  .ac-item:last-child { border-bottom: none; }
-  .ac-item:hover { background: #EFF6FF; }
-  .ac-item-name { font-weight: 600; color: #0F172A; }
-  .ac-item-sub  { font-size: 11px; color: #94A3B8; }
-
-  /* Items Table */
-  .items-table-wrap { overflow-x: auto; }
-  .items-table { width: 100%; border-collapse: collapse; min-width: 900px; }
-  .items-table th {
-    padding: 10px 12px; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .4px; color: #64748B; background: #F8FAFC;
-    border-bottom: 1.5px solid #E2E8F0; text-align: left; white-space: nowrap;
-  }
-  .items-table td { padding: 8px 8px; border-bottom: 1px solid #F1F5F9; vertical-align: middle; }
-  .items-table tbody tr:hover { background: #FAFBFF; }
-  .items-table input, .items-table select {
-    padding: 7px 10px; font-size: 13px; border-radius: 8px; border: 1.5px solid #E2E8F0;
-  }
-  .items-table input:focus, .items-table select:focus {
-    border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.06);
-  }
-  .item-select-wrap { position: relative; min-width: 200px; }
-  .item-ac { display: none; }  /* same ac-dropdown class reused */
-
-  .row-total { font-size: 14px; font-weight: 800; color: #2563EB; white-space: nowrap; text-align: right; }
-  .row-gst-amt { font-size: 11px; color: #D97706; white-space: nowrap; }
-
-  .del-btn {
-    background: #FEE2E2; color: #DC2626; border: none; border-radius: 8px;
-    width: 30px; height: 30px; cursor: pointer; font-size: 14px;
-    display: flex; align-items: center; justify-content: center;
-    transition: all .15s; flex-shrink: 0;
-  }
-  .del-btn:hover { background: #DC2626; color: #fff; }
-
-  .add-row-btn {
-    border: 2px dashed #CBD5E1; border-radius: 10px; background: none;
-    padding: 10px 20px; color: #64748B; font-size: 13px; font-weight: 600;
-    cursor: pointer; width: 100%; margin-top: 10px; transition: all .15s;
-    font-family: inherit;
-  }
-  .add-row-btn:hover { border-color: #2563EB; color: #2563EB; background: #EFF6FF; }
-
-  /* Totals bar */
-  .totals-bar {
-    display: grid; grid-template-columns: repeat(3,1fr);
-    gap: 12px; margin-top: 20px; background: #EFF6FF;
-    border-radius: 14px; padding: 18px 20px; border: 1.5px solid #DBEAFE;
-  }
-  .tb-item { text-align: center; }
-  .tb-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; }
-  .tb-val { font-size: 22px; font-weight: 800; color: #2563EB; margin-top: 4px; }
-  .tb-val.green { color: #059669; }
-  .tb-val.amber { color: #D97706; }
-
-  /* Upload zone */
-  .upload-zone {
-    border: 2px dashed #CBD5E1; border-radius: 14px; padding: 30px 20px;
-    text-align: center; cursor: pointer; transition: all .2s; background: #F8FAFC;
-  }
-  .upload-zone:hover, .upload-zone.dragover { border-color: #2563EB; background: #EFF6FF; }
-  .upload-zone .uz-icon { font-size: 36px; margin-bottom: 8px; }
-  .upload-zone h4 { font-size: 14px; font-weight: 700; color: #334155; margin-bottom: 4px; }
-  .upload-zone p  { font-size: 12px; color: #94A3B8; }
-  .file-badge {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: #D1FAE5; color: #059669; border-radius: 8px;
-    padding: 8px 14px; font-size: 12px; font-weight: 600; margin-top: 10px;
-  }
-
-  /* Actions row */
-  .form-actions {
-    display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px;
-  }
-
-  @media(max-width:900px) {
-    .fg-3 { grid-template-columns: 1fr 1fr; }
-    .fg-2 { grid-template-columns: 1fr; }
-  }
-  @media(max-width:600px) {
-    .fg-3 { grid-template-columns: 1fr; }
-    .totals-bar { grid-template-columns: 1fr; }
-  }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="pf-page">
+<div class="container-fluid" style="max-width: 1400px; margin: 0 auto;">
 
   <form method="POST" enctype="multipart/form-data" id="purchaseForm">
 
-    <!-- ── Row 1: Supplier + Invoice Details side by side ── -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-
-      <!-- Supplier Details -->
-      <div class="sec-card">
-        <div class="sec-head"><span class="sec-icon">🏭</span> Supplier Details</div>
-        <div class="sec-body">
-          <input type="hidden" name="supplier_id" id="supplier_id_hidden">
-
-          <div class="form-group">
-            <label>Supplier Name *</label>
-            <div class="ac-wrap">
-              <input type="text" name="supplier_name" id="supplier_name"
-                     placeholder="Type to search supplier…" autocomplete="off" required>
-              <div class="ac-dropdown" id="sup_dropdown"></div>
+    <!-- Row 1: Supplier + Customer -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header">🏭 Supplier Details</div>
+          <div class="card-body">
+            <input type="hidden" name="supplier_id" id="supplier_id_hidden">
+            <div class="mb-3">
+              <label>Supplier Name *</label>
+              <input type="text" name="supplier_name" id="supplier_name" class="form-control" 
+                     placeholder="Type to search supplier..." autocomplete="off">
+              <div id="sup_dropdown" class="dropdown-list" style="display:none; position:absolute; background:white; border:1px solid #ccc; max-height:200px; overflow-y:auto; width:90%; z-index:1000;"></div>
             </div>
-            <div class="hint">If not found, will be auto-created</div>
-          </div>
-
-          <div class="form-group" style="margin-top:14px;">
-            <label>Supplier GST Number</label>
-            <input type="text" name="supplier_gst" id="supplier_gst" placeholder="22AAAAA0000A1Z5">
+            <div class="mb-3">
+              <label>Supplier GST Number</label>
+              <input type="text" name="supplier_gst" id="supplier_gst" class="form-control">
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Invoice Details -->
-      <div class="sec-card">
-        <div class="sec-head"><span class="sec-icon">📋</span> Invoice Details</div>
-        <div class="sec-body">
-          <div class="fg-2">
-            <div class="form-group">
-              <label>Supplier Invoice No.</label>
-              <input type="text" name="invoice_number" placeholder="e.g. INV-2025-001">
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header">👤 Customer (Purchase Is For)</div>
+          <div class="card-body">
+            <input type="hidden" name="customer_id" id="customer_id_hidden">
+            <div class="mb-3">
+              <label>Customer Name *</label>
+              <input type="text" name="customer_name_display" id="customer_name" class="form-control" 
+                     placeholder="Type customer name..." autocomplete="off">
+              <div id="cust_dropdown" class="dropdown-list" style="display:none; position:absolute; background:white; border:1px solid #ccc; max-height:200px; overflow-y:auto; width:90%; z-index:1000;"></div>
+              <small class="text-muted" id="filterHint">Select a customer to filter items by their purchase history</small>
             </div>
-            <div class="form-group">
-              <label>Invoice Date *</label>
-              <input type="date" name="invoice_date" value="{{ today }}" required>
-            </div>
-            <div class="form-group">
-              <label>Due Date</label>
-              <input type="date" name="due_date">
-            </div>
-            <div class="form-group">
-              <label>Payment Terms</label>
-              <input type="text" name="payment_terms" placeholder="Net 30 days">
+            <div id="cust_info_box" class="alert alert-success" style="display:none;">
+              <strong>✅ Customer Selected:</strong> <span id="cust_info_name"></span><br>
+              <span id="cust_info_items"></span>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── Items Section ── -->
-    <div class="sec-card">
-      <div class="sec-head" style="justify-content:space-between;">
-        <span><span class="sec-icon">📦</span> Items Received</span>
-        <button type="button" class="btn btn-primary btn-sm" onclick="addItemRow()">+ Add Item</button>
+    <!-- Invoice Details -->
+    <div class="card mb-3">
+      <div class="card-header">📋 Invoice Details</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-3"><label>Supplier Invoice No.</label><input type="text" name="invoice_number" class="form-control"></div>
+          <div class="col-md-3"><label>Invoice Date *</label><input type="date" name="invoice_date" value="{{ today }}" class="form-control" required></div>
+          <div class="col-md-3"><label>Due Date</label><input type="date" name="due_date" class="form-control"></div>
+          <div class="col-md-3"><label>Payment Terms</label><input type="text" name="payment_terms" class="form-control" placeholder="Net 30 days"></div>
+        </div>
       </div>
-      <div class="sec-body">
-        <div class="items-table-wrap">
-          <table class="items-table">
+    </div>
+
+    <!-- Items Section -->
+    <div class="card mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span>📦 Items Received</span>
+        <button type="button" class="btn btn-sm btn-primary" onclick="addItemRow()">+ Add Item</button>
+      </div>
+      <div class="card-body">
+        <div id="items_filter_notice" class="alert alert-warning" style="display:none;"></div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered">
             <thead>
               <tr>
-                <th style="width:36px">#</th>
-                <th style="min-width:220px">Item / Product</th>
-                <th style="width:90px">Code</th>
-                <th style="width:80px">Qty</th>
-                <th style="width:70px">Unit</th>
-                <th style="width:110px">Rate (₹)</th>
-                <th style="width:90px">GST %</th>
-                <th style="width:80px">GST Amt</th>
-                <th style="width:110px">Total (₹)</th>
-                <th style="width:36px"></th>
+                <th>#</th><th style="min-width:250px">Item / Product</th><th>Code</th>
+                <th>Qty</th><th>Unit</th><th>Rate (₹)</th><th>GST %</th><th>GST Amt</th><th>Total (₹)</th><th></th>
               </tr>
             </thead>
             <tbody id="items_body"></tbody>
           </table>
         </div>
-        <button type="button" class="add-row-btn" onclick="addItemRow()">+ Add Another Item</button>
+        <button type="button" class="btn btn-outline-secondary w-100" onclick="addItemRow()">+ Add Another Item</button>
 
-        <!-- Totals -->
-        <div class="totals-bar">
-          <div class="tb-item">
-            <div class="tb-lbl">Taxable Value</div>
-            <div class="tb-val amber" id="t_taxable">₹0.00</div>
-          </div>
-          <div class="tb-item">
-            <div class="tb-lbl">Total GST</div>
-            <div class="tb-val amber" id="t_gst">₹0.00</div>
-          </div>
-          <div class="tb-item">
-            <div class="tb-lbl">Grand Total</div>
-            <div class="tb-val" id="t_grand">₹0.00</div>
+        <div class="row mt-3 bg-light p-3 rounded">
+          <div class="col-md-4 text-center"><strong>Taxable Value</strong><br><span id="t_taxable" class="h4">₹0.00</span></div>
+          <div class="col-md-4 text-center"><strong>Total GST</strong><br><span id="t_gst" class="h4">₹0.00</span></div>
+          <div class="col-md-4 text-center"><strong>Grand Total</strong><br><span id="t_grand" class="h4 text-primary">₹0.00</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes + Upload -->
+    <div class="row">
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header">📝 Notes</div>
+          <div class="card-body"><textarea name="notes" rows="3" class="form-control"></textarea></div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card mb-3">
+          <div class="card-header">📎 Upload Bill</div>
+          <div class="card-body">
+            <input type="file" name="invoice_file" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
           </div>
         </div>
       </div>
     </div>
 
-    <!-- ── Notes + Upload ── -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-
-      <div class="sec-card">
-        <div class="sec-head"><span class="sec-icon">📝</span> Notes</div>
-        <div class="sec-body">
-          <textarea name="notes" rows="4" placeholder="Optional remarks about this purchase…"></textarea>
-        </div>
-      </div>
-
-      <div class="sec-card">
-        <div class="sec-head"><span class="sec-icon">📎</span> Upload Bill / Invoice</div>
-        <div class="sec-body">
-          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('invoiceFile').click()">
-            <div class="uz-icon">📄</div>
-            <h4>Drop or click to upload</h4>
-            <p>PDF, PNG, JPG, WEBP — max 10 MB</p>
-            <div id="fileNameDisplay"></div>
-          </div>
-          <input type="file" id="invoiceFile" name="invoice_file"
-                 accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none"
-                 onchange="onFileChosen(this)">
-          <div class="hint" style="margin-top:8px;">
-            📁 The uploaded bill is stored and linked to this purchase for future reference.
-          </div>
-        </div>
-      </div>
-
-    </div>
-
-    <!-- ── Action Buttons ── -->
-    <div class="form-actions">
-      <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
-      <button type="submit" class="btn btn-primary" style="padding:11px 32px;font-size:14px;">
-        💾 Create Purchase Invoice
-      </button>
+    <div class="text-end mb-3">
+      <a href="/purchase/list" class="btn btn-secondary">Cancel</a>
+      <button type="submit" class="btn btn-primary">💾 Create Purchase Invoice</button>
     </div>
 
   </form>
 </div>
 
-<script>
-// ── Stock items loaded from API ────────────────────────────────────────────────
-let stockItems = [];
-let supplierList = [];
-let rowIdx = 0;
+<style>
+.dropdown-list { position: absolute; background: white; border: 1px solid #ddd; max-height: 250px; overflow-y: auto; width: 100%; z-index: 1000; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.dropdown-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee; }
+.dropdown-item:hover { background-color: #e3f2fd; }
+.dropdown-item-name { font-weight: 600; }
+.dropdown-item-sub { font-size: 11px; color: #666; }
+</style>
 
-// Fetch stock items for the dropdown
+<script>
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let allStockItems = [];
+let stockItemMap = {};
+let activeStockItems = [];
+let supplierList = [];
+let customerList = [];
+let selectedCustomerId = null;
+let selectedCustomerName = null;
+let rowCounter = 0;
+
+// ============================================================
+// API LOADERS
+// ============================================================
 async function loadStockItems() {
   try {
-    const r = await fetch('/api/stock/items');
-    const d = await r.json();
-    stockItems = d;
-  } catch(e) { console.warn('Could not load stock items:', e); }
+    const response = await fetch('/api/stock/items');
+    const data = await response.json();
+    allStockItems = Array.isArray(data) ? data : [];
+    stockItemMap = {};
+    allStockItems.forEach(item => { stockItemMap[item.id] = item; });
+    activeStockItems = allStockItems;
+    console.log(`Loaded ${allStockItems.length} stock items`);
+    if (allStockItems.length === 0) {
+      document.getElementById('filterHint').innerHTML = '⚠️ No stock items found! Please add items to inventory first.';
+    }
+  } catch(e) {
+    console.error('Error loading stock:', e);
+    allStockItems = [];
+  }
 }
 
-// Fetch suppliers for autocomplete
 async function loadSuppliers() {
   try {
-    const r = await fetch('/api/suppliers/list');
-    const d = await r.json();
-    supplierList = d;
-  } catch(e) { console.warn('Could not load suppliers:', e); }
+    const response = await fetch('/api/suppliers/list');
+    const data = await response.json();
+    supplierList = Array.isArray(data) ? data : [];
+    console.log(`Loaded ${supplierList.length} suppliers`);
+  } catch(e) {
+    console.error('Error loading suppliers:', e);
+    supplierList = [];
+  }
 }
 
-// ── Supplier autocomplete ─────────────────────────────────────────────────────
-document.getElementById('supplier_name').addEventListener('input', function() {
-  const q = this.value.toLowerCase();
-  const dd = document.getElementById('sup_dropdown');
-  if (q.length < 1) { dd.style.display = 'none'; return; }
-  const matches = supplierList.filter(s => s.name.toLowerCase().includes(q)).slice(0,8);
-  if (!matches.length) { dd.style.display = 'none'; return; }
-  dd.innerHTML = matches.map(s => `
-    <div class="ac-item" onclick="selectSupplier(${s.id},'${esc(s.name)}','${esc(s.gst||'')}')">
-      <span class="ac-item-name">${esc(s.name)}</span>
-      ${s.gst ? `<span class="ac-item-sub">GST: ${s.gst}</span>` : ''}
-    </div>`).join('');
-  dd.style.display = 'block';
+async function loadCustomers() {
+  try {
+    const response = await fetch('/api/customers/list');
+    const data = await response.json();
+    customerList = Array.isArray(data) ? data : [];
+    console.log(`Loaded ${customerList.length} customers`);
+    if (customerList.length === 0) {
+      document.getElementById('filterHint').innerHTML = '⚠️ No customers found! Please add customers first.';
+    }
+  } catch(e) {
+    console.error('Error loading customers:', e);
+    customerList = [];
+  }
+}
+
+// ============================================================
+// CUSTOMER DROPDOWN
+// ============================================================
+const customerInput = document.getElementById('customer_name');
+const custDropdown = document.getElementById('cust_dropdown');
+
+customerInput.addEventListener('input', function() {
+  const query = this.value.toLowerCase().trim();
+  
+  if (query.length === 0) {
+    custDropdown.style.display = 'none';
+    return;
+  }
+  
+  const matches = customerList.filter(c => 
+    c.name.toLowerCase().includes(query) ||
+    (c.phone && c.phone.includes(query))
+  ).slice(0, 10);
+  
+  if (matches.length === 0) {
+    custDropdown.style.display = 'none';
+    return;
+  }
+  
+  custDropdown.innerHTML = matches.map(c => `
+    <div class="dropdown-item" data-id="${c.id}" data-name="${escapeHtml(c.name)}">
+      <div class="dropdown-item-name">${escapeHtml(c.name)}</div>
+      <div class="dropdown-item-sub">${c.phone ? '📞 ' + escapeHtml(c.phone) : ''} ${c.city ? '📍 ' + escapeHtml(c.city) : ''}</div>
+    </div>
+  `).join('');
+  
+  custDropdown.querySelectorAll('.dropdown-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      const name = el.dataset.name;
+      selectCustomer(id, name);
+    });
+  });
+  
+  custDropdown.style.display = 'block';
 });
 
-function selectSupplier(id, name, gst) {
-  document.getElementById('supplier_name').value = name;
-  document.getElementById('supplier_id_hidden').value = id;
-  if (gst) document.getElementById('supplier_gst').value = gst;
-  document.getElementById('sup_dropdown').style.display = 'none';
-}
-
-document.addEventListener('click', e => {
-  if (!e.target.closest('#supplier_name') && !e.target.closest('#sup_dropdown'))
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#customer_name') && !e.target.closest('#cust_dropdown')) {
+    custDropdown.style.display = 'none';
+  }
+  if (!e.target.closest('#supplier_name') && !e.target.closest('#sup_dropdown')) {
     document.getElementById('sup_dropdown').style.display = 'none';
+  }
 });
 
-// ── Item Rows ─────────────────────────────────────────────────────────────────
-function addItemRow(data = {}) {
-  const i = rowIdx++;
-  const tbody = document.getElementById('items_body');
-  const tr = document.createElement('tr');
-  tr.id = `row-${i}`;
-  tr.innerHTML = `
-    <td style="color:#94A3B8;font-weight:600;text-align:center">${tbody.children.length + 1}</td>
-    <td>
-      <div class="item-select-wrap">
-        <input type="text" name="item_description[]" id="item_name_${i}"
-               value="${esc(data.name||'')}" placeholder="Select or type item…"
-               autocomplete="off"
-               oninput="filterItemDropdown(${i}); recalcRow(${i})"
-               required style="min-width:200px">
-        <div class="ac-dropdown" id="item_dd_${i}"></div>
-      </div>
-    </td>
-    <td>
-      <input type="text" name="item_code_disp[]" id="item_code_${i}"
-             value="${esc(data.code||'')}" placeholder="—" readonly
-             style="background:#F8FAFC;width:80px;cursor:default;">
-      <input type="hidden" name="item_stock_id[]" id="item_sid_${i}" value="${data.stock_id||''}">
-    </td>
-    <td>
-      <input type="number" name="item_quantity[]" id="qty_${i}"
-             value="${data.qty||1}" min="0.01" step="any" style="width:70px"
-             oninput="recalcRow(${i})">
-    </td>
-    <td>
-      <input type="text" name="item_unit[]" id="unit_${i}"
-             value="${esc(data.unit||'pcs')}" style="width:60px">
-    </td>
-    <td>
-      <input type="number" name="item_rate[]" id="rate_${i}"
-             value="${data.rate||''}" min="0" step="any" placeholder="0.00" style="width:100px"
-             oninput="recalcRow(${i})">
-    </td>
-    <td>
-      <select name="item_gst[]" id="gst_${i}" onchange="recalcRow(${i})" style="width:75px">
-        ${[0,5,12,18,28].map(g => `<option value="${g}" ${g==(data.gst||18)?'selected':''}>${g}%</option>`).join('')}
-      </select>
-    </td>
-    <td>
-      <div class="row-gst-amt" id="gst_amt_${i}">₹0.00</div>
-    </td>
-    <td>
-      <div class="row-total" id="row_total_${i}">₹0.00</div>
-    </td>
-    <td>
-      <button type="button" class="del-btn" onclick="delRow(${i})">✕</button>
-    </td>
-  `;
-  tbody.appendChild(tr);
-  recalcRow(i);
-  renumberRows();
+function selectCustomer(id, name) {
+  console.log(`Selected customer: ${name} (${id})`);
+  document.getElementById('customer_name').value = name;
+  document.getElementById('customer_id_hidden').value = id;
+  custDropdown.style.display = 'none';
+  selectedCustomerId = id;
+  selectedCustomerName = name;
+  
+  // Show info box
+  document.getElementById('cust_info_name').textContent = name;
+  document.getElementById('cust_info_items').innerHTML = '<em>Loading items...</em>';
+  document.getElementById('cust_info_box').style.display = 'block';
+  
+  // Load items for this customer
+  loadItemsForCustomer(id, name);
+}
 
-  // Attach input listener for autocomplete
-  document.getElementById(`item_name_${i}`).addEventListener('focus', () => filterItemDropdown(i));
-  document.addEventListener('click', e => {
-    if (!e.target.closest(`#item_name_${i}`) && !e.target.closest(`#item_dd_${i}`))
-      document.getElementById(`item_dd_${i}`).style.display = 'none';
+async function loadItemsForCustomer(customerId, customerName) {
+  console.log(`Fetching items for customer ${customerName}`);
+  
+  try {
+    const response = await fetch(`/api/stock/items/by-client/${customerId}`);
+    const data = await response.json();
+    const clientItems = Array.isArray(data) ? data : [];
+    
+    console.log(`Received ${clientItems.length} items for this customer`);
+    
+    if (clientItems.length > 0) {
+      activeStockItems = clientItems;
+      const notice = document.getElementById('items_filter_notice');
+      notice.innerHTML = `🔒 Showing ${clientItems.length} item(s) previously purchased for <strong>${escapeHtml(customerName)}</strong> 
+        <button type="button" class="btn btn-sm btn-link" onclick="clearCustomerFilter()">✕ Clear Filter</button>`;
+      notice.style.display = 'block';
+      
+      document.getElementById('cust_info_items').innerHTML = `<strong>${clientItems.length}</strong> stock item(s) associated with this customer. Only these will appear in dropdowns.`;
+    } else {
+      activeStockItems = allStockItems;
+      const notice = document.getElementById('items_filter_notice');
+      notice.innerHTML = `⚠️ No purchase history for <strong>${escapeHtml(customerName)}</strong> — showing ALL stock items
+        <button type="button" class="btn btn-sm btn-link" onclick="clearCustomerFilter()">✕ Clear Filter</button>`;
+      notice.style.display = 'block';
+      
+      document.getElementById('cust_info_items').innerHTML = `No purchase history found — showing all stock items.`;
+    }
+    
+    // Refresh any open dropdowns
+    refreshAllItemDropdowns();
+    
+  } catch(e) {
+    console.error('Error loading customer items:', e);
+    activeStockItems = allStockItems;
+    document.getElementById('cust_info_items').innerHTML = 'Error loading items — showing all stock items.';
+  }
+}
+
+function clearCustomerFilter() {
+  console.log('Clearing customer filter');
+  activeStockItems = allStockItems;
+  selectedCustomerId = null;
+  selectedCustomerName = null;
+  document.getElementById('items_filter_notice').style.display = 'none';
+  document.getElementById('cust_info_box').style.display = 'none';
+  document.getElementById('customer_id_hidden').value = '';
+  document.getElementById('customer_name').value = '';
+  refreshAllItemDropdowns();
+}
+
+function refreshAllItemDropdowns() {
+  document.querySelectorAll('#items_body tr').forEach(tr => {
+    const match = tr.id.match(/row-(\d+)/);
+    if (match) {
+      const dropdown = document.getElementById(`item_dd_${match[1]}`);
+      if (dropdown && dropdown.style.display === 'block') {
+        showItemDropdown(match[1]);
+      }
+    }
   });
 }
 
-function filterItemDropdown(i) {
-  const q = (document.getElementById(`item_name_${i}`)?.value || '').toLowerCase();
+// ============================================================
+// SUPPLIER DROPDOWN
+// ============================================================
+const supplierInput = document.getElementById('supplier_name');
+const supDropdown = document.getElementById('sup_dropdown');
+
+supplierInput.addEventListener('input', function() {
+  const query = this.value.toLowerCase().trim();
+  if (query.length < 2) {
+    supDropdown.style.display = 'none';
+    return;
+  }
+  
+  const matches = supplierList.filter(s => s.name.toLowerCase().includes(query)).slice(0, 8);
+  
+  if (matches.length === 0) {
+    supDropdown.style.display = 'none';
+    return;
+  }
+  
+  supDropdown.innerHTML = matches.map(s => `
+    <div class="dropdown-item" data-id="${s.id}" data-gst="${escapeHtml(s.gst||'')}">
+      <div class="dropdown-item-name">${escapeHtml(s.name)}</div>
+      <div class="dropdown-item-sub">${s.gst ? 'GST: ' + escapeHtml(s.gst) : ''}</div>
+    </div>
+  `).join('');
+  
+  supDropdown.querySelectorAll('.dropdown-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      const name = el.querySelector('.dropdown-item-name').textContent;
+      const gst = el.dataset.gst;
+      document.getElementById('supplier_name').value = name;
+      document.getElementById('supplier_id_hidden').value = id;
+      if (gst) document.getElementById('supplier_gst').value = gst;
+      supDropdown.style.display = 'none';
+    });
+  });
+  
+  supDropdown.style.display = 'block';
+});
+
+// ============================================================
+// ITEM ROWS
+// ============================================================
+function addItemRow(data = {}) {
+  const i = rowCounter++;
+  const tbody = document.getElementById('items_body');
+  const rowNum = tbody.children.length + 1;
+  
+  const tr = document.createElement('tr');
+  tr.id = `row-${i}`;
+  tr.innerHTML = `
+    <td style="text-align:center">${rowNum}</td>
+    <td>
+      <div style="position:relative;">
+        <input type="text" name="item_description[]" id="item_name_${i}" class="form-control form-control-sm"
+               value="${escapeHtml(data.name||'')}" placeholder="Click or type to search item..." autocomplete="off">
+        <div id="item_dd_${i}" class="dropdown-list" style="display:none;"></div>
+      </div>
+    </td>
+    <td>
+      <input type="text" name="item_code_disp[]" id="item_code_${i}" class="form-control form-control-sm" value="${escapeHtml(data.code||'')}" readonly style="background:#f5f5f5; width:90px;">
+      <input type="hidden" name="item_stock_id[]" id="item_sid_${i}" value="${data.stock_id||''}">
+    </td>
+    <td><input type="number" name="item_quantity[]" id="qty_${i}" class="form-control form-control-sm" value="${data.qty||1}" min="0.01" step="any" style="width:80px"></td>
+    <td><input type="text" name="item_unit[]" id="unit_${i}" class="form-control form-control-sm" value="${escapeHtml(data.unit||'pcs')}" style="width:70px"></td>
+    <td><input type="number" name="item_rate[]" id="rate_${i}" class="form-control form-control-sm" value="${data.rate != null ? data.rate : ''}" min="0" step="any" placeholder="0.00" style="width:100px"></td>
+    <td>
+      <select name="item_gst[]" id="gst_${i}" class="form-control form-control-sm" style="width:75px">
+        ${[0,5,12,18,28].map(g => `<option value="${g}" ${g==(data.gst||18)?'selected':''}>${g}%</option>`).join('')}
+      </select>
+    </td>
+    <td><div class="row-gst-amt" id="gst_amt_${i}">₹0.00</div></td>
+    <td><div class="row-total" id="row_total_${i}">₹0.00</div></td>
+    <td><button type="button" class="btn btn-sm btn-danger" onclick="delRow(${i})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  
+  // Set up event listeners
+  const nameInput = document.getElementById(`item_name_${i}`);
+  nameInput.addEventListener('focus', () => { showItemDropdown(i); });
+  nameInput.addEventListener('input', () => { showItemDropdown(i); });
+  nameInput.addEventListener('click', () => { showItemDropdown(i); });
+  
+  document.getElementById(`qty_${i}`).addEventListener('input', () => recalcRow(i));
+  document.getElementById(`rate_${i}`).addEventListener('input', () => recalcRow(i));
+  document.getElementById(`gst_${i}`).addEventListener('change', () => recalcRow(i));
+  
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest(`#item_name_${i}`) && !e.target.closest(`#item_dd_${i}`)) {
+      const dd = document.getElementById(`item_dd_${i}`);
+      if (dd) dd.style.display = 'none';
+    }
+  });
+  
+  recalcRow(i);
+  renumberRows();
+}
+
+function showItemDropdown(i) {
+  const input = document.getElementById(`item_name_${i}`);
+  const query = (input?.value || '').toLowerCase().trim();
   const dd = document.getElementById(`item_dd_${i}`);
-  const matches = stockItems.filter(s =>
-    s.name.toLowerCase().includes(q) || (s.code||'').toLowerCase().includes(q)
-  ).slice(0, 10);
-  if (!matches.length) { dd.style.display = 'none'; return; }
-  dd.innerHTML = matches.map(s => `
-    <div class="ac-item" onclick="selectItem(${i}, ${JSON.stringify(s).replace(/"/g,'&quot;')})">
-      <span class="ac-item-name">${esc(s.name)}</span>
-      <span class="ac-item-sub">
-        Code: ${esc(s.code||'—')} · Stock: ${s.quantity} ${esc(s.unit||'pcs')}
-        ${s.purchase_rate ? ` · Last Rate: ₹${parseFloat(s.purchase_rate).toLocaleString('en-IN')}` : ''}
-      </span>
-    </div>`).join('');
+  
+  if (!dd) return;
+  
+  const pool = activeStockItems.length > 0 ? activeStockItems : allStockItems;
+  
+  if (pool.length === 0) {
+    dd.innerHTML = `<div class="dropdown-item" style="color:#999;cursor:default;">No stock items available</div>`;
+    dd.style.display = 'block';
+    return;
+  }
+  
+  let matches = pool;
+  if (query) {
+    matches = pool.filter(item => 
+      item.name.toLowerCase().includes(query) || 
+      (item.code && item.code.toLowerCase().includes(query))
+    );
+  }
+  
+  matches = matches.slice(0, 15);
+  
+  if (matches.length === 0) {
+    dd.innerHTML = `<div class="dropdown-item" style="color:#999;cursor:default;">No matching items found</div>`;
+    dd.style.display = 'block';
+    return;
+  }
+  
+  let headerHtml = '';
+  if (selectedCustomerId) {
+    headerHtml = `<div class="dropdown-item" style="background:#e3f2fd; color:#1565c0; font-size:11px;">
+      🔒 Showing items purchased by ${escapeHtml(selectedCustomerName)}
+    </div>`;
+  }
+  
+  dd.innerHTML = headerHtml + matches.map(item => `
+    <div class="dropdown-item" data-id="${item.id}" data-name="${escapeHtml(item.name)}" 
+         data-code="${escapeHtml(item.code||'')}" data-unit="${escapeHtml(item.unit||'pcs')}"
+         data-rate="${item.purchase_rate || item.unit_price || 0}" data-gst="${item.gst_percent || 18}">
+      <div class="dropdown-item-name">${escapeHtml(item.name)}</div>
+      <div class="dropdown-item-sub">
+        Code: ${escapeHtml(item.code||'—')} | Stock: ${item.quantity} ${escapeHtml(item.unit||'pcs')}
+        ${item.purchase_rate ? ` | Rate: ₹${parseFloat(item.purchase_rate).toLocaleString('en-IN')}` : ''}
+      </div>
+    </div>
+  `).join('');
+  
+  dd.querySelectorAll('.dropdown-item[data-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const item = {
+        id: el.dataset.id,
+        name: el.dataset.name,
+        code: el.dataset.code,
+        unit: el.dataset.unit,
+        purchase_rate: parseFloat(el.dataset.rate),
+        gst_percent: parseFloat(el.dataset.gst)
+      };
+      selectItem(i, item);
+    });
+  });
+  
   dd.style.display = 'block';
 }
 
 function selectItem(i, item) {
-  document.getElementById(`item_name_${i}`).value  = item.name;
-  document.getElementById(`item_code_${i}`).value  = item.code || '';
-  document.getElementById(`item_sid_${i}`).value   = item.id || '';
-  document.getElementById(`unit_${i}`).value        = item.unit || 'pcs';
-  if (item.purchase_rate) document.getElementById(`rate_${i}`).value = item.purchase_rate;
-  // Set GST
-  const gstSel = document.getElementById(`gst_${i}`);
-  if (item.gst_percent != null) {
-    for (let o of gstSel.options) { if (parseFloat(o.value) === parseFloat(item.gst_percent)) { o.selected = true; break; } }
+  console.log(`Selected item: ${item.name} (ID: ${item.id})`);
+  document.getElementById(`item_name_${i}`).value = item.name;
+  document.getElementById(`item_code_${i}`).value = item.code || '';
+  document.getElementById(`item_sid_${i}`).value = item.id;
+  document.getElementById(`unit_${i}`).value = item.unit || 'pcs';
+  
+  if (item.purchase_rate && item.purchase_rate > 0) {
+    document.getElementById(`rate_${i}`).value = item.purchase_rate;
   }
+  
+  const gstSel = document.getElementById(`gst_${i}`);
+  if (item.gst_percent) {
+    for (let opt of gstSel.options) {
+      if (parseFloat(opt.value) === parseFloat(item.gst_percent)) {
+        opt.selected = true;
+        break;
+      }
+    }
+  }
+  
   document.getElementById(`item_dd_${i}`).style.display = 'none';
   recalcRow(i);
 }
@@ -428,24 +515,25 @@ function selectItem(i, item) {
 function delRow(i) {
   const el = document.getElementById(`row-${i}`);
   if (el) el.remove();
-  renumberRows(); recalcTotals();
+  renumberRows();
+  recalcTotals();
 }
 
 function renumberRows() {
   document.querySelectorAll('#items_body tr').forEach((tr, idx) => {
-    const first = tr.querySelector('td:first-child');
-    if (first) first.textContent = idx + 1;
+    const firstCell = tr.querySelector('td:first-child');
+    if (firstCell) firstCell.textContent = idx + 1;
   });
 }
 
 function recalcRow(i) {
-  const qty  = parseFloat(document.getElementById(`qty_${i}`)?.value) || 0;
+  const qty = parseFloat(document.getElementById(`qty_${i}`)?.value) || 0;
   const rate = parseFloat(document.getElementById(`rate_${i}`)?.value) || 0;
-  const gst  = parseFloat(document.getElementById(`gst_${i}`)?.value) || 0;
-  const taxable  = qty * rate;
-  const gstAmt   = taxable * gst / 100;
-  const total    = taxable + gstAmt;
-  const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const gst = parseFloat(document.getElementById(`gst_${i}`)?.value) || 0;
+  const taxable = qty * rate;
+  const gstAmt = taxable * gst / 100;
+  const total = taxable + gstAmt;
+  const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2});
   if (document.getElementById(`gst_amt_${i}`)) document.getElementById(`gst_amt_${i}`).textContent = fmt(gstAmt);
   if (document.getElementById(`row_total_${i}`)) document.getElementById(`row_total_${i}`).textContent = fmt(total);
   recalcTotals();
@@ -454,47 +542,50 @@ function recalcRow(i) {
 function recalcTotals() {
   let taxable = 0, gstAmt = 0;
   document.querySelectorAll('#items_body tr').forEach(tr => {
-    const i = tr.id.replace('row-','');
-    const qty  = parseFloat(document.getElementById(`qty_${i}`)?.value) || 0;
+    const i = tr.id.replace('row-', '');
+    const qty = parseFloat(document.getElementById(`qty_${i}`)?.value) || 0;
     const rate = parseFloat(document.getElementById(`rate_${i}`)?.value) || 0;
-    const gst  = parseFloat(document.getElementById(`gst_${i}`)?.value) || 0;
+    const gst = parseFloat(document.getElementById(`gst_${i}`)?.value) || 0;
     const t = qty * rate;
-    taxable += t; gstAmt += t * gst / 100;
+    taxable += t;
+    gstAmt += t * gst / 100;
   });
   const grand = taxable + gstAmt;
-  const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const fmt = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2});
   document.getElementById('t_taxable').textContent = fmt(taxable);
-  document.getElementById('t_gst').textContent     = fmt(gstAmt);
-  document.getElementById('t_grand').textContent   = fmt(grand);
+  document.getElementById('t_gst').textContent = fmt(gstAmt);
+  document.getElementById('t_grand').textContent = fmt(grand);
 }
 
-// ── File upload ───────────────────────────────────────────────────────────────
-function onFileChosen(inp) {
-  const f = inp.files[0]; if (!f) return;
-  document.getElementById('fileNameDisplay').innerHTML =
-    `<div class="file-badge">📎 ${esc(f.name)}</div>`;
-}
-const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
-zone.addEventListener('drop', e => {
-  e.preventDefault(); zone.classList.remove('dragover');
-  const f = e.dataTransfer.files[0]; if (!f) return;
-  const dt = new DataTransfer(); dt.items.add(f);
-  document.getElementById('invoiceFile').files = dt.files;
-  onFileChosen(document.getElementById('invoiceFile'));
-});
-
-// ── Utilities ─────────────────────────────────────────────────────────────────
-function esc(s) {
-  if (!s) return '';
-  const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML;
+// ============================================================
+// UTILITIES
+// ============================================================
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', async () => {
-  await Promise.all([loadStockItems(), loadSuppliers()]);
+// ============================================================
+// INITIALIZATION
+// ============================================================
+document.addEventListener('DOMContentLoaded', async function() {
+  console.log('Page loaded, loading data...');
+  await loadStockItems();
+  await loadSuppliers();
+  await loadCustomers();
   addItemRow();
+  
+  if (allStockItems.length === 0) {
+    alert('No stock items found! Please add items to inventory first from the Inventory page.');
+  }
+  if (customerList.length === 0) {
+    alert('No customers found! Please add customers first from the Clients page.');
+  }
 });
 </script>
 {% endblock %}

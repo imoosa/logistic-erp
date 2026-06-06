@@ -11,6 +11,62 @@
   .plan-features { font-size: 12px; color: #6B7280; }
   .plan-features span { display: inline-block; margin-right: 12px; margin-bottom: 6px; }
   .radio-input { display: none; }
+
+  /* ── Storage choice cards ─────────────────────────────────────────── */
+  .storage-card {
+    border: 2px solid #E5E7EB;
+    border-radius: 16px;
+    padding: 20px 24px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .storage-card:hover { border-color: #4F46E5; background: #F9FAFB; }
+  .storage-card.selected { border-color: #4F46E5; background: #EEF2FF; }
+  .storage-icon { font-size: 32px; line-height: 1; }
+  .storage-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+  .storage-desc  { font-size: 13px; color: #6B7280; line-height: 1.5; }
+  .storage-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 6px;
+  }
+  .badge-free  { background: #D1FAE5; color: #065F46; }
+  .badge-cloud { background: #DBEAFE; color: #1E40AF; }
+
+  /* ── Cloud credentials panel ──────────────────────────────────────── */
+  #cloud-credentials {
+    display: none;
+    margin-top: 16px;
+    padding: 18px 20px;
+    background: #F0F9FF;
+    border: 1.5px solid #BAE6FD;
+    border-radius: 12px;
+  }
+  #cloud-credentials.show { display: block; }
+  #cloud-credentials .form-group { margin-bottom: 12px; }
+  #cloud-credentials label { font-size: 13px; font-weight: 600; color: #0C4A6E; }
+  #cloud-credentials input {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid #BAE6FD;
+    border-radius: 8px;
+    font-size: 13px;
+    background: #fff;
+  }
+  .cloud-hint {
+    font-size: 12px;
+    color: #0369A1;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #E0F2FE;
+    border-radius: 8px;
+  }
 </style>
 {% endblock %}
 
@@ -20,7 +76,7 @@
   <p>Create your company account and choose a plan that fits your business</p>
 </div>
 
-<form method="POST" id="registerForm">
+<form method="POST" id="registerForm" onsubmit="return validateForm()">
   <div class="grid-2" style="gap: 24px;">
     <!-- Left Column: Company Info -->
     <div class="card card-body">
@@ -72,13 +128,95 @@
       </div>
     </div>
   </div>
-  
-  <!-- Subscription Plans -->
+
+  <!-- ── Data Storage Choice ──────────────────────────────────────────────── -->
+  <div class="card card-body" style="margin-top: 24px;">
+    <h3 style="margin-bottom: 6px; font-size: 18px;">Where do you want to store your data?</h3>
+    <p style="font-size: 13px; color: #6B7280; margin-bottom: 20px;">
+      Your business data (clients, invoices, stock, etc.) will be stored in the database you choose below.
+      This cannot be changed after registration without a data migration.
+    </p>
+
+    <div class="grid-2" style="gap: 16px;">
+
+      <!-- Local / SQLite -->
+      <div class="storage-card selected" id="storage-local" onclick="selectStorage('local')">
+        <div class="storage-icon">💾</div>
+        <div>
+          <div class="storage-title">Local Storage</div>
+          <div class="storage-desc">
+            Your data is stored as a file on <strong>this server</strong>. Simple setup, no extra cost.
+            Best for small businesses or when you manage your own server.
+          </div>
+          <span class="storage-badge badge-free">Free · No setup needed</span>
+        </div>
+      </div>
+
+      <!-- Cloud / MySQL -->
+      <div class="storage-card" id="storage-cloud" onclick="selectStorage('cloud')">
+        <div class="storage-icon">☁️</div>
+        <div>
+          <div class="storage-title">Cloud Database (MySQL)</div>
+          <div class="storage-desc">
+            Connect your own cloud MySQL database (e.g. AWS RDS, PlanetScale, Aiven, DigitalOcean).
+            You own and control your data fully, accessible from anywhere.
+          </div>
+          <span class="storage-badge badge-cloud">Bring your own MySQL</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Hidden field for storage type -->
+    <input type="hidden" name="storage_type" id="storage_type" value="local">
+
+    <!-- Cloud credentials panel (shown only when cloud is selected) -->
+    <div id="cloud-credentials">
+      <p style="font-size: 14px; font-weight: 600; color: #0C4A6E; margin-bottom: 14px;">
+        ☁️ Enter your MySQL connection details
+      </p>
+
+      <div class="grid-2" style="gap: 12px;">
+        <div class="form-group">
+          <label>Host *</label>
+          <input type="text" name="db_host" id="db_host" placeholder="db.example.com or 203.0.113.5">
+        </div>
+        <div class="form-group">
+          <label>Port</label>
+          <input type="number" name="db_port" id="db_port" value="3306" placeholder="3306">
+        </div>
+      </div>
+
+      <div class="grid-2" style="gap: 12px;">
+        <div class="form-group">
+          <label>Database Name *</label>
+          <input type="text" name="db_name" id="db_name" placeholder="my_erp_db">
+        </div>
+        <div class="form-group">
+          <label>Username *</label>
+          <input type="text" name="db_user" id="db_user" placeholder="db_user">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Password *</label>
+        <input type="password" name="db_password" id="db_password" placeholder="Database password">
+      </div>
+
+      <div class="cloud-hint">
+        ℹ️ We will build the connection URI as:
+        <code>mysql+pymysql://user:password@host:port/database</code><br>
+        Make sure the database already exists and the user has full privileges on it.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Subscription Plans ──────────────────────────────────────────────── -->
   <div class="card card-body" style="margin-top: 24px;">
     <h3 style="margin-bottom: 20px; font-size: 18px;">Choose Your Plan</h3>
     <div class="grid-2" style="gap: 16px;">
       {% for plan_key, plan in plans.items() %}
-      <div class="plan-card" onclick="selectPlan('{{ plan_key }}')">
+      <div class="plan-card {% if plan_key == 'basic' %}selected{% endif %}" onclick="selectPlan('{{ plan_key }}')">
         <input type="radio" name="subscription_plan" value="{{ plan_key }}" id="plan_{{ plan_key }}" class="radio-input" {% if plan_key == 'basic' %}checked{% endif %}>
         <div class="plan-name">{{ plan.name }}</div>
         <div class="plan-price">
@@ -108,11 +246,44 @@
 
 <script>
 function selectPlan(planKey) {
-  document.querySelectorAll('.plan-card').forEach(card => {
-    card.classList.remove('selected');
-  });
+  document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
   event.currentTarget.classList.add('selected');
   document.getElementById(`plan_${planKey}`).checked = true;
+}
+
+function selectStorage(type) {
+  document.querySelectorAll('.storage-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById(`storage-${type}`).classList.add('selected');
+  document.getElementById('storage_type').value = type;
+
+  const panel = document.getElementById('cloud-credentials');
+  if (type === 'cloud') {
+    panel.classList.add('show');
+    // Make cloud fields required
+    ['db_host', 'db_name', 'db_user', 'db_password'].forEach(id => {
+      document.getElementById(id).required = true;
+    });
+  } else {
+    panel.classList.remove('show');
+    ['db_host', 'db_name', 'db_user', 'db_password'].forEach(id => {
+      document.getElementById(id).required = false;
+    });
+  }
+}
+
+function validateForm() {
+  const storageType = document.getElementById('storage_type').value;
+  if (storageType === 'cloud') {
+    const host = document.getElementById('db_host').value.trim();
+    const name = document.getElementById('db_name').value.trim();
+    const user = document.getElementById('db_user').value.trim();
+    const pass = document.getElementById('db_password').value;
+    if (!host || !name || !user || !pass) {
+      alert('Please fill in all cloud database fields.');
+      return false;
+    }
+  }
+  return true;
 }
 </script>
 {% endblock %}
