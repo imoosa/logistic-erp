@@ -1,0 +1,436 @@
+"""
+customer_models.py
+──────────────────
+CUSTOMER data only — stored in the customer's chosen database
+(SQLite local  OR  MySQL cloud).
+
+Uses plain SQLAlchemy (no Flask-SQLAlchemy) because engines are
+managed per-company by db_router.py, not by Flask's app context.
+"""
+
+from sqlalchemy.orm import DeclarativeBase, relationship as _relationship
+from sqlalchemy import (
+    Column, Integer, String, Float, Boolean,
+    Date, DateTime, Text, ForeignKey,
+)
+from datetime import datetime, date
+
+
+class _Base(DeclarativeBase):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# Thin compatibility shim so all the  customer_db.Column / customer_db.Model
+# references in the model classes below continue to work unchanged.
+# ---------------------------------------------------------------------------
+class _CustomerDB:
+    Model        = _Base
+    metadata     = _Base.metadata
+    Column       = staticmethod(Column)
+    Integer      = Integer
+    String       = String
+    Float        = Float
+    Boolean      = Boolean
+    Date         = Date
+    DateTime     = DateTime
+    Text         = Text
+    ForeignKey   = staticmethod(ForeignKey)
+    relationship = staticmethod(_relationship)
+
+
+customer_db = _CustomerDB()
+
+
+# ── 4. Company Users ──────────────────────────────────────────────────────────
+class CompanyUser(customer_db.Model):
+    __tablename__ = "company_users"
+
+    id            = customer_db.Column(customer_db.Integer,    primary_key=True, autoincrement=True)
+    user_id       = customer_db.Column(customer_db.String(20),  unique=True, nullable=False)
+    company_id    = customer_db.Column(customer_db.String(20),  nullable=False)
+    email         = customer_db.Column(customer_db.String(255), nullable=False)
+    password_hash = customer_db.Column(customer_db.String(255), nullable=False)
+    full_name     = customer_db.Column(customer_db.String(150), nullable=False)
+    role          = customer_db.Column(customer_db.String(50),  nullable=False, default="employee")
+    department    = customer_db.Column(customer_db.String(100), nullable=True)
+    phone         = customer_db.Column(customer_db.String(20),  nullable=True)
+    is_active     = customer_db.Column(customer_db.Boolean,     nullable=False, default=True)
+    created_at    = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+
+    def __repr__(self):
+        return f"<CompanyUser {self.user_id}>"
+
+
+# ── 5. Clients (buyers, suppliers, debtors, creditors) ───────────────────────
+class Client(customer_db.Model):
+    __tablename__ = "clients"
+
+    id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20),  nullable=False)
+    name            = customer_db.Column(customer_db.String(200), nullable=False)
+    contact_person  = customer_db.Column(customer_db.String(150), nullable=True)
+    client_type     = customer_db.Column(customer_db.String(30),  nullable=False, default="Business")
+    phone           = customer_db.Column(customer_db.String(20),  nullable=True)
+    alternate_phone = customer_db.Column(customer_db.String(20),  nullable=True)
+    email           = customer_db.Column(customer_db.String(255), nullable=True)
+    website         = customer_db.Column(customer_db.String(255), nullable=True)
+    address_line1   = customer_db.Column(customer_db.String(300), nullable=True)
+    address_line2   = customer_db.Column(customer_db.String(300), nullable=True)
+    city            = customer_db.Column(customer_db.String(100), nullable=True)
+    state           = customer_db.Column(customer_db.String(100), nullable=True)
+    pincode         = customer_db.Column(customer_db.String(10),  nullable=True)
+    country         = customer_db.Column(customer_db.String(100), nullable=False, default="India")
+    gst_number      = customer_db.Column(customer_db.String(20),  nullable=True)
+    pan_number      = customer_db.Column(customer_db.String(15),  nullable=True)
+    gst_type        = customer_db.Column(customer_db.String(30),  nullable=False, default="Regular")
+    credit_limit    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    credit_days     = customer_db.Column(customer_db.Integer,     nullable=False, default=30)
+    pending         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    last_payment    = customer_db.Column(customer_db.Date,        nullable=True)
+    opening_balance = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    status          = customer_db.Column(customer_db.String(50),  nullable=False, default="Active")
+    notes           = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at      = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+
+    def __repr__(self):
+        return f"<Client {self.id} – {self.name}>"
+
+
+# ── 6. Orders ─────────────────────────────────────────────────────────────────
+class Order(customer_db.Model):
+    __tablename__ = "orders"
+
+    id          = customer_db.Column(customer_db.Integer,    primary_key=True, autoincrement=True)
+    order_id    = customer_db.Column(customer_db.String(30), unique=True, nullable=False)
+    company_id  = customer_db.Column(customer_db.String(20), nullable=False)
+    client_id   = customer_db.Column(customer_db.Integer,   nullable=True)
+    employee_id = customer_db.Column(customer_db.String(20), nullable=True)
+    date        = customer_db.Column(customer_db.Date,       nullable=False, default=date.today)
+    amount      = customer_db.Column(customer_db.Float,      nullable=False, default=0.0)
+    received    = customer_db.Column(customer_db.Float,      nullable=False, default=0.0)
+    status      = customer_db.Column(customer_db.String(50), nullable=False, default="Pending")
+
+    def __repr__(self):
+        return f"<Order {self.order_id}>"
+
+
+# ── 7. Stock Items ────────────────────────────────────────────────────────────
+class StockItem(customer_db.Model):
+    __tablename__ = "stock_items"
+
+    id                 = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id         = customer_db.Column(customer_db.String(20),  nullable=False)
+    code               = customer_db.Column(customer_db.String(50),  nullable=False)
+    name               = customer_db.Column(customer_db.String(200), nullable=False)
+    category           = customer_db.Column(customer_db.String(100), nullable=True)
+    quantity           = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    unit               = customer_db.Column(customer_db.String(20),  nullable=True, default="pcs")
+    unit_price         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    reorder_level      = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    hsn                = customer_db.Column(customer_db.String(20),  nullable=True)
+    last_updated       = customer_db.Column(customer_db.Date,        nullable=True)
+    purchase_rate      = customer_db.Column(customer_db.Float,       nullable=True)
+    last_purchase_rate = customer_db.Column(customer_db.Float,       nullable=True)
+    avg_purchase_rate  = customer_db.Column(customer_db.Float,       nullable=True)
+    gst_percent        = customer_db.Column(customer_db.Float,       nullable=True, default=18.0)
+    selling_price      = customer_db.Column(customer_db.Float,       nullable=True)
+    margin_percent     = customer_db.Column(customer_db.Float,       nullable=True)
+
+    def __repr__(self):
+        return f"<StockItem {self.code} – {self.name}>"
+
+
+# ── 8. Invoices ───────────────────────────────────────────────────────────────
+class Invoice(customer_db.Model):
+    __tablename__ = "invoices"
+
+    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    invoice_id     = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
+    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
+    client_id      = customer_db.Column(customer_db.Integer,     nullable=True)
+    date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    due_date       = customer_db.Column(customer_db.Date,        nullable=True)
+    status         = customer_db.Column(customer_db.String(50),  nullable=False, default="Pending")
+    subtotal       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    tax_amount     = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    grand_total    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    contact_person = customer_db.Column(customer_db.String(150), nullable=True)
+    email          = customer_db.Column(customer_db.String(255), nullable=True)
+    phone          = customer_db.Column(customer_db.String(20),  nullable=True)
+    terms          = customer_db.Column(customer_db.Text,        nullable=True)
+    paid_amount    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    balance        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    items = customer_db.relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Invoice {self.invoice_id}>"
+    
+    @property
+    def client_obj(self):
+        """Helper to get client object"""
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if session:
+            return session.query(Client).filter_by(id=self.client_id).first()
+        return None
+
+
+# ── 8a. Invoice Line Items ────────────────────────────────────────────────────
+class InvoiceItem(customer_db.Model):
+    __tablename__ = "invoice_items"
+
+    id            = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    invoice_id    = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("invoices.id"), nullable=False)
+    stock_item_id = customer_db.Column(customer_db.Integer,     nullable=True)
+    code          = customer_db.Column(customer_db.String(50),  nullable=True)
+    description   = customer_db.Column(customer_db.String(300), nullable=False)
+    qty           = customer_db.Column(customer_db.Float,       nullable=False, default=1.0)
+    rate          = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    discount      = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+
+    invoice = customer_db.relationship("Invoice", back_populates="items")
+
+    def __repr__(self):
+        return f"<InvoiceItem {self.id}>"
+
+
+# ── 9. Estimates ──────────────────────────────────────────────────────────────
+class Estimate(customer_db.Model):
+    __tablename__ = "estimates"
+
+    id           = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    estimate_id  = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
+    company_id   = customer_db.Column(customer_db.String(20),  nullable=False)
+    client_id    = customer_db.Column(customer_db.Integer,     nullable=True)
+    date         = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    valid_until  = customer_db.Column(customer_db.Date,        nullable=True)
+    status       = customer_db.Column(customer_db.String(50),  nullable=False, default="Draft")
+    subtotal     = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    tax_amount   = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    grand_total  = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    notes        = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at   = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    items = customer_db.relationship("EstimateItem", back_populates="estimate", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Estimate {self.estimate_id}>"
+    
+    @property
+    def client_obj(self):
+        """Helper to get client object"""
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if session:
+            return session.query(Client).filter_by(id=self.client_id).first()
+        return None
+
+
+class EstimateItem(customer_db.Model):
+    __tablename__ = "estimate_items"
+
+    id            = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    estimate_id   = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("estimates.id"), nullable=False)
+    stock_item_id = customer_db.Column(customer_db.Integer,     nullable=True)
+    code          = customer_db.Column(customer_db.String(50),  nullable=True)
+    description   = customer_db.Column(customer_db.String(300), nullable=False)
+    qty           = customer_db.Column(customer_db.Float,       nullable=False, default=1.0)
+    rate          = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    discount      = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+
+    estimate = customer_db.relationship("Estimate", back_populates="items")
+
+    def __repr__(self):
+        return f"<EstimateItem {self.id}>"
+
+
+# ── 10. Purchase Invoices ─────────────────────────────────────────────────────
+class PurchaseInvoice(customer_db.Model):
+    __tablename__ = "purchase_invoices"
+
+    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    invoice_id     = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
+    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
+    supplier_id    = customer_db.Column(customer_db.Integer,     nullable=True)
+    invoice_number = customer_db.Column(customer_db.String(100), nullable=True)
+    date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    due_date       = customer_db.Column(customer_db.Date,        nullable=True)
+    subtotal       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    tax_amount     = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    grand_total    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    paid_amount    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    balance        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    status         = customer_db.Column(customer_db.String(50),  nullable=False, default="Pending")
+    payment_terms  = customer_db.Column(customer_db.String(100), nullable=True)   # ← ADDED: was causing flush() crash
+    notes          = customer_db.Column(customer_db.Text,        nullable=True)
+    file_path      = customer_db.Column(customer_db.String(500), nullable=True)
+    ocr_data       = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    items            = customer_db.relationship("PurchaseInvoiceItem",  back_populates="purchase_invoice", cascade="all, delete-orphan")
+    purchase_history = customer_db.relationship("StockPurchaseHistory", back_populates="purchase_invoice", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<PurchaseInvoice {self.invoice_id}>"
+    
+    @property
+    def supplier(self):
+        """Helper to get supplier object"""
+        from sqlalchemy.orm import object_session
+        session = object_session(self)
+        if session:
+            return session.query(Client).filter_by(id=self.supplier_id).first()
+        return None
+
+
+class PurchaseInvoiceItem(customer_db.Model):
+    __tablename__ = "purchase_invoice_items"
+
+    id                  = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    purchase_invoice_id = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("purchase_invoices.id"), nullable=False)
+    stock_item_id       = customer_db.Column(customer_db.Integer,     nullable=True)
+    code                = customer_db.Column(customer_db.String(50),  nullable=True)
+    description         = customer_db.Column(customer_db.String(300), nullable=False)
+    hsn                 = customer_db.Column(customer_db.String(20),  nullable=True)
+    quantity            = customer_db.Column(customer_db.Float,       nullable=False, default=1.0)
+    unit                = customer_db.Column(customer_db.String(20),  nullable=True, default="pcs")
+    purchase_rate       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    discount_percent    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    taxable_value       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    gst_percent         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    cgst_amount         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    sgst_amount         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    igst_amount         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    total_amount        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+
+    purchase_invoice = customer_db.relationship("PurchaseInvoice", back_populates="items")
+
+
+# ── 11. Stock Purchase History ────────────────────────────────────────────────
+class StockPurchaseHistory(customer_db.Model):
+    __tablename__ = "stock_purchase_history"
+
+    id                  = customer_db.Column(customer_db.Integer,  primary_key=True, autoincrement=True)
+    stock_item_id       = customer_db.Column(customer_db.Integer,  nullable=False)
+    purchase_invoice_id = customer_db.Column(customer_db.Integer,
+                              customer_db.ForeignKey("purchase_invoices.id"), nullable=True)
+    quantity            = customer_db.Column(customer_db.Float,    nullable=False)
+    purchase_rate       = customer_db.Column(customer_db.Float,    nullable=False)
+    gst_percent         = customer_db.Column(customer_db.Float,    nullable=False, default=0.0)
+    purchase_date       = customer_db.Column(customer_db.Date,     nullable=False, default=date.today)
+    movement_type       = customer_db.Column(customer_db.String(10), nullable=True, default="IN")
+    reference           = customer_db.Column(customer_db.String(100), nullable=True)
+
+    purchase_invoice = customer_db.relationship("PurchaseInvoice", back_populates="purchase_history")
+
+
+# ── 12. Cash Transactions ─────────────────────────────────────────────────────
+class CashTransaction(customer_db.Model):
+    __tablename__ = "cash_transactions"
+
+    id          = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id  = customer_db.Column(customer_db.String(20),  nullable=False)
+    type        = customer_db.Column(customer_db.String(20),  nullable=False)
+    date        = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    category    = customer_db.Column(customer_db.String(100), nullable=False)
+    description = customer_db.Column(customer_db.String(300), nullable=False)
+    amount      = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    reference   = customer_db.Column(customer_db.String(100), nullable=True)
+    notes       = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at  = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by  = customer_db.Column(customer_db.String(50),  nullable=True)
+
+
+# ── 13. Bank Accounts ─────────────────────────────────────────────────────────
+class BankAccount(customer_db.Model):
+    __tablename__ = "bank_accounts"
+
+    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
+    bank_name      = customer_db.Column(customer_db.String(200), nullable=False)
+    account_name   = customer_db.Column(customer_db.String(200), nullable=False)
+    account_number = customer_db.Column(customer_db.String(50),  nullable=False, unique=True)
+    ifsc_code      = customer_db.Column(customer_db.String(20),  nullable=True)
+    branch         = customer_db.Column(customer_db.String(200), nullable=True)
+    balance        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    opening_balance= customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    status         = customer_db.Column(customer_db.String(30),  nullable=False, default="Active")
+    notes          = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    updated_at     = customer_db.Column(customer_db.DateTime,    nullable=True, onupdate=datetime.utcnow)
+
+    transactions = customer_db.relationship("BankTransaction", back_populates="bank_account", cascade="all, delete-orphan")
+
+
+# ── 14. Bank Transactions ─────────────────────────────────────────────────────
+class BankTransaction(customer_db.Model):
+    __tablename__ = "bank_transactions"
+
+    id               = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    bank_account_id  = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("bank_accounts.id"), nullable=False)
+    company_id       = customer_db.Column(customer_db.String(20),  nullable=False)
+    type             = customer_db.Column(customer_db.String(20),  nullable=False)
+    date             = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    description      = customer_db.Column(customer_db.String(300), nullable=False)
+    amount           = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    reference        = customer_db.Column(customer_db.String(100), nullable=True)
+    transaction_mode = customer_db.Column(customer_db.String(30),  nullable=True)
+    notes            = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at       = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by       = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    bank_account = customer_db.relationship("BankAccount", back_populates="transactions")
+
+
+# ── 15. Loans ─────────────────────────────────────────────────────────────────
+class Loan(customer_db.Model):
+    __tablename__ = "loans"
+
+    id            = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id    = customer_db.Column(customer_db.String(20),  nullable=False)
+    type          = customer_db.Column(customer_db.String(20),  nullable=False)
+    party_name    = customer_db.Column(customer_db.String(200), nullable=False)
+    loan_date     = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    amount        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    interest_rate = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    tenure        = customer_db.Column(customer_db.Integer,     nullable=False, default=12)
+    emi_amount    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    purpose       = customer_db.Column(customer_db.String(300), nullable=True)
+    notes         = customer_db.Column(customer_db.Text,        nullable=True)
+    status        = customer_db.Column(customer_db.String(30),  nullable=False, default="Active")
+    created_at    = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by    = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    repayments = customer_db.relationship("LoanRepayment", back_populates="loan", cascade="all, delete-orphan")
+
+    @property
+    def repaid_amount(self):
+        return sum(r.amount for r in self.repayments)
+
+    @property
+    def remaining_amount(self):
+        return max(0, self.amount - self.repaid_amount)
+    
+    @property
+    def repayment_percentage(self):
+        if self.amount > 0:
+            return (self.repaid_amount / self.amount) * 100
+        return 0
+
+
+class LoanRepayment(customer_db.Model):
+    __tablename__ = "loan_repayments"
+
+    id           = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    loan_id      = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("loans.id"), nullable=False)
+    date         = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    amount       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    payment_mode = customer_db.Column(customer_db.String(30),  nullable=False, default="Cash")
+    reference    = customer_db.Column(customer_db.String(100), nullable=True)
+    notes        = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at   = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    loan = customer_db.relationship("Loan", back_populates="repayments")
