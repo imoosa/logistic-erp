@@ -28,19 +28,29 @@ app = Flask(__name__)
 app.secret_key = "nexa-erp-2024-super-secret-key-change-in-production"
 
 # ── Database Configuration ────────────────────────────────────────────────────
+_INSTANCE_DIR = os.environ.get(
+    "SQLITE_INSTANCE_DIR",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "instance")
+)
+os.makedirs(_INSTANCE_DIR, exist_ok=True)
+
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
+    "sqlite:///" + os.path.join(_INSTANCE_DIR, "platform.db")
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "connect_args": {"check_same_thread": False}  # required for SQLite + Flask
+}
 
 db.init_app(app)
 
 @app.before_request
 def _fk_on():
-    pass  # MySQL enforces FK by default; no PRAGMA needed
+    from sqlalchemy import text as _text
+    db.session.execute(_text("PRAGMA foreign_keys=ON"))
 
 with app.app_context():
     db.create_all()
