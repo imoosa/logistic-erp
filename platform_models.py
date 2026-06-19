@@ -13,7 +13,7 @@ from sqlalchemy import func
 
 # Create SQLAlchemy instance WITHOUT binding to an app yet
 # This will be initialized with init_app(app) in app.py
-db = SQLAlchemy()
+db = None
 
 
 # ── 1. Subscription Plans ─────────────────────────────────────────────────────
