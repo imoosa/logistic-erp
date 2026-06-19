@@ -52,8 +52,9 @@ def json_loads_filter(value, default=None):
 # ── Database Configuration ────────────────────────────────────────────────────
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
+    "sqlite:///" + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'platform.db')
 )
+
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -67,7 +68,7 @@ def _fk_on():
 with app.app_context():
     db.create_all()
 
-"""app.config["SQLALCHEMY_DATABASE_URI"] = (
+app.config["SQLALCHEMY_DATABASE_URI"] = (
     'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'maktroniks.db')
 )
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -77,7 +78,7 @@ def before_request():
     if db.engine.url.drivername == 'sqlite':
         db.session.execute(text('PRAGMA foreign_keys=ON'))
 
-db.init_app(app)"""
+db.init_app(app)
 
 # ── Create tables and seed on first startup ────────────────────────────────────
 with app.app_context():
