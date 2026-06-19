@@ -1,3 +1,20 @@
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import MetaData
+
+convention = {
+    "ix": 'ix_%(column_0_label)s',
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s"
+}
+
+db = SQLAlchemy(metadata=MetaData(naming_convention=convention))
+
+# ── Now set db in platform_models so models can use it ─────────────────────
+import platform_models
+platform_models.db = db
+
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from flask import abort
 from datetime import date, datetime, timedelta
