@@ -7,3 +7,6 @@ pytesseract
 pillow
 pdf2image
 werkzeug
+pandas
+openpyxl
+python-dotenv
