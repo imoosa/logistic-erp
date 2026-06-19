@@ -36,6 +36,12 @@
   .error-banner ul { margin:6px 0 0 18px; color:#DC2626; font-size:13px; }
   .error-banner .error-title { font-weight:700; color:#DC2626; font-size:14px; }
   input.field-error, select.field-error { border-color:#DC2626 !important; background:#FFF5F5; }
+  
+  /* Address fields */
+  .address-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .address-grid .full-width { grid-column:1 / -1; }
+  .address-grid .half-width { grid-column:span 1; }
+  @media(max-width:600px){ .address-grid { grid-template-columns:1fr; } .address-grid .full-width, .address-grid .half-width { grid-column:1; } }
 </style>
 {% endblock %}
 
@@ -83,9 +89,9 @@
     </div>
   </div>
 
-  <!-- Customer / Shipper -->
+  <!-- Customer / Consignor -->
   <div class="card card-body" style="margin-bottom:16px">
-    <div class="section-title">Customer (Shipper) Details</div>
+    <div class="section-title">📤 Consignor (Shipper) Details</div>
     <div class="grid-2">
       <div class="form-group">
         <label>Customer / Company *</label>
@@ -95,6 +101,12 @@
           <option value="{{ c.id }}"
             data-phone="{{ c.phone or '' }}"
             data-name="{{ c.name }}"
+            data-address1="{{ c.address_line1 or '' }}"
+            data-address2="{{ c.address_line2 or '' }}"
+            data-city="{{ c.city or '' }}"
+            data-state="{{ c.state or '' }}"
+            data-pincode="{{ c.pincode or '' }}"
+            data-country="{{ c.country or 'India' }}"
             {% if form_data.customer_id|string == c.id|string %}selected{% endif %}>
             {{ c.name }}
           </option>
@@ -102,23 +114,43 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Customer Phone</label>
+        <label>Phone</label>
         <input type="text" name="customer_phone" id="custPhone" value="{{ form_data.customer_phone or '' }}" placeholder="10-digit mobile">
       </div>
-      <div class="form-group">
-        <label>Shipper Name</label>
-        <input type="text" name="shipper_name" value="{{ form_data.shipper_name or '' }}" placeholder="Full name of sender">
+    </div>
+    
+    <!-- Consignor Address Fields -->
+    <div class="address-grid">
+      <div class="form-group full-width">
+        <label>Address Line 1</label>
+        <input type="text" name="shipper_address1" id="shipperAddress1" value="{{ form_data.shipper_address1 or '' }}" placeholder="Street address, building, apartment">
       </div>
-      <div class="form-group">
-        <label>Shipper Address</label>
-        <input type="text" name="shipper_address" value="{{ form_data.shipper_address or '' }}" placeholder="Pickup / collection address">
+      <div class="form-group full-width">
+        <label>Address Line 2</label>
+        <input type="text" name="shipper_address2" id="shipperAddress2" value="{{ form_data.shipper_address2 or '' }}" placeholder="Landmark, area, locality">
+      </div>
+      <div class="form-group half-width">
+        <label>City / Town</label>
+        <input type="text" name="shipper_city" id="shipperCity" value="{{ form_data.shipper_city or '' }}" placeholder="City">
+      </div>
+      <div class="form-group half-width">
+        <label>State</label>
+        <input type="text" name="shipper_state" id="shipperState" value="{{ form_data.shipper_state or '' }}" placeholder="State">
+      </div>
+      <div class="form-group half-width">
+        <label>Pincode</label>
+        <input type="text" name="shipper_pincode" id="shipperPincode" value="{{ form_data.shipper_pincode or '' }}" placeholder="Pincode">
+      </div>
+      <div class="form-group half-width">
+        <label>Country</label>
+        <input type="text" name="shipper_country" id="shipperCountry" value="{{ form_data.shipper_country or 'India' }}" placeholder="Country">
       </div>
     </div>
   </div>
 
-  <!-- Receiver -->
+  <!-- Receiver / Consignee -->
   <div class="card card-body" style="margin-bottom:16px">
-    <div class="section-title">Receiver Details</div>
+    <div class="section-title">📥 Consignee (Receiver) Details</div>
     <div class="grid-2">
       <div class="form-group">
         <label>Receiver Name *</label>
@@ -128,13 +160,33 @@
         <label>Receiver Phone</label>
         <input type="text" name="receiver_phone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
       </div>
-      <div class="form-group">
-        <label>Receiver Address</label>
-        <input type="text" name="receiver_address" value="{{ form_data.receiver_address or '' }}" placeholder="Delivery address">
+    </div>
+    
+    <!-- Consignee Address Fields -->
+    <div class="address-grid">
+      <div class="form-group full-width">
+        <label>Address Line 1</label>
+        <input type="text" name="receiver_address1" value="{{ form_data.receiver_address1 or '' }}" placeholder="Street address, building, apartment">
       </div>
-      <div class="form-group">
-        <label>Destination (Country / City)</label>
-        <input type="text" name="destination" value="{{ form_data.destination or '' }}" placeholder="e.g. Ethiopia / Addis Ababa">
+      <div class="form-group full-width">
+        <label>Address Line 2</label>
+        <input type="text" name="receiver_address2" value="{{ form_data.receiver_address2 or '' }}" placeholder="Landmark, area, locality">
+      </div>
+      <div class="form-group half-width">
+        <label>City / Town</label>
+        <input type="text" name="receiver_city" value="{{ form_data.receiver_city or '' }}" placeholder="City">
+      </div>
+      <div class="form-group half-width">
+        <label>State</label>
+        <input type="text" name="receiver_state" value="{{ form_data.receiver_state or '' }}" placeholder="State">
+      </div>
+      <div class="form-group half-width">
+        <label>Pincode</label>
+        <input type="text" name="receiver_pincode" value="{{ form_data.receiver_pincode or '' }}" placeholder="Pincode">
+      </div>
+      <div class="form-group half-width">
+        <label>Country</label>
+        <input type="text" name="receiver_country" value="{{ form_data.receiver_country or 'India' }}" placeholder="Country">
       </div>
     </div>
   </div>
@@ -177,6 +229,10 @@
         <input type="text" name="origin" value="{{ form_data.origin or 'India' }}" placeholder="Origin country/city">
       </div>
       <div class="form-group">
+        <label>Destination</label>
+        <input type="text" name="destination" value="{{ form_data.destination or '' }}" placeholder="Final destination city/country">
+      </div>
+      <div class="form-group">
         <label>Pickup Date</label>
         <input type="date" name="pickup_date" value="{{ form_data.pickup_date or '' }}">
       </div>
@@ -188,14 +244,65 @@
         <label>Expected Delivery Date</label>
         <input type="date" name="expected_delivery" value="{{ form_data.expected_delivery or '' }}">
       </div>
-      <div class="form-group">
+      <div class="form-group" style="grid-column:1 / -1;">
         <label>Comments</label>
-        <input type="text" name="comments" value="{{ form_data.comments or '' }}" placeholder="Special instructions">
+        <input type="text" name="comments" value="{{ form_data.comments or '' }}" placeholder="Special instructions" style="width:100%;">
       </div>
     </div>
   </div>
 
-  <!-- Packages - Will be added to inventory as new stock items -->
+<!-- Rate Lookup Section -->
+<div class="card card-body" style="margin-bottom:16px">
+  <div class="section-title">🚀 Rate Lookup</div>
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Courier</label>
+      <select id="rateCourier" onchange="lookupRate()" style="width:100%;">
+        <option value="">— Select Courier —</option>
+        {% for pl in price_lists %}
+        <option value="{{ pl.courier }}">{{ pl.courier }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Destination Country</label>
+      <input type="text" id="rateDestination" placeholder="e.g. UK, USA" style="width:100%;" oninput="lookupRate()">
+    </div>
+    
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Weight (kg)</label>
+      <input type="number" id="rateWeight" step="0.1" min="0" placeholder="e.g. 1.5" style="width:100%;" oninput="lookupRate()">
+    </div>
+    
+    <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;">
+      <button type="button" class="btn btn-primary" onclick="lookupRate()">🔍 Lookup</button>
+    </div>
+  </div>
+  
+  <!-- Rate Result -->
+  <div id="rateResult" style="display:none;margin-top:14px;padding:14px 18px;background:#F0FDF4;border-radius:10px;border:1px solid #86EFAC;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <span style="font-size:12px;color:#15803D;font-weight:600;">✅ Rate Found:</span>
+        <span id="rateDisplay" style="font-size:20px;font-weight:800;color:#16A34A;margin-left:10px;">₹0.00</span>
+        <span id="rateDetails" style="font-size:12px;color:#15803D;margin-left:12px;"></span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-sm btn-success" onclick="applyRateToFreight()">📥 Apply to Freight</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="closeRateResult()">✕</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Error Result -->
+  <div id="rateError" style="display:none;margin-top:14px;padding:14px 18px;background:#FEF2F2;border-radius:10px;border:1px solid #FCA5A5;">
+    <span style="color:#DC2626;font-size:13px;">❌ <span id="rateErrorMessage">No rate found</span></span>
+  </div>
+</div>
+
+  <!-- Packages -->
   <div class="card card-body" style="margin-bottom:16px">
     <div class="section-title">📦 Packages <span style="font-weight:400;font-size:11px;color:#6B7280;margin-left:8px">— These items will be added to your inventory/stock</span></div>
     <div style="overflow-x:auto">
@@ -272,9 +379,26 @@
     <div class="section-title">Freight &amp; Charges</div>
     <div class="grid-3">
       <div class="form-group">
-        <label>Total Freight (₹) *</label>
-        <input type="number" name="freight_amount" id="freightAmt" step="0.01" value="{{ form_data.freight or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+        <label>Chargeable Weight (kg) *</label>
+        <input type="number" name="freight_weight" id="freightWeight" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_weight or '0' }}" oninput="calcFreight()">
       </div>
+      <div class="form-group">
+        <label>Rate per kg (₹) *</label>
+        <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()">
+      </div>
+      <div class="form-group">
+        <label>Total Freight (₹)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" name="freight_amount" id="freightAmt" step="0.01" min="0" placeholder="0.00"
+            value="{{ form_data.freight or '0' }}" readonly
+            style="background:#F0FDF4;color:#15803D;font-weight:700;cursor:not-allowed">
+        </div>
+        <div id="freightBreakdown" style="font-size:11px;color:#6B7280;margin-top:4px;min-height:16px"></div>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:4px">
       <div class="form-group">
         <label>Fuel Surcharge (₹)</label>
         <input type="number" name="fuel_surcharge" id="fuelCharge" step="0.01" value="{{ form_data.fuel or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
@@ -282,6 +406,7 @@
       <div class="form-group">
         <label>Other Charges (₹)</label>
         <input type="number" name="other_charges" id="otherCharges" step="0.01" value="{{ form_data.other or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+        <input type="text" name="other_charges_reason" style="margin-top:6px" value="{{ form_data.other_charges_reason or '' }}" placeholder="Reason (e.g. Remote Area Surcharge)">
       </div>
     </div>
 
@@ -289,7 +414,12 @@
       <div class="billing-row"><span>Freight</span><span id="dispFreight">₹0</span></div>
       <div class="billing-row"><span>Fuel Surcharge</span><span id="dispFuel">₹0</span></div>
       <div class="billing-row"><span>Other Charges</span><span id="dispOther">₹0</span></div>
+      <div class="billing-row" id="resaleRow" style="display:none"><span>Resale Charges</span><span id="dispResaleTotal">₹0</span></div>
+      
+      {% if is_gst_registered %}
       <div class="billing-row"><span>GST (18%)</span><span id="dispGST">₹0</span></div>
+      {% endif %}
+      
       <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB">
         <div class="grid-2">
@@ -302,6 +432,106 @@
             <span id="balanceDue" style="color:#DC2626;font-weight:800;font-size:16px">₹0</span>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+    <!-- ─── RETURN / RESALE CHARGES SECTION ─── -->
+  <div class="card card-body" style="margin-bottom:16px;border:2px solid #F59E0B;background:#FFFBEB;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div class="section-title" style="border-bottom:none;margin-bottom:0;color:#92400E;">🔄 Return / Resale Charges</div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-sm btn-warning" onclick="toggleResaleSection()">
+          {% if form_data and form_data.has_resale %}✏️ Edit Resale{% else %}➕ Add Resale Charge{% endif %}
+        </button>
+        {% if form_data and form_data.has_resale %}
+        <button type="button" class="btn btn-sm btn-danger" onclick="removeResaleCharge()">🗑️ Remove</button>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Resale Summary (visible when resale exists) -->
+    <div id="resaleSummary" style="display:{{ 'block' if form_data and form_data.has_resale and (form_data.resale_charges or 0) > 0 else 'none' }};">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:12px 16px;background:#FEF3C7;border-radius:8px;">
+        <div>
+          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Charge Amount</span>
+          <div style="font-weight:800;color:#92400E;font-size:15px;">₹{{ "%.2f"|format((form_data.resale_charges if form_data else 0) or 0) }}</div>
+        </div>
+        <div>
+          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">GST (18%)</span>
+          <div style="font-weight:800;color:#92400E;font-size:15px;">₹{{ "%.2f"|format(((form_data.resale_charges if form_data else 0) or 0) * 0.18) }}</div>
+        </div>
+        <div>
+          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Total Charge</span>
+          <div style="font-weight:800;color:#DC2626;font-size:15px;">₹{{ "%.2f"|format(((form_data.resale_charges if form_data else 0) or 0) * 1.18) }}</div>
+        </div>
+        <div>
+          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Reason</span>
+          <div style="font-weight:600;color:#78350F;font-size:12px;">{{ (form_data.resale_reason if form_data else '') or '—' }}</div>
+        </div>
+      </div>
+      {% if form_data and form_data.resale_notes %}
+      <div style="margin-top:8px;font-size:12px;color:#92400E;padding:6px 12px;background:#FFFBEB;border-radius:6px;">
+        📝 {{ form_data.resale_notes }}
+      </div>
+      {% endif %}
+    </div>
+    
+    <!-- Resale Form (hidden by default) -->
+    <div id="resaleForm" style="display:none;margin-top:12px;padding-top:12px;border-top:2px dashed #F59E0B;">
+      <div class="grid-3">
+        <div class="form-group">
+          <label>Resale Charge (₹) *</label>
+          <input type="number" name="resale_charges" id="resaleCharges" step="0.01" min="0" 
+                 value="{{ (form_data.resale_charges if form_data else 0) or '0' }}" 
+                 placeholder="Enter charge amount" oninput="updateResalePreview()">
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" name="resale_date" id="resaleDate" value="{{ (form_data.resale_date if form_data else '') or today }}">
+        </div>
+        <div class="form-group">
+          <label>Reason *</label>
+          <select name="resale_reason" id="resaleReason" onchange="toggleOtherReason()">
+            <option value="">— Select Reason —</option>
+            <option value="Return to Office" {% if form_data and form_data.resale_reason == 'Return to Office' %}selected{% endif %}>Return to Office</option>
+            <option value="Wrong Address" {% if form_data and form_data.resale_reason == 'Wrong Address' %}selected{% endif %}>Wrong Address</option>
+            <option value="No One Available" {% if form_data and form_data.resale_reason == 'No One Available' %}selected{% endif %}>No One Available</option>
+            <option value="Refused by Receiver" {% if form_data and form_data.resale_reason == 'Refused by Receiver' %}selected{% endif %}>Refused by Receiver</option>
+            <option value="Failed Delivery Attempt" {% if form_data and form_data.resale_reason == 'Failed Delivery Attempt' %}selected{% endif %}>Failed Delivery Attempt</option>
+            <option value="Customer Requested Return" {% if form_data and form_data.resale_reason == 'Customer Requested Return' %}selected{% endif %}>Customer Requested Return</option>
+            <option value="Damaged Parcel" {% if form_data and form_data.resale_reason == 'Damaged Parcel' %}selected{% endif %}>Damaged Parcel</option>
+            <option value="Custom Duty Unpaid" {% if form_data and form_data.resale_reason == 'Custom Duty Unpaid' %}selected{% endif %}>Custom Duty Unpaid</option>
+            <option value="Other" {% if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" id="otherReasonDiv" style="display:{{ 'block' if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason else 'none' }};">
+        <label>Specify Other Reason</label>
+        <input type="text" name="resale_reason_other" id="resaleReasonOther" 
+               value="{{ (form_data.resale_reason.replace('Other: ', '') if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason else '') }}"
+               placeholder="Enter custom reason...">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="resale_notes" id="resaleNotes" rows="2" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #E5E7EB;" 
+                  placeholder="Additional details...">{{ (form_data.resale_notes if form_data else '') or '' }}</textarea>
+      </div>
+      
+      <!-- Resale Preview -->
+      <div style="margin-top:12px;padding:10px 16px;background:#F9FAFB;border-radius:8px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+        <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">Charge</span><div style="font-weight:700;" id="previewCharge">₹0.00</div></div>
+        <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">GST</span><div style="font-weight:700;color:#4F46E5;" id="previewGST2">₹0.00</div></div>
+        <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">Total</span><div style="font-weight:700;color:#DC2626;" id="previewTotal2">₹0.00</div></div>
+        <div>
+          <span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">New Grand Total</span>
+          <div style="font-weight:800;color:#16A34A;" id="previewGrandTotal">₹{{ "%.2f"|format((invoice.grand_total if invoice else 0) or 0) }}</div>
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button type="button" class="btn btn-success" onclick="saveResaleCharge()">✅ Apply Resale Charge</button>
+        <button type="button" class="btn btn-ghost" onclick="cancelResale()">Cancel</button>
       </div>
     </div>
   </div>
@@ -358,10 +588,6 @@
       <div class="form-group">
         <label>Bank Name</label>
         <input type="text" name="cheque_bank" value="{{ form_data.cheque_bank or '' }}" placeholder="e.g. HDFC Bank">
-      </div>
-      <div class="form-group">
-        <label>Drawn on Bank</label>
-        <input type="text" name="drawn_bank" value="{{ form_data.drawn_bank or '' }}" placeholder="Payable at bank">
       </div>
     </div>
 
@@ -428,18 +654,421 @@ function calcPkg() {
   document.getElementById('actualWt').textContent = actWt.toFixed(2);
 }
 
+/* ── Freight per-kg calculator ── */
+function calcFreight() {
+  const weight = parseFloat(document.getElementById('freightWeight').value)||0;
+  const rate   = parseFloat(document.getElementById('freightRatePerKg').value)||0;
+  const total  = weight * rate;
+  document.getElementById('freightAmt').value = total.toFixed(2);
+  const bd = document.getElementById('freightBreakdown');
+  if (weight > 0 && rate > 0) {
+    bd.textContent = weight + ' kg × ₹' + rate + '/kg = ₹' + total.toLocaleString('en-IN', {maximumFractionDigits:2});
+  } else {
+    bd.textContent = '';
+  }
+  calcInvoiceTotal();
+}
+
+/* ── Rate Lookup ── */
+let currentRate = null;
+let currentWeight = null;
+
+function lookupRate() {
+    const courier = document.getElementById('rateCourier').value;
+    const destination = document.getElementById('rateDestination').value.trim();
+    const weight = parseFloat(document.getElementById('rateWeight').value);
+    
+    // Hide previous results
+    document.getElementById('rateResult').style.display = 'none';
+    document.getElementById('rateError').style.display = 'none';
+    
+    if (!courier || !destination || !weight || weight <= 0) {
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('rateDisplay').textContent = '⏳ Loading...';
+    document.getElementById('rateResult').style.display = 'block';
+    
+    // Make API call
+    fetch(`/api/rate-lookup?courier=${encodeURIComponent(courier)}&destination=${encodeURIComponent(destination)}&weight=${weight}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('rateResult').style.display = 'none';
+                document.getElementById('rateErrorMessage').textContent = data.error;
+                document.getElementById('rateError').style.display = 'block';
+                return;
+            }
+            
+            currentRate = data.rate;
+            currentWeight = data.weight_used;
+            
+            document.getElementById('rateDisplay').textContent = `₹${data.rate.toLocaleString('en-IN')}`;
+            document.getElementById('rateDetails').textContent = 
+                `${data.country_matched} · ${data.weight_used}kg (${data.courier})`;
+            document.getElementById('rateResult').style.display = 'block';
+            document.getElementById('rateError').style.display = 'none';
+        })
+        .catch(error => {
+            document.getElementById('rateResult').style.display = 'none';
+            document.getElementById('rateErrorMessage').textContent = 'Error connecting to server';
+            document.getElementById('rateError').style.display = 'block';
+            console.error('Rate lookup error:', error);
+        });
+}
+
+function applyRateToFreight() {
+    if (!currentRate || !currentWeight) {
+        alert('Please lookup a rate first.');
+        return;
+    }
+    
+    // Calculate rate per kg
+    const ratePerKg = currentRate / currentWeight;
+    
+    // Set the freight fields
+    document.getElementById('freightRatePerKg').value = ratePerKg.toFixed(2);
+    document.getElementById('freightWeight').value = currentWeight;
+    document.getElementById('freightAmt').value = currentRate.toFixed(2);
+    
+    // Trigger calculation
+    calcFreight();
+    closeRateResult();
+    
+    // Show success feedback
+    const resultDiv = document.getElementById('rateResult');
+    if (resultDiv) {
+        resultDiv.style.background = '#DCFCE7';
+        resultDiv.style.borderColor = '#4ADE80';
+        setTimeout(() => {
+            resultDiv.style.background = '#F0FDF4';
+            resultDiv.style.borderColor = '#86EFAC';
+        }, 2000);
+    }
+}
+
+function closeRateResult() {
+    document.getElementById('rateResult').style.display = 'none';
+    document.getElementById('rateError').style.display = 'none';
+}
+
+// Auto-lookup when any field changes
+document.addEventListener('DOMContentLoaded', function() {
+    const fields = ['rateCourier', 'rateDestination', 'rateWeight'];
+    fields.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('change', lookupRate);
+            el.addEventListener('input', lookupRate);
+        }
+    });
+});
+
+/* ── Resale / Return Charges ── */
+let resaleActive = {{ 'true' if form_data and form_data.has_resale else 'false' }};
+let resaleAmount = {{ (form_data.resale_charges if form_data else 0) or 0 }};
+
+function toggleResaleSection() {
+    const form = document.getElementById('resaleForm');
+    if (form.style.display === 'none' || form.style.display === '') {
+        // Show the form with current values
+        form.style.display = 'block';
+        // Set the current resale amount if it exists
+        const currentAmount = resaleAmount || 0;
+        if (currentAmount > 0) {
+            document.getElementById('resaleCharges').value = currentAmount;
+        }
+        updateResalePreview();
+    } else {
+        form.style.display = 'none';
+    }
+}
+
+function cancelResale() {
+    document.getElementById('resaleForm').style.display = 'none';
+    // Reset to original values if no resale was saved
+    if (!resaleActive || resaleAmount === 0) {
+        document.getElementById('resaleCharges').value = '0';
+        document.getElementById('resaleReason').value = '';
+        document.getElementById('resaleReasonOther').value = '';
+        document.getElementById('resaleNotes').value = '';
+        document.getElementById('otherReasonDiv').style.display = 'none';
+    }
+}
+
+function toggleOtherReason() {
+    const select = document.getElementById('resaleReason');
+    const otherDiv = document.getElementById('otherReasonDiv');
+    if (select.value === 'Other') {
+        otherDiv.style.display = 'block';
+    } else {
+        otherDiv.style.display = 'none';
+    }
+}
+
+function updateResalePreview() {
+    const amount = parseFloat(document.getElementById('resaleCharges').value) || 0;
+    const gst = IS_GST_REGISTERED ? (amount * 0.18) : 0;
+    const total = amount + gst;
+    
+    document.getElementById('previewCharge').textContent = '₹' + amount.toLocaleString('en-IN', {minimumFractionDigits:2});
+    document.getElementById('previewGST2').textContent = '₹' + gst.toLocaleString('en-IN', {minimumFractionDigits:2});
+    document.getElementById('previewTotal2').textContent = '₹' + total.toLocaleString('en-IN', {minimumFractionDigits:2});
+    
+    const currentGrand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,'')) || 0;
+    const newGrand = currentGrand + total;
+    document.getElementById('previewGrandTotal').textContent = '₹' + newGrand.toLocaleString('en-IN', {minimumFractionDigits:2});
+}
+
+function saveResaleCharge() {
+    const amount = parseFloat(document.getElementById('resaleCharges').value) || 0;
+    const reason = document.getElementById('resaleReason').value;
+    const otherReason = document.getElementById('resaleReasonOther').value.trim();
+    const date = document.getElementById('resaleDate').value;
+    const notes = document.getElementById('resaleNotes').value.trim();
+    
+    if (amount <= 0) {
+        alert('Please enter a valid resale charge amount.');
+        document.getElementById('resaleCharges').focus();
+        return false;
+    }
+    
+    if (reason === 'Other' && !otherReason) {
+        alert('Please specify the other reason.');
+        document.getElementById('resaleReasonOther').focus();
+        return false;
+    }
+    
+    if (!reason) {
+        alert('Please select a reason for the resale charge.');
+        document.getElementById('resaleReason').focus();
+        return false;
+    }
+    
+    // Build the final reason
+    const finalReason = reason === 'Other' ? 'Other: ' + otherReason : reason;
+    
+    // Set hidden fields for form submission
+    document.getElementById('resaleActiveHidden').value = 'true';
+    document.getElementById('resaleAmountHidden').value = amount;
+    document.getElementById('resaleReasonHidden').value = finalReason;
+    document.getElementById('resaleDateHidden').value = date;
+    document.getElementById('resaleNotesHidden').value = notes;
+    
+    // Update the display
+    const gst = IS_GST_REGISTERED ? (amount * 0.18) : 0;
+    const total = amount + gst;
+    
+    // Hide the form and show summary
+    document.getElementById('resaleForm').style.display = 'none';
+    document.getElementById('resaleSummary').style.display = 'block';
+    
+    // Update the summary with new values
+    document.getElementById('resaleSummary').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:12px 16px;background:#FEF3C7;border-radius:8px;">
+            <div>
+                <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Charge Amount</span>
+                <div style="font-weight:800;color:#92400E;font-size:15px;">₹${amount.toFixed(2)}</div>
+            </div>
+            <div>
+                <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">GST (18%)</span>
+                <div style="font-weight:800;color:#92400E;font-size:15px;">₹${gst.toFixed(2)}</div>
+            </div>
+            <div>
+                <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Total Charge</span>
+                <div style="font-weight:800;color:#DC2626;font-size:15px;">₹${total.toFixed(2)}</div>
+            </div>
+            <div>
+                <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Reason</span>
+                <div style="font-weight:600;color:#78350F;font-size:12px;">${finalReason}</div>
+            </div>
+        </div>
+        ${notes ? `<div style="margin-top:8px;font-size:12px;color:#92400E;padding:6px 12px;background:#FFFBEB;border-radius:6px;">📝 ${notes}</div>` : ''}
+    `;
+    
+    // Update grand total display
+    const currentGrand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,'')) || 0;
+    const newGrand = currentGrand + total;
+    document.getElementById('dispGrand').textContent = '₹' + newGrand.toLocaleString('en-IN', {minimumFractionDigits:2});
+    
+    // Update the apply button text
+    document.querySelector('[onclick="toggleResaleSection()"]').textContent = '✏️ Edit Resale';
+    
+    // Update the remove button (show if not already shown)
+    const removeBtn = document.querySelector('[onclick="removeResaleCharge()"]');
+    if (!removeBtn) {
+        const btnDiv = document.querySelector('[onclick="toggleResaleSection()"]').parentElement;
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-sm btn-danger';
+        removeButton.onclick = removeResaleCharge;
+        removeButton.textContent = '🗑️ Remove';
+        btnDiv.appendChild(removeButton);
+    }
+    
+    // Update resale state
+    resaleActive = true;
+    resaleAmount = amount;
+    
+    // Show success message
+    showToast('✅ Resale charge of ₹' + total.toFixed(2) + ' added successfully!');
+    
+    // Recalculate balance
+    calcBalance();
+    
+    return true;
+}
+
+function removeResaleCharge() {
+    if (!confirm('Remove resale charges from this invoice?')) return;
+    
+    // Reset resale fields
+    document.getElementById('resaleActiveHidden').value = 'false';
+    document.getElementById('resaleAmountHidden').value = '0';
+    document.getElementById('resaleReasonHidden').value = '';
+    document.getElementById('resaleDateHidden').value = '';
+    document.getElementById('resaleNotesHidden').value = '';
+    
+    // Hide summary
+    document.getElementById('resaleSummary').style.display = 'none';
+    
+    // Reset form
+    document.getElementById('resaleCharges').value = '0';
+    document.getElementById('resaleReason').value = '';
+    document.getElementById('resaleReasonOther').value = '';
+    document.getElementById('resaleNotes').value = '';
+    
+    // Hide other reason div
+    document.getElementById('otherReasonDiv').style.display = 'none';
+    
+    // Update the apply button text
+    document.querySelector('[onclick="toggleResaleSection()"]').textContent = '➕ Add Resale Charge';
+    
+    // Remove the remove button if exists
+    const removeBtn = document.querySelector('[onclick="removeResaleCharge()"]');
+    if (removeBtn) {
+        removeBtn.remove();
+    }
+    
+    // Reset resale state
+    resaleActive = false;
+    resaleAmount = 0;
+    
+    // Recalculate totals (subtract resale)
+    calcInvoiceTotal();
+    
+    // Show toast
+    showToast('✅ Resale charges removed');
+}
+
+function showToast(message) {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+        position: fixed; bottom: 20px; right: 20px; 
+        padding: 12px 24px; background: #16A34A; color: white;
+        border-radius: 10px; font-weight: 600; z-index: 9999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideUp 0.3s ease-out;
+    `;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+// Add hidden fields for resale data
+document.addEventListener('DOMContentLoaded', function() {
+    // Add hidden fields to the form
+    const form = document.getElementById('custInvForm');
+    if (!form) return;
+    
+    const hiddenFields = [
+        { name: 'resale_active', id: 'resaleActiveHidden', value: '{{ "true" if form_data and form_data.has_resale else "false" }}' },
+        { name: 'resale_amount', id: 'resaleAmountHidden', value: '{{ (form_data.resale_charges if form_data else 0) or "0" }}' },
+        { name: 'resale_reason', id: 'resaleReasonHidden', value: '{{ (form_data.resale_reason if form_data else "") or "" }}' },
+        { name: 'resale_date', id: 'resaleDateHidden', value: '{{ (form_data.resale_date if form_data else "") or "" }}' },
+        { name: 'resale_notes', id: 'resaleNotesHidden', value: '{{ (form_data.resale_notes if form_data else "") or "" }}' },
+    ];
+    
+    hiddenFields.forEach(field => {
+        // Check if hidden field already exists
+        let existing = document.getElementById(field.id);
+        if (!existing) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = field.name;
+            input.id = field.id;
+            input.value = field.value;
+            form.appendChild(input);
+        }
+    });
+    
+    // Initialize resale section state
+    const hasResale = {{ 'true' if form_data and form_data.has_resale else 'false' }};
+    const resaleAmount = {{ (form_data.resale_charges if form_data else 0) or 0 }};
+    
+    if (hasResale && resaleAmount > 0) {
+        document.getElementById('resaleSummary').style.display = 'block';
+        document.getElementById('resaleForm').style.display = 'none';
+        // Update the preview grand total to include resale
+        const currentGrand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,'')) || 0;
+        document.getElementById('previewGrandTotal').textContent = '₹' + currentGrand.toLocaleString('en-IN', {minimumFractionDigits:2});
+    } else {
+        document.getElementById('resaleSummary').style.display = 'none';
+        document.getElementById('resaleForm').style.display = 'none';
+    }
+});
+
 /* ── Totals ── */
 const fmt = n => '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+
+// IMPORTANT: Get GST status from server (passed from Flask)
+const IS_GST_REGISTERED = {{ 'true' if is_gst_registered else 'false' }};
+
 function calcInvoiceTotal() {
   const freight = parseFloat(document.getElementById('freightAmt').value)||0;
   const fuel    = parseFloat(document.getElementById('fuelCharge').value)||0;
   const other   = parseFloat(document.getElementById('otherCharges').value)||0;
-  const base=freight+fuel+other, gst=base*0.18, grand=base+gst;
+  const base = freight + fuel + other;
+  
+  // Only calculate GST if company is GST registered
+  const gst = IS_GST_REGISTERED ? (base * 0.18) : 0;
+  
+  // ── Get resale charges ────────────────────────────────────────────────────
+  const resaleAmount = parseFloat(document.getElementById('resaleCharges').value) || 0;
+  const resaleGst = IS_GST_REGISTERED ? (resaleAmount * 0.18) : 0;
+  const resaleTotal = resaleAmount + resaleGst;
+  
+  // ── Grand total includes resale ──────────────────────────────────────────
+  const grand = base + gst + resaleTotal;
+  
   document.getElementById('dispFreight').textContent = fmt(freight);
   document.getElementById('dispFuel').textContent    = fmt(fuel);
   document.getElementById('dispOther').textContent   = fmt(other);
-  document.getElementById('dispGST').textContent     = fmt(gst);
-  document.getElementById('dispGrand').textContent   = fmt(grand);
+  
+  // Show/hide resale row
+  const resaleRow = document.getElementById('resaleRow');
+  if (resaleRow) {
+    if (resaleAmount > 0) {
+      resaleRow.style.display = 'flex';
+      document.getElementById('dispResaleTotal').textContent = fmt(resaleAmount);
+    } else {
+      resaleRow.style.display = 'none';
+    }
+  }
+  
+  // Only update GST display if the element exists (for GST registered companies)
+  const gstElement = document.getElementById('dispGST');
+  if (gstElement) {
+    gstElement.textContent = fmt(gst + resaleGst);
+  }
+  
+  document.getElementById('dispGrand').textContent = fmt(grand);
   calcBalance();
 }
 function calcBalance() {
@@ -458,6 +1087,7 @@ function setPayMode(mode) {
   document.getElementById('creditNote').style.display    = mode==='credit' ? 'block':'none';
   if (mode!=='online'){ document.getElementById('upiAppHidden').value=''; document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected')); }
 }
+
 function selectUPI(el, app) {
   document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected'));
   el.classList.add('selected');
@@ -469,8 +1099,13 @@ function onCustomerChange(sel) {
   const opt = sel.options[sel.selectedIndex];
   if (opt.value) {
     document.getElementById('custPhone').value = opt.dataset.phone || '';
-    if (!document.querySelector('[name="shipper_name"]').value) {
-      document.querySelector('[name="shipper_name"]').value = opt.dataset.name || '';
+    if (!document.querySelector('[name="shipper_address1"]').value) {
+      document.getElementById('shipperAddress1').value = opt.dataset.address1 || '';
+      document.getElementById('shipperAddress2').value = opt.dataset.address2 || '';
+      document.getElementById('shipperCity').value = opt.dataset.city || '';
+      document.getElementById('shipperState').value = opt.dataset.state || '';
+      document.getElementById('shipperPincode').value = opt.dataset.pincode || '';
+      document.getElementById('shipperCountry').value = opt.dataset.country || 'India';
     }
   }
 }
@@ -498,7 +1133,7 @@ function validateCustForm(e) {
 
 /* ── Initialize ── */
 document.addEventListener('DOMContentLoaded', () => { 
-  calcInvoiceTotal(); 
+  calcFreight();   // also calls calcInvoiceTotal internally
   calcPkg();
   
   // Set payment mode from hidden value

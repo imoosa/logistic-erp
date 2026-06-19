@@ -117,45 +117,43 @@ td,th{
 }
 
 /* Print Styles - Hide buttons and optimize for printing */
-@media print{
-    @page{
-        size:A4;
-        margin:5mm;
+@media print {
+    @page {
+        size: A4;
+        margin: 5mm;
     }
 
-    body{
-        margin:0;
-        padding:0;
-        background:#fff;
+    /* Step 1: hide the ENTIRE page */
+    html, body {
+        visibility: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
     }
 
-    .no-print{
-        display:none !important;
-    }
-    
-    .action-bar{
-        display:none !important;
-    }
-
-    .invoice-wrapper{
-        width:100%;
-        margin:0;
-        padding:0;
+    /* Step 2: show ONLY invoice-page, not even invoice-wrapper */
+    .invoice-page {
+        visibility: visible !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        border: none !important;
+        min-height: auto !important;
+        box-shadow: none !important;
     }
 
-    .invoice-page{
-        border:none;
-        min-height:auto;
-        box-shadow:none;
+    /* Step 3: make every child inside invoice-page visible */
+    .invoice-page * {
+        visibility: visible !important;
     }
 
-    *{
-        -webkit-print-color-adjust:exact !important;
-        print-color-adjust:exact !important;
-    }
-    
-    .btn{
-        display:none;
+    .action-bar { display: none !important; }
+    .btn { display: none !important; }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }
 
@@ -259,13 +257,8 @@ td,th{
                 </tr>
             </thead>
             <tbody>
-                <!-- BOX ROW -->
-                <tr>
-                    <td colspan="7" class="text-center">
-                        <b>BOX NO: 1, ACTUAL WEIGHT - {{ estimate.weight or '0.00' }} KG</b>
-                    </td>
-                </tr>
                 
+
                 <!-- ITEMS -->
                 {% for item in estimate.line_items %}
                 <tr>
@@ -294,7 +287,43 @@ td,th{
                 {% endfor %}
             </tbody>
         </table>
+        <!-- BOX ROW -->
+                <tr>
+                    <td colspan="7" class="text-center">
+                        <b>BOX NO: 1, ACTUAL WEIGHT - {{ estimate.weight or '0.00' }} KG</b>
+                    </td>
+                </tr>
+                
 
+        <!-- BOX DIMENSIONS -->
+        {% if estimate.dimensions %}
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th width="6%" class="text-center">BOX</th>
+                    <th width="28%">LABEL</th>
+                    <th width="16%" class="text-center">LENGTH (cm)</th>
+                    <th width="16%" class="text-center">WIDTH (cm)</th>
+                    <th width="16%" class="text-center">HEIGHT (cm)</th>
+                    <th width="18%" class="text-center">WEIGHT (kg)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in estimate.dimensions %}
+                <tr>
+                    <td class="text-center">{{ loop.index }}</td>
+                    <td>{{ d.label or 'Box ' ~ loop.index }}</td>
+                    <td class="text-center">{{ d.l or '-' }}</td>
+                    <td class="text-center">{{ d.w or '-' }}</td>
+                    <td class="text-center">{{ d.h or '-' }}</td>
+                    <td class="text-center">{{ d.wt or '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        
         <!-- TOTAL -->
         <table>
             <tr>

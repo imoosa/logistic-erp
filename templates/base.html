@@ -6,6 +6,12 @@
   <title>LogisticERP · {% block title %}{% endblock %}</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <style>
+    @media print {
+    .sidebar  { display: none !important; }
+    .topbar   { display: none !important; }
+    .main     { margin-left: 0 !important; padding: 0 !important; }
+    .content  { padding: 0 !important; }
+}
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --primary: #2563EB; --primary-light: #EFF6FF; --primary-dark: #1D4ED8;
@@ -138,6 +144,15 @@
       text-decoration: none; transition: all .15s;
     }
     .topbar-logout:hover { background: var(--danger); color: #fff; }
+    .topbar-switch {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--primary-light); color: var(--primary);
+      border: 1px solid #BFDBFE;
+      border-radius: 40px; padding: 8px 16px;
+      font-size: 13px; font-weight: 600;
+      text-decoration: none; transition: all .15s;
+    }
+    .topbar-switch:hover { background: var(--primary); color: #fff; }
 
     /* layout defined in CORE LAYOUT FIX section below */
 
@@ -270,6 +285,9 @@
         <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
           <span class="nav-icon">👥</span><span>Clients</span>
         </a>
+         <a href="{{ url_for('supplier_list') }}" class="nav-item {% if active == 'suppliers' %}active{% endif %}">
+    <span class="nav-icon">🏭</span><span>Suppliers</span>
+  </a>
       </div>
 
       <!-- Purchases Section -->
@@ -281,6 +299,12 @@
         <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
           <span class="nav-icon">📦</span><span>Stock / Inventory</span>
         </a>
+        <a href="{{ url_for('price_lists') }}" class="nav-item {% if active == 'price_lists' %}active{% endif %}">
+    <span class="nav-icon">📊</span><span>Price Lists</span>
+  </a>
+        <a href="{{ url_for('manifest_list') }}" class="nav-item {% if active == 'manifest' %}active{% endif %}">
+  <span class="nav-icon">📋</span><span>Manifest</span>
+</a>
       </div>
 
       <!-- Banking & Finance -->
@@ -297,6 +321,9 @@
         </a>
         <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
           <span class="nav-icon">🏦</span><span>Loan Accounts</span>
+        </a>
+        <a href="{{ url_for('expenses') }}" class="nav-item {% if active == 'expenses' %}active{% endif %}">
+          <span class="nav-icon">💸</span><span>Expenses</span>
         </a>
       </div>
 
@@ -378,6 +405,11 @@
             <div class="topbar-welcome-greeting">{{ session.user.role|replace('_',' ')|title }}</div>
           </div>
         </div>
+        {% if session.user.role in ['owner', 'super_admin'] %}
+        <a href="{{ url_for('select_company') }}" class="topbar-switch" title="Switch or add company">
+          🏢 Switch Company
+        </a>
+        {% endif %}
         <a href="{{ url_for('logout') }}" class="topbar-logout">
           <span>🚪</span> Logout
         </a>

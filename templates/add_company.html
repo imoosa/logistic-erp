@@ -87,6 +87,26 @@
     input:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.1); }
     .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
 
+    .radio-group {
+      display: flex;
+      gap: 24px;
+      margin-top: 8px;
+    }
+    .radio-group label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+      margin-bottom: 0;
+    }
+    .radio-group input[type="radio"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
     .btn-row { display: flex; gap: 10px; margin-top: 8px; }
     .btn {
       flex: 1;
@@ -109,6 +129,8 @@
     .flash { padding: 11px 14px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
     .flash.error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
     .flash.success { background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; }
+
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -156,17 +178,42 @@
           <input type="text" id="company_name" name="company_name" required
                  placeholder="e.g. Sharma Exports Pvt Ltd" />
         </div>
+
+        <!-- GST Registration Question -->
         <div class="form-group">
+          <label>Is your business GST registered?</label>
+          <div class="radio-group">
+            <label>
+              <input type="radio" name="is_gst_registered" value="1" checked onchange="toggleGST(true)"> Yes
+            </label>
+            <label>
+              <input type="radio" name="is_gst_registered" value="0" onchange="toggleGST(false)"> No
+            </label>
+          </div>
+        </div>
+
+        <!-- GST Number field (visible only if GST registered) -->
+        <div id="gst-fields" class="form-group">
           <label for="gst_number">GST Number</label>
           <input type="text" id="gst_number" name="gst_number"
                  placeholder="e.g. 27AAABC1234F1Z" />
-          <div class="hint">Leave blank if not applicable</div>
+          <div class="hint">Required if GST registered</div>
         </div>
+
+        <!-- GST Notice for non-registered businesses -->
+        <div id="gst-notice" class="form-group hidden">
+          <div style="background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; font-size: 13px; color: #92400e;">
+            ⚠️ GST will NOT be applied to your invoices as you are not GST registered.<br>
+            You can enable GST later from Company Settings.
+          </div>
+        </div>
+
         <div class="form-group">
           <label for="address">Address</label>
           <input type="text" id="address" name="address"
                  placeholder="e.g. Mumbai, Maharashtra" />
         </div>
+
         <div class="form-group">
           <label for="phone">Phone</label>
           <input type="tel" id="phone" name="phone" placeholder="e.g. 9876543210" />
@@ -179,5 +226,26 @@
       </form>
     {% endif %}
   </div>
+
+  <script>
+    function toggleGST(showGST) {
+      const gstFields = document.getElementById('gst-fields');
+      const gstNotice = document.getElementById('gst-notice');
+      const gstInput = document.getElementById('gst_number');
+      
+      if (showGST) {
+        gstFields.classList.remove('hidden');
+        gstNotice.classList.add('hidden');
+        if (gstInput) gstInput.required = true;
+      } else {
+        gstFields.classList.add('hidden');
+        gstNotice.classList.remove('hidden');
+        if (gstInput) {
+          gstInput.required = false;
+          gstInput.value = '';
+        }
+      }
+    }
+  </script>
 </body>
 </html>

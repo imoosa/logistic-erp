@@ -259,43 +259,59 @@
   </div>
 
   <!-- ── Main KPI Cards ── -->
-  <div class="kpi-grid">
+<div class="kpi-grid">
     <!-- Total Sales -->
     <div class="kpi-card sale">
-      <div class="kpi-top">
-        <div class="kpi-icon-wrap sale">📈</div>
-        <span class="kpi-badge up">Sales</span>
-      </div>
-      <div class="kpi-label">Total Sales</div>
-      <div class="kpi-value" id="saleVal">₹{{ "{:,.0f}".format(kpi.total_revenue) }}</div>
-      <div class="kpi-sub">💼 Invoiced amount in period</div>
+        <div class="kpi-top">
+            <div class="kpi-icon-wrap sale">📈</div>
+            <span class="kpi-badge up">Revenue</span>
+        </div>
+        <div class="kpi-label">Total Revenue</div>
+        <div class="kpi-value" id="saleVal">₹{{ "{:,.0f}".format(kpi.total_revenue) }}</div>
+        <div class="kpi-sub">💼 Invoiced amount in period</div>
     </div>
 
     <!-- Total Purchase -->
     <div class="kpi-card purchase">
-      <div class="kpi-top">
-        <div class="kpi-icon-wrap purchase">📦</div>
-        <span class="kpi-badge down">Purchase</span>
-      </div>
-      <div class="kpi-label">Total Purchase</div>
-      <div class="kpi-value" id="purchaseVal">₹{{ "{:,.0f}".format(kpi.total_purchases) }}</div>
-      <div class="kpi-sub">🛒 Goods & services procured</div>
+        <div class="kpi-top">
+            <div class="kpi-icon-wrap purchase">📦</div>
+            <span class="kpi-badge down">COGS</span>
+        </div>
+        <div class="kpi-label">Cost of Goods Sold</div>
+        <div class="kpi-value" id="purchaseVal">₹{{ "{:,.0f}".format(kpi.total_purchases) }}</div>
+        <div class="kpi-sub">🛒 Goods & services procured</div>
     </div>
 
-    <!-- Total Profit -->
+    <!-- Gross Profit -->
     <div class="kpi-card profit">
-      <div class="kpi-top">
-        <div class="kpi-icon-wrap profit">💎</div>
-        <span class="kpi-badge {% if kpi.profit >= 0 %}up{% else %}down{% endif %}">
-          {% if kpi.profit >= 0 %}▲ Profit{% else %}▼ Loss{% endif %}
-        </span>
-      </div>
-      <div class="kpi-label">Total Profit</div>
-      <div class="kpi-value {% if kpi.profit >= 0 %}up{% else %}down{% endif %}" id="profitVal">
-        ₹{{ "{:,.0f}".format(kpi.profit) }}
-      </div>
-      <div class="kpi-sub">📊 Revenue − Purchases</div>
+        <div class="kpi-top">
+            <div class="kpi-icon-wrap profit">💎</div>
+            <span class="kpi-badge {% if kpi.gross_profit >= 0 %}up{% else %}down{% endif %}">
+                {% if kpi.gross_profit >= 0 %}▲ Gross Profit{% else %}▼ Gross Loss{% endif %}
+            </span>
+        </div>
+        <div class="kpi-label">Gross Profit</div>
+        <div class="kpi-value {% if kpi.gross_profit >= 0 %}up{% else %}down{% endif %}" id="grossProfitVal">
+            ₹{{ "{:,.0f}".format(kpi.gross_profit) }}
+        </div>
+        <div class="kpi-sub">📊 Revenue − COGS</div>
     </div>
+
+    <!-- Net Profit (after expenses) -->
+    <div class="kpi-card pending">
+        <div class="kpi-top">
+            <div class="kpi-icon-wrap pending">📊</div>
+            <span class="kpi-badge {% if kpi.net_profit >= 0 %}up{% else %}down{% endif %}">
+                {% if kpi.net_profit >= 0 %}▲ Net Profit{% else %}▼ Net Loss{% endif %}
+            </span>
+        </div>
+        <div class="kpi-label">Net Profit</div>
+        <div class="kpi-value {% if kpi.net_profit >= 0 %}up{% else %}down{% endif %}" id="netProfitVal">
+            ₹{{ "{:,.0f}".format(kpi.net_profit) }}
+        </div>
+        <div class="kpi-sub">💸 After all expenses</div>
+    </div>
+
 
     <!-- Pending Amount -->
     <div class="kpi-card pending">
@@ -633,66 +649,95 @@
   buildCharts(initLabels, initRevenue, initPurchase, initProfitL, initProfit, initSaleTot, initPend, initPurch, initInflow, initOutflow);
 
   // ── Refresh dashboard ──
-  async function refreshDashboard() {
+async function refreshDashboard() {
     const fd = document.getElementById('fromDate').value;
     const td = document.getElementById('toDate').value;
     try {
-      const resp = await fetch(`/api/dashboard-data?from_date=${fd}&to_date=${td}`);
-      const data = await resp.json();
-      const k = data.kpi;
+        const resp = await fetch(`/api/dashboard-data?from_date=${fd}&to_date=${td}`);
+        const data = await resp.json();
+        const k = data.kpi;
 
-      // Update mini balance
-      document.getElementById('cashVal').innerText    = fmt(k.cash_balance);
-      document.getElementById('bankVal').innerText    = fmt(k.bank_balance);
-      // Update KPI
-      document.getElementById('saleVal').innerText    = fmt(k.total_revenue);
-      document.getElementById('purchaseVal').innerText= fmt(k.total_purchases);
-      const pv = document.getElementById('profitVal');
-      pv.innerText = fmt(k.profit);
-      pv.className = 'kpi-value ' + (k.profit >= 0 ? 'up' : 'down');
-      document.getElementById('pendingVal').innerText = fmt(k.pending_amount);
-      // Update donut stat amounts
-      document.getElementById('paidAmt').innerText    = fmt(k.total_revenue - k.pending_amount);
-      document.getElementById('pendAmt').innerText    = fmt(k.pending_amount);
-      document.getElementById('saleRatioAmt').innerText  = fmt(k.total_revenue);
-      document.getElementById('purchRatioAmt').innerText = fmt(k.total_purchases);
+        // Update mini balance
+        document.getElementById('cashVal').innerText = fmt(k.cash_balance);
+        document.getElementById('bankVal').innerText = fmt(k.bank_balance);
 
-      // Rebuild charts
-      buildCharts(data.chart_labels, data.revenue_data, data.purchase_data, data.profit_labels, data.profit_trend, k.total_revenue, k.pending_amount, k.total_purchases, k.cash_inflow_period, k.cash_outflow_period);
+        // Update KPI cards
+        document.getElementById('saleVal').innerText = fmt(k.total_revenue);
+        document.getElementById('purchaseVal').innerText = fmt(k.total_purchases);
 
-      // Update top clients
-      const cb = document.querySelector('#clientTbody');
-      if (cb && data.top_clients) {
-        cb.innerHTML = data.top_clients.length
-          ? data.top_clients.map(c => `<tr><td><strong>${escHtml(c.name)}</strong></td><td>${fmt(c.total_billed)}</td><td>${fmt(c.pending)}</td><td><span class="mini-badge">${c.status}</span></td></tr>`).join('')
-          : '<tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:20px;">No client data</td></tr>';
-      }
-      // Update recent invoices
-      const ib = document.querySelector('#invTbody');
-      if (ib && data.recent_invoices) {
-        ib.innerHTML = data.recent_invoices.length
-          ? data.recent_invoices.map(i => `<tr><td>${escHtml(i.id)}</td><td>${escHtml(i.customer)}</td><td>${i.date}</td><td>${fmt(i.total)}</td><td><span class="mini-badge">${i.status}</span></td></tr>`).join('')
-          : '<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No invoices</td></tr>';
-      }
-      // Low stock
-      const sb = document.querySelector('#stockTbody');
-      if (sb && data.low_stock) {
-        sb.innerHTML = data.low_stock.length
-          ? data.low_stock.map(s => `<tr class="stock-alert-row"><td>${escHtml(s.code)}</td><td>${escHtml(s.name)}</td><td class="trend-down">${s.quantity}</td><td>${s.reorder_level}</td></tr>`).join('')
-          : '<tr><td colspan="4" style="text-align:center;color:#059669;padding:18px;font-weight:600;">✅ All stock levels healthy</td></tr>';
-      }
-      // Cash flow boxes
-      const cfboxes = document.querySelectorAll('.cf-box .cf-box-val');
-      if (cfboxes.length >= 3) {
-        cfboxes[0].innerText = fmt(k.cash_inflow_period);
-        cfboxes[0].className = 'cf-box-val trend-up';
-        cfboxes[1].innerText = fmt(k.cash_outflow_period);
-        cfboxes[1].className = 'cf-box-val trend-down';
-        cfboxes[2].innerText = fmt(k.cash_net_period);
-        cfboxes[2].className = 'cf-box-val ' + (k.cash_net_period >= 0 ? 'trend-up' : 'trend-down');
-      }
+        // Update Gross Profit
+        const gpv = document.getElementById('grossProfitVal');
+        if (gpv) {
+            gpv.innerText = fmt(k.gross_profit);
+            gpv.className = 'kpi-value ' + (k.gross_profit >= 0 ? 'up' : 'down');
+        }
+
+        // Update Net Profit
+        const npv = document.getElementById('netProfitVal');
+        if (npv) {
+            npv.innerText = fmt(k.net_profit);
+            npv.className = 'kpi-value ' + (k.net_profit >= 0 ? 'up' : 'down');
+        }
+
+        document.getElementById('pendingVal').innerText = fmt(k.pending_amount);
+
+        // Update donut stat amounts
+        document.getElementById('paidAmt').innerText = fmt(k.total_revenue - k.pending_amount);
+        document.getElementById('pendAmt').innerText = fmt(k.pending_amount);
+        document.getElementById('saleRatioAmt').innerText = fmt(k.total_revenue);
+        document.getElementById('purchRatioAmt').innerText = fmt(k.total_purchases);
+
+        // Rebuild charts with expense data
+        buildCharts(
+            data.chart_labels,
+            data.revenue_data,
+            data.purchase_data,
+            data.profit_labels,
+            data.profit_trend,
+            k.total_revenue,
+            k.pending_amount,
+            k.total_purchases,
+            k.cash_inflow_period,
+            k.cash_outflow_period
+        );
+
+        // Update top clients table
+        const cb = document.querySelector('.tables-row .table-panel:first-child tbody');
+        if (cb && data.top_clients) {
+            cb.innerHTML = data.top_clients.length
+                ? data.top_clients.map(c => `<tr><td><strong>${escHtml(c.name)}</strong></td><td>${fmt(c.total_billed)}</td><td>${fmt(c.pending)}</td><td><span class="mini-badge">${c.status}</span></td></tr>`).join('')
+                : '<tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:20px;">No client data</td></tr>';
+        }
+
+        // Update recent invoices table
+        const ib = document.querySelector('.tables-row .table-panel:last-child tbody');
+        if (ib && data.recent_invoices) {
+            ib.innerHTML = data.recent_invoices.length
+                ? data.recent_invoices.map(i => `<tr><td>${escHtml(i.id)}</td><td>${escHtml(i.customer)}</td><td>${i.date}</td><td>${fmt(i.total)}</td><td><span class="mini-badge ${i.status === 'Pending' ? 'danger' : i.status === 'Partial' ? 'warn' : ''}">${i.status}</span></td></tr>`).join('')
+                : '<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No invoices</td></tr>';
+        }
+
+        // Update low stock table
+        const sb = document.querySelector('.tables-row:last-child .table-panel:first-child tbody');
+        if (sb && data.low_stock) {
+            sb.innerHTML = data.low_stock.length
+                ? data.low_stock.map(s => `<tr class="stock-alert-row"><td>${escHtml(s.code)}</td><td>${escHtml(s.name)}</td><td class="trend-down">${s.quantity}</td><td>${s.reorder_level}</td></tr>`).join('')
+                : '<tr><td colspan="4" style="text-align:center;color:#059669;padding:18px;font-weight:600;">✅ All stock levels healthy</td></tr>';
+        }
+
+        // Update cash flow boxes
+        const cfboxes = document.querySelectorAll('.cf-box .cf-box-val');
+        if (cfboxes.length >= 3) {
+            cfboxes[0].innerText = fmt(k.cash_inflow_period);
+            cfboxes[0].className = 'cf-box-val trend-up';
+            cfboxes[1].innerText = fmt(k.cash_outflow_period);
+            cfboxes[1].className = 'cf-box-val trend-down';
+            cfboxes[2].innerText = fmt(k.cash_net_period);
+            cfboxes[2].className = 'cf-box-val ' + (k.cash_net_period >= 0 ? 'trend-up' : 'trend-down');
+        }
+
     } catch(e) { console.error('Dashboard refresh failed', e); }
-  }
+}
 
   function setPreset() {
     const p = document.getElementById('presetSelect').value;

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Confirm Price List Upload{% endblock %}
+{% block page_title %}✅ Confirm Price List Import{% endblock %}
+{% set active = 'price_lists' %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>Confirm Detected Couriers</h2>
+  <p style="color:#6B7280;font-size:13px;">
+    Found {{ previews|length }} sheet(s) in <strong>{{ original_filename }}</strong>.
+    Review the detected courier for each sheet below. If detection is wrong, pick the correct courier before confirming.
+  </p>
+</div>
+
+<form method="POST" action="/price-lists/upload/confirm">
+  {% for p in previews %}
+  <div class="card" style="margin-bottom:16px;">
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div>
+          <h4 style="margin:0 0 4px 0;">Sheet: "{{ p.sheet_name }}"</h4>
+          <p style="color:#6B7280;font-size:13px;margin:0;">
+            Detected format: <strong>{{ p.rate_data.format|upper }}</strong> &middot;
+            {{ p.country_count }} countries &middot; {{ p.weight_count }} weight tiers
+          </p>
+          {% if p.courier == 'OTHER' %}
+          <p style="color:#B91C1C;font-size:12px;margin-top:6px;">
+            ⚠️ Could not confidently detect a courier for this sheet — please select one below.
+          </p>
+          {% endif %}
+        </div>
+        <div style="min-width:220px;">
+          <label style="font-size:12px;color:#6B7280;">Courier for this sheet</label>
+          <select name="courier_override_{{ p.sheet_name }}" style="width:100%;padding:8px;">
+            <option value="DPD" {% if p.courier == 'DPD' %}selected{% endif %}>DPD</option>
+            <option value="FEDEX" {% if p.courier == 'FEDEX' %}selected{% endif %}>FEDEX</option>
+            <option value="DHL" {% if p.courier == 'DHL' %}selected{% endif %}>DHL</option>
+            <option value="UPS" {% if p.courier == 'UPS' %}selected{% endif %}>UPS</option>
+            <option value="ARAMEX" {% if p.courier == 'ARAMEX' %}selected{% endif %}>Aramex</option>
+            <option value="DTDC" {% if p.courier == 'DTDC' %}selected{% endif %}>DTDC</option>
+            <option value="BLUE_DART" {% if p.courier == 'BLUE_DART' %}selected{% endif %}>Blue Dart</option>
+            <option value="SPEEDPOST" {% if p.courier == 'SPEEDPOST' %}selected{% endif %}>SpeedPost</option>
+            <option value="OTHER" {% if p.courier == 'OTHER' %}selected{% endif %}>Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap" style="margin-top:12px;max-height:200px;overflow-y:auto;">
+        <table style="font-size:12px;">
+          <thead>
+            <tr>
+              <th>Country</th>
+              {% for w in p.rate_data.weights[:6] %}<th>{{ w }}KG</th>{% endfor %}
+              {% if p.rate_data.weights|length > 6 %}<th>...</th>{% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for country, rates in p.rate_data.countries.items() %}
+            {% if loop.index <= 5 %}
+            <tr>
+              <td>{{ country }}</td>
+              {% for w in p.rate_data.weights[:6] %}<td>{{ rates.get(w, '-') }}</td>{% endfor %}
+              {% if p.rate_data.weights|length > 6 %}<td>...</td>{% endif %}
+            </tr>
+            {% endif %}
+            {% endfor %}
+            {% if p.rate_data.countries|length > 5 %}
+            <tr><td colspan="10" style="color:#9CA3AF;text-align:center;">+ {{ p.rate_data.countries|length - 5 }} more countries</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <div style="display:flex;gap:12px;margin-top:20px;">
+    <button type="submit" class="btn btn-primary">✅ Confirm and Import All</button>
+    <a href="/price-lists/upload" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+
+{% endblock %}

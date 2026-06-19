@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}Resale Charges - {{ invoice.invoice_id }}{% endblock %}
+{% block page_title %}🔄 Add Resale/Return Charges{% endblock %}
+{% set active = 'invoice' %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>🔄 Resale / Return Charges</h2>
+    <p style="color:#6B7280;font-size:13px;">Add extra charges for return-to-office, wrong address, or failed delivery attempts</p>
+  </div>
+  <div style="display:flex;gap:10px;">
+    <a href="/invoice/view/{{ invoice.invoice_id }}" class="btn btn-ghost">← Back to Invoice</a>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;background:#F0FDF4;border:1px solid #86EFAC;">
+  <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+    <div>
+      <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">Invoice</span>
+      <div style="font-weight:700;font-size:16px;">{{ invoice.invoice_id }}</div>
+    </div>
+    <div>
+      <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">Customer</span>
+      <div style="font-weight:600;">{{ invoice.client_obj.name if invoice.client_obj else '—' }}</div>
+    </div>
+    <div>
+      <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">Current Total</span>
+      <div style="font-weight:700;color:#16A34A;">₹{{ "%.2f"|format(invoice.grand_total or 0) }}</div>
+    </div>
+    <div>
+      <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">Current Balance</span>
+      <div style="font-weight:700;color:#DC2626;">₹{{ "%.2f"|format(invoice.balance or 0) }}</div>
+    </div>
+  </div>
+</div>
+
+{% if resale_data %}
+<div class="card" style="margin-bottom:20px;background:#FEF3C7;border:1px solid #F59E0B;">
+  <div class="card-body">
+    <h4 style="color:#92400E;margin-bottom:12px;">⚠️ Resale Charges Already Applied</h4>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;font-size:14px;">
+      <div><strong>Amount:</strong> ₹{{ "%.2f"|format(resale_data.amount or 0) }}</div>
+      <div><strong>GST:</strong> ₹{{ "%.2f"|format(resale_data.gst or 0) }}</div>
+      <div><strong>Total:</strong> ₹{{ "%.2f"|format((resale_data.amount or 0) + (resale_data.gst or 0)) }}</div>
+      <div style="grid-column:1/-1;"><strong>Reason:</strong> {{ resale_data.reason or '—' }}</div>
+      <div style="grid-column:1/-1;"><strong>Date:</strong> {{ resale_data.date or '—' }}</div>
+      <div style="grid-column:1/-1;"><strong>Notes:</strong> {{ resale_data.notes or '—' }}</div>
+    </div>
+    <form method="POST" style="margin-top:16px;" onsubmit="return confirm('Remove resale charges from this invoice?');">
+      <input type="hidden" name="action" value="remove">
+      <button type="submit" class="btn btn-danger">🗑️ Remove Resale Charges</button>
+    </form>
+  </div>
+</div>
+{% else %}
+
+<div class="card card-body">
+  <form method="POST">
+    <input type="hidden" name="action" value="add">
+    
+    <div class="section-title">📝 Add Resale/Return Charges</div>
+    
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Resale Amount (₹) *</label>
+        <input type="number" name="resale_amount" id="resaleAmount" step="0.01" min="0.01" 
+               placeholder="0.00" required oninput="calculateTotal()">
+        <small style="color:#6B7280;font-size:11px;">This is the base charge before GST</small>
+      </div>
+      
+      <div class="form-group">
+        <label>Date *</label>
+        <input type="date" name="resale_date" value="{{ today }}" required>
+      </div>
+    </div>
+    
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Reason for Charge *</label>
+        <select name="resale_reason" id="resaleReason" required>
+          <option value="">— Select Reason —</option>
+          <option value="Return to Office">Return to Office</option>
+          <option value="Wrong Address">Wrong Address</option>
+          <option value="No One Available">No One Available</option>
+          <option value="Refused by Receiver">Refused by Receiver</option>
+          <option value="Failed Delivery Attempt">Failed Delivery Attempt</option>
+          <option value="Customer Requested Return">Customer Requested Return</option>
+          <option value="Damaged Parcel">Damaged Parcel</option>
+          <option value="Custom Duty Unpaid">Custom Duty Unpaid</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      
+      <div class="form-group" id="otherReasonDiv" style="display:none;">
+        <label>Other Reason</label>
+        <input type="text" name="resale_reason_other" placeholder="Specify reason...">
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>Additional Notes</label>
+      <textarea name="resale_notes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #E5E7EB;" 
+                placeholder="Additional details about the resale/return charge..."></textarea>
+    </div>
+    
+    <!-- Summary / Preview -->
+    <div style="margin-top:20px;padding:16px 20px;background:#F9FAFB;border-radius:10px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;">
+        <div>
+          <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">Base Charge</span>
+          <div style="font-size:18px;font-weight:700;" id="previewBase">₹0.00</div>
+        </div>
+        <div>
+          <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">GST (18%)</span>
+          <div style="font-size:18px;font-weight:700;color:#4F46E5;" id="previewGST">₹0.00</div>
+        </div>
+        <div>
+          <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">Total Charge</span>
+          <div style="font-size:18px;font-weight:700;color:#DC2626;" id="previewTotal">₹0.00</div>
+        </div>
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #E5E7EB;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">New Invoice Total</span>
+          <div style="font-size:16px;font-weight:700;color:#16A34A;" id="newTotal">₹{{ "%.2f"|format(invoice.grand_total or 0) }}</div>
+        </div>
+        <div>
+          <span style="font-size:11px;color:#6B7280;text-transform:uppercase;font-weight:600;">New Balance</span>
+          <div style="font-size:16px;font-weight:700;color:#DC2626;" id="newBalance">₹{{ "%.2f"|format(invoice.balance or 0) }}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;">
+      <a href="/invoice/view/{{ invoice.invoice_id }}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary" id="submitBtn">✅ Add Resale Charge</button>
+    </div>
+  </form>
+</div>
+
+<script>
+  const currentTotal = {{ invoice.grand_total or 0 }};
+  const currentBalance = {{ invoice.balance or 0 }};
+  const IS_GST_REGISTERED = {{ 'true' if is_gst_registered else 'false' }};
+  
+  function calculateTotal() {
+    const amount = parseFloat(document.getElementById('resaleAmount').value) || 0;
+    const gst = IS_GST_REGISTERED ? (amount * 0.18) : 0;
+    const total = amount + gst;
+    
+    document.getElementById('previewBase').textContent = '₹' + amount.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('previewGST').textContent = '₹' + gst.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('previewTotal').textContent = '₹' + total.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    
+    document.getElementById('newTotal').textContent = '₹' + (currentTotal + total).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('newBalance').textContent = '₹' + (currentBalance + total).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    
+    // Enable/disable submit button
+    document.getElementById('submitBtn').disabled = (amount <= 0);
+  }
+  
+  document.getElementById('resaleReason').addEventListener('change', function() {
+    const otherDiv = document.getElementById('otherReasonDiv');
+    if (this.value === 'Other') {
+      otherDiv.style.display = 'block';
+    } else {
+      otherDiv.style.display = 'none';
+      document.querySelector('[name="resale_reason_other"]').value = '';
+    }
+  });
+  
+  // Handle form submission - set reason from other field if needed
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const select = document.getElementById('resaleReason');
+    const otherInput = document.querySelector('[name="resale_reason_other"]');
+    
+    if (select.value === 'Other' && otherInput.value.trim()) {
+      // Create a hidden input with the combined reason
+      const hidden = document.createElement('input');
+      hidden.type = 'hidden';
+      hidden.name = 'resale_reason';
+      hidden.value = 'Other: ' + otherInput.value.trim();
+      this.appendChild(hidden);
+    }
+  });
+  
+  calculateTotal();
+</script>
+{% endif %}
+
+{% endblock %}

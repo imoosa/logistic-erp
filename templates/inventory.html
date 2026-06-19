@@ -1,280 +1,154 @@
 {% extends "base.html" %}
-{% block title %}Shipment Tracking{% endblock %}
-{% block page_title %}Shipment Tracking{% endblock %}
+{% block title %}Inventory{% endblock %}
+{% block page_title %}Inventory{% endblock %}
 {% set active = 'stock' %}
 
 {% block extra_style %}
 <style>
-  .stock-card { background:#fff; border-radius:14px; border:1px solid #E5E7EB; overflow:hidden; }
-  .stock-header { padding:16px 20px; border-bottom:1px solid #F3F4F6; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-  
-  /* Status badges */
-  .status-badge { padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; display:inline-block; }
-  .status-delivered { background:#DCFCE7; color:#16A34A; }
-  .status-in-transit { background:#FEF3C7; color:#D97706; }
-  .status-pending { background:#FEE2E2; color:#DC2626; }
-  .status-draft { background:#F3F4F6; color:#6B7280; }
-  
-  /* KPI cards */
-  .kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
-  .kpi { background:#fff; border-radius:12px; padding:16px; border:1px solid #E5E7EB; display:flex; align-items:center; gap:12px; }
-  .kpi-icon { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:24px; }
-  .kpi-val { font-size:24px; font-weight:800; }
-  .kpi-lbl { font-size:12px; color:#6B7280; }
-  
-  .shipment-row:hover { background:#F9FAFB; cursor:pointer; }
-  .view-btn { background:#F5F3FF; color:#7C3AED; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; gap:4px; }
-  .view-btn:hover { background:#7C3AED; color:#fff; }
-  
-  /* Package tags */
-  .package-tag { display:inline-block; background:#F3F4F6; padding:2px 8px; border-radius:12px; font-size:11px; margin:2px 4px 2px 0; }
-  .package-tag-box { background:#E0E7FF; color:#3730A3; }
-  .package-tag-envelope { background:#FCE7F3; color:#9D174D; }
-  .package-tag-pallet { background:#D1FAE5; color:#047857; }
-  .package-tag-other { background:#FEF3C7; color:#92400E; }
-  
-  .shipment-items { max-width: 200px; white-space: normal; word-wrap: break-word; }
+  /* ── Summary cards ── */
+  .inv-total-card {
+    background: linear-gradient(135deg,#1E3A5F,#2D5A9E);
+    color:#fff; border-radius:12px; padding:18px 24px;
+    display:flex; align-items:center; gap:16px; margin-bottom:12px;
+  }
+  .inv-total-icon { font-size:36px; }
+  .inv-total-val  { font-size:36px; font-weight:900; line-height:1; }
+  .inv-total-lbl  { font-size:13px; opacity:.8; margin-top:4px; }
+
+  .inv-type-grid  { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
+  .inv-type-chip  {
+    background:#fff; border:1px solid #E5E7EB; border-radius:10px;
+    padding:10px 16px; display:flex; align-items:center; gap:10px;
+    min-width:130px; flex:1;
+  }
+  .chip-icon {
+    width:36px; height:36px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px; flex-shrink:0;
+  }
+  .chip-val { font-size:20px; font-weight:800; line-height:1.1; }
+  .chip-lbl { font-size:11px; color:#6B7280; margin-top:1px; }
+
+  /* ── Party table ── */
+  .party-card {
+    background:#fff; border-radius:14px; border:1px solid #E5E7EB;
+    overflow:hidden; margin-bottom:24px;
+  }
+  .party-card-header {
+    padding:14px 20px; border-bottom:1px solid #F3F4F6;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .party-table th {
+    background:#F9FAFB; font-size:12px; font-weight:700;
+    color:#374151; padding:10px 14px; text-align:left;
+    white-space:nowrap;
+  }
+  .party-table td { padding:10px 14px; font-size:13px; border-top:1px solid #F3F4F6; }
+  .party-table tr:hover td { background:#F9FAFB; }
+  .party-name { font-weight:600; color:#111827; }
+  .qty-cell   { text-align:center; font-weight:700; }
+  .qty-zero   { color:#D1D5DB; }
+  .qty-pos    { color:#1D4ED8; }
+  .row-total  { font-weight:800; color:#16A34A; text-align:center; }
+  .col-total  { background:#F0FDF4; font-weight:800; color:#16A34A; text-align:center; }
 </style>
 {% endblock %}
 
 {% block content %}
 
 <div class="page-header">
-  <h2>📋 Shipment / Docket Tracking</h2>
-  <button class="btn btn-primary" onclick="window.location='/invoice/customer'">+ New Shipment</button>
+  <h2>📦 Inventory</h2>
 </div>
 
-<!-- Shipment KPIs -->
-<div class="kpi-grid">
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">📦</div>
-    <div>
-      <div class="kpi-val" style="color:#4F46E5">{{ total_shipments or 0 }}</div>
-      <div class="kpi-lbl">Total Shipments</div>
-    </div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">✅</div>
-    <div>
-      <div class="kpi-val" style="color:#16A34A">{{ delivered_count or 0 }}</div>
-      <div class="kpi-lbl">Delivered</div>
-    </div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">🚚</div>
-    <div>
-      <div class="kpi-val" style="color:#D97706">{{ in_transit_count or 0 }}</div>
-      <div class="kpi-lbl">In Transit</div>
-    </div>
-  </div>
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#FEE2E2;color:#DC2626">⏳</div>
-    <div>
-      <div class="kpi-val" style="color:#DC2626">{{ pending_count or 0 }}</div>
-      <div class="kpi-lbl">Pending</div>
-    </div>
+<!-- ── Total banner ── -->
+<div class="inv-total-card">
+  <div class="inv-total-icon">🏭</div>
+  <div>
+    <div class="inv-total-val">{{ total_inventory or 0 }}</div>
+    <div class="inv-total-lbl">Total Inventory (all item types combined)</div>
   </div>
 </div>
 
-<!-- Search / Filter Bar -->
-<div class="stock-header">
-  <strong>📋 All Shipments</strong>
-  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <input type="text" id="searchShipment" placeholder="🔍 Search by docket, customer, receiver, items..." style="width:260px" onkeyup="filterShipments()">
-    <select id="filterStatus" onchange="filterShipments()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
-      <option value="">All Status</option>
-      <option value="delivered">Delivered</option>
-      <option value="in-transit">In Transit</option>
-      <option value="pending">Pending</option>
-      <option value="draft">Draft</option>
-    </select>
-    <input type="date" id="filterFromDate" onchange="filterShipments()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
-    <span style="color:#6B7280">to</span>
-    <input type="date" id="filterToDate" onchange="filterShipments()" style="padding:6px 10px;border:1px solid #E5E7EB;border-radius:8px;font-size:13px">
-  </div>
+<!-- ── Per-type chips ── -->
+{% set type_icons = {
+    'Box':        ('📦', '#EEF2FF', '#4F46E5'),
+    'Envelope':   ('✉️',  '#FCE7F3', '#9D174D'),
+    'Pallet':     ('🪵',  '#D1FAE5', '#047857'),
+    'Crate':      ('🧺',  '#FEF3C7', '#D97706'),
+    'Bag':        ('👜',  '#F3E8FF', '#7C3AED'),
+    'Tube':       ('🧪',  '#E0F2FE', '#0369A1'),
+    'Packaging':  ('📫',  '#FEF9C3', '#92400E'),
+    'Other':      ('📫',  '#F3F4F6', '#6B7280')
+} %}
+
+<div class="inv-type-grid">
+  {% for ptype, qty in inventory_by_type.items() %}
+    {% set ic = type_icons.get(ptype, type_icons['Other']) %}
+    <div class="inv-type-chip">
+      <div class="chip-icon" style="background:{{ ic[1] }};color:{{ ic[2] }};">{{ ic[0] }}</div>
+      <div>
+        <div class="chip-val" style="color:{{ ic[2] }};">{{ qty }}</div>
+        <div class="chip-lbl">{{ ptype }}</div>
+      </div>
+    </div>
+  {% else %}
+    <div style="color:#9CA3AF;font-size:13px;padding:10px;">No inventory data yet.</div>
+  {% endfor %}
 </div>
 
-<!-- Shipments Table -->
-<div class="stock-card">
-  <div class="table-wrap" style="overflow-x: auto;">
-    <table id="shipmentTable" style="min-width: 1200px;">
+<!-- ── Party-wise stock table ── -->
+<div class="party-card">
+  <div class="party-card-header">
+    <strong>🏢 Party-wise Stock Breakdown</strong>
+    <span style="font-size:12px;color:#6B7280;">{{ party_stock|length }} parties</span>
+  </div>
+
+  {% if party_stock %}
+  <div style="overflow-x:auto;">
+    <table class="party-table" style="width:100%;border-collapse:collapse;">
       <thead>
         <tr>
-          <th style="width:40px">#</th>
-          <th>Docket / AWB</th>
-          <th>Customer</th>
-          <th>Booking Date</th>
-          <th>From → To</th>
-          <th>Receiver</th>
-          <th>📦 Items Sent<br><span style="font-weight:normal;font-size:10px">(Boxes/Envelopes/Packages)</span></th>
-          <th>Qty</th>
-          <th>Total Weight</th>
-          <th>Mode</th>
-          <th>Carrier</th>
-          <th>Status</th>
-          <th style="text-align:right">Amount</th>
-          <th>Actions</th>
+          <th style="min-width:180px;">Party Name</th>
+          {% for itype in all_types %}
+            <th style="min-width:90px;text-align:center;">{{ itype }}</th>
+          {% endfor %}
+          <th style="min-width:90px;background:#F0FDF4;color:#16A34A;">Total</th>
         </tr>
       </thead>
       <tbody>
-        {% for shipment in shipments %}
-        <tr class="shipment-row" onclick="window.location='/invoice/view/{{ shipment.invoice_id }}'">
-          <td style="text-align:center;color:#9CA3AF;font-size:12px;font-weight:600">{{ loop.index }}</td>
-          <td><span style="font-weight:700;color:#4F46E5">{{ shipment.docket_no or shipment.invoice_id }}</span></td>
-          <td>
-            <div style="font-weight:600;color:#111827">{{ shipment.customer_name }}</div>
-            <div style="font-size:11px;color:#6B7280">{{ shipment.customer_phone or '' }}</div>
-          </td>
-          <td style="white-space:nowrap">{{ shipment.booking_date }}</td>
-          <td>
-            <div style="font-size:12px;">📍 {{ shipment.origin or 'India' }}</div>
-            <div style="font-size:12px;color:#DC2626;">→ {{ shipment.destination or '—' }}</div>
-          </td>
-          <td>
-            <div style="font-size:13px;">{{ shipment.receiver_name or '—' }}</div>
-            <div style="font-size:11px;color:#6B7280">{{ shipment.receiver_phone or '' }}</div>
-          </td>
-          <td class="shipment-items">
-            {% if shipment.packages and shipment.packages|length > 0 %}
-              {% for pkg in shipment.packages %}
-                {% if pkg.type == 'Box' or pkg.name|lower == 'box' %}
-                  <span class="package-tag package-tag-box">📦 Box: {{ pkg.name }}</span>
-                {% elif pkg.type == 'Envelope' or pkg.name|lower == 'envelope' %}
-                  <span class="package-tag package-tag-envelope">✉️ Envelope: {{ pkg.name }}</span>
-                {% elif pkg.type == 'Pallet' or pkg.name|lower == 'pallet' %}
-                  <span class="package-tag package-tag-pallet">📦 Pallet: {{ pkg.name }}</span>
-                {% else %}
-                  <span class="package-tag package-tag-other">📦 {{ pkg.name or pkg.type or 'Package' }}</span>
-                {% endif %}
-              {% endfor %}
-            {% elif shipment.items and shipment.items|length > 0 %}
-              {% for item in shipment.items %}
-                <span class="package-tag">📦 {{ item.desc or item.name or 'Item' }}</span>
-              {% endfor %}
-            {% else %}
-              <span style="color:#9CA3AF;font-size:11px;">— No items —</span>
-            {% endif %}
-          </td>
-          <td style="text-align:center;font-weight:600;">
-            {% if shipment.packages %}
-              {% set total_qty = shipment.packages|sum(attribute='qty') %}
-              {{ total_qty }}
-            {% elif shipment.total_qty %}
-              {{ shipment.total_qty }}
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td style="text-align:center;">
-            {% if shipment.total_weight %}
-              {{ "%.1f"|format(shipment.total_weight) }} kg
-            {% elif shipment.weight %}
-              {{ shipment.weight }} kg
-            {% else %}
-              —
-            {% endif %}
-          </td>
-          <td><span style="font-size:12px">{{ shipment.mode or '—' }}</span></td>
-          <td><span style="font-size:12px">{{ shipment.carrier or '—' }}</span></td>
-          <td>
-            {% if shipment.status == 'Paid' %}
-              <span class="status-badge status-delivered">✓ Delivered</span>
-            {% elif shipment.status == 'Partial' %}
-              <span class="status-badge status-in-transit">🚚 In Transit</span>
-            {% elif shipment.status == 'Draft' %}
-              <span class="status-badge status-draft">📝 Draft</span>
-            {% else %}
-              <span class="status-badge status-pending">⏳ Pending</span>
-            {% endif %}
-          </td>
-          <td style="text-align:right;font-weight:700;color:#16A34A">₹{{ "%.2f"|format(shipment.total or 0) }}</td>
-          <td onclick="event.stopPropagation()">
-            <a href="/invoice/view/{{ shipment.invoice_id }}" class="view-btn">View →</a>
-          </td>
-        </tr>
-        {% else %}
-        <tr>
-          <td colspan="14" style="text-align:center;padding:48px;color:#9CA3AF">
-            🚚 No shipments found. Click "New Shipment" to create one.
-          </td>
-        </tr>
+        {% for party_name, type_qtys in party_stock.items()|sort %}
+          {% set row_total = type_qtys.values()|sum %}
+          <tr>
+            <td class="party-name">{{ party_name }}</td>
+            {% for itype in all_types %}
+              {% set q = type_qtys.get(itype, 0) %}
+              <td class="qty-cell {% if q > 0 %}qty-pos{% else %}qty-zero{% endif %}">
+                {{ q if q > 0 else '—' }}
+              </td>
+            {% endfor %}
+            <td class="row-total">{{ row_total }}</td>
+          </tr>
         {% endfor %}
       </tbody>
+      <tfoot>
+        <tr style="border-top:2px solid #E5E7EB;">
+          <td style="font-weight:700;padding:10px 14px;font-size:13px;">Column Total</td>
+          {% set grand = namespace(total=0) %}
+          {% for itype in all_types %}
+            {% set col_sum = party_stock.values()|map(attribute=itype, default=0)|sum %}
+            {% set grand.total = grand.total + col_sum %}
+            <td class="col-total">{{ col_sum if col_sum > 0 else '—' }}</td>
+          {% endfor %}
+          <td class="col-total" style="font-size:15px;">{{ grand.total }}</td>
+        </tr>
+      </tfoot>
     </table>
   </div>
+  {% else %}
+    <div style="text-align:center;padding:48px;color:#9CA3AF;">
+      📦 No party-wise stock yet. Stock is assigned when shipments are created.
+    </div>
+  {% endif %}
 </div>
-
-<script>
-function filterShipments() {
-  const search = document.getElementById('searchShipment').value.toLowerCase();
-  const statusFilter = document.getElementById('filterStatus').value.toLowerCase();
-  const fromDate = document.getElementById('filterFromDate').value;
-  const toDate = document.getElementById('filterToDate').value;
-  
-  const rows = document.querySelectorAll('#shipmentTable tbody tr');
-  
-  rows.forEach(row => {
-    // Skip the "no data" row
-    if (row.querySelector('td[colspan]')) return;
-    
-    const docket = (row.cells[1]?.innerText || '').toLowerCase();
-    const customer = (row.cells[2]?.innerText || '').toLowerCase();
-    const receiver = (row.cells[5]?.innerText || '').toLowerCase();
-    const items = (row.cells[6]?.innerText || '').toLowerCase();
-    const destination = (row.cells[4]?.innerText || '').toLowerCase();
-    const statusCell = row.cells[11]?.innerText || '';
-    let status = '';
-    if (statusCell.includes('Delivered')) status = 'delivered';
-    else if (statusCell.includes('Transit')) status = 'in-transit';
-    else if (statusCell.includes('Draft')) status = 'draft';
-    else status = 'pending';
-    
-    const bookingDate = row.cells[3]?.innerText || '';
-    
-    // Check search match (includes items now)
-    const matchSearch = docket.includes(search) || customer.includes(search) || 
-                        receiver.includes(search) || destination.includes(search) ||
-                        items.includes(search);
-    
-    // Check status match
-    const matchStatus = !statusFilter || status === statusFilter;
-    
-    // Check date range
-    let matchDate = true;
-    if (fromDate && bookingDate) {
-      const bookingDateObj = new Date(bookingDate);
-      const fromDateObj = new Date(fromDate);
-      if (bookingDateObj < fromDateObj) matchDate = false;
-    }
-    if (toDate && bookingDate && matchDate) {
-      const bookingDateObj = new Date(bookingDate);
-      const toDateObj = new Date(toDate);
-      if (bookingDateObj > toDateObj) matchDate = false;
-    }
-    
-    row.style.display = (matchSearch && matchStatus && matchDate) ? '' : 'none';
-  });
-}
-
-// Set default date filters to last 30 days
-function setDefaultDates() {
-  const today = new Date();
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(today.getDate() - 30);
-  
-  const toDateInput = document.getElementById('filterToDate');
-  const fromDateInput = document.getElementById('filterFromDate');
-  
-  if (!toDateInput.value) {
-    toDateInput.value = today.toISOString().split('T')[0];
-  }
-  if (!fromDateInput.value) {
-    fromDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
-  }
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', setDefaultDates);
-</script>
 
 {% endblock %}

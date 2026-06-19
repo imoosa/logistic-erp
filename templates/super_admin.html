@@ -309,6 +309,187 @@
             font-size: 0.75rem;
             color: #7a8e9e;
         }
+
+        /* ── DB Migrations Tab ── */
+        .mig-section {
+            background: white;
+            border-radius: 28px;
+            padding: 28px;
+            border: 1px solid #eef2f9;
+            margin-bottom: 24px;
+            box-shadow: 0 6px 14px rgba(0,0,0,.02);
+        }
+        .mig-section h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e2a3a;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mig-form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .mig-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .mig-form-group.full { grid-column: 1 / -1; }
+        .mig-label {
+            font-size: .8rem;
+            font-weight: 600;
+            color: #4a6580;
+            letter-spacing: .03em;
+        }
+        .mig-input, .mig-select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            font-size: .9rem;
+            color: #1e293b;
+            background: #f8fafc;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .mig-input:focus, .mig-select:focus {
+            outline: none;
+            border-color: #2c7da0;
+            box-shadow: 0 0 0 3px rgba(44,125,160,.12);
+            background: #fff;
+        }
+        .mig-textarea {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            font-size: .85rem;
+            font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+            color: #1e293b;
+            background: #f8fafc;
+            box-sizing: border-box;
+            resize: vertical;
+            min-height: 120px;
+            line-height: 1.6;
+            transition: border-color .15s, box-shadow .15s;
+        }
+        .mig-textarea:focus {
+            outline: none;
+            border-color: #2c7da0;
+            box-shadow: 0 0 0 3px rgba(44,125,160,.12);
+            background: #fff;
+        }
+        .mig-hint { font-size: .75rem; color: #94a3b8; margin-top: 2px; }
+        .mig-btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; }
+        .mig-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 10px 22px;
+            border-radius: 40px;
+            font-size: .88rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: background .15s, transform .1s;
+            font-family: 'Inter', sans-serif;
+        }
+        .mig-btn:active { transform: scale(.97); }
+        .mig-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .mig-btn-primary { background: #1f6392; color: #fff; }
+        .mig-btn-primary:hover { background: #1a527a; }
+        .mig-btn-secondary { background: #e2e8f0; color: #1e2f3e; }
+        .mig-btn-secondary:hover { background: #cbd5e1; }
+
+        /* Results */
+        #mig-results-panel { display: none; }
+        .mig-summary-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+        .mig-pill {
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: .8rem;
+            font-weight: 700;
+        }
+        .mig-pill-total   { background: #e2f0f5; color: #0b2b3b; }
+        .mig-pill-success { background: #e0f3e5; color: #2b7e3a; }
+        .mig-pill-skipped { background: #fef9c3; color: #854d0e; }
+        .mig-pill-failed  { background: #fee2e2; color: #991b1b; }
+        .mig-pill-dry     { background: #f0f9ff; color: #0c4a6e; }
+
+        .mig-result-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        .mig-result-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #fafcff;
+            border-bottom: 2px solid #edf2f7;
+            color: #4a6580;
+            font-size: .76rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .mig-result-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf2f7;
+            color: #2c3e4e;
+            vertical-align: top;
+        }
+        .mig-result-table tr:last-child td { border-bottom: none; }
+        .mig-status-pill {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: .74rem;
+            font-weight: 700;
+        }
+        .mst-success { background: #e0f3e5; color: #2b7e3a; }
+        .mst-failed  { background: #fee2e2; color: #991b1b; }
+        .mst-skipped { background: #fef9c3; color: #854d0e; }
+        .mst-dry_run { background: #f0f9ff; color: #0c4a6e; }
+        .mig-err-msg { font-size: .76rem; color: #ef4444; margin-top: 4px; font-family: monospace; word-break: break-all; }
+        .mig-spinner {
+            display: inline-block;
+            width: 14px; height: 14px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: migSpin .6s linear infinite;
+        }
+        @keyframes migSpin { to { transform: rotate(360deg); } }
+        .dry-run-badge {
+            font-size: .74rem;
+            background: #fef9c3;
+            color: #854d0e;
+            padding: 3px 10px;
+            border-radius: 20px;
+            border: 1px solid #fde68a;
+            font-weight: 600;
+        }
+
+        /* History table inside migrations tab */
+        .mig-hist-table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+        .mig-hist-table th {
+            text-align: left;
+            padding: 10px 12px;
+            background: #fafcff;
+            border-bottom: 2px solid #edf2f7;
+            color: #4a6580;
+            font-size: .76rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+        }
+        .mig-hist-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #edf2f7;
+            color: #2c3e4e;
+        }
+        .mig-hist-table tr:last-child td { border-bottom: none; }
+        .mig-empty td { text-align: center; color: #94a3b8; padding: 28px; }
     </style>
 </head>
 <body>
@@ -326,6 +507,9 @@
             </div>
             <div class="nav-item" data-tab="plans">
                 <i class="fas fa-crown"></i> <span>Plans & Billing</span>
+            </div>
+            <div class="nav-item" data-tab="migrations">
+                <i class="fas fa-database"></i> <span>DB Migrations</span>
             </div>
             <div class="nav-item" id="logoutBtn">
                 <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
@@ -489,6 +673,100 @@
                 <p>Admins can update any company's subscription plan directly from the company manager.</p>
             </div>
         </div>
+        <!-- DB MIGRATIONS TAB -->
+        <div id="migrationsTab" class="tab-pane" style="display:none;">
+
+            <!-- Run Migration -->
+            <div class="mig-section">
+                <h3><i class="fas fa-play-circle" style="color:#2c7da0;"></i> Run a Migration</h3>
+
+                <div class="mig-form-row">
+                    <div class="mig-form-group">
+                        <label class="mig-label">Migration Label</label>
+                        <input type="text" id="mig-label" class="mig-input"
+                               placeholder="e.g. add_gst_type_to_clients"
+                               autocomplete="off" spellcheck="false" />
+                        <span class="mig-hint">Short unique name — used to skip if already applied to a company.</span>
+                    </div>
+                    <div class="mig-form-group">
+                        <label class="mig-label">Target Company</label>
+                        <select id="mig-target" class="mig-select">
+                            <option value="all">— All Active Companies —</option>
+                            {% for company in companies %}
+                            <option value="{{ company.company_id }}">
+                                {{ company.company_name }} ({{ company.company_id }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <span class="mig-hint">Pick one company to test first, then run on all.</span>
+                    </div>
+                </div>
+
+                <div class="mig-form-row">
+                    <div class="mig-form-group full">
+                        <label class="mig-label">SQL Statement(s)</label>
+                        <textarea id="mig-sql" class="mig-textarea"
+                            placeholder="ALTER TABLE clients ADD COLUMN gst_type VARCHAR(30) DEFAULT 'Regular';
+
+-- Multiple statements are supported, separated by semicolons.
+-- Example:
+-- ALTER TABLE stock_items ADD COLUMN barcode VARCHAR(50) NULL;
+-- ALTER TABLE stock_items ADD COLUMN shelf_location VARCHAR(100) NULL;"></textarea>
+                        <span class="mig-hint">Always do a Dry Run first. Multiple statements can be separated by semicolons.</span>
+                    </div>
+                </div>
+
+                <div class="mig-btn-row">
+                    <button class="mig-btn mig-btn-secondary" onclick="runMigration(true)">
+                        <i class="fas fa-eye"></i> Dry Run
+                    </button>
+                    <button class="mig-btn mig-btn-primary" id="mig-run-btn" onclick="runMigration(false)">
+                        <i class="fas fa-bolt"></i> Run on Companies
+                    </button>
+                </div>
+            </div>
+
+            <!-- Results Panel (shown after run) -->
+            <div class="mig-section" id="mig-results-panel">
+                <h3><i class="fas fa-stream" style="color:#2c7da0;"></i> Results</h3>
+                <div class="mig-summary-bar" id="mig-summary-bar"></div>
+                <div style="overflow-x:auto;">
+                    <table class="mig-result-table">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>ID</th>
+                                <th>Status</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mig-result-rows"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Migration History -->
+            <div class="mig-section">
+                <h3><i class="fas fa-history" style="color:#2c7da0;"></i> Migration History</h3>
+                <div style="overflow-x:auto;">
+                    <table class="mig-hist-table" id="mig-hist-table">
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Label</th>
+                                <th>Status</th>
+                                <th>Applied At</th>
+                                <th>Applied By</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mig-hist-body">
+                            <tr class="mig-empty"><td colspan="5">Loading history…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <footer>NexaERP Super Admin Panel — secure platform management</footer>
     </div>
 
@@ -519,17 +797,19 @@
         // ---------- Tab handling ----------
         const tabs = document.querySelectorAll('.nav-item[data-tab]');
         const panes = {
-            overview: document.getElementById('overviewTab'),
-            companies: document.getElementById('companiesTab'),
-            plans: document.getElementById('plansTab')
+            overview:   document.getElementById('overviewTab'),
+            companies:  document.getElementById('companiesTab'),
+            plans:      document.getElementById('plansTab'),
+            migrations: document.getElementById('migrationsTab')
         };
         function activateTab(tabId) {
             Object.values(panes).forEach(pane => pane.style.display = 'none');
-            if (tabId === 'overview') panes.overview.style.display = 'block';
-            else if (tabId === 'companies') panes.companies.style.display = 'block';
-            else if (tabId === 'plans') panes.plans.style.display = 'block';
+            if (panes[tabId]) panes[tabId].style.display = 'block';
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-            document.querySelector(`.nav-item[data-tab="${tabId}"]`).classList.add('active');
+            const activeNav = document.querySelector(`.nav-item[data-tab="${tabId}"]`);
+            if (activeNav) activeNav.classList.add('active');
+            // Load history when migrations tab is opened
+            if (tabId === 'migrations') loadMigrationHistory();
         }
         tabs.forEach(tab => {
             tab.addEventListener('click', (e) => {
@@ -655,9 +935,121 @@
             window.location.href = '/logout';
         });
 
-        // If the backend passes company total users count, we can improve but current super_admin.html uses core data.
-        // Extra: manually handle any dynamic plan-distribution from stats
         console.log("Super admin dashboard ready");
+
+        // ── DB Migration Logic ────────────────────────────────────────────────
+
+        async function runMigration(dryRun) {
+            const label  = document.getElementById('mig-label').value.trim();
+            const sql    = document.getElementById('mig-sql').value.trim();
+            const target = document.getElementById('mig-target').value;
+
+            if (!label) { alert('Please enter a migration label.'); return; }
+            if (!sql)   { alert('Please enter the SQL to run.'); return; }
+
+            if (!dryRun) {
+                const sel    = document.getElementById('mig-target');
+                const who    = target === 'all'
+                    ? 'ALL active companies'
+                    : sel.options[sel.selectedIndex].text;
+                const ok = confirm(`⚠️ This will run SQL on ${who}.\n\nDouble-check your SQL before confirming.\n\nProceed?`);
+                if (!ok) return;
+            }
+
+            const btn      = document.getElementById('mig-run-btn');
+            const origHTML = btn.innerHTML;
+            btn.disabled   = true;
+            btn.innerHTML  = '<span class="mig-spinner"></span> Running…';
+
+            try {
+                const res = await fetch('/migrations/run', {
+                    method:  'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body:    JSON.stringify({ label, sql, target, dry_run: dryRun })
+                });
+                const data = await res.json();
+                if (data.error) { alert('Error: ' + data.error); return; }
+                renderMigResults(data, dryRun);
+                if (!dryRun) loadMigrationHistory();   // refresh history after a real run
+            } catch (err) {
+                alert('Network error: ' + err.message);
+            } finally {
+                btn.disabled  = false;
+                btn.innerHTML = origHTML;
+            }
+        }
+
+        function renderMigResults(data, dryRun) {
+            const panel = document.getElementById('mig-results-panel');
+            panel.style.display = 'block';
+
+            const s = data.summary;
+            document.getElementById('mig-summary-bar').innerHTML = `
+                <span class="mig-pill mig-pill-total">Total: ${s.total}</span>
+                ${s.success ? `<span class="mig-pill mig-pill-success">✔ Success: ${s.success}</span>` : ''}
+                ${s.skipped ? `<span class="mig-pill mig-pill-skipped">↷ Skipped: ${s.skipped}</span>` : ''}
+                ${s.failed  ? `<span class="mig-pill mig-pill-failed">✗ Failed: ${s.failed}</span>`   : ''}
+                ${s.dry_run ? `<span class="mig-pill mig-pill-dry">👁 Dry Run: ${s.dry_run}</span>`   : ''}
+                ${dryRun    ? '<span class="dry-run-badge" style="margin-left:6px;">DRY RUN — nothing was changed</span>' : ''}
+            `;
+
+            const tbody = document.getElementById('mig-result-rows');
+            tbody.innerHTML = '';
+            for (const r of data.results) {
+                const errHTML = r.status === 'failed'
+                    ? `<div class="mig-err-msg">${escH(r.message)}</div>` : '';
+                const msgHTML = r.status !== 'failed'
+                    ? `<span style="color:#5b6e8c;font-size:.82rem;">${escH(r.message)}</span>` : '';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${escH(r.company_name)}</td>
+                        <td style="font-size:.78rem;color:#7a8e9e;">${escH(r.company_id)}</td>
+                        <td><span class="mig-status-pill mst-${r.status}">${r.status}</span></td>
+                        <td>${msgHTML}${errHTML}</td>
+                    </tr>`;
+            }
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function loadMigrationHistory() {
+            const tbody = document.getElementById('mig-hist-body');
+            tbody.innerHTML = '<tr class="mig-empty"><td colspan="5">Loading…</td></tr>';
+            try {
+                const res  = await fetch('/migrations/history');
+                const data = await res.json();
+                if (!data.history || data.history.length === 0) {
+                    tbody.innerHTML = '<tr class="mig-empty"><td colspan="5">No migrations have been run yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = '';
+                for (const h of data.history) {
+                    const statusClass = h.status === 'success' ? 'mst-success'
+                                      : h.status === 'failed'  ? 'mst-failed'
+                                      : 'mst-skipped';
+                    const errHTML = h.error_msg
+                        ? `<div class="mig-err-msg">${escH(h.error_msg.substring(0,120))}${h.error_msg.length > 120 ? '…' : ''}</div>`
+                        : '';
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${escH(h.company_name)}<br><span style="font-size:.74rem;color:#94a3b8;">${escH(h.company_id)}</span></td>
+                            <td style="font-family:monospace;font-size:.8rem;">${escH(h.label)}</td>
+                            <td>
+                                <span class="mig-status-pill ${statusClass}">${h.status}</span>
+                                ${errHTML}
+                            </td>
+                            <td style="white-space:nowrap;font-size:.78rem;">${escH(h.applied_at)}</td>
+                            <td style="font-size:.78rem;">${escH(h.applied_by || '—')}</td>
+                        </tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr class="mig-empty"><td colspan="5">Could not load history: ${escH(e.message)}</td></tr>`;
+            }
+        }
+
+        function escH(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
     </script>
 </body>
 </html>

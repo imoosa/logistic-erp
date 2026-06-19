@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Upload Price List{% endblock %}
+{% block page_title %}📤 Upload Price List{% endblock %}
+{% set active = 'price_lists' %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>Upload Shipping Rate Price List</h2>
+  <p style="color:#6B7280;font-size:13px;">Upload Excel file with courier rates. Supports DPD and FEDEX formats.</p>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="POST" action="/price-lists/upload" enctype="multipart/form-data">
+      <div class="form-group">
+        <label>Courier Name *</label>
+        <select name="courier" required style="width:100%;">
+          <option value="">— Select Courier —</option>
+          <option value="DPD">DPD</option>
+          <option value="FEDEX">FEDEX</option>
+          <option value="DHL">DHL</option>
+          <option value="UPS">UPS</option>
+          <option value="ARAMEX">Aramex</option>
+          <option value="DTDC">DTDC</option>
+          <option value="BLUE_DART">Blue Dart</option>
+          <option value="SPEEDPOST">SpeedPost</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Excel File (.xlsx, .xls) *</label>
+        <input type="file" name="price_file" accept=".xlsx,.xls" required style="padding:10px;border:2px dashed #E5E7EB;border-radius:8px;width:100%;">
+        <p style="font-size:11px;color:#6B7280;margin-top:6px;">
+          <strong>DPD Format:</strong> Columns: COUNTRY, TIME, 1KG, 1.5KG, 2KG, ...<br>
+          <strong>FEDEX Format:</strong> Columns: WEIGHT, USA, CANADA, GERMANY, ...
+        </p>
+      </div>
+      
+      <div style="display:flex;gap:12px;margin-top:20px;">
+        <button type="submit" class="btn btn-primary">📤 Upload Price List</button>
+        <a href="/price-lists" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-top:20px;">
+  <div class="card-body">
+    <h4 style="margin-bottom:12px;">📋 Excel Format Examples</h4>
+    
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div style="background:#F8FAFC;padding:16px;border-radius:8px;">
+        <h5 style="color:#1E40AF;">DPD Format</h5>
+        <pre style="font-size:11px;background:#1E293B;color:#E2E8F0;padding:12px;border-radius:6px;overflow-x:auto;">
+COUNTRY    | TIME      | 1KG  | 1.5KG | 2KG  | 3KG  | 5KG
+UK         | 4/5 DAYS  | 1225 | 1575  | 1800 | 2475 | 3825
+Germany    | 10/15 DAYS| 1400 | 1775  | 2025 | 2750 | 4200
+        </pre>
+      </div>
+      
+      <div style="background:#F8FAFC;padding:16px;border-radius:8px;">
+        <h5 style="color:#1E40AF;">FEDEX Format</h5>
+        <pre style="font-size:11px;background:#1E293B;color:#E2E8F0;padding:12px;border-radius:6px;overflow-x:auto;">
+WEIGHT | USA  | CANADA | GERMANY | UK
+0.5    | 2604 | 2781   | 2789    | 2789
+1      | 3009 | 3224   | 2858    | 2858
+        </pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -96,7 +96,38 @@ class Client(customer_db.Model):
     def __repr__(self):
         return f"<Client {self.id} – {self.name}>"
 
-
+class Supplier(customer_db.Model):
+    __tablename__ = "suppliers"
+ 
+    id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20),  nullable=False)
+    name            = customer_db.Column(customer_db.String(200), nullable=False)
+    supplier_type   = customer_db.Column(customer_db.String(30),  nullable=False, default="Business")  # Business / Individual
+    contact_person  = customer_db.Column(customer_db.String(150), nullable=True)
+    phone           = customer_db.Column(customer_db.String(20),  nullable=True)
+    alternate_phone = customer_db.Column(customer_db.String(20),  nullable=True)
+    email           = customer_db.Column(customer_db.String(255), nullable=True)
+    website         = customer_db.Column(customer_db.String(255), nullable=True)
+    address_line1   = customer_db.Column(customer_db.String(300), nullable=True)
+    address_line2   = customer_db.Column(customer_db.String(300), nullable=True)
+    city            = customer_db.Column(customer_db.String(100), nullable=True)
+    state           = customer_db.Column(customer_db.String(100), nullable=True)
+    pincode         = customer_db.Column(customer_db.String(10),  nullable=True)
+    country         = customer_db.Column(customer_db.String(100), nullable=False, default="India")
+    gst_number      = customer_db.Column(customer_db.String(20),  nullable=True)
+    pan_number      = customer_db.Column(customer_db.String(15),  nullable=True)
+    gst_type        = customer_db.Column(customer_db.String(30),  nullable=False, default="Regular")   # Regular / Composition / Unregistered
+    credit_limit    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)   # max credit supplier gives us
+    credit_days     = customer_db.Column(customer_db.Integer,     nullable=False, default=30)
+    payable         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)   # amount WE owe supplier
+    opening_balance = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    last_purchase   = customer_db.Column(customer_db.Date,        nullable=True)
+    status          = customer_db.Column(customer_db.String(50),  nullable=False, default="Active")    # Active / Inactive / Blacklisted
+    notes           = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at      = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+ 
+    def __repr__(self):
+        return f"<Supplier {self.id} – {self.name}>"
 # ── 6. Orders ─────────────────────────────────────────────────────────────────
 class Order(customer_db.Model):
     __tablename__ = "orders"
@@ -136,6 +167,8 @@ class StockItem(customer_db.Model):
     gst_percent        = customer_db.Column(customer_db.Float,       nullable=True, default=18.0)
     selling_price      = customer_db.Column(customer_db.Float,       nullable=True)
     margin_percent     = customer_db.Column(customer_db.Float,       nullable=True)
+    client_id          = customer_db.Column(customer_db.Integer,     nullable=True, default=None)
+    item_type          = customer_db.Column(customer_db.String(50),  nullable=True, default=None)
 
     def __repr__(self):
         return f"<StockItem {self.code} – {self.name}>"
@@ -162,6 +195,11 @@ class Invoice(customer_db.Model):
     paid_amount    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     balance        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    resale_charges   = customer_db.Column(customer_db.Float,     nullable=False, default=0.0)
+    resale_reason    = customer_db.Column(customer_db.String(200), nullable=True)
+    resale_date      = customer_db.Column(customer_db.Date,      nullable=True)
+    resale_notes     = customer_db.Column(customer_db.Text,      nullable=True)
+    has_resale       = customer_db.Column(customer_db.Boolean,   nullable=False, default=False)
 
     items = customer_db.relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
 
@@ -177,7 +215,38 @@ class Invoice(customer_db.Model):
             return session.query(Client).filter_by(id=self.client_id).first()
         return None
 
+# ── 19. Price Lists (Shipping Rates) ─────────────────────────────────────────
+class PriceList(customer_db.Model):
+    __tablename__ = "price_lists"
 
+    id          = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id  = customer_db.Column(customer_db.String(20), nullable=False)
+    courier     = customer_db.Column(customer_db.String(50), nullable=False)  # DPD, FEDEX, DHL, etc.
+    filename    = customer_db.Column(customer_db.String(255), nullable=False)
+    file_path   = customer_db.Column(customer_db.String(500), nullable=False)
+    rate_data   = customer_db.Column(customer_db.Text, nullable=True)  # JSON stored rates
+    is_active   = customer_db.Column(customer_db.Boolean, default=True)
+    uploaded_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    uploaded_by = customer_db.Column(customer_db.String(100), nullable=True)
+
+    def __repr__(self):
+        return f"<PriceList {self.courier} - {self.filename}>"
+
+
+# ── 20. Rate Lookup Cache ────────────────────────────────────────────────────
+class RateLookup(customer_db.Model):
+    __tablename__ = "rate_lookups"
+
+    id          = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    company_id  = customer_db.Column(customer_db.String(20), nullable=False)
+    courier     = customer_db.Column(customer_db.String(50), nullable=False)
+    destination = customer_db.Column(customer_db.String(100), nullable=False)
+    weight      = customer_db.Column(customer_db.Float, nullable=False)
+    rate        = customer_db.Column(customer_db.Float, nullable=False)
+    created_at  = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    lookup_count = customer_db.Column(customer_db.Integer, default=1)  # Track usage
+
+    
 # ── 8a. Invoice Line Items ────────────────────────────────────────────────────
 class InvoiceItem(customer_db.Model):
     __tablename__ = "invoice_items"
@@ -213,6 +282,10 @@ class Estimate(customer_db.Model):
     grand_total  = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     notes        = customer_db.Column(customer_db.Text,        nullable=True)
     created_at   = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    contact_person = customer_db.Column(customer_db.String(150), nullable=True)
+    email          = customer_db.Column(customer_db.String(150), nullable=True)
+    phone          = customer_db.Column(customer_db.String(30),  nullable=True)
+    terms          = customer_db.Column(customer_db.Text,        nullable=True)
 
     items = customer_db.relationship("EstimateItem", back_populates="estimate", cascade="all, delete-orphan")
 
@@ -255,6 +328,7 @@ class PurchaseInvoice(customer_db.Model):
     invoice_id     = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
     company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
     supplier_id    = customer_db.Column(customer_db.Integer,     nullable=True)
+    supplier_name  = customer_db.Column(customer_db.String(200), nullable=True)
     invoice_number = customer_db.Column(customer_db.String(100), nullable=True)
     date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
     due_date       = customer_db.Column(customer_db.Date,        nullable=True)
@@ -434,3 +508,74 @@ class LoanRepayment(customer_db.Model):
     created_at   = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
 
     loan = customer_db.relationship("Loan", back_populates="repayments")
+
+
+# ── 16. Company Manifest ──────────────────────────────────────────────────────
+# Tracks boxes received from a shipper client and how they are distributed
+# to different courier companies. Saving a manifest DEDUCTS stock from StockItem.
+class CompanyManifest(customer_db.Model):
+    __tablename__ = "company_manifests"
+
+    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    manifest_id    = customer_db.Column(customer_db.String(30),  unique=True, nullable=False)
+    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
+    date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    # shipper = the customer who brought boxes in (links to Client.id)
+    shipper_client_id   = customer_db.Column(customer_db.Integer, nullable=False)
+    shipper_client_name = customer_db.Column(customer_db.String(200), nullable=False)
+    # stock item whose qty is deducted (box/parcel stock)
+    stock_item_id  = customer_db.Column(customer_db.Integer,     nullable=True)
+    total_boxes    = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
+    notes          = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by     = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    entries = customer_db.relationship(
+        "ManifestEntry", back_populates="manifest", cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<CompanyManifest {self.manifest_id}>"
+
+
+# ── 17. Manifest Entry (courier allocation per manifest) ──────────────────────
+class ManifestEntry(customer_db.Model):
+    __tablename__ = "manifest_entries"
+
+    id            = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    manifest_id   = customer_db.Column(customer_db.Integer,
+                        customer_db.ForeignKey("company_manifests.id"), nullable=False)
+    courier_name  = customer_db.Column(customer_db.String(200), nullable=False)
+    boxes         = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
+    docket_no     = customer_db.Column(customer_db.String(100), nullable=True)
+    docket_id     = customer_db.Column(customer_db.Integer,     nullable=True)   # ← ADD
+    stock_item_id = customer_db.Column(customer_db.Integer,     nullable=True)
+    stock_item_name = customer_db.Column(customer_db.String(200), nullable=True) # ← ADD
+    notes         = customer_db.Column(customer_db.Text,        nullable=True)
+    item_type = customer_db.Column(customer_db.String(50), nullable=True)
+
+    manifest = customer_db.relationship("CompanyManifest", back_populates="entries")
+    
+
+    def __repr__(self):
+        return f"<ManifestEntry {self.courier_name} x{self.boxes}>"
+
+
+# Expenses
+# ── 18. Daily Expenses ────────────────────────────────────────────────────────
+class Expense(customer_db.Model):
+    __tablename__ = "expenses"
+
+    id          = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id  = customer_db.Column(customer_db.String(20),  nullable=False)
+    date        = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    category    = customer_db.Column(customer_db.String(100), nullable=False)
+    description = customer_db.Column(customer_db.String(300), nullable=True)
+    amount      = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    payment_mode= customer_db.Column(customer_db.String(30),  nullable=False, default="Cash")
+    reference   = customer_db.Column(customer_db.String(100), nullable=True)
+    created_by  = customer_db.Column(customer_db.String(100), nullable=True)
+    created_at  = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<Expense {self.id} {self.category} ₹{self.amount}>"

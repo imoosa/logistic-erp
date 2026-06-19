@@ -158,6 +158,51 @@
       <div><strong>Chargeable Weight (kg):</strong> <input type="text" name="weight" id="weightInput" value="{{ form_data.weight if form_data else '0.00' }}" style="width:80px"></div>
       <div><strong>Box Weight (kg):</strong> <span id="boxWeight">0.00</span></div>
     </div>
+    <!-- Box Dimensions (reference only) -->
+<div class="card card-body" style="margin-bottom:16px">
+  <div class="section-title">📐 Box Dimensions (Reference Only)</div>
+  <div style="overflow-x:auto">
+    <table class="items-table" id="dimTable">
+      <thead>
+        <tr>
+          <th width="6%">#</th>
+          <th width="25%">Box Label</th>
+          <th width="15%">Length (cm)</th>
+          <th width="15%">Width (cm)</th>
+          <th width="15%">Height (cm)</th>
+          <th width="15%">Weight (kg)</th>
+          <th width="9%"></th>
+        </tr>
+      </thead>
+      <tbody id="dimBody">
+        {% if form_data and form_data.dimensions %}
+          {% for d in form_data.dimensions %}
+          <tr class="dim-row">
+            <td class="text-center">{{ loop.index }}</td>
+            <td><input type="text" name="dim_label[]" value="{{ d.label or 'Box 1' }}" style="width:100%"></td>
+            <td><input type="number" name="dim_l[]" step="0.1" value="{{ d.l or '' }}" placeholder="L" style="width:80px"></td>
+            <td><input type="number" name="dim_w[]" step="0.1" value="{{ d.w or '' }}" placeholder="W" style="width:80px"></td>
+            <td><input type="number" name="dim_h[]" step="0.1" value="{{ d.h or '' }}" placeholder="H" style="width:80px"></td>
+            <td><input type="number" name="dim_wt[]" step="0.01" value="{{ d.wt or '' }}" placeholder="kg" style="width:80px"></td>
+            <td><button type="button" onclick="removeDimRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:18px">×</button></td>
+          </tr>
+          {% endfor %}
+        {% else %}
+        <tr class="dim-row">
+          <td class="text-center">1</td>
+          <td><input type="text" name="dim_label[]" value="Box 1" style="width:100%"></td>
+          <td><input type="number" name="dim_l[]" step="0.1" placeholder="L" style="width:80px"></td>
+          <td><input type="number" name="dim_w[]" step="0.1" placeholder="W" style="width:80px"></td>
+          <td><input type="number" name="dim_h[]" step="0.1" placeholder="H" style="width:80px"></td>
+          <td><input type="number" name="dim_wt[]" step="0.01" placeholder="kg" style="width:80px"></td>
+          <td><button type="button" onclick="removeDimRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:18px">×</button></td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  <button type="button" onclick="addDimRow()" class="btn btn-ghost btn-sm" style="margin-top:12px;border-color:#16A34A;color:#16A34A">+ Add Box</button>
+</div>
   </div>
 
   <!-- Total -->
@@ -233,6 +278,27 @@ async function fetchDocketInfo(docketNo) {
     if (data.destination) document.getElementById('destination').value = data.destination;
     document.getElementById('hLinkedInvoiceId').value = data.invoice_id || '';
   } catch(err) { console.error(err); }
+}
+function addDimRow() {
+  var tbody = document.getElementById('dimBody');
+  var count = tbody.querySelectorAll('.dim-row').length + 1;
+  var tr = document.createElement('tr');
+  tr.className = 'dim-row';
+  tr.innerHTML =
+    '<td class="text-center">' + count + '</td>' +
+    '<td><input type="text" name="dim_label[]" value="Box ' + count + '" style="width:100%"></td>' +
+    '<td><input type="number" name="dim_l[]" step="0.1" placeholder="L" style="width:80px"></td>' +
+    '<td><input type="number" name="dim_w[]" step="0.1" placeholder="W" style="width:80px"></td>' +
+    '<td><input type="number" name="dim_h[]" step="0.1" placeholder="H" style="width:80px"></td>' +
+    '<td><input type="number" name="dim_wt[]" step="0.01" placeholder="kg" style="width:80px"></td>' +
+    '<td><button type="button" onclick="removeDimRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:18px">×</button></td>';
+  tbody.appendChild(tr);
+}
+
+function removeDimRow(btn) {
+  var rows = document.querySelectorAll('#dimBody .dim-row');
+  if (rows.length === 1) { alert('Keep at least one dimension row.'); return; }
+  btn.closest('tr').remove();
 }
 
 function validateShipForm(e) {

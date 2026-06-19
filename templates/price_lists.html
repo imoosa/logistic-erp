@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Price Lists{% endblock %}
+{% block page_title %}📊 Price Lists{% endblock %}
+{% set active = 'price_lists' %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>Shipping Rate Price Lists</h2>
+    <p style="color:#6B7280;font-size:13px;">Upload and manage courier price lists for automatic rate lookup</p>
+  </div>
+  <a href="/price-lists/upload" class="btn btn-primary">+ Upload New Price List</a>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if price_lists %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Courier</th>
+            <th>File Name</th>
+            <th>Uploaded</th>
+            <th>Countries</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for pl in price_lists %}
+          {% set rate_data = pl.rate_data|from_json %}
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="font-weight:700;color:#1E40AF;">{{ pl.courier }}</span>
+              </div>
+            </td>
+            <td>{{ pl.filename }}</td>
+            <td>{{ pl.uploaded_at.strftime('%d %b %Y') }}</td>
+            <td>{{ rate_data.countries|length if rate_data else 0 }}</td>
+            <td>
+              {% if pl.is_active %}
+              <span class="badge badge-success">Active</span>
+              {% else %}
+              <span class="badge badge-warning">Inactive</span>
+              {% endif %}
+            </td>
+            <td>
+              <div style="display:flex;gap:5px;">
+                <a href="#" class="btn btn-ghost btn-sm" title="Preview">👁️</a>
+                <a href="#" class="btn btn-ghost btn-sm" title="Download">⬇️</a>
+                <a href="#" class="btn btn-danger btn-sm" title="Delete" 
+                   onclick="return confirm('Delete this price list?')">🗑️</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:#9CA3AF;">
+      <div style="font-size:48px;margin-bottom:12px;">📊</div>
+      <h3 style="color:#6B7280;">No Price Lists Uploaded</h3>
+      <p style="margin-top:8px;">Upload your first courier price list to enable automatic rate lookup.</p>
+      <a href="/price-lists/upload" class="btn btn-primary" style="margin-top:16px;">+ Upload Price List</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+  .badge-success { background:#DCFCE7;color:#166534; }
+  .badge-warning { background:#FEF3C7;color:#92400E; }
+  .btn-danger { background:#DC2626;color:white;border:none; }
+  .btn-danger:hover { background:#B91C1C; }
+</style>
+
+{% endblock %}

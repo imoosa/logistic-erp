@@ -1,0 +1,504 @@
+{% extends "base.html" %}
+{% block title %}Expenses{% endblock %}
+{% block page_title %}Daily Expenses{% endblock %}
+{% set active = 'expenses' %}
+
+{% block extra_style %}
+<style>
+  .exp-wrap { max-width: 1300px; margin: 0 auto; }
+
+  /* ── Filter bar ── */
+  .filter-bar {
+    background: #fff; border-radius: 16px; padding: 16px 22px;
+    margin-bottom: 22px; display: flex; flex-wrap: wrap; gap: 14px;
+    align-items: flex-end; border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .fg { display: flex; flex-direction: column; gap: 5px; }
+  .fg label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: #64748B; }
+  .fg input, .fg select {
+    padding: 9px 13px; border-radius: 10px; border: 1.5px solid #E2E8F0;
+    font-size: 13px; min-width: 150px; font-family: inherit; outline: none;
+    transition: border .15s;
+  }
+  .fg input:focus, .fg select:focus { border-color: #2563EB; }
+  .fb { background: #2563EB; color: #fff; border: none; border-radius: 10px;
+    padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: inherit; transition: background .15s; }
+  .fb:hover { background: #1D4ED8; }
+  .fb-red { background: #EF4444; }
+  .fb-red:hover { background: #DC2626; }
+
+  /* ── KPI strip ── */
+  .kpi-strip {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 14px; margin-bottom: 22px;
+  }
+  .kpi-card {
+    background: #fff; border-radius: 16px; padding: 18px 20px;
+    border: 1px solid #E2E8F0; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+    position: relative; overflow: hidden;
+  }
+  .kpi-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: 16px 16px 0 0;
+  }
+  .kpi-card.red::before   { background: linear-gradient(90deg,#EF4444,#FCA5A5); }
+  .kpi-card.amber::before { background: linear-gradient(90deg,#D97706,#FCD34D); }
+  .kpi-card.blue::before  { background: linear-gradient(90deg,#2563EB,#60A5FA); }
+  .kpi-card.green::before { background: linear-gradient(90deg,#059669,#34D399); }
+  .kpi-icon { font-size: 22px; margin-bottom: 8px; }
+  .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: #64748B; }
+  .kpi-value { font-size: 26px; font-weight: 800; color: #0F172A;
+    margin: 4px 0 2px; line-height: 1.1; }
+  .kpi-sub { font-size: 11.5px; color: #94A3B8; }
+
+  /* ── Main grid ── */
+  .main-grid {
+    display: grid; grid-template-columns: 1.6fr 1fr;
+    gap: 18px; margin-bottom: 22px;
+  }
+
+  /* ── Panel shared ── */
+  .panel {
+    background: #fff; border-radius: 18px; padding: 20px 22px;
+    border: 1px solid #E2E8F0; box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  }
+  .panel-hd {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 16px;
+  }
+  .panel-title {
+    font-size: 15px; font-weight: 700; color: #0F172A;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .panel-title::before {
+    content: ''; width: 4px; height: 18px; border-radius: 4px;
+    display: inline-block; background: linear-gradient(180deg,#EF4444,#FCA5A5);
+  }
+  .panel-title.blue::before  { background: linear-gradient(180deg,#2563EB,#60A5FA); }
+  .panel-title.amber::before { background: linear-gradient(180deg,#D97706,#FCD34D); }
+
+  /* ── Add form ── */
+  .add-form { display: none; }
+  .add-form.open { display: block; }
+  .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 14px; margin-bottom: 16px;
+  }
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 12px; font-weight: 700; color: #374151;
+    text-transform: uppercase; letter-spacing: .4px; }
+  .form-group input, .form-group select, .form-group textarea {
+    padding: 9px 12px; border-radius: 9px; border: 1.5px solid #E2E8F0;
+    font-size: 13px; font-family: inherit; outline: none; transition: border .15s;
+  }
+  .form-group input:focus, .form-group select:focus,
+  .form-group textarea:focus { border-color: #EF4444; }
+  .form-group textarea { resize: vertical; min-height: 64px; }
+  .form-row { display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* ── Table ── */
+  .exp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .exp-table th {
+    padding: 10px 10px; font-size: 10.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px; color: #94A3B8;
+    border-bottom: 2px solid #F1F5F9; text-align: left; white-space: nowrap;
+  }
+  .exp-table td {
+    padding: 11px 10px; border-bottom: 1px solid #F8FAFC; color: #334155;
+    vertical-align: middle;
+  }
+  .exp-table tr:last-child td { border-bottom: none; }
+  .exp-table tr:hover td { background: #FAFAFA; }
+  .cat-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; background: #FEF3C7; color: #92400E;
+  }
+  .mode-badge {
+    display: inline-block; padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; background: #EFF6FF; color: #1E40AF;
+  }
+  .amt-cell { font-weight: 700; color: #EF4444; }
+  .del-btn {
+    background: none; border: none; cursor: pointer; color: #94A3B8;
+    font-size: 16px; padding: 4px 8px; border-radius: 6px;
+    transition: color .15s, background .15s;
+  }
+  .del-btn:hover { color: #EF4444; background: #FEE2E2; }
+
+  /* ── Category donut panel ── */
+  .cat-list { margin-top: 14px; }
+  .cat-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px; font-size: 12.5px;
+  }
+  .cat-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .cat-name { flex: 1; color: #334155; font-weight: 500; }
+  .cat-amt { font-weight: 700; color: #0F172A; }
+  .cat-bar-wrap { width: 100%; height: 5px; background: #F1F5F9;
+    border-radius: 99px; overflow: hidden; margin-top: 2px; }
+  .cat-bar { height: 100%; border-radius: 99px; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center; padding: 48px 20px; color: #94A3B8;
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  canvas { width: 100% !important; }
+
+  @media (max-width: 900px) {
+    .kpi-strip { grid-template-columns: 1fr 1fr; }
+    .main-grid { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.cols3 { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="exp-wrap">
+
+  <!-- ── Filter bar ── -->
+  <div class="filter-bar">
+    <div class="fg">
+      <label>From</label>
+      <input type="date" id="fromDate" value="{{ from_date }}" />
+    </div>
+    <div class="fg">
+      <label>To</label>
+      <input type="date" id="toDate" value="{{ to_date }}" />
+    </div>
+    <button class="fb" onclick="applyFilter()">Apply</button>
+    <button class="fb" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;"
+      onclick="resetFilter()">Reset</button>
+    <div style="margin-left:auto;">
+      <button class="fb fb-red" onclick="toggleForm()">＋ Add Expense</button>
+      <!--<button class="fb fb-red" id="addExpenseBtn">＋ Add Expense</button>-->
+    </div>
+  </div>
+<!-- ── Add Expense Form ── -->
+  <div class="panel add-form {% if show_form is defined and show_form %}open{% endif %}"
+       id="addExpenseForm" style="margin-bottom:22px;">
+    <div class="panel-hd">
+      <span class="panel-title">Record Expense</span>
+      <button onclick="toggleForm()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94A3B8;">✕</button>
+    </div>
+    <form method="POST" action="{{ url_for('add_expense') }}">
+      <div class="form-grid cols3">
+        <div class="form-group">
+          <label>Date *</label>
+          <input type="date" name="date" value="{{ today }}" required />
+        </div>
+        <div class="form-group">
+          <label>Category *</label>
+          <select name="category" required>
+            {% for cat in categories %}
+              <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Amount (₹) *</label>
+          <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required />
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Payment Mode</label>
+          <select name="payment_mode">
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Cheque">Cheque</option>
+            <option value="Card">Card</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Reference / Bill No.</label>
+          <input type="text" name="reference" placeholder="Optional" />
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label>Description</label>
+        <textarea name="description" placeholder="What was this expense for?"></textarea>
+      </div>
+      <div class="form-row">
+        <button type="button" class="fb" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;"
+          onclick="toggleForm()">Cancel</button>
+        <button type="submit" class="fb fb-red">Save Expense</button>
+      </div>
+    </form>
+  </div>
+ 
+
+  <!-- ── KPI Strip ── -->
+  {% set today_total = namespace(v=0) %}
+  {% set month_count = expenses | length %}
+  {% for e in expenses %}
+    {% if e.date.isoformat() == today_str %}
+      {% set today_total.v = today_total.v + e.amount %}
+    {% endif %}
+  {% endfor %}
+
+  <div class="kpi-strip">
+    <div class="kpi-card red">
+      <div class="kpi-icon">💸</div>
+      <div class="kpi-label">Period Total</div>
+      <div class="kpi-value">₹{{ "{:,.0f}".format(total) }}</div>
+      <div class="kpi-sub">{{ from_date }} → {{ to_date }}</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-icon">📋</div>
+      <div class="kpi-label">Transactions</div>
+      <div class="kpi-value">{{ expenses | length }}</div>
+      <div class="kpi-sub">entries in period</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-icon">📊</div>
+      <div class="kpi-label">Avg per Entry</div>
+      <div class="kpi-value">
+        {% if expenses %}₹{{ "{:,.0f}".format(total / (expenses | length)) }}{% else %}—{% endif %}
+      </div>
+      <div class="kpi-sub">across all categories</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-icon">🗂️</div>
+      <div class="kpi-label">Categories Used</div>
+      <div class="kpi-value">{{ cat_totals | length }}</div>
+      <div class="kpi-sub">unique this period</div>
+    </div>
+  </div>
+
+  <!-- ── Main grid: table + donut ── -->
+  <div class="main-grid">
+
+    <!-- Table -->
+    <div class="panel">
+      <div class="panel-hd">
+        <span class="panel-title">Expense Entries</span>
+        <span style="font-size:12px;color:#94A3B8;">{{ expenses | length }} records</span>
+      </div>
+
+      {% if expenses %}
+      <div style="overflow-x:auto;">
+        <table class="exp-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Description</th>
+              <th>Mode</th>
+              <th>Ref</th>
+              <th style="text-align:right;">Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in expenses %}
+            <tr>
+              <td style="white-space:nowrap;">{{ e.date.strftime('%d %b %Y') }}</td>
+              <td><span class="cat-badge">{{ e.category }}</span></td>
+              <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                {{ e.description or '—' }}</td>
+              <td><span class="mode-badge">{{ e.payment_mode }}</span></td>
+              <td style="color:#94A3B8;">{{ e.reference or '—' }}</td>
+              <td style="text-align:right;" class="amt-cell">₹{{ "{:,.2f}".format(e.amount) }}</td>
+              <td>
+                <form method="POST"
+                      action="{{ url_for('delete_expense', expense_id=e.id) }}"
+                      onsubmit="return confirm('Delete this expense?')">
+                  <button type="submit" class="del-btn" title="Delete">🗑</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5" style="padding:12px 10px;font-weight:700;color:#0F172A;border-top:2px solid #E2E8F0;">
+                Total</td>
+              <td style="text-align:right;padding:12px 10px;font-size:16px;font-weight:800;
+                color:#EF4444;border-top:2px solid #E2E8F0;">
+                ₹{{ "{:,.2f}".format(total) }}</td>
+              <td style="border-top:2px solid #E2E8F0;"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="icon">🧾</div>
+        <p>No expenses recorded for this period.<br>Click <strong>+ Add Expense</strong> to get started.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Category breakdown -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-title amber">By Category</span>
+        </div>
+        {% if cat_totals %}
+        <canvas id="catDonut" height="220"></canvas>
+        <div class="cat-list" id="catList"></div>
+        {% else %}
+        <div class="empty-state" style="padding:24px 0;">
+          <div class="icon">📂</div>
+          <p>No data yet.</p>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="panel">
+        <div class="panel-hd">
+          <span class="panel-title blue">Daily Trend</span>
+        </div>
+        <canvas id="dailyBar" height="180"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /main-grid -->
+
+</div><!-- /exp-wrap -->
+{% endblock %}
+
+{% block extra_script %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+  // ── Data from server ──────────────────────────────────────────────────────
+  const catData   = {{ cat_totals | tojson }};
+  const totalAmt  = {{ total }};
+
+  const COLORS = [
+    '#EF4444','#F59E0B','#2563EB','#059669','#7C3AED',
+    '#EC4899','#0EA5E9','#84CC16','#F97316','#06B6D4',
+    '#A855F7','#10B981','#6366F1',
+  ];
+
+  // ── Category Donut ────────────────────────────────────────────────────────
+  const catCanvas = document.getElementById('catDonut');
+  if (catCanvas && Object.keys(catData).length) {
+    const labels = Object.keys(catData);
+    const values = Object.values(catData);
+
+    new Chart(catCanvas.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: COLORS.slice(0, labels.length),
+          borderWidth: 0,
+          hoverOffset: 6,
+        }]
+      },
+      options: {
+        responsive: true, cutout: '65%',
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => ' ₹' + ctx.raw.toLocaleString('en-IN', {minimumFractionDigits:2})
+            }
+          }
+        }
+      }
+    });
+
+    // Build cat list
+    const listEl = document.getElementById('catList');
+    labels.forEach((lbl, i) => {
+      const pct = totalAmt > 0 ? ((values[i] / totalAmt) * 100).toFixed(1) : 0;
+      listEl.innerHTML += `
+        <div class="cat-row">
+          <div class="cat-dot" style="background:${COLORS[i]}"></div>
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;">
+              <span class="cat-name">${lbl}</span>
+              <span class="cat-amt">₹${values[i].toLocaleString('en-IN',{minimumFractionDigits:0})}</span>
+            </div>
+            <div class="cat-bar-wrap">
+              <div class="cat-bar" style="width:${pct}%;background:${COLORS[i]}"></div>
+            </div>
+          </div>
+        </div>`;
+    });
+  }
+
+  // ── Daily Trend Bar ───────────────────────────────────────────────────────
+  const dailyCanvas = document.getElementById('dailyBar');
+  if (dailyCanvas) {
+    // Build day-level totals from table data
+    const dayMap = {};
+    {% for e in expenses %}
+    {
+      const d = "{{ e.date.strftime('%d %b') }}";
+      dayMap[d] = (dayMap[d] || 0) + {{ e.amount }};
+    }
+    {% endfor %}
+    const dKeys = Object.keys(dayMap).reverse();
+    const dVals = dKeys.map(k => dayMap[k]);
+
+    new Chart(dailyCanvas.getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: dKeys,
+        datasets: [{
+          label: 'Expenses (₹)',
+          data: dVals,
+          backgroundColor: 'rgba(239,68,68,0.75)',
+          borderRadius: 6,
+          borderSkipped: false,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } },
+          y: {
+            grid: { color: '#F1F5F9' },
+            ticks: {
+              callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1)+'L'
+                                  : v >= 1000   ? (v/1000).toFixed(0)+'K' : v)
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Filter / Form helpers ─────────────────────────────────────────────────
+  function applyFilter() {
+    const fd = document.getElementById('fromDate').value;
+    const td = document.getElementById('toDate').value;
+    window.location.href = `/expenses?from_date=${fd}&to_date=${td}`;
+  }
+
+  function resetFilter() {
+    const today = new Date();
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1)
+      .toISOString().slice(0,10);
+    window.location.href = `/expenses?from_date=${firstDay}&to_date=${today.toISOString().slice(0,10)}`;
+  }
+
+  function toggleForm() {
+    document.getElementById('addExpenseForm').classList.toggle('open');
+  }
+
+  // REPLACE the bottom of your script block
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.querySelector('input[name="date"]');
+    if (dateInput) {
+        dateInput.value = new Date().toISOString().slice(0, 10);
+    }
+});
+</script>
+{% endblock %}

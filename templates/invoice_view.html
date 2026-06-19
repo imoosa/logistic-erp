@@ -6,11 +6,27 @@
 {% block extra_style %}
 <style>
   @media print {
-    .no-print { display:none !important; }
-    .main     { margin-left:0 !important; }
-    .sidebar  { display:none !important; }
-    body      { background:#fff; }
+  /* Hide absolutely everything */
+  body * { visibility: hidden !important; }
+
+  /* Then show only the active invoice area */
+  #printArea,      #printArea *,
+  #printArea2,     #printArea2 * { visibility: visible !important; }
+
+  /* Position it top-left, full width, no margin */
+  #printArea, #printArea2 {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
   }
+
+  /* Kill page margins */
+  @page { margin: 0.5cm; }
+}
 
   .fmt-tab { padding:8px 20px; border-radius:8px; cursor:pointer; background:#F3F4F6;
              font-weight:600; font-size:13px; border:2px solid transparent; transition:all .15s; }
@@ -227,7 +243,12 @@
     <div class="charges-left">
       <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#9CA3AF;margin-bottom:12px">Charge Breakdown</div>
       <div class="charge-row">
-        <span>Freight Charges</span>
+        <span>
+          Freight Charges
+          {% if invoice.freight_rate_per_kg and invoice.freight_rate_per_kg | float > 0 %}
+          <div style="font-size:11px;color:#9CA3AF;font-weight:400">₹{{ invoice.freight_rate_per_kg }}/kg</div>
+          {% endif %}
+        </span>
         <span>₹{{ "{:,.2f}".format(invoice.freight | float) }}</span>
       </div>
       <div class="charge-row">
@@ -235,7 +256,12 @@
         <span>₹{{ "{:,.2f}".format(invoice.fuel_charge | float) }}</span>
       </div>
       <div class="charge-row">
-        <span>Other Charges</span>
+        <span>
+          Other Charges
+          {% if invoice.other_charges_reason %}
+          <div style="font-size:11px;color:#9CA3AF;font-weight:400">{{ invoice.other_charges_reason }}</div>
+          {% endif %}
+        </span>
         <span>₹{{ "{:,.2f}".format(invoice.other_charges | float) }}</span>
       </div>
       <div class="charge-row" style="color:#6B7280">
@@ -347,9 +373,13 @@
   <div class="f2-charges">
     <div class="f2-ship-info">
       <h4>Charge Details</h4>
-      <p><strong>Freight:</strong> ₹{{ "{:,.2f}".format(invoice.freight | float) }}</p>
+      <p><strong>Freight:</strong> ₹{{ "{:,.2f}".format(invoice.freight | float) }}
+        {% if invoice.freight_rate_per_kg and invoice.freight_rate_per_kg | float > 0 %}<br><span style="color:#666;font-size:10px">₹{{ invoice.freight_rate_per_kg }}/kg</span>{% endif %}
+      </p>
       <p><strong>Fuel Surcharge:</strong> ₹{{ "{:,.2f}".format(invoice.fuel_charge | float) }}</p>
-      <p><strong>Other Charges:</strong> ₹{{ "{:,.2f}".format(invoice.other_charges | float) }}</p>
+      <p><strong>Other Charges:</strong> ₹{{ "{:,.2f}".format(invoice.other_charges | float) }}
+        {% if invoice.other_charges_reason %}<br><span style="color:#666;font-size:10px">{{ invoice.other_charges_reason }}</span>{% endif %}
+      </p>
       <p><strong>GST (18%):</strong> ₹{{ "{:,.2f}".format(invoice.tax | float) }}</p>
       {% if invoice.notes %}
       <div style="margin-top:10px;padding-top:8px;border-top:1px solid #ddd">

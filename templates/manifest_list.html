@@ -1,0 +1,348 @@
+{% extends "base.html" %}
+{% block title %}Company Manifest{% endblock %}
+{% block page_title %}Company Manifest{% endblock %}
+{% set active = 'manifest' %}
+
+{% block extra_style %}
+<style>
+@media print {
+    .sidebar, .topbar, .page-header, .filter-bar,
+    .card.card-body:has(form), .summary-strip,
+    .date-tabs-wrap, .action-links, .btn { display: none !important; }
+    .manifest-table-wrap { border: none; overflow: visible; }
+    .manifest-sheet { font-size: 11px; }
+    .manifest-sheet thead tr th {
+        background: #1E3A5F !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    .day-panel { display: none !important; }
+    .day-panel.active { display: block !important; }
+    body { margin: 0; padding: 0; }
+}
+
+/* ── Date Tabs ── */
+.date-tabs-wrap {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #E5E7EB;
+    padding-bottom: 0;
+}
+.date-tab {
+    padding: 8px 16px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid #E5E7EB;
+    border-bottom: none;
+    background: #F9FAFB;
+    color: #6B7280;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    bottom: -2px;
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+}
+.date-tab:hover { background: #EEF2FF; color: #4F46E5; }
+.date-tab.active {
+    background: #fff;
+    color: #4F46E5;
+    border-color: #E5E7EB;
+    border-bottom-color: #fff;
+    z-index: 1;
+}
+.date-tab .tab-count {
+    display: inline-block;
+    background: #E0E7FF;
+    color: #4F46E5;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    margin-left: 4px;
+}
+.date-tab.active .tab-count { background: #4F46E5; color: #fff; }
+.date-tab .tab-boxes {
+    display: block;
+    font-size: 10px;
+    font-weight: 400;
+    color: #9CA3AF;
+    margin-top: 1px;
+}
+.date-tab.active .tab-boxes { color: #7C3AED; }
+
+/* ── Day panels ── */
+.day-panel { display: none; }
+.day-panel.active { display: block; }
+
+/* ── Summary Strip ── */
+.summary-strip {
+    display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.summary-chip {
+    flex: 1; min-width: 130px; background: #fff;
+    border: 1px solid #E5E7EB; border-radius: 8px;
+    padding: 10px 16px; text-align: center;
+}
+.summary-chip .val { font-size: 22px; font-weight: 800; line-height: 1.1; }
+.summary-chip .lbl { font-size: 11px; color: #6B7280; margin-top: 2px; }
+
+/* ── Manifest Table ── */
+.manifest-table-wrap {
+    overflow-x: auto; border-radius: 8px; border: 1px solid #E5E7EB;
+}
+.manifest-sheet {
+    width: 100%; border-collapse: collapse; font-size: 13px; background: #fff;
+}
+.manifest-sheet thead tr th {
+    background: #1E3A5F; color: #fff; padding: 9px 12px;
+    text-align: left; font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
+}
+.manifest-sheet tr.shipper-first-row td { border-top: 1px solid #D1D5DB; }
+.manifest-sheet tbody tr.data-row td {
+    padding: 8px 12px; border-bottom: 1px solid #F3F4F6; vertical-align: middle;
+}
+.manifest-sheet tbody tr.data-row:hover td { background: #F9FAFB; }
+td.shipper-cell {
+    font-weight: 700; color: #1E3A5F; background: #F8FAFF;
+    white-space: nowrap; border-left: 3px solid #4F46E5; min-width: 140px;
+}
+td.shipper-cell.continuation {
+    color: #9CA3AF; font-weight: 400; font-size: 11px;
+    font-style: italic; border-left: 3px solid #E0E7FF;
+}
+.mft-id {
+    font-family: monospace; font-size: 12px; color: #6B7280;
+    background: #F3F4F6; border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+}
+.courier-pill {
+    display: inline-block; background: #EFF6FF; color: #1D4ED8;
+    border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: 600;
+}
+.boxes-badge {
+    display: inline-block; background: #F0FDF4; color: #16A34A;
+    border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: 700;
+}
+.manifest-sheet tr.subtotal-row td {
+    background: #FAFAFA; font-size: 12px; color: #6B7280;
+    padding: 5px 12px; border-bottom: 2px solid #E5E7EB;
+}
+.manifest-sheet tr.subtotal-row td.sub-val { font-weight: 700; color: #374151; }
+.action-links a {
+    color: #4F46E5; font-size: 12px; text-decoration: none;
+    margin-right: 8px; white-space: nowrap;
+}
+.action-links a:hover { text-decoration: underline; }
+.action-links a.del { color: #DC2626; }
+.empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; }
+.empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+/* ── Day summary bar ── */
+.day-summary-bar {
+    display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+    align-items: center; justify-content: space-between;
+}
+.day-summary-bar .ds-chip {
+    background: #EFF6FF; color: #1D4ED8; border-radius: 8px;
+    padding: 6px 14px; font-size: 13px; font-weight: 600;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div>
+        <h2>📋 Company Manifest</h2>
+        <p style="color:#6B7280;font-size:13px;">Date-wise dispatch log — boxes received from shippers, sent via courier</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <button onclick="window.print()" class="btn btn-ghost">🖨️ Print</button>
+        <a href="/manifest/create" class="btn btn-primary">+ New Manifest</a>
+    </div>
+</div>
+
+<!-- Overall Summary Strip -->
+{% if manifests %}
+<div class="summary-strip">
+    <div class="summary-chip">
+        <div class="val" style="color:#4F46E5;">{{ total_manifests }}</div>
+        <div class="lbl">Total Manifests</div>
+    </div>
+    <div class="summary-chip">
+        <div class="val" style="color:#16A34A;">{{ total_boxes }}</div>
+        <div class="lbl">Total Boxes</div>
+    </div>
+    <div class="summary-chip">
+        <div class="val" style="color:#D97706;">{{ unique_couriers }}</div>
+        <div class="lbl">Courier Companies</div>
+    </div>
+</div>
+{% endif %}
+
+{% if manifests %}
+
+{#
+  Group manifests by date for tab rendering.
+  We collect unique dates in order (already sorted desc from query).
+#}
+
+<!-- ── Date Tabs ── -->
+<div class="date-tabs-wrap">
+    {% for d in date_keys %}
+        {% set day_list = grouped_manifests[d] %}
+        {% set day_boxes = day_list | sum(attribute='total_boxes') %}
+        <div class="date-tab {% if loop.first %}active{% endif %}"
+             onclick="switchTab('{{ d }}')"
+             id="tab-{{ d }}">
+            {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
+            <span class="tab-count">{{ day_list | length }}</span>
+            <span class="tab-boxes">{{ day_boxes }} boxes</span>
+        </div>
+    {% endfor %}
+</div>
+
+<!-- ── Day Panels ── -->
+{% for d in date_keys %}
+    {% set day_manifests = grouped_manifests[d] %}
+    {% set day_boxes = day_manifests | sum(attribute='total_boxes') %}
+
+    <div class="day-panel {% if loop.first %}active{% endif %}" id="panel-{{ d }}">
+
+        <!-- Day summary bar -->
+        <div class="day-summary-bar">
+            <div style="font-size:13px;color:#374151;font-weight:600;">
+                📅 {{ day_manifests[0].date.strftime('%A, %d %B %Y') }}
+            </div>
+            <div style="display:flex;gap:8px;">
+                <span class="ds-chip">{{ day_manifests | length }} manifest(s)</span>
+                <span class="ds-chip" style="background:#F0FDF4;color:#16A34A;">{{ day_boxes }} boxes dispatched</span>
+            </div>
+        </div>
+
+        <!-- Manifest table for this day -->
+        <div class="manifest-table-wrap" style="margin-bottom:20px;">
+        <table class="manifest-sheet">
+            <thead>
+                <tr>
+                    <th style="width:150px;">Shipper</th>
+                    <th style="width:90px;">Manifest ID</th>
+                    <th>#</th>
+                    <th>Courier Company</th>
+                    <th style="width:70px;text-align:center;">Qty</th>
+                    <th style="width:100px;">Item Type</th>
+                    <th style="width:140px;">Docket / AWB</th>
+                    <th>Notes</th>
+                    <th style="width:110px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set ns2 = namespace(prev_mft_id=None) %}
+                {% for mfst in day_manifests %}
+                    {% set is_new_mft = (mfst.id != ns2.prev_mft_id) %}
+                    {% set ns2.prev_mft_id = mfst.id %}
+
+                    {% if mfst.entries %}
+                        {% for entry in mfst.entries %}
+                        <tr class="data-row {% if loop.first and is_new_mft %}shipper-first-row{% endif %}">
+
+                            {% if loop.first %}
+                                <td class="shipper-cell">{{ mfst.shipper_client_name }}</td>
+                                <td><span class="mft-id">{{ mfst.manifest_id }}</span></td>
+                            {% else %}
+                                <td class="shipper-cell continuation">↳ {{ mfst.shipper_client_name }}</td>
+                                <td></td>
+                            {% endif %}
+
+                            <td style="color:#9CA3AF;font-size:12px;">{{ loop.index }}</td>
+                            <td><span class="courier-pill">{{ entry.courier_name }}</span></td>
+                            <td style="text-align:center;"><span class="boxes-badge">{{ entry.boxes }}</span></td>
+                            <td style="font-size:12px;color:#374151;">{{ entry.item_type or entry.stock_item_name or 'Box' }}</td>
+                            <td style="font-family:monospace;font-size:12px;color:#374151;">
+                                {{ entry.docket_no or '—' }}
+                            </td>
+                            <td style="color:#6B7280;font-size:12px;">{{ entry.notes or '' }}</td>
+
+                            {% if loop.first %}
+                                <td class="action-links" style="vertical-align:top;padding-top:9px;">
+                                    <a href="/manifest/view/{{ mfst.id }}">View</a>
+                                    <a href="/manifest/edit/{{ mfst.id }}">Edit</a>
+                                    <a href="/manifest/delete/{{ mfst.id }}"
+                                       class="del"
+                                       onclick="return confirm('Delete this manifest? Stock will be restored.')">Del</a>
+                                </td>
+                            {% else %}
+                                <td></td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+
+                        <tr class="subtotal-row">
+                            <td colspan="4" style="text-align:right;padding-right:8px;">
+                                Total for {{ mfst.manifest_id }}:
+                            </td>
+                            <td class="sub-val" style="text-align:center;">{{ mfst.total_boxes }} </td>
+                            <td colspan="3"></td>
+                        </tr>
+
+                    {% else %}
+                        <tr class="data-row shipper-first-row">
+                            <td class="shipper-cell">{{ mfst.shipper_client_name }}</td>
+                            <td><span class="mft-id">{{ mfst.manifest_id }}</span></td>
+                            <td colspan="4" style="color:#9CA3AF;font-style:italic;">No entries</td>
+                            <td class="action-links">
+                                <a href="/manifest/view/{{ mfst.id }}">View</a>
+                                <a href="/manifest/edit/{{ mfst.id }}">Edit</a>
+                                <a href="/manifest/delete/{{ mfst.id }}" class="del"
+                                   onclick="return confirm('Delete this manifest? Stock will be restored.')">Del</a>
+                            </td>
+                        </tr>
+                    {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+{% endfor %}
+
+{% else %}
+<div class="card card-body empty-state">
+    <div class="icon">📋</div>
+    <div style="font-size:16px;font-weight:600;color:#374151;margin-bottom:8px;">No manifests found</div>
+    <div style="margin-bottom:16px;">Create your first manifest to start tracking box dispatch.</div>
+    <a href="/manifest/create" class="btn btn-primary">+ New Manifest</a>
+</div>
+{% endif %}
+
+<script>
+function switchTab(dateStr) {
+    // Hide all panels and deactivate all tabs
+    document.querySelectorAll('.day-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
+
+    // Show selected panel and activate tab
+    const panel = document.getElementById('panel-' + dateStr);
+    const tab   = document.getElementById('tab-'   + dateStr);
+    if (panel) panel.classList.add('active');
+    if (tab)   tab.classList.add('active');
+}
+
+// On load: activate today's tab if it exists, else first tab
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    const todayTab = document.getElementById('tab-' + today);
+    if (todayTab) {
+        // Deactivate the default first tab
+        document.querySelectorAll('.day-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
+        switchTab(today);
+    }
+    // else first tab stays active (set by Jinja loop.first)
+});
+</script>
+
+{% endblock %}

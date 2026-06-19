@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block page_title %}Suppliers{% endblock %}
+{% set active = 'suppliers' %}
+
+{% block content %}
+
+<div class="page-header">
+  <h2>Suppliers</h2>
+  <a href="/suppliers/new" class="btn btn-primary">+ New Supplier</a>
+</div>
+
+<!-- Filter tabs -->
+<div class="tabs">
+  {% for s in ['All','Active','Inactive','Blacklisted'] %}
+  <a href="/suppliers?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">{{ s }}</a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Supplier Name</th>
+          <th>Contact Person</th>
+          <th>Phone</th>
+          <th>Email</th>
+          <th>Payable</th>
+          <th>Status</th>
+          <th>WhatsApp</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in suppliers %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <div style="width:32px;height:32px;border-radius:8px;background:#FEF3C7;color:#D97706;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">
+                {{ s.supplier_name[0] }}
+              </div>
+              <strong>{{ s.supplier_name }}</strong>
+            </div>
+          </td>
+          <td>{{ s.contact_person or '-' }}</td>
+          <td>{{ s.phone or '-' }}</td>
+          <td>{{ s.email or '-' }}</td>
+          <td>
+            {% if s.payable and s.payable > 0 %}
+              <strong style="color:#DC2626">₹{{ "{:,.0f}".format(s.payable) }}</strong>
+            {% else %}
+              <span style="color:#16A34A">₹0</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.status == 'Active' %}
+              <span class="badge badge-primary">{{ s.status }}</span>
+            {% elif s.status == 'Inactive' %}
+              <span class="badge badge-warning">{{ s.status }}</span>
+            {% elif s.status == 'Blacklisted' %}
+              <span class="badge badge-danger">{{ s.status }}</span>
+            {% else %}
+              <span class="badge badge-warning">{{ s.status }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.phone %}
+            <a href="https://wa.me/91{{ s.phone }}" target="_blank"
+               class="btn btn-sm" style="color:#25D366;border:1.5px solid #25D366;background:#fff;text-decoration:none">
+              💬 Chat
+            </a>
+            {% else %}
+              <span style="color:#9CA3AF">-</span>
+            {% endif %}
+          </td>
+          <td>
+            <div style="display:flex; gap:5px;">
+              <a href="/suppliers/{{ s.id }}" class="btn btn-ghost btn-sm" title="View Details">👁️</a>
+              <a href="/suppliers/{{ s.id }}/edit" class="btn btn-ghost btn-sm" title="Edit">✏️</a>
+              {% if session.user.role in ['owner', 'super_admin'] %}
+              <a href="/suppliers/{{ s.id }}/delete" class="btn btn-danger btn-sm" title="Delete"
+                 onclick="return confirm('Are you sure you want to delete supplier {{ s.supplier_name }}? This action cannot be undone.')">🗑️</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9CA3AF">
+          No suppliers found. <a href="/suppliers/new">Add your first supplier →</a>
+        </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<style>
+  .btn-danger {
+    background: #DC2626;
+    color: white;
+    border: none;
+  }
+  .btn-danger:hover {
+    background: #B91C1C;
+  }
+</style>
+
+{% endblock %}

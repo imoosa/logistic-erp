@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if edit_mode else 'New' }} Manifest{% endblock %}
+{% block page_title %}{{ 'Edit' if edit_mode else 'New' }} Company Manifest{% endblock %}
+{% set active = 'manifest' %}
+
+{% block extra_style %}
+<style>
+.entry-row td { padding: 6px 8px; vertical-align: middle; }
+.entry-row select,
+.entry-row input  { width: 100%; box-sizing: border-box; }
+.entry-row input[name="boxes[]"] { width: 90px; }
+
+/* AWB / Stock dropdowns */
+.docket-wrap,
+.stock-type-wrap { position: relative; }
+
+.custom-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid #D1D5DB;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+    max-height: 220px;
+    overflow-y: auto;
+    min-width: 260px;
+    width: 100%;
+}
+.custom-dropdown-item {
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    border-bottom: 1px solid #F3F4F6;
+}
+.custom-dropdown-item:hover { background: #F0F4FF; }
+.custom-dropdown-item .awb  { font-weight: 700; color: #111827; }
+.custom-dropdown-item .meta { font-size: 11px; color: #9CA3AF; margin-top: 2px; }
+
+/* Stock info strip */
+.stock-info-box {
+    background: #EFF6FF;
+    border: 1px solid #BFDBFE;
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.stock-info-box .stock-val   { font-size: 22px; font-weight: 800; color: #1D4ED8; }
+.stock-info-box .stock-label { font-size: 12px; color: #6B7280; }
+.allocation-summary {
+    background: #F0FDF4;
+    border: 1px solid #BBF7D0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+.warn { color: #DC2626; font-weight: 700; }
+
+/* Qty remaining badge inside stock cell */
+.stock-remaining-badge {
+    font-size: 11px;
+    color: #6B7280;
+    margin-top: 3px;
+}
+.stock-remaining-badge.over { color: #DC2626; font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+    <div>
+        <h2>📋 {{ 'Edit' if edit_mode else 'New' }} Manifest</h2>
+        <p style="color:#6B7280;font-size:13px;">Record how boxes from a shipper are split across courier companies</p>
+    </div>
+    <a href="/manifest/list" class="btn btn-ghost">← Back to List</a>
+</div>
+
+<form method="POST" action="{{ '/manifest/update/' + manifest.id|string if edit_mode else '/manifest/save' }}" id="manifestForm">
+    {% if edit_mode %}
+    <input type="hidden" name="manifest_db_id" value="{{ manifest.id }}">
+    {% endif %}
+
+    <!-- ── Header Details ── -->
+    <div class="card card-body" style="margin-bottom:16px;">
+        <div class="section-title">Manifest Details</div>
+        <div class="grid-3">
+            <div class="form-group">
+                <label>Manifest ID</label>
+                <input value="{{ manifest_id }}" disabled style="background:#F9FAFB;">
+                <input type="hidden" name="manifest_id" value="{{ manifest_id }}">
+            </div>
+            <div class="form-group">
+                <label>Date *</label>
+                <input type="date" name="manifest_date" required
+                       value="{{ manifest.date.isoformat() if edit_mode and manifest.date else today }}">
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <input type="text" name="notes"
+                       value="{{ manifest.notes if edit_mode else '' }}"
+                       placeholder="Optional remarks">
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Shipper ── -->
+    <div class="card card-body" style="margin-bottom:16px;">
+        <div class="section-title">Shipper (Client)</div>
+        <div class="form-group" style="max-width:400px;">
+            <label>Shipper *</label>
+            <select name="shipper_client_id" id="shipperSelect" required onchange="onShipperChange()">
+                <option value="">— Select Shipper —</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}"
+                    {% if edit_mode and manifest.shipper_client_id == c.id %}selected{% endif %}>
+                    {{ c.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <p style="font-size:12px;color:#9CA3AF;margin:0;">
+            After selecting the shipper, each courier row will let you pick an AWB/Docket and the stock items inside it.
+        </p>
+    </div>
+
+    <!-- ── Overall allocation summary ── -->
+    <div class="stock-info-box" id="stockInfoBox" style="display:none;margin-bottom:16px;">
+        <div>
+            <div class="stock-val" id="totalAllocatedDisplay" style="color:#D97706;">0</div>
+            <div class="stock-label">Total Boxes Allocated</div>
+        </div>
+        <div id="overAllocWarn" class="warn" style="display:none;">
+            ⚠️ Some stock types are over-allocated!
+        </div>
+    </div>
+
+    <!-- ── Courier Allocation Table ── -->
+    <div class="card card-body" style="margin-bottom:16px;">
+        <div class="section-title">🚚 Courier Allocation</div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;" id="allocationTable">
+                <thead>
+                    <tr style="background:#F9FAFB;">
+                        <th style="padding:10px 8px;font-size:12px;color:#6B7280;text-align:left;border-bottom:1px solid #E5E7EB;width:32px;">#</th>
+                        <th style="padding:10px 8px;font-size:12px;color:#6B7280;text-align:left;border-bottom:1px solid #E5E7EB;min-width:180px;">Courier Company *</th>
+                        <th style="padding:10px 8px;font-size:12px;color:#6B7280;text-align:left;border-bottom:1px solid #E5E7EB;min-width:220px;">AWB / Docket No. *</th>
+                        <th style="padding:10px 8px;font-size:12px;color:#6B7280;text-align:left;border-bottom:1px solid #E5E7EB;min-width:180px;">Stock Type *</th>
+                        <th style="padding:10px 8px;font-size:12px;color:#6B7280;text-align:left;border-bottom:1px solid #E5E7EB;width:100px;">Qty *</th>
+                        <th style="padding:10px 8px;font-size:12px;color:#6B7280;text-align:left;border-bottom:1px solid #E5E7EB;min-width:140px;">Notes</th>
+                        <th style="padding:10px 8px;border-bottom:1px solid #E5E7EB;width:30px;"></th>
+                    </tr>
+                </thead>
+                <tbody id="entriesBody">
+                    {% if edit_mode and manifest.entries %}
+                        {% for e in manifest.entries %}
+                        <tr class="entry-row"
+                            data-courier="{{ e.courier_name }}"
+                            data-docket="{{ e.docket_no or '' }}"
+                            data-stock-id="{{ e.stock_item_id or '' }}"
+                            data-stock-name="{{ e.stock_item_name or '' }}"
+                            data-boxes="{{ e.boxes }}">
+                            <td style="color:#9CA3AF;">{{ loop.index }}</td>
+                            <!-- Courier Company -->
+                            <td>
+                                <input type="text" name="courier_name[]" required
+                                       value="{{ e.courier_name }}"
+                                       placeholder="e.g. BlueDart, DHL"
+                                       style="min-width:160px;">
+                            </td>
+                            <!-- AWB / Docket -->
+                            <td class="docket-wrap">
+                                <input type="text" name="docket_no[]"
+                                       value="{{ e.docket_no or '' }}"
+                                       placeholder="Click to pick AWB"
+                                       style="min-width:200px;" readonly>
+                                <input type="hidden" name="docket_id[]" value="{{ e.docket_id or '' }}">
+                            </td>
+                            <!-- Stock Type -->
+                            <td class="stock-type-wrap">
+                                <select name="stock_item_id[]" required style="min-width:160px;">
+                                    <option value="{{ e.stock_item_id or '' }}">
+                                        {{ e.stock_item_name or '— pick AWB first —' }}
+                                    </option>
+                                </select>
+                                <div class="stock-remaining-badge" id="badge_"></div>
+                            </td>
+                            <!-- Qty -->
+                            <td>
+                                <input type="number" name="boxes[]" min="1" required
+                                       value="{{ e.boxes }}"
+                                       onchange="recalcAllocation()"
+                                       style="width:90px;">
+                            </td>
+                            <!-- Notes -->
+                            <td>
+                                <input type="text" name="entry_notes[]"
+                                       value="{{ e.notes or '' }}"
+                                       placeholder="Optional"
+                                       style="min-width:130px;">
+                            </td>
+                            <td>
+                                <button type="button" onclick="removeRow(this)"
+                                        style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:20px;padding:0 4px;">×</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <!-- 3 blank rows on new form -->
+                        <tr class="entry-row">
+                            <td style="color:#9CA3AF;">1</td>
+                            <td><input type="text" name="courier_name[]" placeholder="e.g. BlueDart" style="min-width:160px;"></td>
+                            <td class="docket-wrap">
+                                <input type="text" name="docket_no[]" placeholder="Click to pick AWB" style="min-width:200px;" readonly>
+                                <input type="hidden" name="docket_id[]" value="">
+                            </td>
+                            <td class="stock-type-wrap">
+                                <select name="stock_item_id[]" required style="min-width:160px;" disabled>
+                                    <option value="">— pick AWB first —</option>
+                                </select>
+                                <div class="stock-remaining-badge"></div>
+                            </td>
+                            <td><input type="number" name="boxes[]" min="1" value="1" onchange="recalcAllocation()" style="width:90px;"></td>
+                            <td><input type="text" name="entry_notes[]" placeholder="Optional" style="min-width:130px;"></td>
+                            <td><button type="button" onclick="removeRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:20px;padding:0 4px;">×</button></td>
+                        </tr>
+                        <tr class="entry-row">
+                            <td style="color:#9CA3AF;">2</td>
+                            <td><input type="text" name="courier_name[]" placeholder="e.g. DHL" style="min-width:160px;"></td>
+                            <td class="docket-wrap">
+                                <input type="text" name="docket_no[]" placeholder="Click to pick AWB" style="min-width:200px;" readonly>
+                                <input type="hidden" name="docket_id[]" value="">
+                            </td>
+                            <td class="stock-type-wrap">
+                                <select name="stock_item_id[]" required style="min-width:160px;" disabled>
+                                    <option value="">— pick AWB first —</option>
+                                </select>
+                                <div class="stock-remaining-badge"></div>
+                            </td>
+                            <td><input type="number" name="boxes[]" min="1" value="1" onchange="recalcAllocation()" style="width:90px;"></td>
+                            <td><input type="text" name="entry_notes[]" placeholder="Optional" style="min-width:130px;"></td>
+                            <td><button type="button" onclick="removeRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:20px;padding:0 4px;">×</button></td>
+                        </tr>
+                        <tr class="entry-row">
+                            <td style="color:#9CA3AF;">3</td>
+                            <td><input type="text" name="courier_name[]" placeholder="e.g. FedEx" style="min-width:160px;"></td>
+                            <td class="docket-wrap">
+                                <input type="text" name="docket_no[]" placeholder="Click to pick AWB" style="min-width:200px;" readonly>
+                                <input type="hidden" name="docket_id[]" value="">
+                            </td>
+                            <td class="stock-type-wrap">
+                                <select name="stock_item_id[]" required style="min-width:160px;" disabled>
+                                    <option value="">— pick AWB first —</option>
+                                </select>
+                                <div class="stock-remaining-badge"></div>
+                            </td>
+                            <td><input type="number" name="boxes[]" min="1" value="1" onchange="recalcAllocation()" style="width:90px;"></td>
+                            <td><input type="text" name="entry_notes[]" placeholder="Optional" style="min-width:130px;"></td>
+                            <td><button type="button" onclick="removeRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:20px;padding:0 4px;">×</button></td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <button type="button" onclick="addRow()" class="btn btn-ghost btn-sm"
+                style="margin-top:12px;border-color:#4F46E5;color:#4F46E5;">
+            + Add Courier Row
+        </button>
+
+        <div class="allocation-summary">
+            <span>Total boxes allocated: <strong id="totalAllocated">0</strong></span>
+        </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-bottom:30px;">
+        <button type="submit" class="btn btn-success" id="submitBtn">
+            ✓ {{ 'Update Manifest' if edit_mode else 'Save Manifest & Deduct Stock' }}
+        </button>
+        <a href="/manifest/list" class="btn btn-ghost">Cancel</a>
+    </div>
+</form>
+
+<script>
+/*
+  shipperDockets structure expected from /manifest/shipper-dockets/<id>:
+  [
+    {
+      docket_id:  123,
+      docket_no:  "AWB123456",
+      invoice_id: "INV-001",
+      date:       "2024-06-14",
+      stock_items: [
+        { id: 5, name: "Box",      code: "BOX-A", quantity: 10, unit: "pcs" },
+        { id: 7, name: "Envelope", code: "ENV-B", quantity:  5, unit: "pcs" }
+      ]
+    },
+    ...
+  ]
+*/
+
+var shipperDockets = [];   // filled when shipper is chosen
+
+/* ── Shipper changed ── */
+function onShipperChange() {
+    var clientId = document.getElementById('shipperSelect').value;
+    shipperDockets = [];
+
+    // Reset all rows
+    document.querySelectorAll('.entry-row').forEach(function(row) {
+        clearRowDocket(row);
+    });
+
+    if (!clientId) return;
+
+    fetch('/manifest/shipper-dockets/' + clientId)
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            shipperDockets = data;
+        })
+        .catch(function(e) { console.error('Docket fetch error:', e); });
+}
+
+/* ── Clear docket + stock type in a row ── */
+function clearRowDocket(row) {
+    var docketInput = row.querySelector('input[name="docket_no[]"]');
+    var docketIdInput = row.querySelector('input[name="docket_id[]"]');
+    var stockSelect = row.querySelector('select[name="stock_item_id[]"]');
+    var badge = row.querySelector('.stock-remaining-badge');
+
+    if (docketInput)  docketInput.value = '';
+    if (docketIdInput) docketIdInput.value = '';
+    if (stockSelect) {
+        stockSelect.innerHTML = '<option value="">— pick AWB first —</option>';
+        stockSelect.disabled = true;
+    }
+    if (badge) { badge.textContent = ''; badge.className = 'stock-remaining-badge'; }
+}
+
+/* ── Close all open dropdowns ── */
+function closeAllDropdowns() {
+    document.querySelectorAll('.custom-dropdown').forEach(function(el) { el.remove(); });
+}
+
+/* ── Open AWB dropdown for a row ── */
+function openDocketDropdown(input) {
+    closeAllDropdowns();
+    var row = input.closest('.entry-row');
+
+    if (!shipperDockets.length) {
+        var hint = document.createElement('div');
+        hint.className = 'custom-dropdown';
+        hint.innerHTML = '<div class="custom-dropdown-item" style="color:#9CA3AF;">' +
+            (document.getElementById('shipperSelect').value
+                ? 'No AWBs found for this shipper'
+                : 'Select a shipper first') +
+            '</div>';
+        input.closest('.docket-wrap').appendChild(hint);
+        return;
+    }
+
+    var filter = '';  // no text filter since input is readonly; show all
+    var matches = shipperDockets.slice();
+
+    if (!matches.length) return;
+
+    var box = document.createElement('div');
+    box.className = 'custom-dropdown';
+
+    matches.forEach(function(d) {
+        var item = document.createElement('div');
+        item.className = 'custom-dropdown-item';
+        var stockNames = d.stock_items.map(function(s){ return s.name; }).join(', ');
+        item.innerHTML =
+            '<div class="awb">' + d.docket_no + '</div>' +
+            '<div class="meta">' + d.invoice_id + ' &nbsp;·&nbsp; ' + d.date +
+            (stockNames ? ' &nbsp;·&nbsp; ' + stockNames : '') + '</div>';
+
+        item.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            selectDocket(row, d);
+            closeAllDropdowns();
+        });
+        box.appendChild(item);
+    });
+
+    input.closest('.docket-wrap').appendChild(box);
+}
+
+/* ── Set docket on a row and populate stock dropdown ── */
+function selectDocket(row, docket) {
+    var docketInput   = row.querySelector('input[name="docket_no[]"]');
+    var docketIdInput = row.querySelector('input[name="docket_id[]"]');
+    var stockSelect   = row.querySelector('select[name="stock_item_id[]"]');
+    var badge         = row.querySelector('.stock-remaining-badge');
+
+    docketInput.value   = docket.docket_no;
+    docketIdInput.value = docket.docket_id;
+
+    // Populate stock type dropdown from this docket's stock items
+    stockSelect.innerHTML = '<option value="">— Select Stock Type —</option>';
+    docket.stock_items.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name + ' (' + s.code + ') — ' + s.quantity + ' ' + s.unit + ' available';
+        opt.dataset.qty  = s.quantity;
+        opt.dataset.unit = s.unit;
+        opt.dataset.name = s.name;
+        stockSelect.appendChild(opt);
+    });
+
+    // Auto-select if only one stock type in this docket
+    if (docket.stock_items.length === 1) {
+        stockSelect.selectedIndex = 1;
+        updateBadge(stockSelect, badge);
+    }
+
+    stockSelect.disabled = false;
+
+    stockSelect.onchange = function() {
+        updateBadge(stockSelect, badge);
+        recalcAllocation();
+    };
+
+    recalcAllocation();
+}
+
+/* ── Update the "X remaining" badge under stock dropdown ── */
+function updateBadge(select, badge) {
+    if (!badge) return;
+    var opt = select.options[select.selectedIndex];
+    if (!opt || !opt.value) { badge.textContent = ''; return; }
+    var qty   = parseFloat(opt.dataset.qty)  || 0;
+    var unit  = opt.dataset.unit || 'pcs';
+    badge.textContent = qty + ' ' + unit + ' available in docket';
+    badge.className = 'stock-remaining-badge';
+}
+
+/* ── Total allocation counter (simple sum of all qty boxes) ── */
+function recalcAllocation() {
+    var total = 0;
+    document.querySelectorAll('input[name="boxes[]"]').forEach(function(b) {
+        total += parseInt(b.value) || 0;
+    });
+    document.getElementById('totalAllocated').textContent = total;
+    var disp = document.getElementById('totalAllocatedDisplay');
+    if (disp) disp.textContent = total;
+
+    // Show the summary strip if any row has data
+    var hasData = document.getElementById('shipperSelect').value;
+    var infoBox = document.getElementById('stockInfoBox');
+    if (infoBox) infoBox.style.display = hasData ? 'flex' : 'none';
+}
+
+/* ── Attach AWB dropdown events to a row's docket input ── */
+function attachDocketEvents(row) {
+    var input = row.querySelector('input[name="docket_no[]"]');
+    if (!input) return;
+
+    input.addEventListener('click',  function() { openDocketDropdown(input); });
+    input.addEventListener('focus',  function() { openDocketDropdown(input); });
+    input.addEventListener('blur',   function() {
+        setTimeout(closeAllDropdowns, 200);
+    });
+
+    // Also attach existing stock change handler
+    var stockSelect = row.querySelector('select[name="stock_item_id[]"]');
+    var badge = row.querySelector('.stock-remaining-badge');
+    if (stockSelect) {
+        stockSelect.onchange = function() {
+            updateBadge(stockSelect, badge);
+            recalcAllocation();
+        };
+    }
+}
+
+/* ── Add new blank row ── */
+function addRow() {
+    var tbody  = document.getElementById('entriesBody');
+    var count  = tbody.querySelectorAll('.entry-row').length + 1;
+    var uid    = 'r' + Date.now();
+
+    var tr = document.createElement('tr');
+    tr.className = 'entry-row';
+    tr.innerHTML =
+        '<td style="color:#9CA3AF;">' + count + '</td>' +
+        '<td><input type="text" name="courier_name[]" placeholder="e.g. DTDC" style="min-width:160px;"></td>' +
+        '<td class="docket-wrap">' +
+            '<input type="text" name="docket_no[]" placeholder="Click to pick AWB" style="min-width:200px;" readonly>' +
+            '<input type="hidden" name="docket_id[]" value="">' +
+        '</td>' +
+        '<td class="stock-type-wrap">' +
+            '<select name="stock_item_id[]" required style="min-width:160px;" disabled>' +
+                '<option value="">— pick AWB first —</option>' +
+            '</select>' +
+            '<div class="stock-remaining-badge"></div>' +
+        '</td>' +
+        '<td><input type="number" name="boxes[]" min="1" value="1" onchange="recalcAllocation()" style="width:90px;"></td>' +
+        '<td><input type="text" name="entry_notes[]" placeholder="Optional" style="min-width:130px;"></td>' +
+        '<td><button type="button" onclick="removeRow(this)" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:20px;padding:0 4px;">×</button></td>';
+
+    tbody.appendChild(tr);
+    renumberRows();
+    attachDocketEvents(tr);
+    recalcAllocation();
+}
+
+/* ── Remove row ── */
+function removeRow(btn) {
+    if (document.querySelectorAll('#entriesBody .entry-row').length === 1) {
+        alert('Keep at least one courier row.');
+        return;
+    }
+    btn.closest('tr').remove();
+    renumberRows();
+    recalcAllocation();
+}
+
+function renumberRows() {
+    document.querySelectorAll('#entriesBody .entry-row').forEach(function(r, i) {
+        r.cells[0].textContent = i + 1;
+    });
+}
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', function() {
+    // Attach events to all existing rows
+    document.querySelectorAll('#entriesBody .entry-row').forEach(attachDocketEvents);
+
+    // If edit mode, shipper pre-selected — load their dockets
+    var shipperSel = document.getElementById('shipperSelect');
+    if (shipperSel.value) {
+        fetch('/manifest/shipper-dockets/' + shipperSel.value)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                shipperDockets = data;
+                // Re-populate stock dropdowns for existing edit-mode rows
+                document.querySelectorAll('#entriesBody .entry-row[data-docket]').forEach(function(row) {
+                    var docketNo = row.dataset.docket;
+                    if (!docketNo) return;
+                    var docket = shipperDockets.find(function(d) { return d.docket_no === docketNo; });
+                    if (!docket) return;
+
+                    var stockSelect   = row.querySelector('select[name="stock_item_id[]"]');
+                    var badge         = row.querySelector('.stock-remaining-badge');
+                    var savedStockId  = row.dataset.stockId;
+
+                    stockSelect.innerHTML = '<option value="">— Select Stock Type —</option>';
+                    docket.stock_items.forEach(function(s) {
+                        var opt = document.createElement('option');
+                        opt.value = s.id;
+                        opt.textContent = s.name + ' (' + s.code + ') — ' + s.quantity + ' ' + s.unit + ' available';
+                        opt.dataset.qty  = s.quantity;
+                        opt.dataset.unit = s.unit;
+                        if (String(s.id) === String(savedStockId)) opt.selected = true;
+                        stockSelect.appendChild(opt);
+                    });
+                    stockSelect.disabled = false;
+                    updateBadge(stockSelect, badge);
+                });
+            })
+            .catch(function(e) { console.error('Edit-mode docket load error:', e); });
+    }
+
+    recalcAllocation();
+
+    // Close dropdowns on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.docket-wrap')) closeAllDropdowns();
+    });
+});
+</script>
+
+{% endblock %}

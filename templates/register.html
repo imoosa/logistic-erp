@@ -1,289 +1,978 @@
-{% extends "base.html" %}
-{% block title %}Register Your Company{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Create Account — Nexa ERP</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-{% block extra_style %}
-<style>
-  .plan-card { border: 2px solid #E5E7EB; border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.2s; margin-bottom: 16px; }
-  .plan-card:hover { border-color: #4F46E5; background: #F9FAFB; }
-  .plan-card.selected { border-color: #4F46E5; background: #EEF2FF; }
-  .plan-name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-  .plan-price { font-size: 24px; font-weight: 800; color: #4F46E5; margin-bottom: 12px; }
-  .plan-features { font-size: 12px; color: #6B7280; }
-  .plan-features span { display: inline-block; margin-right: 12px; margin-bottom: 6px; }
-  .radio-input { display: none; }
+    :root {
+      --ink:       #0D1117;
+      --ink-2:     #374151;
+      --ink-3:     #6B7280;
+      --line:      #E5E7EB;
+      --surface:   #F9FAFB;
+      --white:     #FFFFFF;
+      --blue:      #2563EB;
+      --blue-dark: #1D4ED8;
+      --blue-bg:   #EFF6FF;
+      --blue-line: #BFDBFE;
+      --green:     #059669;
+      --green-bg:  #ECFDF5;
+      --amber:     #D97706;
+      --amber-bg:  #FFFBEB;
+      --red:       #DC2626;
+      --red-bg:    #FEF2F2;
+      --purple:    #7C3AED;
+      --gold:      #B45309;
+      --gold-bg:   #FEF3C7;
+      --radius:    10px;
+      --shadow:    0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.04);
+    }
 
-  /* ── Storage choice cards ─────────────────────────────────────────── */
-  .storage-card {
-    border: 2px solid #E5E7EB;
-    border-radius: 16px;
-    padding: 20px 24px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-  }
-  .storage-card:hover { border-color: #4F46E5; background: #F9FAFB; }
-  .storage-card.selected { border-color: #4F46E5; background: #EEF2FF; }
-  .storage-icon { font-size: 32px; line-height: 1; }
-  .storage-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-  .storage-desc  { font-size: 13px; color: #6B7280; line-height: 1.5; }
-  .storage-badge {
-    display: inline-block;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 20px;
-    margin-top: 6px;
-  }
-  .badge-free  { background: #D1FAE5; color: #065F46; }
-  .badge-cloud { background: #DBEAFE; color: #1E40AF; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--surface);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 0 0 64px;
+    }
 
-  /* ── Cloud credentials panel ──────────────────────────────────────── */
-  #cloud-credentials {
-    display: none;
-    margin-top: 16px;
-    padding: 18px 20px;
-    background: #F0F9FF;
-    border: 1.5px solid #BAE6FD;
-    border-radius: 12px;
-  }
-  #cloud-credentials.show { display: block; }
-  #cloud-credentials .form-group { margin-bottom: 12px; }
-  #cloud-credentials label { font-size: 13px; font-weight: 600; color: #0C4A6E; }
-  #cloud-credentials input {
-    width: 100%;
-    padding: 9px 12px;
-    border: 1.5px solid #BAE6FD;
-    border-radius: 8px;
-    font-size: 13px;
-    background: #fff;
-  }
-  .cloud-hint {
-    font-size: 12px;
-    color: #0369A1;
-    margin-top: 10px;
-    padding: 8px 12px;
-    background: #E0F2FE;
-    border-radius: 8px;
-  }
-</style>
-{% endblock %}
+    /* ── Top bar ── */
+    .topbar {
+      background: var(--white);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; }
+    .logo-mark {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+    }
+    .logo-text { font-size: 17px; font-weight: 800; color: var(--ink); letter-spacing: -.3px; }
+    .topbar-link { font-size: 13px; color: var(--ink-3); text-decoration: none; }
+    .topbar-link strong { color: var(--blue); }
 
-{% block content %}
-<div class="page-header">
-  <h2>🚀 Start Your Journey</h2>
-  <p>Create your company account and choose a plan that fits your business</p>
+    /* ── Progress bar ── */
+    .progress-wrap {
+      max-width: 560px;
+      margin: 32px auto 0;
+      padding: 0 20px;
+    }
+    .steps {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      margin-bottom: 28px;
+    }
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 16px;
+      left: 0; right: 0;
+      height: 2px;
+      background: var(--line);
+      z-index: 0;
+    }
+    .step-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      z-index: 1;
+      flex: 1;
+    }
+    .step-dot {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--white);
+      border: 2px solid var(--line);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 700; color: var(--ink-3);
+      transition: all .2s;
+    }
+    .step-item.active .step-dot   { border-color: var(--blue); background: var(--blue); color: #fff; }
+    .step-item.done .step-dot     { border-color: var(--green); background: var(--green); color: #fff; }
+    .step-label {
+      font-size: 11px; font-weight: 600; color: var(--ink-3);
+      white-space: nowrap;
+      transition: color .2s;
+    }
+    .step-item.active .step-label { color: var(--blue); }
+    .step-item.done  .step-label  { color: var(--green); }
+
+    /* ── Panels ── */
+    .panel { display: none; max-width: 760px; margin: 0 auto; padding: 0 20px; }
+    .panel.active { display: block; }
+
+    .panel-header { margin-bottom: 24px; }
+    .panel-header h2 { font-size: 22px; font-weight: 800; color: var(--ink); margin-bottom: 4px; letter-spacing: -.3px; }
+    .panel-header p  { font-size: 14px; color: var(--ink-3); }
+
+    /* ── Flash ── */
+    .flash-wrap { max-width: 760px; margin: 20px auto 0; padding: 0 20px; }
+    .flash {
+      padding: 12px 16px; border-radius: var(--radius);
+      font-size: 13px; font-weight: 500; margin-bottom: 8px;
+    }
+    .flash-error   { background: var(--red-bg);   color: var(--red);   border: 1px solid #FECACA; }
+    .flash-success { background: var(--green-bg);  color: var(--green); border: 1px solid #A7F3D0; }
+    .flash-info    { background: var(--blue-bg);   color: var(--blue);  border: 1px solid var(--blue-line); }
+
+    /* ── Plan cards ── */
+    .plan-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+    .plan-card {
+      border: 2px solid var(--line);
+      border-radius: 14px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all .18s;
+      position: relative;
+      background: var(--white);
+    }
+    .plan-card:hover { border-color: var(--blue); background: var(--blue-bg); }
+    .plan-card.selected { border-color: var(--blue); background: var(--blue-bg); }
+    .plan-card.selected::after {
+      content: '✓';
+      position: absolute; top: 12px; right: 14px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--blue); color: #fff;
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .plan-card input[type="radio"] { display: none; }
+    .plan-badge {
+      display: inline-block;
+      font-size: 10px; font-weight: 700; letter-spacing: .5px;
+      padding: 3px 8px; border-radius: 20px;
+      margin-bottom: 10px; text-transform: uppercase;
+    }
+    .badge-basic   { background: #F3F4F6; color: var(--ink-2); }
+    .badge-premium { background: var(--blue-bg); color: var(--blue); }
+    .badge-gold    { background: var(--gold-bg); color: var(--gold); }
+    .badge-custom  { background: #F5F3FF; color: var(--purple); }
+    .plan-name   { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .plan-price  { font-size: 24px; font-weight: 800; color: var(--blue); margin-bottom: 12px; }
+    .plan-price small { font-size: 13px; font-weight: 500; color: var(--ink-3); }
+    .plan-limits {
+      display: flex; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .plan-pill {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      border-radius: 20px; background: var(--surface); color: var(--ink-2);
+      border: 1px solid var(--line);
+    }
+    .plan-features-list { list-style: none; }
+    .plan-features-list li {
+      font-size: 12px; color: var(--ink-2);
+      padding: 3px 0;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .plan-features-list li::before { content: '✓'; color: var(--green); font-weight: 700; }
+
+    /* ── Card wrapper ── */
+    .card {
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+    .card-head {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .card-head-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+      background: var(--blue-bg);
+    }
+    .card-head h3 { font-size: 14px; font-weight: 700; color: var(--ink); }
+    .card-head p  { font-size: 12px; color: var(--ink-3); margin-top: 1px; }
+    .card-body { padding: 20px 22px; }
+
+    /* ── Form elements ── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group:last-child { margin-bottom: 0; }
+    label.field-label {
+      display: block;
+      font-size: 12px; font-weight: 600; color: var(--ink-2);
+      margin-bottom: 5px;
+    }
+    .required-star { color: var(--red); margin-left: 2px; }
+    input[type="text"],
+    input[type="email"],
+    input[type="tel"],
+    input[type="password"],
+    input[type="date"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13.5px;
+      color: var(--ink);
+      background: var(--white);
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    }
+    .field-hint { font-size: 11px; color: var(--ink-3); margin-top: 4px; }
+    .field-error { font-size: 11px; color: var(--red); margin-top: 4px; display: none; }
+
+    /* ── Radio toggle ── */
+    .radio-row { display: flex; gap: 10px; margin-top: 6px; }
+    .radio-opt {
+      flex: 1;
+      border: 1.5px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 14px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 500;
+      transition: all .15s;
+    }
+    .radio-opt input { display: none; }
+    .radio-opt:hover { border-color: var(--blue); background: var(--blue-bg); }
+    .radio-opt.checked { border-color: var(--blue); background: var(--blue-bg); color: var(--blue); }
+    .radio-dot {
+      width: 16px; height: 16px; border-radius: 50%;
+      border: 2px solid var(--line);
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .15s;
+    }
+    .radio-opt.checked .radio-dot {
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+    .radio-opt.checked .radio-dot::after {
+      content: '';
+      width: 6px; height: 6px; border-radius: 50%; background: #fff;
+    }
+
+    /* ── Company slot ── */
+    .company-slot {
+      border: 1.5px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+      background: var(--white);
+      margin-bottom: 12px;
+      transition: border-color .15s;
+    }
+    .company-slot:focus-within { border-color: var(--blue-line); }
+    .slot-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .slot-label {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 700; color: var(--ink);
+    }
+    .slot-num {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: var(--blue); color: #fff;
+      font-size: 12px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .slot-required-badge {
+      font-size: 10px; font-weight: 600; color: var(--ink-3);
+      background: var(--surface); padding: 2px 8px; border-radius: 20px;
+      border: 1px solid var(--line);
+    }
+    .slot-optional-badge {
+      font-size: 10px; font-weight: 600; color: var(--amber);
+      background: var(--amber-bg); padding: 2px 8px; border-radius: 20px;
+      border: 1px solid #FDE68A;
+    }
+    .gst-collapsible { display: none; margin-top: 12px; }
+    .gst-collapsible.show { display: block; }
+    .gst-notice {
+      background: var(--amber-bg);
+      border: 1px solid #FDE68A;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--amber);
+      margin-top: 10px;
+    }
+
+    /* ── Review section ── */
+    .review-group { margin-bottom: 20px; }
+    .review-group h4 {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .6px; color: var(--ink-3);
+      margin-bottom: 10px;
+      padding-bottom: 8px; border-bottom: 1px solid var(--line);
+    }
+    .review-row {
+      display: flex; justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+    .review-row span:first-child { color: var(--ink-3); }
+    .review-row span:last-child  { font-weight: 600; color: var(--ink); text-align: right; }
+    .review-plan-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 13px; font-weight: 700;
+      background: var(--blue-bg); color: var(--blue);
+    }
+    .review-company-card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 8px;
+    }
+    .review-company-name { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .review-company-meta { font-size: 12px; color: var(--ink-3); }
+
+    /* ── Buttons ── */
+    .btn-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 24px;
+    }
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 10px 22px;
+      border-radius: 9px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer; border: none;
+      text-decoration: none;
+      transition: all .15s;
+    }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-primary:hover { background: var(--blue-dark); }
+    .btn-ghost {
+      background: var(--white); color: var(--ink-2);
+      border: 1.5px solid var(--line);
+    }
+    .btn-ghost:hover { background: var(--surface); }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-success:hover { background: #047857; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    /* ── Password strength ── */
+    .pw-strength { margin-top: 6px; }
+    .pw-bar {
+      height: 3px; border-radius: 99px;
+      background: var(--line); overflow: hidden;
+    }
+    .pw-bar-fill {
+      height: 100%; border-radius: 99px;
+      transition: width .3s, background .3s;
+      width: 0%;
+    }
+    .pw-label { font-size: 11px; margin-top: 3px; }
+
+    /* ── Terms ── */
+    .terms-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 14px 16px;
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 10px; margin-top: 16px;
+      font-size: 13px; color: var(--ink-2);
+    }
+    .terms-row input[type="checkbox"] {
+      width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; cursor: pointer;
+    }
+    .terms-row a { color: var(--blue); }
+
+    /* ── Spinner ── */
+    .spinner {
+      display: none;
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media(max-width: 620px) {
+      .plan-grid { grid-template-columns: 1fr; }
+      .grid-2    { grid-template-columns: 1fr; }
+      .panel     { padding: 0 14px; }
+      .progress-wrap { padding: 0 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="logo">
+    <div class="logo-mark">🚚</div>
+    <div class="logo-text">Nexa ERP</div>
+  </div>
+  <a href="/login" class="topbar-link">Already have an account? <strong>Login →</strong></a>
 </div>
 
-<form method="POST" id="registerForm" onsubmit="return validateForm()">
-  <div class="grid-2" style="gap: 24px;">
-    <!-- Left Column: Company Info -->
-    <div class="card card-body">
-      <h3 style="margin-bottom: 20px; font-size: 18px;">Company Details</h3>
-      
-      <div class="form-group">
-        <label>Company Name *</label>
-        <input type="text" name="company_name" required placeholder="Your Business Name">
+<!-- Flash messages -->
+<div class="flash-wrap">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="flash {% if category == 'error' %}flash-error{% elif category == 'success' %}flash-success{% else %}flash-info{% endif %}">
+        {{ message }}
       </div>
-      
-      <div class="form-group">
-        <label>GST Number (Optional)</label>
-        <input type="text" name="gst_number" placeholder="27AAPFU0939F1ZV">
-      </div>
-      
-      <div class="form-group">
-        <label>Business Address</label>
-        <textarea name="address" rows="3" style="width:100%; padding:10px; border-radius:8px; border:1.5px solid #E5E7EB;"></textarea>
-      </div>
+    {% endfor %}
+  {% endwith %}
+</div>
+
+<!-- Progress steps -->
+<div class="progress-wrap">
+  <div class="steps">
+    <div class="step-item active" id="si-1">
+      <div class="step-dot">1</div>
+      <div class="step-label">Choose Plan</div>
     </div>
-    
-    <!-- Right Column: Owner Info -->
-    <div class="card card-body">
-      <h3 style="margin-bottom: 20px; font-size: 18px;">Owner Information</h3>
-      
-      <div class="form-group">
-        <label>Full Name *</label>
-        <input type="text" name="full_name" required placeholder="John Doe">
-      </div>
-      
-      <div class="form-group">
-        <label>Email Address *</label>
-        <input type="email" name="email" required placeholder="owner@company.com">
-      </div>
-      
-      <div class="form-group">
-        <label>Phone Number *</label>
-        <input type="tel" name="phone" required placeholder="+91 98765 43210">
-      </div>
-      
-      <div class="form-group">
-        <label>Password *</label>
-        <input type="password" name="password" required placeholder="Min. 6 characters">
-      </div>
-      
-      <div class="form-group">
-        <label>Confirm Password *</label>
-        <input type="password" name="confirm_password" required placeholder="Re-enter password">
-      </div>
+    <div class="step-item" id="si-2">
+      <div class="step-dot">2</div>
+      <div class="step-label">Your Details</div>
+    </div>
+    <div class="step-item" id="si-3">
+      <div class="step-dot">3</div>
+      <div class="step-label">Companies</div>
+    </div>
+    <div class="step-item" id="si-4">
+      <div class="step-dot">4</div>
+      <div class="step-label">Review</div>
     </div>
   </div>
+</div>
 
-  <!-- ── Data Storage Choice ──────────────────────────────────────────────── -->
-  <div class="card card-body" style="margin-top: 24px;">
-    <h3 style="margin-bottom: 6px; font-size: 18px;">Where do you want to store your data?</h3>
-    <p style="font-size: 13px; color: #6B7280; margin-bottom: 20px;">
-      Your business data (clients, invoices, stock, etc.) will be stored in the database you choose below.
-      This cannot be changed after registration without a data migration.
-    </p>
+<form method="POST" id="regForm" onsubmit="return handleSubmit()">
 
-    <div class="grid-2" style="gap: 16px;">
-
-      <!-- Local / SQLite -->
-      <div class="storage-card selected" id="storage-local" onclick="selectStorage('local')">
-        <div class="storage-icon">💾</div>
-        <div>
-          <div class="storage-title">Local Storage</div>
-          <div class="storage-desc">
-            Your data is stored as a file on <strong>this server</strong>. Simple setup, no extra cost.
-            Best for small businesses or when you manage your own server.
-          </div>
-          <span class="storage-badge badge-free">Free · No setup needed</span>
-        </div>
-      </div>
-
-      <!-- Cloud / MySQL -->
-      <div class="storage-card" id="storage-cloud" onclick="selectStorage('cloud')">
-        <div class="storage-icon">☁️</div>
-        <div>
-          <div class="storage-title">Cloud Database (MySQL)</div>
-          <div class="storage-desc">
-            Connect your own cloud MySQL database (e.g. AWS RDS, PlanetScale, Aiven, DigitalOcean).
-            You own and control your data fully, accessible from anywhere.
-          </div>
-          <span class="storage-badge badge-cloud">Bring your own MySQL</span>
-        </div>
-      </div>
-
+  <!-- ═══════════════════════════════════════════════
+       STEP 1 — Choose Plan
+  ════════════════════════════════════════════════ -->
+  <div class="panel active" id="panel-1">
+    <div class="panel-header">
+      <h2>Choose your plan</h2>
+      <p>Your plan determines how many companies and users you can manage.</p>
     </div>
 
-    <!-- Hidden field for storage type -->
-    <input type="hidden" name="storage_type" id="storage_type" value="local">
-
-    <!-- Cloud credentials panel (shown only when cloud is selected) -->
-    <div id="cloud-credentials">
-      <p style="font-size: 14px; font-weight: 600; color: #0C4A6E; margin-bottom: 14px;">
-        ☁️ Enter your MySQL connection details
-      </p>
-
-      <div class="grid-2" style="gap: 12px;">
-        <div class="form-group">
-          <label>Host *</label>
-          <input type="text" name="db_host" id="db_host" placeholder="db.example.com or 203.0.113.5">
-        </div>
-        <div class="form-group">
-          <label>Port</label>
-          <input type="number" name="db_port" id="db_port" value="3306" placeholder="3306">
-        </div>
-      </div>
-
-      <div class="grid-2" style="gap: 12px;">
-        <div class="form-group">
-          <label>Database Name *</label>
-          <input type="text" name="db_name" id="db_name" placeholder="my_erp_db">
-        </div>
-        <div class="form-group">
-          <label>Username *</label>
-          <input type="text" name="db_user" id="db_user" placeholder="db_user">
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>Password *</label>
-        <input type="password" name="db_password" id="db_password" placeholder="Database password">
-      </div>
-
-      <div class="cloud-hint">
-        ℹ️ We will build the connection URI as:
-        <code>mysql+pymysql://user:password@host:port/database</code><br>
-        Make sure the database already exists and the user has full privileges on it.
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Subscription Plans ──────────────────────────────────────────────── -->
-  <div class="card card-body" style="margin-top: 24px;">
-    <h3 style="margin-bottom: 20px; font-size: 18px;">Choose Your Plan</h3>
-    <div class="grid-2" style="gap: 16px;">
+    <div class="plan-grid" id="plan-grid">
       {% for plan_key, plan in plans.items() %}
-      <div class="plan-card {% if plan_key == 'basic' %}selected{% endif %}" onclick="selectPlan('{{ plan_key }}')">
-        <input type="radio" name="subscription_plan" value="{{ plan_key }}" id="plan_{{ plan_key }}" class="radio-input" {% if plan_key == 'basic' %}checked{% endif %}>
+      {% set badges = {'basic':'badge-basic','premium':'badge-premium','gold':'badge-gold','custom':'badge-custom'} %}
+      <div class="plan-card {% if plan_key == 'basic' %}selected{% endif %}"
+           id="pc-{{ plan_key }}"
+           onclick="selectPlan('{{ plan_key }}')">
+        <input type="radio" name="subscription_plan" value="{{ plan_key }}" id="pr-{{ plan_key }}"
+               {% if plan_key == 'basic' %}checked{% endif %}>
+        <div class="plan-badge {{ badges.get(plan_key, 'badge-basic') }}">{{ plan_key }}</div>
         <div class="plan-name">{{ plan.name }}</div>
         <div class="plan-price">
-          {% if plan.price == "Contact Sales" %}
-            {{ plan.price }}
+          {% if plan.price == 'Contact Sales' %}
+            <span style="font-size:16px;">Contact Sales</span>
           {% else %}
-            ₹{{ plan.price }}/month
+            ₹{{ plan.price }}<small>/month</small>
           {% endif %}
         </div>
-        <div class="plan-features">
-          <span>🏢 {{ plan.max_companies }} Companies</span>
-          <span>👥 {{ plan.max_users_per_company }} Users</span>
-          {% for feature in plan.features[:2] %}
-          <span>✓ {{ feature }}</span>
-          {% endfor %}
+        <div class="plan-limits">
+          <span class="plan-pill">🏢 {{ plan.max_companies }} {{ 'Company' if plan.max_companies == '1' else 'Companies' }}</span>
+          <span class="plan-pill">👥 {{ plan.max_users_per_company }} Users</span>
         </div>
+        <ul class="plan-features-list">
+          {% for feature in plan.features %}
+          <li>{{ feature }}</li>
+          {% endfor %}
+        </ul>
       </div>
       {% endfor %}
     </div>
+
+    <div class="btn-row">
+      <a href="/login" class="btn btn-ghost">← Back to Login</a>
+      <button type="button" class="btn btn-primary" onclick="goTo(2)">Next: Your Details →</button>
+    </div>
   </div>
-  
-  <div style="display: flex; justify-content: space-between; margin-top: 24px;">
-    <a href="/login" class="btn btn-ghost">← Back to Login</a>
-    <button type="submit" class="btn btn-primary">Create Account →</button>
+
+  <!-- ═══════════════════════════════════════════════
+       STEP 2 — Owner / Account Details
+  ════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-2">
+    <div class="panel-header">
+      <h2>Your account details</h2>
+      <p>This becomes the owner account with full admin access.</p>
+    </div>
+
+    <!-- Personal Info -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-icon">👤</div>
+        <div>
+          <h3>Personal Information</h3>
+          <p>Your name and contact details</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="field-label">Full Name <span class="required-star">*</span></label>
+            <input type="text" name="full_name" id="full_name" placeholder="e.g. Rahul Sharma" required>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Phone Number <span class="required-star">*</span></label>
+            <input type="tel" name="phone" id="phone" placeholder="e.g. 9876543210" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="field-label">Email Address <span class="required-star">*</span></label>
+          <input type="email" name="email" id="email" placeholder="owner@yourcompany.com" required>
+          <div class="field-hint">Used for login and important account notifications</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-head-icon">🔐</div>
+        <div>
+          <h3>Set a Password</h3>
+          <p>Minimum 8 characters with at least one number</p>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="field-label">Password <span class="required-star">*</span></label>
+            <input type="password" name="password" id="password" placeholder="Min 8 characters" required oninput="checkPwStrength(this.value)">
+            <div class="pw-strength">
+              <div class="pw-bar"><div class="pw-bar-fill" id="pw-fill"></div></div>
+              <div class="pw-label" id="pw-label" style="color:var(--ink-3);">Enter a password</div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="field-label">Confirm Password <span class="required-star">*</span></label>
+            <input type="password" name="confirm_password" id="confirm_password" placeholder="Repeat password" required>
+            <div class="field-error" id="pw-match-err">Passwords do not match</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn btn-ghost" onclick="goTo(1)">← Back</button>
+      <button type="button" class="btn btn-primary" onclick="validateStep2()">Next: Set Up Companies →</button>
+    </div>
   </div>
+
+  <!-- ═══════════════════════════════════════════════
+       STEP 3 — Company Setup
+  ════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-3">
+    <div class="panel-header">
+      <h2>Set up your companies</h2>
+      <p id="company-step-subtitle">Your plan allows you to add companies. The first one is required.</p>
+    </div>
+
+    <div id="company-slots">
+      <!-- Injected by JS based on plan -->
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn btn-ghost" onclick="goTo(2)">← Back</button>
+      <button type="button" class="btn btn-primary" onclick="validateStep3()">Review & Confirm →</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════
+       STEP 4 — Review
+  ════════════════════════════════════════════════ -->
+  <div class="panel" id="panel-4">
+    <div class="panel-header">
+      <h2>Review your registration</h2>
+      <p>Check everything before creating your account.</p>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="review-group">
+          <h4>Selected Plan</h4>
+          <div style="padding:6px 0;">
+            <span class="review-plan-badge" id="rv-plan-badge">—</span>
+          </div>
+          <div class="review-row"><span>Companies allowed</span><span id="rv-max-companies">—</span></div>
+          <div class="review-row"><span>Users per company</span><span id="rv-max-users">—</span></div>
+          <div class="review-row"><span>Price</span><span id="rv-price">—</span></div>
+        </div>
+
+        <div class="review-group">
+          <h4>Account Owner</h4>
+          <div class="review-row"><span>Name</span><span id="rv-name">—</span></div>
+          <div class="review-row"><span>Email</span><span id="rv-email">—</span></div>
+          <div class="review-row"><span>Phone</span><span id="rv-phone">—</span></div>
+        </div>
+
+        <div class="review-group">
+          <h4>Companies</h4>
+          <div id="rv-companies"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="terms-row">
+      <input type="checkbox" id="terms-check">
+      <label for="terms-check">
+        I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.
+        I understand that my data will be stored securely on Nexa ERP's managed cloud database.
+      </label>
+    </div>
+
+    <div class="btn-row">
+      <button type="button" class="btn btn-ghost" onclick="goTo(3)">← Back</button>
+      <button type="submit" class="btn btn-success" id="submit-btn">
+        <span id="submit-label">Create My Account</span>
+        <div class="spinner" id="submit-spinner"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Hidden: storage always cloud, managed by Nexa -->
+  <input type="hidden" name="storage_type" value="cloud">
+
 </form>
 
 <script>
-function selectPlan(planKey) {
-  document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  document.getElementById(`plan_${planKey}`).checked = true;
-}
+  // ── Plan data from server ─────────────────────────────────────────────────
+  const PLANS = {
+    {% for plan_key, plan in plans.items() %}
+    "{{ plan_key }}": {
+      name: {{ plan.name | tojson }},
+      price: {{ plan.price | tojson }},
+      maxCompanies: {{ plan.max_companies | tojson }},
+      maxUsers: {{ plan.max_users_per_company | tojson }},
+    },
+    {% endfor %}
+  };
 
-function selectStorage(type) {
-  document.querySelectorAll('.storage-card').forEach(c => c.classList.remove('selected'));
-  document.getElementById(`storage-${type}`).classList.add('selected');
-  document.getElementById('storage_type').value = type;
+  // Safe init — don't assume 'basic' is always the first plan
+  const _firstKey    = Object.keys(PLANS)[0] || 'basic';
+  const _initPlanKey = PLANS['basic'] ? 'basic' : _firstKey;
 
-  const panel = document.getElementById('cloud-credentials');
-  if (type === 'cloud') {
-    panel.classList.add('show');
-    // Make cloud fields required
-    ['db_host', 'db_name', 'db_user', 'db_password'].forEach(id => {
-      document.getElementById(id).required = true;
-    });
-  } else {
-    panel.classList.remove('show');
-    ['db_host', 'db_name', 'db_user', 'db_password'].forEach(id => {
-      document.getElementById(id).required = false;
-    });
+  let selectedPlan    = _initPlanKey;
+  let maxCompaniesStr = PLANS[_initPlanKey] ? PLANS[_initPlanKey].maxCompanies : '1';
+  let maxCompanies    = (maxCompaniesStr === 'Unlimited') ? 10 : (parseInt(maxCompaniesStr) || 1);
+
+  // ── Plan selection ────────────────────────────────────────────────────────
+  function selectPlan(key) {
+    const plan = PLANS[key];
+    if (!plan) return;
+
+    // Update card UI
+    document.querySelectorAll('.plan-card').forEach(c => c.classList.remove('selected'));
+    const card = document.getElementById('pc-' + key);
+    if (card) card.classList.add('selected');
+
+    // Check the hidden radio
+    const radio = document.getElementById('pr-' + key);
+    if (radio) radio.checked = true;
+
+    // Update state
+    selectedPlan    = key;
+    maxCompaniesStr = String(plan.maxCompanies);
+    maxCompanies    = (maxCompaniesStr === 'Unlimited') ? 10 : (parseInt(maxCompaniesStr) || 1);
   }
-}
 
-function validateForm() {
-  const storageType = document.getElementById('storage_type').value;
-  if (storageType === 'cloud') {
-    const host = document.getElementById('db_host').value.trim();
-    const name = document.getElementById('db_name').value.trim();
-    const user = document.getElementById('db_user').value.trim();
-    const pass = document.getElementById('db_password').value;
-    if (!host || !name || !user || !pass) {
-      alert('Please fill in all cloud database fields.');
-      return false;
+  // ── Step navigation ───────────────────────────────────────────────────────
+  function goTo(step) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + step).classList.add('active');
+
+    // Update step indicators
+    for (let i = 1; i <= 4; i++) {
+      const si = document.getElementById('si-' + i);
+      si.classList.remove('active', 'done');
+      if (i < step)  si.classList.add('done');
+      if (i === step) si.classList.add('active');
+    }
+
+    if (step === 3) buildCompanySlots();
+    if (step === 4) buildReview();
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // ── Step 2 validation ─────────────────────────────────────────────────────
+  function validateStep2() {
+    const name  = document.getElementById('full_name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+    const pw    = document.getElementById('password').value;
+    const pw2   = document.getElementById('confirm_password').value;
+
+    if (!name || !email || !phone) { alert('Please fill in all required fields.'); return; }
+    if (pw.length < 8) { alert('Password must be at least 8 characters.'); return; }
+    if (pw !== pw2) {
+      document.getElementById('pw-match-err').style.display = 'block';
+      return;
+    }
+    document.getElementById('pw-match-err').style.display = 'none';
+    goTo(3);
+  }
+
+  // ── Password strength ─────────────────────────────────────────────────────
+  function checkPwStrength(val) {
+    let score = 0;
+    if (val.length >= 8)  score++;
+    if (/[0-9]/.test(val)) score++;
+    if (/[A-Z]/.test(val)) score++;
+    if (/[^a-zA-Z0-9]/.test(val)) score++;
+
+    const fill  = document.getElementById('pw-fill');
+    const label = document.getElementById('pw-label');
+    const widths = ['0%','30%','60%','80%','100%'];
+    const colors = ['#E5E7EB','#EF4444','#F59E0B','#3B82F6','#059669'];
+    const labels = ['','Weak','Fair','Good','Strong'];
+    const lColors= ['','#EF4444','#D97706','#2563EB','#059669'];
+
+    fill.style.width      = widths[score];
+    fill.style.background = colors[score];
+    label.textContent     = val ? labels[score] : 'Enter a password';
+    label.style.color     = lColors[score] || 'var(--ink-3)';
+  }
+
+  // ── Build company slots ───────────────────────────────────────────────────
+  function buildCompanySlots() {
+    const plan = PLANS[selectedPlan];
+    const max  = maxCompanies;
+    const isUnlimited = plan.maxCompanies === 'Unlimited';
+
+    document.getElementById('company-step-subtitle').textContent =
+      `Your ${plan.name} allows ${isUnlimited ? 'unlimited' : plan.maxCompanies} ${plan.maxCompanies === '1' ? 'company' : 'companies'}. You must set up at least one now.`;
+
+    const container = document.getElementById('company-slots');
+    container.innerHTML = '';
+
+    // Always show slot 1 (required) + up to max-1 optional slots
+    const showSlots = Math.min(max, isUnlimited ? 5 : max); // cap display at 5 for unlimited
+
+    for (let i = 1; i <= showSlots; i++) {
+      container.innerHTML += buildSlotHTML(i, i === 1);
+    }
+
+    if (isUnlimited) {
+      container.innerHTML += `<p style="font-size:12px;color:var(--ink-3);text-align:center;padding:8px 0;">
+        You can add more companies after registration from your dashboard.
+      </p>`;
     }
   }
-  return true;
-}
+
+  function buildSlotHTML(num, required) {
+    const badge = required
+      ? `<span class="slot-required-badge">Required</span>`
+      : `<span class="slot-optional-badge">Optional</span>`;
+
+    return `
+    <div class="company-slot" id="slot-${num}">
+      <div class="slot-header">
+        <div class="slot-label">
+          <div class="slot-num">${num}</div>
+          Company ${num}
+        </div>
+        ${badge}
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="field-label">Company Name ${required ? '<span class="required-star">*</span>' : ''}</label>
+          <input type="text" name="company_name_${num}" id="cname_${num}"
+                 placeholder="e.g. Sharma Exports Pvt Ltd"
+                 ${required ? 'required' : ''}>
+        </div>
+        <div class="form-group">
+          <label class="field-label">Business Phone</label>
+          <input type="tel" name="company_phone_${num}" placeholder="e.g. 9876543210">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="field-label">Business Address</label>
+        <input type="text" name="company_address_${num}" placeholder="City, State">
+      </div>
+      <div class="form-group">
+        <label class="field-label">GST Registered?</label>
+        <div class="radio-row">
+          <div class="radio-opt checked" id="gst-yes-${num}" onclick="setGST(${num}, true)">
+            <div class="radio-dot"></div>
+            <input type="radio" name="is_gst_registered_${num}" value="1" checked>
+            Yes, GST registered
+          </div>
+          <div class="radio-opt" id="gst-no-${num}" onclick="setGST(${num}, false)">
+            <div class="radio-dot"></div>
+            <input type="radio" name="is_gst_registered_${num}" value="0">
+            No, not registered
+          </div>
+        </div>
+      </div>
+      <div class="gst-collapsible show" id="gst-field-${num}">
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="field-label">GST Number</label>
+          <input type="text" name="gst_number_${num}" id="gst_num_${num}"
+                 placeholder="e.g. 27AAABC1234F1Z"
+                 style="font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.5px;">
+          <div class="field-hint">15-character GST Identification Number</div>
+        </div>
+      </div>
+      <div class="gst-notice" id="gst-notice-${num}" style="display:none;">
+        ⚠️ GST will not be applied to invoices for this company. You can enable it later from Company Settings.
+      </div>
+    </div>`;
+  }
+
+  function setGST(num, show) {
+    document.getElementById('gst-yes-' + num).classList.toggle('checked', show);
+    document.getElementById('gst-no-'  + num).classList.toggle('checked', !show);
+    document.querySelector(`#gst-yes-${num} input`).checked = show;
+    document.querySelector(`#gst-no-${num} input`).checked  = !show;
+    document.getElementById('gst-field-'  + num).classList.toggle('show', show);
+    document.getElementById('gst-notice-' + num).style.display = show ? 'none' : 'block';
+    if (!show) document.getElementById('gst_num_' + num).value = '';
+  }
+
+  // ── Step 3 validation ─────────────────────────────────────────────────────
+  function validateStep3() {
+    const firstName = document.getElementById('cname_1');
+    if (!firstName || !firstName.value.trim()) {
+      alert('Company 1 name is required.');
+      return;
+    }
+    goTo(4);
+  }
+
+  // ── Build review panel ────────────────────────────────────────────────────
+  function buildReview() {
+    const plan = PLANS[selectedPlan];
+
+    document.getElementById('rv-plan-badge').textContent   = plan.name;
+    document.getElementById('rv-max-companies').textContent = plan.maxCompanies + ' Companies';
+    document.getElementById('rv-max-users').textContent     = plan.maxUsers + ' per company';
+    document.getElementById('rv-price').textContent         =
+      plan.price === 'Contact Sales' ? 'Contact Sales' : '₹' + plan.price + '/month';
+
+    document.getElementById('rv-name').textContent  = document.getElementById('full_name').value;
+    document.getElementById('rv-email').textContent = document.getElementById('email').value;
+    document.getElementById('rv-phone').textContent = document.getElementById('phone').value;
+
+    let companiesHTML = '';
+    for (let i = 1; i <= maxCompanies; i++) {
+      const nameEl = document.getElementById('cname_' + i);
+      if (!nameEl) break;
+      const name = nameEl.value.trim();
+      if (!name) continue;
+
+      const gstEl  = document.getElementById('gst_num_' + i);
+      const gstYes = document.getElementById('gst-yes-' + i);
+      const isGST  = gstYes && gstYes.classList.contains('checked');
+      const gstNum = (isGST && gstEl) ? gstEl.value.trim() : '';
+
+      companiesHTML += `
+        <div class="review-company-card">
+          <div class="review-company-name">${name}</div>
+          <div class="review-company-meta">
+            ${isGST ? (gstNum ? '✓ GST: ' + gstNum : '✓ GST Registered') : '✗ Not GST Registered'}
+          </div>
+        </div>`;
+    }
+    document.getElementById('rv-companies').innerHTML = companiesHTML || '<p style="color:var(--ink-3);font-size:13px;">No companies configured.</p>';
+  }
+
+  // ── Form submit handler ──────────────────────────────────────────────────
+  function handleSubmit() {
+    // 1. Terms check
+    if (!document.getElementById('terms-check').checked) {
+      alert('Please accept the Terms of Service to continue.');
+      return false;
+    }
+
+    // 2. Append hidden fields BEFORE the form submits
+    const form = document.getElementById('regForm');
+
+    // company_name (slot 1 → flat field the Flask route expects)
+    const c1 = document.getElementById('cname_1');
+    if (c1) {
+      const h = document.createElement('input');
+      h.type = 'hidden'; h.name = 'company_name'; h.value = c1.value;
+      form.appendChild(h);
+    }
+
+    // is_gst_registered + gst_number for company 1
+    const gstYes = document.getElementById('gst-yes-1');
+    const isGST  = gstYes && gstYes.classList.contains('checked');
+    const gstNum = document.getElementById('gst_num_1');
+
+    const hGST = document.createElement('input');
+    hGST.type = 'hidden'; hGST.name = 'is_gst_registered'; hGST.value = isGST ? '1' : '0';
+    form.appendChild(hGST);
+
+    if (isGST && gstNum && gstNum.value.trim()) {
+      const hGSTN = document.createElement('input');
+      hGSTN.type = 'hidden'; hGSTN.name = 'gst_number'; hGSTN.value = gstNum.value.trim();
+      form.appendChild(hGSTN);
+    }
+
+    // extra companies JSON
+    const extraCompanies = [];
+    for (let i = 2; i <= maxCompanies; i++) {
+      const nameEl = document.getElementById('cname_' + i);
+      if (!nameEl || !nameEl.value.trim()) continue;
+      const gY = document.getElementById('gst-yes-' + i);
+      const gN = document.getElementById('gst_num_' + i);
+      extraCompanies.push({
+        name:              nameEl.value.trim(),
+        is_gst_registered: gY && gY.classList.contains('checked'),
+        gst_number:        gN ? gN.value.trim() : '',
+        address:           (document.querySelector('input[name="company_address_' + i + '"]') || {}).value || '',
+        phone:             (document.querySelector('input[name="company_phone_' + i + '"]') || {}).value || '',
+      });
+    }
+    const hExtra = document.createElement('input');
+    hExtra.type = 'hidden'; hExtra.name = 'extra_companies';
+    hExtra.value = JSON.stringify(extraCompanies);
+    form.appendChild(hExtra);
+
+    // 3. Show spinner AFTER fields are appended, disable button AFTER return
+    //    Use setTimeout so the UI updates before the browser navigates away
+    setTimeout(function() {
+      document.getElementById('submit-label').textContent = 'Creating account…';
+      document.getElementById('submit-spinner').style.display = 'block';
+      document.getElementById('submit-btn').disabled = true;
+    }, 0);
+
+    // 4. Allow the form to actually submit
+    return true;
+  }
+
+  // ── Init: pre-select basic ────────────────────────────────────────────────
+  selectPlan(_initPlanKey);
 </script>
-{% endblock %}
+</body>
+</html>

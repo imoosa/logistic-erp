@@ -121,6 +121,7 @@
           <th>Mode</th>
           <th>Amount</th>
           <th>Status</th>
+          <th>Resale</th>
           <th></th>
         </tr>
       </thead>
@@ -185,13 +186,13 @@
 
           <!-- Amount -->
           <td>
-            <strong style="font-size:14px">₹{{ "{:,.0f}".format(inv.total) }}</strong>
-            {% if inv.balance > 0 %}
-            <div style="font-size:11.5px;color:#DC2626;margin-top:2px">Due: ₹{{ "{:,.0f}".format(inv.balance) }}</div>
-            {% else %}
-            <div style="font-size:11.5px;color:#16A34A;margin-top:2px">Fully Paid ✓</div>
-            {% endif %}
-          </td>
+          <strong style="font-size:14px">₹{{ "{:,.0f}".format(inv.total) }}</strong>
+          {% if inv.balance > 0 %}
+          <div style="font-size:11.5px;color:#DC2626;margin-top:2px">Due: ₹{{ "{:,.0f}".format(inv.balance) }}</div>
+          {% else %}
+          <div style="font-size:11.5px;color:#16A34A;margin-top:2px">Fully Paid ✓</div>
+          {% endif %}
+        </td>
 
           <!-- Status -->
           <td>
@@ -203,7 +204,13 @@
               <span class="badge badge-danger">⚠ Pending</span>
             {% endif %}
           </td>
-
+          <td>
+  {% if inv.has_resale %}
+    <span style="font-weight:700;color:#DC2626;">₹{{ "%.0f"|format(inv.resale_total or 0) }}</span>
+  {% else %}
+    <span style="color:#D1D5DB;font-size:11px;">—</span>
+  {% endif %}
+</td>
           <!-- View -->
           <td>
             <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm">View →</a>

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Manifest {{ manifest.manifest_id }}{% endblock %}
+{% block page_title %}Manifest Detail{% endblock %}
+{% set active = 'manifest' %}
+
+{% block extra_style %}
+<style>
+.mv-header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+.mv-meta { display:flex; gap:24px; flex-wrap:wrap; margin-bottom:16px; }
+.mv-meta-item { }
+.mv-meta-item .label { font-size:11px; text-transform:uppercase; color:#6B7280; font-weight:700; }
+.mv-meta-item .value { font-size:15px; font-weight:700; color:#111827; margin-top:2px; }
+.courier-table { width:100%; border-collapse:collapse; }
+.courier-table th { background:#1E3A5F; color:#fff; padding:10px 14px; font-size:12px; text-align:left; }
+.courier-table td { padding:10px 14px; border-bottom:1px solid #F3F4F6; font-size:13px; }
+.courier-table tr:last-child td { border-bottom:none; }
+.courier-table tbody tr:hover { background:#F9FAFB; }
+.total-row-print { background:#F0F4FF; font-weight:700; }
+
+@media print {
+    .action-bar { display:none !important; }
+    .page-header { display:none !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="action-bar" style="display:flex;gap:10px;margin-bottom:16px;">
+    <a href="/manifest/list" class="btn btn-ghost">← Back</a>
+    <a href="/manifest/edit/{{ manifest.id }}" class="btn btn-ghost">Edit</a>
+    <button onclick="window.print()" class="btn btn-ghost">🖨️ Print</button>
+</div>
+
+<div class="card card-body">
+    <div class="mv-header">
+        <div>
+            <h3 style="margin:0;font-size:18px;">📋 {{ manifest.manifest_id }}</h3>
+            <div style="color:#6B7280;font-size:13px;margin-top:4px;">Company Manifest</div>
+        </div>
+        <div style="font-size:13px;color:#6B7280;">Created: {{ manifest.created_at.strftime('%d %b %Y') }}</div>
+    </div>
+
+    <div class="mv-meta">
+        <div class="mv-meta-item">
+            <div class="label">Date</div>
+            <div class="value">{{ manifest.date.strftime('%d %B %Y') }}</div>
+        </div>
+        <div class="mv-meta-item">
+            <div class="label">Shipper</div>
+            <div class="value">{{ manifest.shipper_client_name }}</div>
+        </div>
+        <div class="mv-meta-item">
+            <div class="label">Total Boxes</div>
+            <div class="value" style="color:#4F46E5;">{{ manifest.total_boxes }}</div>
+        </div>
+        {% if manifest.notes %}
+        <div class="mv-meta-item">
+            <div class="label">Notes</div>
+            <div class="value" style="font-weight:400;color:#374151;">{{ manifest.notes }}</div>
+        </div>
+        {% endif %}
+    </div>
+
+    <table class="courier-table">
+        <thead>
+            <tr>
+                <th width="6%">#</th>
+                <th width="30%">Courier Company</th>
+                <th width="12%">Boxes</th>
+                <th width="22%">Docket / AWB No.</th>
+                <th>Notes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in manifest.entries %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><strong>{{ entry.courier_name }}</strong></td>
+                <td>{{ entry.boxes }}</td>
+                <td>{{ entry.docket_no or '—' }}</td>
+                <td style="color:#6B7280;">{{ entry.notes or '' }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row-print">
+                <td colspan="2" style="text-align:right;padding:10px 14px;">Total</td>
+                <td><strong>{{ manifest.total_boxes }}</strong></td>
+                <td colspan="2"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+{% endblock %}

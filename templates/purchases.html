@@ -146,13 +146,16 @@
     <table id="purTable">
       <thead>
         <tr>
+          <th style="width:40px">#</th>
           <th>Purchase ID</th>
           <th>Supplier</th>
-          <th>Invoice No</th>
+          <th>Invoice No.</th>
           <th>Date</th>
-          <th>Total</th>
-          <th>Paid</th>
-          <th>Balance</th>
+          <th style="text-align:right">Before GST</th>
+          <th style="text-align:right">GST</th>
+          <th style="text-align:right">Grand Total</th>
+          <th style="text-align:right">Paid</th>
+          <th style="text-align:right">Balance</th>
           <th>Status</th>
           <th></th>
         </tr>
@@ -162,15 +165,28 @@
         <tr class="pur-row" data-status="{{ p.status|lower }}"
             data-search="{{ (p.supplier.name if p.supplier else p.supplier_name or '')|lower }} {{ (p.invoice_number or '')|lower }} {{ p.purchase_id|lower }}"
             onclick="window.location='/purchase/view/{{ p.invoice_id }}'">
+          <td style="color:#94A3B8;font-size:12px;font-weight:600;text-align:center;">{{ loop.index }}</td>
           <td><span class="pur-id">{{ p.purchase_id }}</span></td>
-          <td><span class="sup-name">{{ p.supplier.name if p.supplier else p.supplier_name or '—' }}</span></td>
+          <td>
+            <span class="sup-name">{{ p.supplier.name if p.supplier else p.supplier_name or '—' }}</span>
+          </td>
           <td><span class="inv-no">{{ p.invoice_number or '—' }}</span></td>
-          <td style="color:#64748B;font-size:12px;">
+          <td style="color:#64748B;font-size:12px;white-space:nowrap;">
             {{ p.date.strftime('%d %b %Y') if p.date else '—' }}
           </td>
-          <td><span class="amt-total">₹{{ "{:,.0f}".format(p.grand_total or 0) }}</span></td>
-          <td><span class="amt-paid">₹{{ "{:,.0f}".format(p.paid_amount or 0) }}</span></td>
-          <td>
+          <td style="text-align:right;color:#334155;">
+            ₹{{ "{:,.0f}".format(p.subtotal or 0) }}
+          </td>
+          <td style="text-align:right;color:#D97706;font-weight:600;">
+            ₹{{ "{:,.0f}".format(p.tax_amount or 0) }}
+          </td>
+          <td style="text-align:right;">
+            <span class="amt-total">₹{{ "{:,.0f}".format(p.grand_total or 0) }}</span>
+          </td>
+          <td style="text-align:right;">
+            <span class="amt-paid">₹{{ "{:,.0f}".format(p.paid_amount or 0) }}</span>
+          </td>
+          <td style="text-align:right;">
             <span class="amt-bal {% if (p.balance or 0) > 0 %}has-bal{% else %}no-bal{% endif %}">
               ₹{{ "{:,.0f}".format(p.balance or 0) }}
             </span>
@@ -188,12 +204,12 @@
         </tr>
         {% else %}
         <tr id="emptyRow">
-          <td colspan="9">
+          <td colspan="12">
             <div class="empty-state">
               <div class="big">📦</div>
               <h3>No Purchase Invoices Yet</h3>
-              <p style="margin-bottom:20px">Record your first purchase to track expenses, GST and stock.</p>
-              <a href="/purchase/new" class="btn btn-primary">+ Create First Purchase</a>
+              <p style="margin-bottom:20px">Record your first purchase to track supplier bills.</p>
+              <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
             </div>
           </td>
         </tr>
