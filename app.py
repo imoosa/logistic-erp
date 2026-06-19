@@ -1,20 +1,3 @@
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import MetaData
-
-convention = {
-    "ix": 'ix_%(column_0_label)s',
-    "uq": "uq_%(table_name)s_%(column_0_name)s",
-    "ck": "ck_%(table_name)s_%(constraint_name)s",
-    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
-    "pk": "pk_%(table_name)s"
-}
-
-db = SQLAlchemy(metadata=MetaData(naming_convention=convention))
-
-# ── Now set db in platform_models so models can use it ─────────────────────
-import platform_models
-platform_models.db = db
-
 from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, send_file
 from flask import abort
 from datetime import date, datetime, timedelta
@@ -66,12 +49,16 @@ def json_loads_filter(value, default=None):
     except (ValueError, TypeError, json.JSONDecodeError):
         return default or {}
 
-# ── Database Configuration ────────────────────────────────────────────────────
+# ── Database Configuration (Render / SQLite edition) ─────────────────────────
+# On Render: mount a Persistent Disk at /data  →  all SQLite files live there.
+# Locally:   set DATA_DIR=./local_data in your .env to keep files out of the repo.
+_DATA_DIR = os.environ.get("DATA_DIR", "/data")
+os.makedirs(_DATA_DIR, exist_ok=True)
+
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "sqlite:///" + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance', 'platform.db')
+    f"sqlite:///{os.path.join(_DATA_DIR, 'platform.db')}"
 )
-
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -80,22 +67,9 @@ db.init_app(app)
 
 @app.before_request
 def _fk_on():
-    pass  # MySQL enforces FK by default; no PRAGMA needed
-
-with app.app_context():
-    db.create_all()
-
-app.config["SQLALCHEMY_DATABASE_URI"] = (
-    'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'maktroniks.db')
-)
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-
-@app.before_request
-def before_request():
-    if db.engine.url.drivername == 'sqlite':
-        db.session.execute(text('PRAGMA foreign_keys=ON'))
-
-db.init_app(app)
+    """Enable FK enforcement for SQLite on every request."""
+    if db.engine.url.drivername == "sqlite":
+        db.session.execute(text("PRAGMA foreign_keys=ON"))
 
 # ── Create tables and seed on first startup ────────────────────────────────────
 with app.app_context():

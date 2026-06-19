@@ -13,7 +13,7 @@ from sqlalchemy import func
 
 # Create SQLAlchemy instance WITHOUT binding to an app yet
 # This will be initialized with init_app(app) in app.py
-db = None
+db = SQLAlchemy()
 
 
 # ── 1. Subscription Plans ─────────────────────────────────────────────────────
@@ -126,6 +126,7 @@ class Company(db.Model):
     logo                  = db.Column(db.String(300), nullable=True)
     created_at            = db.Column(db.Date,        nullable=False, default=date.today)
     is_active             = db.Column(db.Boolean,     nullable=False, default=True)
+    is_gst_registered = db.Column(db.Boolean, nullable=False, default=True)
 
     # ── Storage preference chosen at registration ─────────────────────────────
     # 'local'  → SQLite file on the server  (data_db_uri = path to .db file)

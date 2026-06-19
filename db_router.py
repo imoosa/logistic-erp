@@ -1,14 +1,20 @@
 """
-db_router.py
-────────────
-Manages per-company database connections using SQLite.
+db_router.py  ── RENDER / SQLite edition
+─────────────────────────────────────────
+Platform DB  → single SQLite file   (PLATFORM_DB_URI env var  OR  /data/platform.db)
+Customer DB  → one SQLite file per company, stored under DATA_DIR
 
-Platform DB  → SQLite file: instance/platform.db  (managed by Flask-SQLAlchemy in app.py)
-Customer DB  → Separate SQLite file per company:  instance/erp_<company_id>.db
+File-naming pattern:   <DATA_DIR>/erp_<company_id_lowercase>.db
 
-One .db file per registered company, stored in the instance/ folder.
-Safe for demo/dev use. On Render free tier, files persist within a deploy
-but are wiped on redeploy — acceptable for demo purposes.
+Environment variables
+─────────────────────
+DATA_DIR        Directory for all SQLite files   (default: /data)
+                On Render, mount a Persistent Disk at /data so files survive deploys.
+                Locally you can set DATA_DIR=./local_data for testing.
+
+PLATFORM_DB_URI Full SQLAlchemy URI for the platform DB.
+                If not set, defaults to sqlite:///<DATA_DIR>/platform.db
+                (You can override with a Postgres/MySQL URI on Render if you prefer.)
 
 Usage in routes
 ───────────────
@@ -19,15 +25,15 @@ Usage in routes
 """
 
 import os
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker, scoped_session
 from customer_models import customer_db   # exposes .metadata (plain SQLAlchemy Base)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Directory where all SQLite .db files will be stored
+# Data directory — Render persistent disk should be mounted here
 # ─────────────────────────────────────────────────────────────────────────────
-INSTANCE_DIR = os.environ.get("SQLITE_INSTANCE_DIR", "instance")
-os.makedirs(INSTANCE_DIR, exist_ok=True)
+DATA_DIR = os.environ.get("DATA_DIR", "/data")
+os.makedirs(DATA_DIR, exist_ok=True)   # safe no-op if it already exists
 
 # ─────────────────────────────────────────────────────────────────────────────
 # In-process cache:  { company_id → scoped_session factory }
@@ -37,14 +43,26 @@ _session_cache: dict = {}
 
 
 def _db_path(company_id: str) -> str:
-    """Return the absolute path to the SQLite file for a company."""
-    filename = f"erp_{company_id.lower()}.db"
-    return os.path.abspath(os.path.join(INSTANCE_DIR, filename))
+    """Absolute path to the SQLite file for a company."""
+    return os.path.join(DATA_DIR, f"erp_{company_id.lower()}.db")
 
 
 def _build_uri(company_id: str) -> str:
-    """Build the sqlite:/// URI for a company's dedicated database file."""
+    """Build the sqlite:/// URI for a company's dedicated database."""
     return f"sqlite:///{_db_path(company_id)}"
+
+
+def _enable_wal_and_fk(engine):
+    """
+    Enable WAL mode (better concurrent read performance) and
+    foreign-key enforcement for every new SQLite connection.
+    """
+    @event.listens_for(engine, "connect")
+    def _on_connect(dbapi_conn, _record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
 
 
 def _get_or_create(company_id: str):
@@ -56,18 +74,12 @@ def _get_or_create(company_id: str):
         uri    = _build_uri(company_id)
         engine = create_engine(
             uri,
-            connect_args={"check_same_thread": False},  # required for SQLite + Flask
+            connect_args={"check_same_thread": False},   # required for Flask
+            pool_pre_ping=True,
         )
+        _enable_wal_and_fk(engine)
 
-        # Enable foreign key enforcement for this connection
-        from sqlalchemy import event
-        @event.listens_for(engine, "connect")
-        def set_sqlite_pragma(dbapi_conn, connection_record):
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA foreign_keys=ON")
-            cursor.close()
-
-        # Create all customer tables in the new .db file
+        # Create all customer tables if they don't exist yet
         customer_db.metadata.create_all(engine)
 
         factory = scoped_session(sessionmaker(bind=engine))
@@ -77,11 +89,16 @@ def _get_or_create(company_id: str):
     return _session_cache[company_id]
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Public API (same interface as the MySQL version)
+# ─────────────────────────────────────────────────────────────────────────────
+
 def get_customer_session(company_id: str, db_session=None):
     """
     Return a SQLAlchemy session bound to this company's SQLite database.
 
-    db_session is accepted for API compatibility but is unused.
+    db_session is accepted for API compatibility but is ignored —
+    the path is always derived from company_id + DATA_DIR.
     """
     factory = _get_or_create(company_id)
     return factory()
@@ -97,8 +114,6 @@ def init_customer_db_for_company(company, platform_session=None):
     """
     Called immediately after a new company registers.
     Creates the dedicated SQLite file and all customer tables.
-    The `company` object and `platform_session` arguments are accepted for
-    backwards compatibility but only company.company_id is used.
     """
     company_id = company.company_id if hasattr(company, "company_id") else company
     factory    = _get_or_create(company_id)
@@ -111,3 +126,64 @@ def dispose_all():
         engine.dispose()
     _engine_cache.clear()
     _session_cache.clear()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Migration helpers (kept for compatibility with any migrate_customer_db usage)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def get_platform_engine():
+    """Get the platform database engine."""
+    platform_uri = os.environ.get(
+        "PLATFORM_DB_URI",
+        f"sqlite:///{os.path.join(DATA_DIR, 'platform.db')}"
+    )
+    engine = create_engine(platform_uri, connect_args={"check_same_thread": False})
+    _enable_wal_and_fk(engine)
+    return engine
+
+
+def get_target_companies(target_type="all", target_db="", where_clause=""):
+    """
+    Get list of active Company objects.
+    Returns list of company objects from the platform DB.
+    """
+    from platform_models import Company
+
+    query = Company.query.filter_by(is_active=True)
+
+    if where_clause:
+        try:
+            query = query.filter(text(where_clause))
+        except Exception as e:
+            print(f"Warning: Could not apply custom WHERE clause: {e}")
+
+    companies = query.all()
+
+    if target_db == "platform":
+        return []   # platform DB is handled separately
+    return companies
+
+
+def filter_companies_by_table(companies, table_name):
+    """
+    Filter companies to those whose SQLite DB already contains table_name.
+    Useful for targeted migrations.
+    """
+    from sqlalchemy import inspect
+
+    filtered = []
+    for company in companies:
+        try:
+            engine = _engine_cache.get(company.company_id)
+            if engine is None:
+                _get_or_create(company.company_id)
+                engine = _engine_cache[company.company_id]
+
+            inspector = inspect(engine)
+            if table_name in inspector.get_table_names():
+                filtered.append(company)
+        except Exception:
+            filtered.append(company)   # include on error to be safe
+
+    return filtered
