@@ -32,8 +32,27 @@ from customer_models import customer_db   # exposes .metadata (plain SQLAlchemy 
 # ─────────────────────────────────────────────────────────────────────────────
 # Data directory — Render persistent disk should be mounted here
 # ─────────────────────────────────────────────────────────────────────────────
-DATA_DIR = os.environ.get("DATA_DIR", "/data")
-os.makedirs(DATA_DIR, exist_ok=True)   # safe no-op if it already exists
+_DATA_DIR_ENV = os.environ.get("DATA_DIR", "/data")
+
+def _get_data_dir() -> str:
+    """
+    Return a writable data directory, creating it if needed.
+    Falls back to /tmp/erp_data if the configured path isn't available yet
+    (e.g. during Render's build phase before the persistent disk is mounted).
+    /tmp is ephemeral — data there is lost on redeploy, so always mount the
+    Render Persistent Disk at /data and set DATA_DIR=/data in env vars.
+    """
+    for candidate in (_DATA_DIR_ENV, "/tmp/erp_data"):
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            test_file = os.path.join(candidate, ".write_test")
+            with open(test_file, "w") as f:
+                f.write("ok")
+            os.remove(test_file)
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError("No writable data directory found. Set DATA_DIR env var.")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # In-process cache:  { company_id → scoped_session factory }
@@ -43,8 +62,8 @@ _session_cache: dict = {}
 
 
 def _db_path(company_id: str) -> str:
-    """Absolute path to the SQLite file for a company."""
-    return os.path.join(DATA_DIR, f"erp_{company_id.lower()}.db")
+    """Absolute path to the SQLite file for a company. Resolves data dir at runtime."""
+    return os.path.join(_get_data_dir(), f"erp_{company_id.lower()}.db")
 
 
 def _build_uri(company_id: str) -> str:
@@ -133,10 +152,10 @@ def dispose_all():
 # ─────────────────────────────────────────────────────────────────────────────
 
 def get_platform_engine():
-    """Get the platform database engine."""
+    """Get the platform database engine. Safe to call only at runtime, not import time."""
     platform_uri = os.environ.get(
         "PLATFORM_DB_URI",
-        f"sqlite:///{os.path.join(DATA_DIR, 'platform.db')}"
+        f"sqlite:///{os.path.join(_get_data_dir(), 'platform.db')}"
     )
     engine = create_engine(platform_uri, connect_args={"check_same_thread": False})
     _enable_wal_and_fk(engine)

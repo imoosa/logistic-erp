@@ -50,10 +50,23 @@ def json_loads_filter(value, default=None):
         return default or {}
 
 # ── Database Configuration (Render / SQLite edition) ─────────────────────────
-# On Render: mount a Persistent Disk at /data  →  all SQLite files live there.
-# Locally:   set DATA_DIR=./local_data in your .env to keep files out of the repo.
-_DATA_DIR = os.environ.get("DATA_DIR", "/data")
-os.makedirs(_DATA_DIR, exist_ok=True)
+# On Render: mount a Persistent Disk at /data and set DATA_DIR=/data in env vars.
+# The disk is available at runtime but NOT during the build/import phase,
+# so we resolve the path lazily inside a function rather than at module level.
+def _resolve_data_dir() -> str:
+    """Try DATA_DIR first, fall back to /tmp/erp_data if not writable yet."""
+    for candidate in (os.environ.get("DATA_DIR", "/data"), "/tmp/erp_data"):
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            test = os.path.join(candidate, ".write_test")
+            open(test, "w").close()
+            os.remove(test)
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError("No writable data directory. Set DATA_DIR env var on Render.")
+
+_DATA_DIR = _resolve_data_dir()
 
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
