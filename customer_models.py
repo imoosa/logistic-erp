@@ -357,7 +357,7 @@ class PurchaseInvoice(customer_db.Model):
         from sqlalchemy.orm import object_session
         session = object_session(self)
         if session:
-            return session.query(Client).filter_by(id=self.supplier_id).first()
+            return session.query(Supplier).filter_by(id=self.supplier_id).first()
         return None
 
 

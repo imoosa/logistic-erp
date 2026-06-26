@@ -3087,10 +3087,7 @@ def purchase_invoice_delete(invoice_id):
 def purchase_invoice_new():
     cdb = get_cdb()
     company_id = get_current_company()
-    suppliers = cdb.query(Client).filter(
-        Client.company_id == company_id,
-        db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
-    ).all()
+    
 
     if request.method == "POST":
         supplier_id   = request.form.get("supplier_id")
@@ -3098,16 +3095,15 @@ def purchase_invoice_new():
 
         # Auto-create supplier if typed manually and not in list
         if not supplier_id and supplier_name:
-            existing = cdb.query(Client).filter_by(
+            existing = cdb.query(Supplier).filter_by(  # ← Client → Supplier
                 company_id=company_id, name=supplier_name
             ).first()
             if existing:
                 supplier_id = existing.id
             else:
-                new_supplier = Client(
+                new_supplier = Supplier(          # ← Client → Supplier
                     company_id=company_id,
                     name=supplier_name,
-                    client_type="Supplier",
                     status="Active",
                     created_at=date.today()
                 )
@@ -3346,7 +3342,7 @@ def purchase_invoice_new():
         return redirect(url_for("purchase_invoice_list"))
 
     stock_items = cdb.query(StockItem).filter_by(company_id=company_id).order_by(StockItem.name).all()
-    # In purchase_invoice_new(), in the GET render:
+    suppliers = cdb.query(Supplier).filter_by(company_id=company_id, status="Active").order_by(Supplier.name).all()
     purchase_price_lists = cdb.query(PriceList).filter_by(
         company_id=company_id,
         is_active=True,
@@ -5026,15 +5022,19 @@ def invoice_customer_save():
 def api_suppliers_list():
     cdb = get_cdb()
     company_id = get_current_company()
-    suppliers = cdb.query(Client).filter(
-        Client.company_id == company_id,
-        Client.client_type.in_(["Supplier", "Both"])
-    ).order_by(Client.name).all()
+    
+    # Query the Supplier table (not Client)
+    suppliers = cdb.query(Supplier).filter(
+        Supplier.company_id == company_id,
+        Supplier.status == "Active"
+    ).order_by(Supplier.name).all()
     
     return jsonify([{
         "id": s.id,
         "name": s.name,
-        "gst": s.gst_number or ""
+        "gst": s.gst_number or "",
+        "phone": s.phone or "",
+        "contact_person": s.contact_person or ""
     } for s in suppliers])
 
 
@@ -5128,7 +5128,7 @@ def supplier_new():
             credit_days     = int(f.get("credit_days", 30) or 30),
             payable         = float(f.get("opening_balance", 0) or 0),
             opening_balance = float(f.get("opening_balance", 0) or 0),
-            status          = f.get("status", "Active"),
+            status          = f.get("status", "Active") or "Active",
             notes           = f.get("notes", "").strip(),
             created_at      = date.today(),
         )
@@ -5138,6 +5138,13 @@ def supplier_new():
         return redirect(url_for("supplier_list"))
     return render_template("supplier_form.html", form_data={})
 
+@app.route("/debug/suppliers")
+@login_required
+def debug_suppliers():
+    cdb = get_cdb()
+    company_id = get_current_company()
+    all_s = cdb.query(Supplier).filter_by(company_id=company_id).all()
+    return jsonify([{"id": s.id, "name": s.name, "status": s.status} for s in all_s])
 
 @app.route("/suppliers/<int:supplier_pk>")
 @login_required
