@@ -6364,7 +6364,7 @@ def invoice_packages(client_id, docket_no):
 EXPENSE_CATEGORIES = [
     "Rent", "Electricity", "Internet", "Salaries", "Fuel",
     "Office Supplies", "Maintenance", "Travel", "Food & Refreshments",
-    "Marketing", "Courier Charges", "Bank Charges", "Misc",
+    "Marketing", "Courier Charges", "Bank Charges", "Misc", "Others",
 ]
 
 @app.route("/expenses")
