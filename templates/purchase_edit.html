@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}Edit {{ invoice.purchase_id }}{% endblock %}
+{% block page_title %}Edit Purchase Bill{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+.pe-wrap { max-width: 1180px; margin: 0 auto; }
+.pe-card { background:#fff; border:1px solid #E2E8F0; border-radius:16px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); margin-bottom:16px; }
+.pe-card-head { background:#1E3A5F; color:#fff; padding:14px 20px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px; }
+.pe-card-body { padding:20px; }
+.pe-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.form-group { margin-bottom:0; }
+.form-group label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#64748B; margin-bottom:6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:9px 12px; border:1.5px solid #E2E8F0; border-radius:8px;
+  font-size:13px; color:#0F172A; background:#F8FAFC; box-sizing:border-box;
+}
+.form-group input:focus, .form-group select:focus { border-color:#4F46E5; background:#fff; outline:none; }
+
+.items-table-wrap { overflow-x:auto; }
+table.items-table { width:100%; border-collapse:collapse; min-width:900px; }
+table.items-table th {
+  background:#F8FAFC; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.3px; color:#64748B; padding:9px 10px; border-bottom:1px solid #E2E8F0; text-align:left; white-space:nowrap;
+}
+table.items-table td { padding:8px 6px; border-bottom:1px solid #F1F5F9; vertical-align:middle; font-size:13px; }
+table.items-table input, table.items-table select {
+  width:100%; padding:7px 8px; border:1.5px solid #E2E8F0; border-radius:7px;
+  font-size:12.5px; background:#F8FAFC; box-sizing:border-box;
+}
+table.items-table input:focus, table.items-table select:focus { border-color:#4F46E5; background:#fff; outline:none; }
+.readonly-cell { color:#64748B; font-size:12.5px; }
+.code-tag { background:#EEF2FF; color:#4F46E5; padding:3px 8px; border-radius:6px; font-size:11.5px; font-weight:700; }
+.line-total { font-weight:800; color:#16A34A; white-space:nowrap; }
+.line-gst   { font-weight:600; color:#D97706; white-space:nowrap; }
+
+.notice-bar {
+  background:#FEF9C3; border:1px solid #FDE68A; border-radius:10px;
+  padding:10px 16px; font-size:12.5px; color:#713F12; margin-bottom:16px;
+  display:flex; align-items:center; gap:8px;
+}
+
+.grand-total-bar {
+  display:flex; justify-content:flex-end; align-items:center; gap:20px;
+  padding:14px 20px; background:#F0FDF4; border-top:1px solid #E2E8F0; flex-wrap:wrap;
+}
+.grand-total-bar .tot-block { text-align:right; }
+.grand-total-bar .tot-lbl { font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; }
+.grand-total-bar .tot-val { font-size:18px; font-weight:800; }
+
+.pe-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 20px; background:#F8FAFC; border-top:1px solid #E2E8F0; }
+
+{% if not is_gst_registered %}
+.gst-col { display:none !important; }
+{% endif %}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+  <div>
+    <h2>✏️ Edit Purchase Bill</h2>
+    <p style="color:#64748B;font-size:13px;">{{ invoice.purchase_id }} · {{ invoice.supplier.name if invoice.supplier else invoice.supplier_name or '—' }}</p>
+  </div>
+  <a href="/purchase/view/{{ invoice.invoice_id }}" class="btn btn-ghost">← Back to Bill</a>
+</div>
+
+<div class="notice-bar">
+  ⚠️ Stock quantities are locked — they were deducted when this bill was first created. You can only update rates, weights, GST%, and bill details here.
+</div>
+
+<div class="pe-wrap">
+<form method="POST" action="/purchase/edit/{{ invoice.invoice_id }}">
+
+  <!-- Bill Details -->
+  <div class="pe-card">
+    <div class="pe-card-head">🏭 Bill Details</div>
+    <div class="pe-card-body">
+      <div class="pe-row">
+        <div class="form-group">
+          <label>Supplier</label>
+          <input type="text" value="{{ invoice.supplier.name if invoice.supplier else invoice.supplier_name or '—' }}" disabled style="background:#F1F5F9;color:#94A3B8;">
+        </div>
+        <div class="form-group">
+          <label>Bill / Invoice No.</label>
+          <input type="text" name="invoice_number" value="{{ invoice.invoice_number or '' }}" placeholder="e.g. BD-INV-9981">
+        </div>
+      </div>
+      <div class="pe-row" style="margin-top:16px;">
+        <div class="form-group">
+          <label>Bill Date</label>
+          <input type="date" name="invoice_date" value="{{ invoice.date.strftime('%Y-%m-%d') if invoice.date else '' }}">
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <input type="text" name="notes" value="{{ invoice.notes or '' }}" placeholder="Any remarks…">
+        </div>
+      </div>
+      {% if is_gst_registered %}
+      <div style="margin-top:14px;">
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12.5px;font-weight:600;color:#334155;">
+          <input type="checkbox" name="is_interstate" value="1"
+            {% set total_igst = invoice.items | sum(attribute='igst_amount') %}
+            {% if total_igst > 0 %}checked{% endif %}
+            onchange="recalcAll()" id="isInterstate">
+          Interstate bill (IGST) — uncheck for intrastate (CGST + SGST)
+        </label>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Line Items -->
+  <div class="pe-card">
+    <div class="pe-card-head">📦 Particulars — update rates &amp; weights below</div>
+    <div class="pe-card-body" style="padding-bottom:0;">
+      <div class="items-table-wrap">
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>AWB / Docket</th>
+              <th>Party</th>
+              <th>Destination</th>
+              <th>Courier</th>
+              <th>Item</th>
+              <th style="text-align:right">Qty</th>
+              <th style="min-width:100px">Weight (Kg)</th>
+              <th style="min-width:100px">Rate / Kg</th>
+              <th class="gst-col" style="min-width:80px">GST %</th>
+              <th class="gst-col" style="text-align:right;min-width:90px">GST Amt</th>
+              <th style="text-align:right;min-width:110px">Line Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in invoice.items %}
+            <tr data-idx="{{ loop.index0 }}">
+              <input type="hidden" name="item_id[]" value="{{ item.id }}">
+              <td style="color:#94A3B8;font-weight:700;font-size:12px;">{{ loop.index }}</td>
+              <td>
+                {% if item.docket_no %}<span class="code-tag">{{ item.docket_no }}</span>{% else %}—{% endif %}
+              </td>
+              <td class="readonly-cell"><strong>{{ item.party_name or '—' }}</strong></td>
+              <td class="readonly-cell">{{ item.destination or '—' }}</td>
+              <td class="readonly-cell">{{ item.courier_name or '—' }}</td>
+              <td class="readonly-cell">{{ item.description or '—' }}</td>
+              <td style="text-align:right;font-weight:600;">{{ item.quantity | int }}</td>
+              <td>
+                <input type="number" name="weight_kg[]" id="weight{{ loop.index0 }}"
+                       value="{{ item.weight_kg or 0 }}" min="0" step="0.01"
+                       oninput="calcLine({{ loop.index0 }})">
+              </td>
+              <td>
+                <input type="number" name="rate_per_kg[]" id="rate{{ loop.index0 }}"
+                       value="{{ item.rate_per_kg or 0 }}" min="0" step="0.01"
+                       oninput="calcLine({{ loop.index0 }})">
+              </td>
+              <td class="gst-col">
+                <select name="gst_percent[]" id="gst{{ loop.index0 }}" onchange="calcLine({{ loop.index0 }})">
+                  {% for pct in [0, 5, 12, 18, 28] %}
+                  <option value="{{ pct }}" {% if (item.gst_percent or 0)|int == pct %}selected{% endif %}>{{ pct }}%</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td class="gst-col line-gst" id="gstAmt{{ loop.index0 }}">
+                ₹{{ "{:,.2f}".format((item.cgst_amount or 0) + (item.sgst_amount or 0) + (item.igst_amount or 0)) }}
+              </td>
+              <td class="line-total" id="lineTotal{{ loop.index0 }}">
+                ₹{{ "{:,.2f}".format(item.total_amount or 0) }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="grand-total-bar">
+      {% if is_gst_registered %}
+      <div class="tot-block">
+        <div class="tot-lbl">Taxable</div>
+        <div class="tot-val" style="color:#334155;" id="subtotalDisplay">₹{{ "{:,.2f}".format(invoice.subtotal or 0) }}</div>
+      </div>
+      <div class="tot-block">
+        <div class="tot-lbl">Total GST</div>
+        <div class="tot-val" style="color:#D97706;" id="taxDisplay">₹{{ "{:,.2f}".format(invoice.tax_amount or 0) }}</div>
+      </div>
+      {% endif %}
+      <div class="tot-block">
+        <div class="tot-lbl">Grand Total</div>
+        <div class="tot-val" style="color:#16A34A;font-size:22px;" id="grandTotalDisplay">₹{{ "{:,.2f}".format(invoice.grand_total or 0) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pe-card">
+    <div class="pe-footer">
+      <a href="/purchase/view/{{ invoice.invoice_id }}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary" style="padding:10px 28px;">💾 Save Changes</button>
+    </div>
+  </div>
+
+</form>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+const IS_GST   = {{ 'true' if is_gst_registered else 'false' }};
+const ROW_COUNT = {{ invoice.items | length }};
+
+function calcLine(idx) {
+  const w = parseFloat(document.getElementById('weight' + idx)?.value) || 0;
+  const r = parseFloat(document.getElementById('rate'   + idx)?.value) || 0;
+  const taxable = w * r;
+
+  let gstAmt = 0;
+  if (IS_GST) {
+    const gstSel = document.getElementById('gst' + idx);
+    const gstPct = gstSel ? (parseFloat(gstSel.value) || 0) : 0;
+    gstAmt = Math.round(taxable * gstPct) / 100;
+  }
+
+  const lineTotal = Math.round((taxable + gstAmt) * 100) / 100;
+  const gstEl = document.getElementById('gstAmt'   + idx);
+  const totEl = document.getElementById('lineTotal' + idx);
+  if (gstEl) gstEl.textContent = '₹' + fmt(gstAmt);
+  if (totEl) totEl.textContent = '₹' + fmt(lineTotal);
+
+  calcGrandTotal();
+}
+
+function recalcAll() {
+  for (let i = 0; i < ROW_COUNT; i++) calcLine(i);
+}
+
+function calcGrandTotal() {
+  let subtotal = 0, taxTotal = 0;
+  for (let i = 0; i < ROW_COUNT; i++) {
+    const w = parseFloat(document.getElementById('weight' + i)?.value) || 0;
+    const r = parseFloat(document.getElementById('rate'   + i)?.value) || 0;
+    const taxable = w * r;
+    let gstAmt = 0;
+    if (IS_GST) {
+      const gstSel = document.getElementById('gst' + i);
+      const gstPct = gstSel ? (parseFloat(gstSel.value) || 0) : 0;
+      gstAmt = Math.round(taxable * gstPct) / 100;
+    }
+    subtotal  += taxable;
+    taxTotal  += gstAmt;
+  }
+  const grand = subtotal + taxTotal;
+  const subEl = document.getElementById('subtotalDisplay');
+  const taxEl = document.getElementById('taxDisplay');
+  if (subEl) subEl.textContent = '₹' + fmt(subtotal);
+  if (taxEl) taxEl.textContent = '₹' + fmt(taxTotal);
+  document.getElementById('grandTotalDisplay').textContent = '₹' + fmt(grand);
+}
+
+function fmt(v) {
+  return (v || 0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+</script>
+{% endblock %}

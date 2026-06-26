@@ -221,11 +221,12 @@ class PriceList(customer_db.Model):
 
     id          = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
     company_id  = customer_db.Column(customer_db.String(20), nullable=False)
-    courier     = customer_db.Column(customer_db.String(50), nullable=False)  # DPD, FEDEX, DHL, etc.
+    courier     = customer_db.Column(customer_db.String(50), nullable=False)
     filename    = customer_db.Column(customer_db.String(255), nullable=False)
     file_path   = customer_db.Column(customer_db.String(500), nullable=False)
-    rate_data   = customer_db.Column(customer_db.Text, nullable=True)  # JSON stored rates
+    rate_data   = customer_db.Column(customer_db.Text, nullable=True)
     is_active   = customer_db.Column(customer_db.Boolean, default=True)
+    list_type   = customer_db.Column(customer_db.String(20), nullable=False, default='sales')  
     uploaded_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
     uploaded_by = customer_db.Column(customer_db.String(100), nullable=True)
 
@@ -379,6 +380,14 @@ class PurchaseInvoiceItem(customer_db.Model):
     sgst_amount         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     igst_amount         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     total_amount        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+
+    # ── Logistics-specific particulars (added) ───────────────────────────────
+    docket_no       = customer_db.Column(customer_db.String(100), nullable=True)   # AWB number
+    party_name      = customer_db.Column(customer_db.String(200), nullable=True)   # client tied to that AWB
+    destination     = customer_db.Column(customer_db.String(150), nullable=True)
+    courier_name    = customer_db.Column(customer_db.String(100), nullable=True)   # Bluedart, DHL, DPD...
+    weight_kg       = customer_db.Column(customer_db.Float,       nullable=True, default=0.0)
+    rate_per_kg     = customer_db.Column(customer_db.Float,       nullable=True, default=0.0)
 
     purchase_invoice = customer_db.relationship("PurchaseInvoice", back_populates="items")
 

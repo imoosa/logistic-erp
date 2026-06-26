@@ -26,6 +26,7 @@
             <th>Countries</th>
             <th>Status</th>
             <th>Actions</th>
+            <th>Type</th>
           </tr>
         </thead>
         <tbody>
@@ -55,6 +56,13 @@
                    onclick="return confirm('Delete this price list?')">🗑️</a>
               </div>
             </td>
+            <td>
+  {% if pl.list_type == 'purchase' %}
+  <span class="badge" style="background:#EDE9FE;color:#6D28D9;">Purchase</span>
+  {% else %}
+  <span class="badge badge-success">Sales</span>
+  {% endif %}
+</td>
           </tr>
           {% endfor %}
         </tbody>

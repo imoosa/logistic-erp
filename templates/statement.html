@@ -1,24 +1,54 @@
 {% extends "base.html" %}
-{% block title %}Statement · {{ company }}{% endblock %}
+{% block title %}Statement · {{ entity.name }}{% endblock %}
 {% block page_title %}Account Statement{% endblock %}
-{% set active = 'admin' %}
+{% set active = 'debtors' %}
 
 {% block extra_style %}
 <style>
-  .stmt-header { background:linear-gradient(135deg,#4F46E5,#7C3AED); border-radius:14px; padding:28px; color:#fff; margin-bottom:24px; }
+  .stmt-header {
+    background:linear-gradient(135deg,#1E3A5F,#4F46E5);
+    border-radius:14px; padding:28px; color:#fff; margin-bottom:24px;
+  }
   .stmt-header h2 { font-size:22px; font-weight:800; margin-bottom:4px; }
-  .stmt-header p  { opacity:.75; font-size:13px; }
   .stmt-kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:20px; }
   .stmt-kpi  { background:rgba(255,255,255,.15); border-radius:10px; padding:14px 16px; }
   .stmt-kpi .val { font-size:22px; font-weight:800; }
   .stmt-kpi .lbl { font-size:11px; opacity:.75; margin-top:2px; }
 
-  .order-row td { vertical-align:middle; }
-  .paid-bar { height:5px; background:rgba(255,255,255,.2); border-radius:10px; margin-top:5px; overflow:hidden; }
-  .paid-fill { height:100%; border-radius:10px; background:#4ade80; }
+  /* Ledger table */
+  .ledger-wrap { overflow-x:auto; }
+  .ledger-wrap table { width:100%; border-collapse:collapse; min-width:800px; }
+  .ledger-wrap thead { background:#1E3A5F; }
+  .ledger-wrap th {
+    padding:10px 14px; font-size:10.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.4px; color:#CBD5E1; text-align:left; white-space:nowrap;
+  }
+  .ledger-wrap td {
+    padding:11px 14px; font-size:13px; border-bottom:1px solid #F1F5F9;
+    color:#334155; vertical-align:middle;
+  }
+  .ledger-wrap tbody tr:hover { background:#F8FAFC; }
+  .ledger-wrap tbody tr:last-child td { border-bottom:none; }
+
+  .ref-tag { background:#EEF2FF; color:#4F46E5; padding:2px 8px; border-radius:6px; font-size:11.5px; font-weight:700; }
+  .awb-tag { background:#F0FDF4; color:#16A34A; padding:2px 8px; border-radius:6px; font-size:11.5px; font-weight:700; }
+  .type-invoice { color:#0F172A; font-weight:600; }
+  .type-payment { color:#16A34A; font-weight:600; }
+  .type-opening { color:#7C3AED; font-weight:600; font-style:italic; }
+  .debit-amt  { color:#DC2626; font-weight:700; }
+  .credit-amt { color:#16A34A; font-weight:700; }
+  .bal-pos { color:#DC2626; font-weight:800; }
+  .bal-zero{ color:#16A34A; font-weight:800; }
+
+  .sbadge { display:inline-flex; align-items:center; gap:4px; padding:2px 9px; border-radius:20px; font-size:11px; font-weight:700; }
+  .sbadge.Paid    { background:#DCFCE7; color:#16A34A; }
+  .sbadge.Partial { background:#FEF3C7; color:#D97706; }
+  .sbadge.Pending { background:#FEE2E2; color:#DC2626; }
+
+  .tfoot-row td { background:#F8FAFC; font-weight:700; padding:12px 14px; border-top:2px solid #E2E8F0; }
 
   @media print {
-    .sidebar, .topbar, .btn, .no-print { display:none !important; }
+    .sidebar,.topbar,.btn,.no-print { display:none !important; }
     .main { margin-left:0 !important; }
     body { background:#fff; }
   }
@@ -28,109 +58,137 @@
 
 {% block content %}
 
-<!-- Back button -->
 <div style="margin-bottom:20px" class="no-print">
-  <a href="/admin" class="btn btn-ghost btn-sm">← Back to Admin</a>
+  <a href="{{ back_url or '/debtors' }}" class="btn btn-ghost btn-sm">← Back</a>
   <button onclick="window.print()" class="btn btn-primary btn-sm" style="margin-left:8px">🖨️ Print Statement</button>
 </div>
 
-<!-- Statement header card -->
+<!-- Header card -->
 <div class="stmt-header">
   <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">
     <div>
       <p style="opacity:.65;font-size:12px;margin-bottom:4px">ACCOUNT STATEMENT</p>
-      <h2>{{ company }}</h2>
-      <p>Generated on {{ now if now else '' }}{{ "{:%d %B %Y}".format(__import__('datetime').datetime.now()) }}</p>
+      <h2>{{ entity.name }}</h2>
+      <p style="opacity:.7;font-size:13px;">
+        {% if entity.phone %}📞 {{ entity.phone }}{% endif %}
+        {% if entity.city %} · {{ entity.city }}{% endif %}
+        {% if entity.gst_number %} · GST: {{ entity.gst_number }}{% endif %}
+      </p>
+      <p style="opacity:.6;font-size:12px;margin-top:4px;">Generated on {{ today }}</p>
     </div>
     <div style="text-align:right">
-      <div style="font-size:11px;opacity:.6;margin-bottom:4px">STATEMENT ID</div>
-      <div style="font-size:16px;font-weight:700">STMT-{{ company[:3]|upper }}-2024</div>
+      <div style="font-size:11px;opacity:.6;margin-bottom:4px">CLOSING BALANCE</div>
+      <div style="font-size:26px;font-weight:800;">
+        ₹{{ "{:,.0f}".format(closing_balance) }}
+      </div>
+      <div style="font-size:11px;opacity:.7;margin-top:2px;">
+        {% if closing_balance > 0 %}Outstanding{% else %}✓ Fully Cleared{% endif %}
+      </div>
     </div>
   </div>
   <div class="stmt-kpis">
     <div class="stmt-kpi">
-      <div class="val">₹{{ "{:,.0f}".format(total) }}</div>
+      <div class="val">₹{{ "{:,.0f}".format(total_debit) }}</div>
       <div class="lbl">Total Billed</div>
     </div>
     <div class="stmt-kpi">
-      <div class="val">₹{{ "{:,.0f}".format(received) }}</div>
+      <div class="val">₹{{ "{:,.0f}".format(total_credit) }}</div>
       <div class="lbl">Amount Received</div>
     </div>
     <div class="stmt-kpi">
-      <div class="val">₹{{ "{:,.0f}".format(pending) }}</div>
-      <div class="lbl">{{ 'Outstanding' if pending > 0 else '✓ Fully Cleared' }}</div>
+      <div class="val">₹{{ "{:,.0f}".format(closing_balance) }}</div>
+      <div class="lbl">{{ 'Outstanding' if closing_balance > 0 else '✓ Settled' }}</div>
     </div>
   </div>
 </div>
 
-<!-- Orders Table -->
+<!-- Ledger table -->
 <div class="card">
-  <div style="padding:16px 20px;border-bottom:1px solid #F3F4F6;display:flex;align-items:center;justify-content:space-between">
-    <strong>Order History · {{ orders|length }} orders</strong>
-    {% if pending > 0 %}
-      <span class="badge badge-danger">₹{{ "{:,.0f}".format(pending) }} Outstanding</span>
+  <div style="padding:14px 20px;border-bottom:1px solid #F1F5F9;display:flex;align-items:center;justify-content:space-between;">
+    <strong style="font-size:14px;">Transaction Ledger · {{ ledger|length }} entries</strong>
+    {% if closing_balance > 0 %}
+      <span class="sbadge Pending">₹{{ "{:,.0f}".format(closing_balance) }} Outstanding</span>
     {% else %}
-      <span class="badge badge-success">Fully Settled</span>
+      <span class="sbadge Paid">✓ Fully Settled</span>
     {% endif %}
   </div>
-  <div class="table-wrap">
+  <div class="ledger-wrap">
     <table>
       <thead>
         <tr>
-          <th>Order ID</th>
           <th>Date</th>
-          <th>Order Amount</th>
-          <th>Received</th>
-          <th>Pending</th>
-          <th>Employee</th>
+          <th>Type</th>
+          <th>Invoice Ref</th>
+          <th>AWB / Docket</th>
+          <th style="text-align:right">Debit (₹)</th>
+          <th style="text-align:right">Credit (₹)</th>
+          <th style="text-align:right">Balance (₹)</th>
           <th>Status</th>
         </tr>
       </thead>
       <tbody>
-        {% for o in orders %}
-        {% set o_pending = o.amount - o.get('received', 0) %}
-        <tr class="order-row">
-          <td><strong style="color:#4F46E5">{{ o.id }}</strong></td>
-          <td style="color:#6B7280">{{ o.date }}</td>
-          <td><strong>₹{{ "{:,.0f}".format(o.amount) }}</strong></td>
-          <td style="color:#16A34A;font-weight:600">
-            ₹{{ "{:,.0f}".format(o.get('received', 0)) }}
-            {% if o.get('received', 0) > 0 and o.get('received', 0) < o.amount %}
-              <div style="font-size:10px;color:#9CA3AF;font-weight:400">Partial</div>
-            {% endif %}
+        {% for row in ledger %}
+        <tr>
+          <td style="color:#64748B;font-size:12.5px;white-space:nowrap;">
+            {{ row.date.strftime('%d %b %Y') if row.date and row.date != '—' else row.date }}
           </td>
           <td>
-            {% if o_pending > 0 %}
-              <span style="color:#DC2626;font-weight:600">₹{{ "{:,.0f}".format(o_pending) }}</span>
+            {% if row.type == 'Invoice' %}
+              <span class="type-invoice">🧾 Invoice</span>
+            {% elif row.type == 'Payment Received' %}
+              <span class="type-payment">💰 Payment</span>
             {% else %}
-              <span style="color:#16A34A;font-weight:600">—</span>
+              <span class="type-opening">⚖ {{ row.type }}</span>
             {% endif %}
           </td>
           <td>
-            <span style="background:#EEF2FF;color:#4F46E5;font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px">
-              {{ o.employee_id }}
-            </span>
-            <div style="font-size:11px;color:#9CA3AF;margin-top:2px">{{ emp_name(o.employee_id) }}</div>
+            {% if row.id %}
+              <a href="/invoice/view/{{ row.id }}" style="text-decoration:none;">
+                <span class="ref-tag">{{ row.ref }}</span>
+              </a>
+            {% else %}
+              <span style="color:#94A3B8;">{{ row.ref }}</span>
+            {% endif %}
           </td>
           <td>
-            {% if o.status == 'Delivered' %}<span class="badge badge-success">{{ o.status }}</span>
-            {% elif o.status == 'Pending' %}<span class="badge badge-warning">{{ o.status }}</span>
-            {% elif o.status == 'Processing' %}<span class="badge badge-primary">{{ o.status }}</span>
-            {% elif o.status == 'Cancelled' %}<span class="badge badge-danger">{{ o.status }}</span>
-            {% else %}<span class="badge badge-gray">{{ o.status }}</span>{% endif %}
+            {% if row.awb %}
+              <span class="awb-tag">✈ {{ row.awb }}</span>
+            {% else %}
+              <span style="color:#CBD5E1;">—</span>
+            {% endif %}
           </td>
+          <td style="text-align:right;">
+            {% if row.debit %}<span class="debit-amt">₹{{ "{:,.2f}".format(row.debit) }}</span>{% else %}—{% endif %}
+          </td>
+          <td style="text-align:right;">
+            {% if row.credit %}<span class="credit-amt">₹{{ "{:,.2f}".format(row.credit) }}</span>{% else %}—{% endif %}
+          </td>
+          <td style="text-align:right;">
+            <span class="{{ 'bal-pos' if row.balance > 0 else 'bal-zero' }}">
+              ₹{{ "{:,.2f}".format(row.balance) }}
+            </span>
+          </td>
+          <td>
+            {% if row.status %}
+              <span class="sbadge {{ row.status }}">{{ row.status }}</span>
+            {% else %}—{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="8" style="text-align:center;padding:48px;color:#94A3B8;">No transactions found.</td>
         </tr>
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr style="background:#F9FAFB;font-weight:700">
-          <td colspan="2" style="padding:14px 16px">TOTAL</td>
-          <td style="padding:14px 16px">₹{{ "{:,.0f}".format(total) }}</td>
-          <td style="padding:14px 16px;color:#16A34A">₹{{ "{:,.0f}".format(received) }}</td>
-          <td style="padding:14px 16px;color:#DC2626">
-            {% if pending > 0 %}₹{{ "{:,.0f}".format(pending) }}{% else %}—{% endif %}
+        <tr class="tfoot-row">
+          <td colspan="4">TOTAL</td>
+          <td style="text-align:right;color:#DC2626;">₹{{ "{:,.2f}".format(total_debit) }}</td>
+          <td style="text-align:right;color:#16A34A;">₹{{ "{:,.2f}".format(total_credit) }}</td>
+          <td style="text-align:right;" class="{{ 'bal-pos' if closing_balance > 0 else 'bal-zero' }}">
+            ₹{{ "{:,.2f}".format(closing_balance) }}
           </td>
-          <td colspan="2"></td>
+          <td></td>
         </tr>
       </tfoot>
     </table>

@@ -49,28 +49,10 @@ def json_loads_filter(value, default=None):
     except (ValueError, TypeError, json.JSONDecodeError):
         return default or {}
 
-# ── Database Configuration (Render / SQLite edition) ─────────────────────────
-# On Render: mount a Persistent Disk at /data and set DATA_DIR=/data in env vars.
-# The disk is available at runtime but NOT during the build/import phase,
-# so we resolve the path lazily inside a function rather than at module level.
-def _resolve_data_dir() -> str:
-    """Try DATA_DIR first, fall back to /tmp/erp_data if not writable yet."""
-    for candidate in (os.environ.get("DATA_DIR", "/data"), "/tmp/erp_data"):
-        try:
-            os.makedirs(candidate, exist_ok=True)
-            test = os.path.join(candidate, ".write_test")
-            open(test, "w").close()
-            os.remove(test)
-            return candidate
-        except OSError:
-            continue
-    raise RuntimeError("No writable data directory. Set DATA_DIR env var on Render.")
-
-_DATA_DIR = _resolve_data_dir()
-
+# ── Database Configuration ────────────────────────────────────────────────────
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    f"sqlite:///{os.path.join(_DATA_DIR, 'platform.db')}"
+    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
@@ -80,9 +62,22 @@ db.init_app(app)
 
 @app.before_request
 def _fk_on():
-    """Enable FK enforcement for SQLite on every request."""
-    if db.engine.url.drivername == "sqlite":
-        db.session.execute(text("PRAGMA foreign_keys=ON"))
+    pass  # MySQL enforces FK by default; no PRAGMA needed
+
+with app.app_context():
+    db.create_all()
+
+"""app.config["SQLALCHEMY_DATABASE_URI"] = (
+    'sqlite:///' + os.path.join(os.path.abspath(os.path.dirname(__file__)), 'maktroniks.db')
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+@app.before_request
+def before_request():
+    if db.engine.url.drivername == 'sqlite':
+        db.session.execute(text('PRAGMA foreign_keys=ON'))
+
+db.init_app(app)"""
 
 # ── Create tables and seed on first startup ────────────────────────────────────
 with app.app_context():
@@ -165,6 +160,16 @@ def super_admin_required(f):
             return redirect(url_for("dashboard"))
         return f(*args, **kwargs)
     return decorated
+
+def _get_awb(invoice):
+    """Extract docket_no from invoice.terms JSON. Returns '' if absent."""
+    try:
+        if invoice.terms:
+            meta = json.loads(invoice.terms)
+            return meta.get("docket_no", "")
+    except Exception:
+        pass
+    return ""
 
 # ── Seed Data ─────────────────────────────────────────────────────────────────
 SUBSCRIPTION_PLANS_DATA = {
@@ -1945,7 +1950,7 @@ def upload_price_list():
                     return redirect(url_for("price_lists"))
                 
                 # Deactivate old price lists for this courier
-                old_lists = cdb.query(PriceList).filter_by(company_id=company_id, courier=courier).all()
+                old_lists = cdb.query(PriceList).filter_by(company_id=company_id, courier=courier, list_type=request.form.get('list_type', 'sales')).all()
                 for old in old_lists:
                     old.is_active = False
                 
@@ -1957,6 +1962,7 @@ def upload_price_list():
                     file_path=filepath,
                     rate_data=json.dumps(rate_data),
                     is_active=True,
+                    list_type   = request.form.get('list_type', 'sales'),
                     uploaded_by=get_current_user().get('email')
                 )
                 cdb.add(price_list)
@@ -2000,7 +2006,8 @@ def api_rate_lookup():
     price_list = cdb.query(PriceList).filter_by(
         company_id=company_id,
         courier=courier,
-        is_active=True
+        is_active=True,
+        list_type='sales'
     ).first()
     
     print(f"📋 Price list found: {price_list is not None}")
@@ -2114,6 +2121,93 @@ def api_rate_lookup():
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
+@app.route("/api/purchase-rate-lookup")
+@login_required
+def api_purchase_rate_lookup():
+    """Purchase rate lookup — uses purchase price lists only"""
+    cdb = get_cdb()
+    company_id = get_current_company()
+
+    courier     = request.args.get('courier', '').strip().upper()
+    destination = request.args.get('destination', '').strip().upper()
+    weight      = float(request.args.get('weight', 0))
+
+    if not courier or not destination or weight <= 0:
+        return jsonify({'error': 'Missing parameters'}), 400
+
+    price_list = cdb.query(PriceList).filter_by(
+        company_id=company_id,
+        courier=courier,
+        is_active=True,
+        list_type='purchase'
+    ).first()
+
+    if not price_list:
+        return jsonify({'error': f'No active purchase price list found for {courier}'}), 404
+
+    try:
+        rate_data = json.loads(price_list.rate_data)
+        countries = rate_data.get('countries', {})
+        weights   = sorted(rate_data.get('weights', []))
+
+        matched_country = None
+        matched_rates   = None
+
+        if destination in countries:
+            matched_country = destination
+            matched_rates   = countries[destination]
+        
+        if not matched_rates:
+            for country, rates in countries.items():
+                if destination in country or country in destination:
+                    matched_country = country
+                    matched_rates   = rates
+                    break
+
+        if not matched_rates:
+            dest_words = destination.split()
+            for country, rates in countries.items():
+                country_words = country.split()
+                for dw in dest_words:
+                    if len(dw) > 2:
+                        for cw in country_words:
+                            if dw in cw or cw in dw:
+                                matched_country = country
+                                matched_rates   = rates
+                                break
+                    if matched_rates:
+                        break
+                if matched_rates:
+                    break
+
+        if not matched_rates:
+            return jsonify({'error': f'No rate found for {destination}'}), 404
+
+        rate_keys     = sorted([float(k) for k in matched_rates.keys()])
+        closest_weight = rate_keys[0]
+        for w in rate_keys:
+            if w >= weight:
+                closest_weight = w
+                break
+            closest_weight = w
+
+        rate = matched_rates.get(closest_weight) or matched_rates.get(str(closest_weight), 0)
+
+        if rate <= 0:
+            return jsonify({'error': f'No rate for {closest_weight}kg in {matched_country}'}), 404
+
+        return jsonify({
+            'success': True,
+            'rate': rate,
+            'weight_used': closest_weight,
+            'country_matched': matched_country,
+            'courier': courier,
+            'destination': destination
+        })
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
 
 @app.route("/api/price-lists/list")
 @login_required
@@ -2928,6 +3022,51 @@ def purchase_invoice_list():
         total_due=total_due
     )
 
+COURIER_OPTIONS = ["Bluedart", "DHL", "DTDC", "DPD", "FedEx", "Delhivery", "Ecom Express", "India Post", "Other"]
+ITEM_TYPE_OPTIONS = ["Box", "Envelope", "Crate", "Pouch", "Carton"]
+
+@app.route("/purchase/delete/<invoice_id>", methods=["POST"])
+@login_required
+def purchase_invoice_delete(invoice_id):
+    cdb        = get_cdb()
+    company_id = get_current_company()
+
+    invoice = cdb.query(PurchaseInvoice).filter_by(
+        invoice_id=invoice_id, company_id=company_id
+    ).first()
+
+    if not invoice:
+        abort(404)
+
+    # ── Reverse stock deductions ──────────────────────────────────────────────
+    # When a purchase bill was created, stock was DEDUCTED (OUT movement).
+    # Deleting the bill reverses that: add stock back.
+    for item in invoice.items:
+        if item.stock_item_id and item.quantity:
+            stock = cdb.query(StockItem).filter_by(
+                id=item.stock_item_id, company_id=company_id
+            ).first()
+            if stock:
+                stock.quantity    = (stock.quantity or 0) + item.quantity
+                stock.last_updated = date.today()
+
+    # ── Reverse supplier payable ──────────────────────────────────────────────
+    # Only reverse the UNPAID portion (paid_amount was already deducted from
+    # supplier.pending when payments were recorded).
+    if invoice.supplier_id:
+        supplier = cdb.get(Client, invoice.supplier_id)
+        if supplier:
+            unpaid = invoice.balance or 0
+            supplier.pending = max(0, (supplier.pending or 0) - unpaid)
+
+    # cascade="all, delete-orphan" on items + purchase_history handles child rows
+    cdb.delete(invoice)
+    cdb.commit()
+
+    flash(f"Purchase {invoice_id} deleted and stock restored.")
+    return redirect(url_for("purchase_invoice_list"))
+
+
 @app.route("/purchase/new", methods=["GET", "POST"])
 @login_required
 def purchase_invoice_new():
@@ -2937,7 +3076,7 @@ def purchase_invoice_new():
         Client.company_id == company_id,
         db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
     ).all()
-    
+
     if request.method == "POST":
         supplier_id   = request.form.get("supplier_id")
         supplier_name = request.form.get("supplier_name", "").strip()
@@ -2964,10 +3103,80 @@ def purchase_invoice_new():
         invoice_number = request.form.get("invoice_number", "").strip()
         invoice_date   = request.form.get("invoice_date") or str(date.today())
         notes          = request.form.get("notes", "").strip()
+        is_interstate  = bool(request.form.get("is_interstate"))   # ← NEW
 
-        subtotal    = float(request.form.get("amount_before_gst") or 0)
-        grand_total = float(request.form.get("grand_total") or 0)
-        tax_total   = round(grand_total - subtotal, 2)
+        # ── GST flag from company settings ──────────────────────────────────
+        co = Company.query.filter_by(company_id=company_id).first()
+        apply_gst = bool(co.is_gst_registered) if (co and hasattr(co, 'is_gst_registered')) else True
+
+        # ── Line items ───────────────────────────────────────────────────────
+        docket_nos    = request.form.getlist("docket_no[]")
+        party_names   = request.form.getlist("party_name[]")
+        destinations  = request.form.getlist("destination[]")
+        couriers      = request.form.getlist("courier_name[]")
+        stock_item_ids= request.form.getlist("stock_item_id[]")
+        item_names    = request.form.getlist("item_name[]")
+        item_qtys     = request.form.getlist("item_qty[]")
+        weights       = request.form.getlist("weight_kg[]")
+        rates         = request.form.getlist("rate_per_kg[]")
+        gst_percents  = request.form.getlist("gst_percent[]")  # ← NEW
+
+        line_items = []
+        subtotal  = 0.0
+        tax_total = 0.0
+
+        for i in range(len(couriers)):
+            courier = (couriers[i] if i < len(couriers) else "").strip()
+            if not courier:
+                continue
+
+            qty    = float(item_qtys[i])    if i < len(item_qtys)    and item_qtys[i]    else 0
+            weight = float(weights[i])      if i < len(weights)      and weights[i]      else 0
+            rate   = float(rates[i])        if i < len(rates)        and rates[i]        else 0
+            gst_pct = float(gst_percents[i]) if (apply_gst and i < len(gst_percents) and gst_percents[i]) else 0.0
+
+            taxable    = round(weight * rate, 2)
+            gst_amount = round(taxable * gst_pct / 100, 2) if apply_gst else 0.0
+            line_total = round(taxable + gst_amount, 2)
+
+            # Split GST: IGST for interstate, CGST+SGST for intrastate
+            if apply_gst and is_interstate:
+                cgst_amt = 0.0
+                sgst_amt = 0.0
+                igst_amt = gst_amount
+            else:
+                cgst_amt = round(gst_amount / 2, 2)
+                sgst_amt = gst_amount - cgst_amt   # avoids rounding gap
+                igst_amt = 0.0
+
+            subtotal  += taxable
+            tax_total += gst_amount
+
+            line_items.append({
+                "docket_no":     docket_nos[i].strip()    if i < len(docket_nos)    else "",
+                "party_name":    party_names[i].strip()   if i < len(party_names)   else "",
+                "destination":   destinations[i].strip()  if i < len(destinations)  else "",
+                "courier_name":  courier,
+                "stock_item_id": int(stock_item_ids[i])   if i < len(stock_item_ids) and stock_item_ids[i] else None,
+                "item_name":     item_names[i].strip()    if i < len(item_names)    else "",
+                "qty":           qty,
+                "weight_kg":     weight,
+                "rate_per_kg":   rate,
+                "gst_percent":   gst_pct,
+                "taxable_value": taxable,
+                "cgst_amount":   cgst_amt,
+                "sgst_amount":   sgst_amt,
+                "igst_amount":   igst_amt,
+                "total_amount":  line_total,
+            })
+
+        if not line_items:
+            flash("Add at least one item row (courier + weight + rate).", "danger")
+            return redirect(url_for("purchase_invoice_new"))
+
+        subtotal    = round(subtotal, 2)
+        tax_total   = round(tax_total, 2)
+        grand_total = round(subtotal + tax_total, 2)
 
         inv_count  = cdb.query(PurchaseInvoice).count()
         invoice_id = f"PURCHASE-INV-{datetime.now().strftime('%Y%m%d')}-{inv_count+1:03d}"
@@ -2991,11 +3200,120 @@ def purchase_invoice_new():
         cdb.add(purchase_inv)
         cdb.flush()
 
+        # Create item rows + DEDUCT stock
+        stock_deductions = {}
+        for li in line_items:
+            cdb.add(PurchaseInvoiceItem(
+                purchase_invoice_id=purchase_inv.id,
+                stock_item_id=li["stock_item_id"],
+                description=li["item_name"] or li["courier_name"],
+                quantity=li["qty"],
+                unit="pcs",
+                purchase_rate=li["rate_per_kg"],
+                taxable_value=li["taxable_value"],
+                gst_percent=li["gst_percent"],
+                cgst_amount=li["cgst_amount"],
+                sgst_amount=li["sgst_amount"],
+                igst_amount=li["igst_amount"],
+                total_amount=li["total_amount"],
+                docket_no=li["docket_no"] or None,
+                party_name=li["party_name"] or None,
+                destination=li["destination"] or None,
+                courier_name=li["courier_name"],
+                weight_kg=li["weight_kg"],
+                rate_per_kg=li["rate_per_kg"],
+            ))
+            if li["stock_item_id"] and li["qty"] > 0:
+                stock_deductions[li["stock_item_id"]] = stock_deductions.get(li["stock_item_id"], 0) + li["qty"]
+
+        for sid, qty in stock_deductions.items():
+            stock = cdb.query(StockItem).filter_by(id=sid, company_id=company_id).first()
+            if stock:
+                stock.quantity = (stock.quantity or 0) - qty
+                stock.last_updated = date.today()
+                cdb.add(StockPurchaseHistory(
+                    stock_item_id=sid,
+                    purchase_invoice_id=purchase_inv.id,
+                    quantity=qty,
+                    purchase_rate=0,
+                    movement_type="OUT",
+                    purchase_date=date.fromisoformat(invoice_date),
+                    reference=invoice_id,
+                ))
+
         # Update supplier pending payable
         if supplier_id:
             supplier = cdb.get(Client, int(supplier_id))
             if supplier:
                 supplier.pending = (supplier.pending or 0) + grand_total
+
+        cdb.commit()
+
+        # ── Auto-create Company Manifest(s) from this Purchase Bill ─────────
+        # Same date as the bill, one manifest per distinct shipper (party_name)
+        # found on the line items, with one ManifestEntry per courier row.
+        # Stock is NOT touched here — it was already deducted above.
+        groups = {}
+        for li in line_items:
+            if int(li["qty"]) <= 0:
+                continue
+            shipper_name = (li["party_name"] or "").strip() or "Unknown Shipper"
+            groups.setdefault(shipper_name, []).append(li)
+
+        for shipper_name, rows in groups.items():
+            shipper = cdb.query(Client).filter_by(
+                company_id=company_id, name=shipper_name
+            ).first()
+            if not shipper:
+                shipper = Client(
+                    company_id=company_id,
+                    name=shipper_name,
+                    client_type="Customer",
+                    status="Active",
+                    created_at=date.today()
+                )
+                cdb.add(shipper)
+                cdb.flush()
+
+            last = cdb.query(CompanyManifest).filter_by(company_id=company_id) \
+                       .order_by(CompanyManifest.id.desc()).first()
+            next_num = (last.id + 1) if last else 1
+            new_manifest_id = f"MFT-{next_num:04d}"
+
+            total_boxes = sum(int(li["qty"]) for li in rows)
+
+            manifest = CompanyManifest(
+                manifest_id=new_manifest_id,
+                company_id=company_id,
+                date=date.fromisoformat(invoice_date),
+                shipper_client_id=shipper.id,
+                shipper_client_name=shipper.name,
+                total_boxes=total_boxes,
+                notes=f"Auto-created from Purchase Bill {invoice_id}",
+                created_by=session.get("user", {}).get("email", ""),
+            )
+            cdb.add(manifest)
+            cdb.flush()
+
+            for li in rows:
+                stock_name = li["item_name"] or None
+                stock_type = "Box"
+                if li["stock_item_id"]:
+                    stock = cdb.query(StockItem).filter_by(id=li["stock_item_id"]).first()
+                    if stock:
+                        stock_name = stock.name
+                        stock_type = stock.item_type or stock.category or "Box"
+
+                cdb.add(ManifestEntry(
+                    manifest_id=manifest.id,
+                    courier_name=li["courier_name"],
+                    boxes=int(li["qty"]),
+                    docket_no=li["docket_no"] or None,
+                    stock_item_id=li["stock_item_id"],
+                    stock_item_name=stock_name,
+                    notes=None,
+                    item_type=stock_type,
+                ))
 
         cdb.commit()
 
@@ -3009,12 +3327,126 @@ def purchase_invoice_new():
                 purchase_inv.file_path = filepath
                 cdb.commit()
 
-        flash(f"Purchase invoice {invoice_id} saved successfully!")
+        flash(f"Purchase invoice {invoice_id} saved successfully! Stock deducted and manifest(s) created.")
         return redirect(url_for("purchase_invoice_list"))
 
+    stock_items = cdb.query(StockItem).filter_by(company_id=company_id).order_by(StockItem.name).all()
+    # In purchase_invoice_new(), in the GET render:
+    purchase_price_lists = cdb.query(PriceList).filter_by(
+        company_id=company_id,
+        is_active=True,
+        list_type='purchase'
+    ).all()
     return render_template("purchase_new.html",
                            suppliers=suppliers,
-                           today=str(date.today()))
+                           stock_items=stock_items,
+                           courier_options=COURIER_OPTIONS,
+                           item_type_options=ITEM_TYPE_OPTIONS,
+                           today=str(date.today()),
+                           purchase_price_lists=purchase_price_lists)
+
+
+# ── Add these two routes to app.py (after purchase_invoice_new, before purchase_invoice_view) ──
+
+@app.route("/purchase/edit/<invoice_id>", methods=["GET", "POST"])
+@login_required
+def purchase_invoice_edit(invoice_id):
+    cdb        = get_cdb()
+    company_id = get_current_company()
+
+    invoice = cdb.query(PurchaseInvoice).filter_by(
+        invoice_id=invoice_id, company_id=company_id
+    ).first()
+    if not invoice:
+        abort(404)
+
+    if request.method == "POST":
+        # ── Bill-level fields ────────────────────────────────────────────────
+        invoice.invoice_number = request.form.get("invoice_number", "").strip() or invoice.invoice_number
+        inv_date = request.form.get("invoice_date")
+        if inv_date:
+            invoice.date = date.fromisoformat(inv_date)
+        invoice.notes = request.form.get("notes", "").strip()
+
+        is_interstate = bool(request.form.get("is_interstate"))
+
+        # ── GST flag ─────────────────────────────────────────────────────────
+        co = Company.query.filter_by(company_id=company_id).first()
+        apply_gst = bool(co.is_gst_registered) if (co and hasattr(co, 'is_gst_registered')) else True
+
+        # ── Line items ────────────────────────────────────────────────────────
+        item_ids    = request.form.getlist("item_id[]")
+        weights     = request.form.getlist("weight_kg[]")
+        rates       = request.form.getlist("rate_per_kg[]")
+        gst_percents= request.form.getlist("gst_percent[]")
+
+        subtotal  = 0.0
+        tax_total = 0.0
+        old_grand = invoice.grand_total or 0.0
+
+        for i, item_id in enumerate(item_ids):
+            item = cdb.query(PurchaseInvoiceItem).filter_by(
+                id=int(item_id), purchase_invoice_id=invoice.id
+            ).first()
+            if not item:
+                continue
+
+            weight  = float(weights[i])      if i < len(weights)      and weights[i]      else item.weight_kg or 0
+            rate    = float(rates[i])        if i < len(rates)        and rates[i]        else item.rate_per_kg or 0
+            gst_pct = float(gst_percents[i]) if (apply_gst and i < len(gst_percents) and gst_percents[i]) else (item.gst_percent or 0)
+
+            taxable    = round(weight * rate, 2)
+            gst_amount = round(taxable * gst_pct / 100, 2) if apply_gst else 0.0
+            line_total = round(taxable + gst_amount, 2)
+
+            if apply_gst and is_interstate:
+                cgst_amt, sgst_amt, igst_amt = 0.0, 0.0, gst_amount
+            else:
+                cgst_amt = round(gst_amount / 2, 2)
+                sgst_amt = gst_amount - cgst_amt
+                igst_amt = 0.0
+
+            item.weight_kg      = weight
+            item.rate_per_kg    = rate
+            item.purchase_rate  = rate
+            item.taxable_value  = taxable
+            item.gst_percent    = gst_pct
+            item.cgst_amount    = cgst_amt
+            item.sgst_amount    = sgst_amt
+            item.igst_amount    = igst_amt
+            item.total_amount   = line_total
+
+            subtotal  += taxable
+            tax_total += gst_amount
+
+        new_grand = round(subtotal + tax_total, 2)
+
+        invoice.subtotal   = round(subtotal, 2)
+        invoice.tax_amount = round(tax_total, 2)
+        invoice.grand_total= new_grand
+
+        # Adjust balance: keep paid_amount fixed, recompute balance
+        invoice.balance = round(max(0, new_grand - (invoice.paid_amount or 0)), 2)
+        if invoice.balance <= 0:
+            invoice.status = "Paid"
+        elif (invoice.paid_amount or 0) > 0:
+            invoice.status = "Partial"
+        else:
+            invoice.status = "Pending"
+
+        # Adjust supplier payable for the difference
+        diff = new_grand - old_grand
+        if diff != 0 and invoice.supplier_id:
+            supplier = cdb.get(Client, invoice.supplier_id)
+            if supplier:
+                supplier.pending = max(0, (supplier.pending or 0) + diff)
+
+        cdb.commit()
+        flash(f"Purchase bill {invoice_id} updated successfully.", "success")
+        return redirect(url_for("purchase_invoice_view", invoice_id=invoice_id))
+
+    return render_template("purchase_edit.html", invoice=invoice, today=str(date.today()))
+
 
 @app.route("/purchase/view/<invoice_id>")
 @login_required
@@ -3920,6 +4352,7 @@ def invoice_view(invoice_id):
         "receiver_pincode": meta.get("receiver_pincode", ""),
         "receiver_country": meta.get("receiver_country", ""),
         "destination":      meta.get("destination", ""),
+        "origin":           meta.get("origin", "India"),
         "shipment_type":    meta.get("shipment_type", ""),
         "mode":             meta.get("mode", ""),
         "carrier":          meta.get("carrier", ""),
@@ -3936,8 +4369,15 @@ def invoice_view(invoice_id):
         "other_charges":    meta.get("other", 0),
         "other_charges_reason": meta.get("other_charges_reason", ""),
         "notes":            inv.email or "",
-        "packages":         [],
+        "packages":         meta.get("packages", []),
     }
+
+    # Derive pieces and total chargeable weight from the saved package rows
+    # (falls back to freight_weight if no per-package rows exist)
+    pkg_list = invoice["packages"] or []
+    invoice["pieces"] = sum((p.get("qty") or 1) for p in pkg_list) if pkg_list else 1
+    pkg_weight_total = sum((p.get("weight") or 0) * (p.get("qty") or 1) for p in pkg_list)
+    invoice["weight"] = pkg_weight_total if pkg_weight_total > 0 else invoice.get("freight_weight", 0)
 
     return render_template("invoice_view.html", invoice=invoice)
 
@@ -4287,6 +4727,7 @@ def invoice_customer_save():
         if not item_name:
             continue
 
+        stock_item_id = None
         qty      = float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1
         rate     = float(pkg_rates[i] or 0) if pkg_rates[i] else 0
         pkg_type = (pkg_types[i] if i < len(pkg_types) else "Box") or "Box"
@@ -4299,6 +4740,7 @@ def invoice_customer_save():
         ).first()
 
         if existing_item:
+            stock_item_id = existing_item.id
             existing_item.quantity   += qty
             existing_item.last_updated = date.today()
             if rate > 0:
@@ -4929,6 +5371,149 @@ def api_docket_info(docket_no):
                 "carrier": meta.get("carrier", ""),
             })
     return jsonify({"error": "not found"}), 404
+
+
+@app.route("/api/purchase/awb-list")
+@login_required
+def api_purchase_awb_list():
+    """All AWB numbers for this company, for the Purchase Bill AWB dropdown."""
+    cdb = get_cdb()
+    company_id = get_current_company()
+    invoices = (
+        cdb.query(Invoice)
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .order_by(Invoice.id.desc())
+        .all()
+    )
+    seen = set()
+    result = []
+    for inv in invoices:
+        try:
+            meta = json.loads(inv.terms) if inv.terms else {}
+        except (ValueError, TypeError):
+            meta = {}
+        docket = (meta.get("docket_no") or "").strip()
+        if not docket or docket in seen:
+            continue
+        seen.add(docket)
+        result.append({"docket_no": docket, "invoice_id": inv.invoice_id})
+    return jsonify(result)
+
+
+@app.route("/api/purchase/awb-info/<docket_no>")
+@login_required
+def api_purchase_awb_info(docket_no):
+    """
+    Given an AWB/docket number, return the party (client) name, destination,
+    and how many of each packing item (box/envelope/crate) plus weight is
+    still un-deducted against that AWB — for the Purchase Bill form.
+
+    'Already deducted' = the sum of weight_kg/quantity already recorded on
+    earlier PurchaseInvoiceItem rows carrying this same docket_no.
+    """
+    cdb = get_cdb()
+    company_id = get_current_company()
+
+    inv = (
+        cdb.query(Invoice)
+        .filter_by(company_id=company_id)
+        .filter(Invoice.invoice_id.like("CUST-%"))
+        .all()
+    )
+    target = None
+    meta = {}
+    for i in inv:
+        try:
+            m = json.loads(i.terms) if i.terms else {}
+        except (ValueError, TypeError):
+            m = {}
+        if (m.get("docket_no") or "").strip() == docket_no.strip():
+            target, meta = i, m
+            break
+
+    if not target:
+        return jsonify({"error": "AWB not found"}), 404
+
+    party_name = target.client_obj.name if target.client_obj else (target.contact_person or "")
+    destination = meta.get("destination", "")
+
+    # Already billed against this AWB on prior purchase bills
+    already = (
+        cdb.query(
+            PurchaseInvoiceItem.description,
+            func.sum(PurchaseInvoiceItem.quantity),
+            func.sum(PurchaseInvoiceItem.weight_kg),
+        )
+        .filter(PurchaseInvoiceItem.docket_no == docket_no)
+        .group_by(PurchaseInvoiceItem.description)
+        .all()
+    )
+    already_qty = {row[0]: (row[1] or 0) for row in already}
+    already_wt = {row[0]: (row[2] or 0) for row in already}
+
+    items = []
+    linked_items = [line for line in target.items if line.stock_item_id]
+    if linked_items:
+        # Weight isn't stored on StockItem/InvoiceItem, so pull it from this
+        # invoice's packages metadata (matched by name) the same way the
+        # no-linked-items branch below does.
+        pkg_weight_by_name = {}
+        for pkg in meta.get("packages", []):
+            pkg_name = (pkg.get("name") or pkg.get("type") or "").strip()
+            if not pkg_name:
+                continue
+            pkg_qty = float(pkg.get("qty") or 1)
+            pkg_weight_by_name[pkg_name] = pkg_weight_by_name.get(pkg_name, 0.0) + (float(pkg.get("weight") or 0) * pkg_qty)
+
+        for line in linked_items:
+            stock = cdb.query(StockItem).filter_by(id=line.stock_item_id).first()
+            if not stock:
+                continue
+            used = already_qty.get(stock.name, 0)
+            used_wt = already_wt.get(stock.name, 0)
+            total_wt = pkg_weight_by_name.get(stock.name, 0.0)
+            items.append({
+                "stock_item_id": stock.id,
+                "name": stock.name,
+                "unit": stock.unit or "pcs",
+                "available_qty": max(0, float(line.qty) - used),
+                "weight_kg": max(0.0, total_wt - used_wt),
+            })
+    else:
+        for pkg in meta.get("packages", []):
+            pkg_name = (pkg.get("name") or pkg.get("type") or "").strip()
+            if not pkg_name:
+                continue
+            qty = float(pkg.get("qty") or 1)
+            weight = float(pkg.get("weight") or 0) * qty
+            stock = (
+                cdb.query(StockItem)
+                .filter(StockItem.company_id == company_id, StockItem.name == pkg_name)
+                .first()
+            ) or (
+                cdb.query(StockItem)
+                .filter(StockItem.company_id == company_id, StockItem.name.ilike(f"%{pkg_name}%"))
+                .first()
+            )
+            used_qty = already_qty.get(pkg_name, 0)
+            used_wt = already_wt.get(pkg_name, 0)
+            items.append({
+                "stock_item_id": stock.id if stock else None,
+                "name": pkg_name,
+                "unit": stock.unit if stock else "pcs",
+                "available_qty": max(0, qty - used_qty),
+                "weight_kg": max(0.0, weight - used_wt),
+            })
+
+    return jsonify({
+        "docket_no": docket_no,
+        "invoice_id": target.invoice_id,
+        "party_name": party_name,
+        "destination": destination,
+        "carrier_suggested": meta.get("carrier", ""),
+        "items": items,
+    })
 
 
 
@@ -5970,17 +6555,17 @@ def manifest_save():
     cdb.add(manifest)
     cdb.flush()  # get manifest.id
 
-    # Deduct stock per entry and create entry rows
-    stock_deductions = {}  # stock_item_id → total boxes to deduct
+    # NOTE: stock is no longer touched here. Stock now moves OUT only when a
+    # Purchase Bill (courier bill against an AWB) is saved — see /purchase/new.
+    # Manifest is now a pure record of which courier each AWB/box went to.
     for ed in entries_data:
-        # Resolve stock name
         stock_name = None
+        stock_type = 'Box'
         if ed['stock_item_id']:
             stock = cdb.query(StockItem).filter_by(id=ed['stock_item_id']).first()
             if stock:
                 stock_name = stock.name
                 stock_type = stock.item_type or stock.category or 'Box'
-                stock_deductions[stock.id] = stock_deductions.get(stock.id, 0) + ed['boxes']
 
         entry = ManifestEntry(
             manifest_id=manifest.id,
@@ -5991,19 +6576,12 @@ def manifest_save():
             stock_item_id=ed['stock_item_id'],
             stock_item_name=stock_name,
             notes=ed['notes'] or None,
-            item_type=stock_type if ed['stock_item_id'] else 'Box',
+            item_type=stock_type,
         )
         cdb.add(entry)
 
-    # Apply stock deductions
-    for sid, qty in stock_deductions.items():
-        stock = cdb.query(StockItem).filter_by(id=sid, company_id=company_id).first()
-        if stock:
-            stock.quantity -= qty
-            stock.last_updated = date.today()
-
     cdb.commit()
-    flash(f'Manifest {manifest_id} saved. {total_boxes} boxes deducted from stock.', 'success')
+    flash(f'Manifest {manifest_id} saved.', 'success')
     return redirect(url_for('manifest_list'))
 
 
@@ -6095,31 +6673,9 @@ def manifest_update(manifest_db_id):
             })
             new_total += bx
 
-    old_total    = manifest.total_boxes
-    old_stock_id = manifest.stock_item_id
-    diff         = new_total - old_total  # positive = need more stock
+    old_total = manifest.total_boxes
 
-    # RIGHT - restore per original entry
-    for entry in manifest.entries:
-        if entry.stock_item_id:
-            s = cdb.query(StockItem).filter_by(id=entry.stock_item_id, company_id=company_id).first()
-            if s:
-                s.quantity += entry.boxes
-                s.last_updated = date.today()
-
-    # Deduct from new stock item
-    new_stock = cdb.query(StockItem).filter_by(id=new_stock_item_id, company_id=company_id).first()
-    if not new_stock or new_stock.quantity < new_total:
-        # Rollback the restore
-        if old_stock:
-            old_stock.quantity -= old_total
-        flash(f'Not enough stock. Available: {new_stock.quantity if new_stock else 0}, Requested: {new_total}', 'danger')
-        return redirect(url_for('manifest_edit', manifest_db_id=manifest_db_id))
-
-    new_stock.quantity -= new_total
-    new_stock.last_updated = date.today()
-    if old_stock and old_stock.id != new_stock.id:
-        old_stock.last_updated = date.today()
+    # NOTE: stock is no longer adjusted here — see /purchase/new.
 
     # Update manifest header
     try:
@@ -6144,7 +6700,7 @@ def manifest_update(manifest_db_id):
         cdb.add(entry)
 
     cdb.commit()
-    flash(f'Manifest updated. Stock adjusted accordingly.', 'success')
+    flash(f'Manifest updated.', 'success')
     return redirect(url_for('manifest_list'))
 
 
@@ -6164,16 +6720,11 @@ def manifest_delete(manifest_db_id):
         flash('Manifest not found.', 'danger')
         return redirect(url_for('manifest_list'))
 
-    # Restore stock on delete
-    if manifest.stock_item_id:
-        stock = cdb.query(StockItem).filter_by(id=manifest.stock_item_id, company_id=company_id).first()
-        if stock:
-            stock.quantity += manifest.total_boxes
-            stock.last_updated = date.today()
+    # NOTE: stock is no longer restored here — manifest doesn't touch stock anymore.
 
     cdb.delete(manifest)
     cdb.commit()
-    flash(f'Manifest {manifest.manifest_id} deleted. {manifest.total_boxes} boxes restored to stock.', 'success')
+    flash(f'Manifest {manifest.manifest_id} deleted.', 'success')
     return redirect(url_for('manifest_list'))
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -8482,7 +9033,7 @@ def _debtor_summary(company_id):
             "status":            "Fully Paid" if total_pending == 0 else "Has Dues",
         })
 
-    rows.sort(key=lambda r: r["total_pending"], reverse=True)
+    rows.sort(key=lambda r: r["name"].lower())
     return rows
 
 def _creditor_summary(company_id):
@@ -8568,7 +9119,7 @@ def _creditor_summary(company_id):
             "status":            "Fully Paid" if total_pending == 0 else "Has Dues",
         })
 
-    rows.sort(key=lambda r: r["total_pending"], reverse=True)
+    rows.sort(key=lambda r: r["name"].lower())
     return rows
 
 @app.route("/debtors")
@@ -8625,27 +9176,28 @@ def debtor_statement(client_pk):
         })
 
     for inv in invoices:
-        # Add invoice
+        awb = _get_awb(inv)
         running_balance += inv.grand_total
         ledger.append({
             "date":    inv.date,
             "type":    "Invoice",
             "ref":     inv.invoice_id,
+            "awb":     awb,                      
             "debit":   inv.grand_total,
             "credit":  0,
             "balance": running_balance,
-            "status":  inv.status,  # Shows Paid/Partial/Draft
+            "status":  inv.status,
             "id":      inv.invoice_id,
         })
-        
-        # Add payment if any was made
+
         paid = (inv.grand_total or 0) - (getattr(inv, "balance", 0) or 0)
         if paid > 0:
             running_balance -= paid
             ledger.append({
-                "date":    inv.date,  # Use payment date if you have it
+                "date":    inv.date,
                 "type":    "Payment Received",
                 "ref":     inv.invoice_id,
+                "awb":     "",                   
                 "debit":   0,
                 "credit":  paid,
                 "balance": running_balance,

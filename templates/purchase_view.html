@@ -7,76 +7,75 @@
 <style>
   .pv-page { max-width: 1200px; margin: 0 auto; }
 
-  /* Header strip */
-  .pv-header {
-    background: #fff; border-radius: 18px; border: 1px solid #E2E8F0;
-    padding: 22px 28px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,.04);
-    display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;
+  /* Shared card style from purchase_new */
+  .pv-card { background: #fff; border: 1px solid #E2E8F0; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 18px; }
+  .pv-card-head { background: #1E3A5F; color: #fff; padding: 14px 20px; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .pv-card-body { padding: 20px; }
+
+  /* Header row */
+  .pv-header-row {
+    display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;
+    gap: 14px; margin-bottom: 18px;
   }
   .pv-id { font-size: 22px; font-weight: 800; color: #0F172A; }
-  .pv-sup { font-size: 14px; color: #64748B; margin-top: 4px; }
-  .pv-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 20px; font-size: 12.5px; font-weight: 700; margin-top: 8px; }
+  .pv-sup { font-size: 13px; color: #64748B; margin-top: 4px; }
+  .pv-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 13px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-top: 8px; }
   .pv-badge.paid    { background: #DCFCE7; color: #16A34A; }
   .pv-badge.partial { background: #FEF3C7; color: #D97706; }
   .pv-badge.pending { background: #FEE2E2; color: #DC2626; }
   .pv-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
-  /* Info grid */
-  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-  .info-card { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; padding: 20px 22px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-  .ic-head { font-size: 13px; font-weight: 700; color: #0F172A; margin-bottom: 14px; display: flex; gap: 8px; align-items: center; }
-  .ic-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid #F8FAFC; }
+  /* Info grid inside card */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 18px; }
+  .info-inner { }
+  .ic-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #F1F5F9; }
   .ic-row:last-child { border-bottom: none; }
   .ic-lbl { font-size: 12px; color: #94A3B8; font-weight: 500; }
-  .ic-val { font-size: 13px; font-weight: 600; color: #334155; }
+  .ic-val { font-size: 13px; font-weight: 600; color: #334155; text-align: right; }
 
   /* Items table */
-  .items-card { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow: hidden; }
-  .items-head { padding: 16px 22px; border-bottom: 1px solid #F1F5F9; background: #FAFBFC; font-size: 14px; font-weight: 700; color: #0F172A; }
-  .items-card table { width: 100%; border-collapse: collapse; }
-  .items-card th { padding: 10px 16px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; background: #F8FAFC; border-bottom: 1px solid #E2E8F0; text-align: left; }
-  .items-card td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid #F8FAFC; color: #334155; }
-  .items-card tbody tr:last-child td { border-bottom: none; }
-  .items-card tbody tr:hover { background: #FAFBFF; }
-  .code-tag { background: #EFF6FF; color: #2563EB; padding: 3px 9px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
+  .items-wrap { overflow-x: auto; }
+  .items-wrap table { width: 100%; border-collapse: collapse; min-width: 700px; }
+  .items-wrap th {
+    background: #F8FAFC; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .3px; color: #64748B; padding: 9px 12px; border-bottom: 1px solid #E2E8F0; text-align: left; white-space: nowrap;
+  }
+  .items-wrap td { padding: 12px 12px; font-size: 13px; border-bottom: 1px solid #F1F5F9; color: #334155; vertical-align: middle; }
+  .items-wrap tbody tr:last-child td { border-bottom: none; }
+  .items-wrap tbody tr:hover { background: #FAFBFF; }
+  .code-tag { background: #EEF2FF; color: #4F46E5; padding: 3px 9px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
   .gst-tag  { background: #FEF3C7; color: #D97706; padding: 3px 9px; border-radius: 6px; font-size: 11.5px; font-weight: 700; }
   .row-amt  { font-weight: 800; color: #2563EB; }
 
   /* Totals strip */
-  .totals-strip {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 0; border-top: 2px solid #E2E8F0;
-  }
-  .ts-cell { padding: 16px 22px; text-align: center; border-right: 1px solid #E2E8F0; }
-  .ts-cell:last-child { border-right: none; }
+  .totals-strip { display: grid; grid-template-columns: repeat(3,1fr); border-top: 2px solid #E2E8F0; }
+  .ts-cell { padding: 16px 20px; text-align: center; border-right: 1px solid #E2E8F0; }
+  .ts-cell:last-child { border-right: none; background: #EFF6FF; }
   .ts-lbl { font-size: 11px; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
   .ts-val { font-size: 22px; font-weight: 800; margin-top: 4px; }
 
-  /* Payment card */
-  .pay-card { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-  .pay-head { padding: 16px 22px; border-bottom: 1px solid #F1F5F9; background: #FAFBFC; font-size: 14px; font-weight: 700; color: #0F172A; }
-  .pay-body { padding: 22px; }
+  /* Payment section */
   .pay-summary { display: flex; gap: 32px; flex-wrap: wrap; margin-bottom: 20px; }
-  .ps-item .ps-lbl { font-size: 11px; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
-  .ps-item .ps-val { font-size: 28px; font-weight: 800; margin-top: 4px; }
+  .ps-lbl { font-size: 11px; color: #94A3B8; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .ps-val { font-size: 28px; font-weight: 800; margin-top: 4px; }
+
   .pay-form-row {
     display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap;
     background: #EFF6FF; border-radius: 12px; padding: 18px 20px; border: 1px solid #DBEAFE;
   }
-  .pay-form-row .form-group { margin: 0; }
-  .pay-form-row label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; }
-  .pay-form-row input, .pay-form-row select { min-width: 160px; }
+  .pay-form-row label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #64748B; margin-bottom: 6px; }
+  .pay-form-row input, .pay-form-row select {
+    padding: 9px 12px; border: 1.5px solid #E2E8F0; border-radius: 8px;
+    font-size: 13px; color: #0F172A; background: #F8FAFC; box-sizing: border-box;
+  }
+  .pay-form-row input:focus, .pay-form-row select:focus { border-color: #4F46E5; background: #fff; outline: none; }
   .paid-notice { background: #D1FAE5; border-radius: 12px; padding: 14px 18px; color: #059669; font-weight: 700; font-size: 14px; }
-
-  /* Bill attachment */
-  .bill-card { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; padding: 18px 22px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
-  .bill-link { display: inline-flex; align-items: center; gap: 8px; background: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; border-radius: 10px; padding: 10px 18px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all .15s; }
-  .bill-link:hover { background: #2563EB; color: #fff; border-color: #2563EB; }
 
   @media(max-width:768px) {
     .info-grid { grid-template-columns: 1fr; }
     .totals-strip { grid-template-columns: 1fr; }
     .ts-cell { border-right: none; border-bottom: 1px solid #E2E8F0; }
+    .pv-actions { width: 100%; }
   }
 </style>
 {% endblock %}
@@ -84,8 +83,8 @@
 {% block content %}
 <div class="pv-page">
 
-  <!-- ── Header ── -->
-  <div class="pv-header">
+  <!-- ── Page header row ── -->
+  <div class="pv-header-row">
     <div>
       <div class="pv-id">{{ invoice.purchase_id }}</div>
       <div class="pv-sup">
@@ -99,105 +98,119 @@
     </div>
     <div class="pv-actions">
       <a href="/purchase/list" class="btn btn-ghost">← All Purchases</a>
-      <a href="/reports/purchase" class="btn btn-ghost">📊 Report</a>
+      <a href="/purchase/edit/{{ invoice.invoice_id }}" class="btn btn-secondary" style="background:#EEF2FF;color:#4F46E5;border:1px solid #C7D2FE;">
+        ✏️ Edit Bill
+      </a>
       {% if invoice.status != 'Paid' %}
       <button class="btn btn-primary" onclick="document.getElementById('paySection').scrollIntoView({behavior:'smooth'})">
         💳 Record Payment
       </button>
       {% endif %}
-      <form method="POST" action="/purchase/delete/{{ invoice.purchase_id }}"
-            onsubmit="return confirm('Delete this purchase? Stock adjustments will be reversed.')">
+      <form method="POST" action="/purchase/delete/{{ invoice.invoice_id }}" style="margin:0;"
+            onsubmit="return confirm('Delete {{ invoice.purchase_id }}? Stock adjustments will be reversed.')">
         <button type="submit" class="btn btn-danger btn-sm">🗑 Delete</button>
       </form>
     </div>
   </div>
 
-  <!-- ── Info Cards ── -->
+  <!-- ── Supplier + Invoice Details ── -->
   <div class="info-grid">
-    <div class="info-card">
-      <div class="ic-head">🏭 Supplier Information</div>
-      <div class="ic-row">
-        <span class="ic-lbl">Name</span>
-        <span class="ic-val">{{ invoice.supplier.name if invoice.supplier else invoice.supplier_name or '—' }}</span>
+
+    <div class="pv-card" style="margin-bottom:0;">
+      <div class="pv-card-head">🏭 Supplier Information</div>
+      <div class="pv-card-body">
+        <div class="ic-row">
+          <span class="ic-lbl">Name</span>
+          <span class="ic-val">{{ invoice.supplier.name if invoice.supplier else invoice.supplier_name or '—' }}</span>
+        </div>
+        {% if invoice.supplier %}
+        <div class="ic-row">
+          <span class="ic-lbl">Phone</span>
+          <span class="ic-val">{{ invoice.supplier.phone or '—' }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">GST Number</span>
+          <span class="ic-val">{{ invoice.supplier.gst_number or '—' }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">Total Payable (all bills)</span>
+          <span class="ic-val" style="color:#DC2626;font-weight:800;">₹{{ "{:,.0f}".format(invoice.supplier.pending or 0) }}</span>
+        </div>
+        {% endif %}
       </div>
-      {% if invoice.supplier %}
-      <div class="ic-row">
-        <span class="ic-lbl">Phone</span>
-        <span class="ic-val">{{ invoice.supplier.phone or '—' }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">GST Number</span>
-        <span class="ic-val">{{ invoice.supplier.gst_number or '—' }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">Total Payable (all)</span>
-        <span class="ic-val" style="color:#DC2626;font-weight:800;">
-          ₹{{ "{:,.0f}".format(invoice.supplier.pending or 0) }}
-        </span>
-      </div>
-      {% endif %}
     </div>
 
-    <div class="info-card">
-      <div class="ic-head">📋 Invoice Details</div>
-      <div class="ic-row">
-        <span class="ic-lbl">Purchase ID</span>
-        <span class="ic-val">{{ invoice.purchase_id }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">Supplier Invoice No.</span>
-        <span class="ic-val">{{ invoice.invoice_number or '—' }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">Invoice Date</span>
-        <span class="ic-val">{{ invoice.date.strftime('%d %b %Y') if invoice.date else '—' }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">Due Date</span>
-        <span class="ic-val">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else '—' }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">Payment Terms</span>
-        <span class="ic-val">{{ invoice.payment_terms or '—' }}</span>
-      </div>
-      <div class="ic-row">
-        <span class="ic-lbl">Recorded On</span>
-        <span class="ic-val">{{ invoice.created_at.strftime('%d %b %Y, %I:%M %p') if invoice.created_at else '—' }}</span>
+    <div class="pv-card" style="margin-bottom:0;">
+      <div class="pv-card-head">📋 Invoice Details</div>
+      <div class="pv-card-body">
+        <div class="ic-row">
+          <span class="ic-lbl">Purchase ID</span>
+          <span class="ic-val">{{ invoice.purchase_id }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">Supplier Invoice No.</span>
+          <span class="ic-val">{{ invoice.invoice_number or '—' }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">Invoice Date</span>
+          <span class="ic-val">{{ invoice.date.strftime('%d %b %Y') if invoice.date else '—' }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">Due Date</span>
+          <span class="ic-val">{{ invoice.due_date.strftime('%d %b %Y') if invoice.due_date else '—' }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">Payment Terms</span>
+          <span class="ic-val">{{ invoice.payment_terms or '—' }}</span>
+        </div>
+        <div class="ic-row">
+          <span class="ic-lbl">Recorded On</span>
+          <span class="ic-val">{{ invoice.created_at.strftime('%d %b %Y, %I:%M %p') if invoice.created_at else '—' }}</span>
+        </div>
       </div>
     </div>
+
   </div>
 
   {% if invoice.notes %}
-  <div style="background:#FEF9C3;border-radius:12px;padding:12px 18px;margin-bottom:20px;font-size:13px;color:#713F12;border:1px solid #FDE68A;">
+  <div style="background:#FEF9C3;border-radius:12px;padding:12px 18px;margin-bottom:18px;font-size:13px;color:#713F12;border:1px solid #FDE68A;">
     📝 <strong>Note:</strong> {{ invoice.notes }}
   </div>
   {% endif %}
 
   {% if invoice.file_path %}
-  <div class="bill-card">
-    <div style="font-size:13px;font-weight:700;color:#0F172A;margin-bottom:12px;">📎 Uploaded Bill</div>
-    <a href="/uploads/{{ invoice.file_path }}" target="_blank" class="bill-link">
-      📄 View Original Invoice / Bill
-    </a>
+  <div class="pv-card">
+    <div class="pv-card-head">📎 Uploaded Bill</div>
+    <div class="pv-card-body">
+      <a href="/uploads/{{ invoice.file_path }}" target="_blank"
+         style="display:inline-flex;align-items:center;gap:8px;background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;border-radius:10px;padding:10px 18px;font-size:13px;font-weight:600;text-decoration:none;transition:all .15s;"
+         onmouseover="this.style.background='#1E3A5F';this.style.color='#fff';"
+         onmouseout="this.style.background='#F1F5F9';this.style.color='#334155';">
+        📄 View Original Invoice / Bill
+      </a>
+    </div>
   </div>
   {% endif %}
 
   <!-- ── Items Table ── -->
-  <div class="items-card">
-    <div class="items-head">📦 Items Received</div>
-    <div class="table-wrap">
+  <div class="pv-card">
+    <div class="pv-card-head">📦 Items Received (per AWB)</div>
+    <div class="items-wrap">
       <table>
         <thead>
           <tr>
             <th>#</th>
-            <th>Code</th>
-            <th>Item Description</th>
-            <th>Qty</th>
-            <th>Unit</th>
-            <th>Purchase Rate</th>
+            <th>AWB / Docket</th>
+            <th>Party Name</th>
+            <th>Destination</th>
+            <th>Courier</th>
+            <th>Item</th>
+            <th style="text-align:right">Qty</th>
+            <th style="text-align:right">Weight (Kg)</th>
+            <th style="text-align:right">Rate/Kg</th>
             <th>GST %</th>
-            <th>GST Amount</th>
-            <th>Total</th>
+            <th style="text-align:right">GST Amt</th>
+            <th style="text-align:right">Total</th>
           </tr>
         </thead>
         <tbody>
@@ -205,58 +218,78 @@
           <tr>
             <td style="color:#94A3B8;font-weight:600">{{ loop.index }}</td>
             <td>
-              {% if item.stock_item and item.stock_item.code %}
-              <span class="code-tag">{{ item.stock_item.code }}</span>
+              {% if item.docket_no %}
+              <span class="code-tag">{{ item.docket_no }}</span>
               {% else %}—{% endif %}
             </td>
-            <td><strong>{{ item.description }}</strong></td>
-            <td><strong>{{ item.quantity | int if item.quantity == item.quantity|int else item.quantity }}</strong></td>
-            <td style="color:#64748B">{{ item.unit or 'pcs' }}</td>
-            <td>₹{{ "{:,.2f}".format(item.purchase_rate or 0) }}</td>
-            <td><span class="gst-tag">{{ item.gst_percent | int }}%</span></td>
-            <td style="color:#D97706;font-weight:600">
+            <td><strong>{{ item.party_name or item.description or '—' }}</strong></td>
+            <td style="color:#64748B;">{{ item.destination or '—' }}</td>
+            <td style="color:#64748B;">{{ item.courier_name or '—' }}</td>
+            <td>{{ item.description or '—' }}</td>
+            <td style="text-align:right;font-weight:600;">{{ item.quantity | int if item.quantity == item.quantity|int else item.quantity }}</td>
+            <td style="text-align:right;color:#334155;">
+              {% if item.weight_kg %}{{ "%.2f"|format(item.weight_kg) }}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:right;color:#334155;">
+              {% if item.rate_per_kg %}₹{{ "{:,.2f}".format(item.rate_per_kg) }}{% else %}—{% endif %}
+            </td>
+            <td>
+              {% if item.gst_percent %}<span class="gst-tag">{{ item.gst_percent | int }}%</span>{% else %}—{% endif %}
+            </td>
+            <td style="text-align:right;color:#D97706;font-weight:600;">
               ₹{{ "{:,.2f}".format((item.purchase_rate or 0) * (item.quantity or 0) * (item.gst_percent or 0) / 100) }}
             </td>
-            <td><span class="row-amt">₹{{ "{:,.2f}".format(item.total_amount or 0) }}</span></td>
+            <td style="text-align:right;"><span class="row-amt">₹{{ "{:,.2f}".format(item.total_amount or 0) }}</span></td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-
-    <!-- Totals strip inside card -->
-    <div class="totals-strip">
-      <div class="ts-cell">
-        <div class="ts-lbl">Taxable Amount</div>
-        <div class="ts-val" style="color:#334155">₹{{ "{:,.2f}".format(invoice.subtotal or 0) }}</div>
-      </div>
-      <div class="ts-cell">
-        <div class="ts-lbl">Total GST</div>
-        <div class="ts-val" style="color:#D97706">₹{{ "{:,.2f}".format(invoice.tax_amount or 0) }}</div>
-      </div>
-      <div class="ts-cell" style="background:#EFF6FF;">
-        <div class="ts-lbl">Grand Total</div>
-        <div class="ts-val" style="color:#2563EB">₹{{ "{:,.2f}".format(invoice.grand_total or 0) }}</div>
-      </div>
-    </div>
+    <!-- Totals strip inside items card -->
+    <div class="totals-strip" style="grid-template-columns: {% if is_gst_registered %}repeat(3,1fr){% else %}1fr{% endif %};">
+  {% if is_gst_registered %}
+  <div class="ts-cell">
+    <div class="ts-lbl">Taxable Amount</div>
+    <div class="ts-val" style="color:#334155;">₹{{ "{:,.2f}".format(invoice.subtotal or 0) }}</div>
   </div>
+  <div class="ts-cell">
+    <div class="ts-lbl">Total GST</div>
+    <div class="ts-val" style="color:#D97706;">₹{{ "{:,.2f}".format(invoice.tax_amount or 0) }}</div>
+    {% set total_cgst = invoice.items | sum(attribute='cgst_amount') %}
+    {% set total_sgst = invoice.items | sum(attribute='sgst_amount') %}
+    {% set total_igst = invoice.items | sum(attribute='igst_amount') %}
+    {% if total_igst > 0 %}
+    <div style="font-size:11px;color:#94A3B8;margin-top:2px;">IGST: ₹{{ "{:,.2f}".format(total_igst) }}</div>
+    {% else %}
+    <div style="font-size:11px;color:#94A3B8;margin-top:2px;">
+      CGST: ₹{{ "{:,.2f}".format(total_cgst) }} · SGST: ₹{{ "{:,.2f}".format(total_sgst) }}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="ts-cell">
+    <div class="ts-lbl">Grand Total</div>
+    <div class="ts-val" style="color:#2563EB;">₹{{ "{:,.2f}".format(invoice.grand_total or 0) }}</div>
+  </div>
+</div>
+</div>
 
   <!-- ── Payment Section ── -->
-  <div class="pay-card" id="paySection">
-    <div class="pay-head">💳 Payment Summary</div>
-    <div class="pay-body">
+  <div class="pv-card" id="paySection">
+    <div class="pv-card-head">💳 Payment Summary</div>
+    <div class="pv-card-body">
       <div class="pay-summary">
-        <div class="ps-item">
+        <div>
           <div class="ps-lbl">Invoice Total</div>
-          <div class="ps-val" style="color:#0F172A">₹{{ "{:,.2f}".format(invoice.grand_total or 0) }}</div>
+          <div class="ps-val" style="color:#0F172A;">₹{{ "{:,.2f}".format(invoice.grand_total or 0) }}</div>
         </div>
-        <div class="ps-item">
+        <div>
           <div class="ps-lbl">Amount Paid</div>
-          <div class="ps-val" style="color:#059669">₹{{ "{:,.2f}".format(invoice.paid_amount or 0) }}</div>
+          <div class="ps-val" style="color:#059669;">₹{{ "{:,.2f}".format(invoice.paid_amount or 0) }}</div>
         </div>
-        <div class="ps-item">
+        <div>
           <div class="ps-lbl">Balance Due</div>
-          <div class="ps-val" style="color:{% if (invoice.balance or 0) > 0 %}#DC2626{% else %}#059669{% endif %}">
+          <div class="ps-val" style="color:{% if (invoice.balance or 0) > 0 %}#DC2626{% else %}#059669{% endif %};">
             ₹{{ "{:,.2f}".format(invoice.balance or 0) }}
           </div>
         </div>
@@ -267,30 +300,30 @@
       {% else %}
       <form method="POST" action="/purchase/pay/{{ invoice.id }}">
         <div class="pay-form-row">
-          <div class="form-group">
+          <div>
             <label>Amount (₹)</label>
             <input type="number" name="amount" min="0.01" step="0.01"
                    max="{{ invoice.balance or 0 }}" value="{{ invoice.balance or 0 }}"
-                   style="width:180px;" required>
+                   style="width:170px;" required>
           </div>
-          <div class="form-group">
+          <div>
             <label>Payment Mode</label>
-            <select name="pay_mode">
+            <select name="pay_mode" style="width:160px;">
               <option>Cash</option>
               <option>Bank Transfer</option>
               <option>Cheque</option>
               <option>UPI</option>
             </select>
           </div>
-          <div class="form-group">
+          <div>
             <label>Payment Date</label>
-            <input type="date" name="pay_date" value="{{ today }}" style="width:160px;">
+            <input type="date" name="pay_date" value="{{ today }}" style="width:155px;">
           </div>
-          <div class="form-group">
+          <div>
             <label>Reference / Narration</label>
             <input type="text" name="narration" placeholder="Optional" style="width:200px;">
           </div>
-          <button type="submit" class="btn btn-success" style="padding:10px 24px;">
+          <button type="submit" class="btn btn-success" style="padding:10px 24px;align-self:flex-end;">
             ✅ Record Payment
           </button>
         </div>

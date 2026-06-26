@@ -22,6 +22,11 @@
   .amt-due      { color:#D97706; font-weight:600; }
   .amt-payment  { color:#16A34A; font-weight:600; }
 
+  .inv-tag { background:#EEF2FF; color:#4F46E5; padding:2px 7px; border-radius:6px;
+             font-size:11px; font-weight:700; white-space:nowrap; }
+  .awb-tag { background:#F0FDF4; color:#16A34A; padding:2px 7px; border-radius:6px;
+             font-size:11px; font-weight:700; white-space:nowrap; }
+
   .view-btn { background:var(--primary-light); color:var(--primary); border:none; padding:6px 12px;
               border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
               transition:background .15s; display:inline-flex; align-items:center; gap:4px; }
@@ -81,7 +86,7 @@
 
 <!-- Search / Filter -->
 <div class="search-bar">
-  <input type="text" id="searchInput" placeholder="🔍  Search debtor name…" oninput="filterTable()">
+  <input type="text" id="searchInput" placeholder="🔍  Search debtor, invoice, AWB…" oninput="filterTable()">
   <select id="filterOverdue" onchange="filterTable()" style="max-width:180px;">
     <option value="all">All Debtors</option>
     <option value="overdue">Overdue Only</option>
@@ -96,6 +101,7 @@
         <tr>
           <th>#</th>
           <th>Client</th>
+          <th>Last Invoice / AWB</th>
           <th>Total Pending</th>
           <th>Last Invoice Date</th>
           <th>Nearest Due Date</th>
@@ -109,6 +115,7 @@
         {% for d in debtors %}
         <tr class="tbl-row {% if d.overdue %}row-overdue{% endif %}"
             data-overdue="{{ 'yes' if d.overdue else 'no' }}"
+            data-search="{{ d.name|lower }} {{ (d.last_invoice_id or '')|lower }} {{ (d.last_awb or '')|lower }}"
             onclick="window.location='/debtors/{{ d.id }}/statement'">
           <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
           <td>
@@ -118,6 +125,16 @@
               {% if d.phone %}📞 {{ d.phone }}{% endif %}
               {% if d.city %} · {{ d.city }}{% endif %}
             </div>
+          </td>
+          <td>
+            {% if d.last_invoice_id %}
+              <span class="inv-tag">{{ d.last_invoice_id }}</span>
+            {% endif %}
+            {% if d.last_awb %}
+              <div style="margin-top:4px;"><span class="awb-tag">✈ {{ d.last_awb }}</span></div>
+            {% elif not d.last_invoice_id %}
+              <span style="color:var(--gray-400);">—</span>
+            {% endif %}
           </td>
           <td><span class="amt-pending">₹{{ "{:,.0f}".format(d.total_pending) }}</span></td>
           <td style="color:var(--gray-600); font-size:13px;">
@@ -154,7 +171,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="9" style="text-align:center; padding:48px; color:var(--gray-400);">
+          <td colspan="10" style="text-align:center; padding:48px; color:var(--gray-400);">
             🎉 No outstanding debtors right now!
           </td>
         </tr>
@@ -169,10 +186,10 @@ function filterTable(){
   const q       = document.getElementById('searchInput').value.toLowerCase();
   const overdue = document.getElementById('filterOverdue').value;
   document.querySelectorAll('#debtorTable tbody tr.tbl-row').forEach(row => {
-    const name   = row.querySelector('td:nth-child(2)').textContent.toLowerCase();
-    const isOver = row.dataset.overdue === 'yes';
-    const matchQ = name.includes(q);
-    const matchO = overdue === 'all' || (overdue === 'overdue' && isOver);
+    const searchText = row.dataset.search || '';
+    const isOver     = row.dataset.overdue === 'yes';
+    const matchQ     = !q || searchText.includes(q);
+    const matchO     = overdue === 'all' || (overdue === 'overdue' && isOver);
     row.style.display = (matchQ && matchO) ? '' : 'none';
   });
 }

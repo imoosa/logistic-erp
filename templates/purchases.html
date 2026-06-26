@@ -8,82 +8,110 @@
   .pur-page { max-width: 1400px; margin: 0 auto; }
 
   /* KPI strip */
-  .kpi-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 26px; }
-  .kpi-strip-card {
+  .kpi-strip { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+  .kpi-card {
     background: #fff; border-radius: 16px; padding: 18px 22px;
     border: 1px solid #E2E8F0; display: flex; align-items: center; gap: 16px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
   }
-  .ksc-icon { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
-  .ksc-icon.blue   { background: #EFF6FF; }
-  .ksc-icon.green  { background: #D1FAE5; }
-  .ksc-icon.red    { background: #FEE2E2; }
-  .ksc-lbl { font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
-  .ksc-val { font-size: 24px; font-weight: 800; margin-top: 3px; }
-  .ksc-val.blue  { color: #2563EB; }
-  .ksc-val.green { color: #059669; }
-  .ksc-val.red   { color: #DC2626; }
+  .kc-icon { width: 46px; height: 46px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+  .kc-icon.blue  { background: #EFF6FF; }
+  .kc-icon.green { background: #D1FAE5; }
+  .kc-icon.red   { background: #FEE2E2; }
+  .kc-lbl { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
+  .kc-val { font-size: 24px; font-weight: 800; margin-top: 3px; }
+  .kc-val.blue  { color: #2563EB; }
+  .kc-val.green { color: #059669; }
+  .kc-val.red   { color: #DC2626; }
 
-  /* Toolbar */
-  .toolbar {
-    display: flex; justify-content: space-between; align-items: center;
-    background: #fff; border-radius: 14px; padding: 14px 20px;
-    margin-bottom: 18px; border: 1px solid #E2E8F0;
-    box-shadow: 0 1px 3px rgba(0,0,0,.04); gap: 12px; flex-wrap: wrap;
+  /* Toolbar card */
+  .toolbar-card {
+    background: #fff; border: 1px solid #E2E8F0; border-radius: 16px;
+    overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 18px;
   }
-  .toolbar-left { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .toolbar-head {
+    background: #1E3A5F; color: #fff; padding: 13px 20px;
+    font-size: 14px; font-weight: 700; display: flex; align-items: center;
+    justify-content: space-between; gap: 10px;
+  }
+  .toolbar-body {
+    padding: 12px 16px; display: flex; align-items: center;
+    gap: 10px; flex-wrap: wrap;
+  }
   .search-box {
     display: flex; align-items: center; gap: 8px;
-    background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 10px;
-    padding: 8px 14px; min-width: 230px;
+    background: #F8FAFC; border: 1.5px solid #E2E8F0; border-radius: 9px;
+    padding: 7px 13px; flex: 1; min-width: 180px; max-width: 320px;
   }
   .search-box input {
     border: none; background: none; outline: none; font-size: 13px;
     font-family: inherit; color: #334155; width: 100%;
-    padding: 0; border-radius: 0;
   }
   .filter-select {
-    padding: 8px 12px; border: 1.5px solid #E2E8F0; border-radius: 10px;
+    padding: 7px 11px; border: 1.5px solid #E2E8F0; border-radius: 9px;
     font-size: 13px; font-family: inherit; background: #F8FAFC;
     color: #334155; outline: none; cursor: pointer;
   }
-  .filter-select:focus { border-color: #2563EB; }
+  .filter-select:focus { border-color: #4F46E5; }
 
-  /* Table card */
-  .table-card { background: #fff; border-radius: 16px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,.04); overflow: hidden; }
-  .table-card table { width: 100%; border-collapse: collapse; }
-  .table-card th {
-    padding: 11px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .5px; color: #64748B; background: #F8FAFC; text-align: left;
-    border-bottom: 1px solid #E2E8F0; white-space: nowrap;
+  /* Table card — outer wrapper clips border-radius, inner div scrolls */
+  .table-card {
+    background: #fff; border-radius: 16px; border: 1px solid #E2E8F0;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    overflow: hidden;           /* clips rounded corners */
   }
-  .table-card td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid #F1F5F9; color: #334155; vertical-align: middle; }
-  .table-card tbody tr:hover { background: #F8FAFC; cursor: pointer; }
+  .table-scroll {
+    overflow-x: auto;           /* THIS is what enables horizontal scroll */
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-card table { width: 100%; border-collapse: collapse; min-width: 900px; }
+  .table-card thead { background: #1E3A5F; }
+  .table-card th {
+    padding: 10px 12px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .4px; color: #CBD5E1; text-align: left; white-space: nowrap;
+  }
+  .table-card td {
+    padding: 10px 12px; font-size: 12.5px; border-bottom: 1px solid #F1F5F9;
+    color: #334155; vertical-align: middle; white-space: nowrap;
+  }
+  .table-card tbody tr:hover { background: #F8FAFC; }
   .table-card tbody tr:last-child td { border-bottom: none; }
+  .table-card tbody tr { cursor: pointer; }
 
-  .pur-id { font-weight: 700; color: #2563EB; }
-  .sup-name { font-weight: 600; color: #0F172A; }
-  .inv-no { color: #64748B; font-size: 12px; }
+  /* Sup name can wrap */
+  .sup-name { font-weight: 600; color: #0F172A; white-space: normal; max-width: 130px; display: inline-block; line-height: 1.3; }
+  .pur-id   { font-weight: 700; color: #2563EB; font-size: 12px; }
+  .inv-no   { color: #64748B; font-size: 11.5px; }
   .amt-total { font-weight: 800; color: #0F172A; }
-  .amt-paid { color: #059669; font-weight: 600; }
-  .amt-bal { font-weight: 700; }
+  .amt-paid  { color: #059669; font-weight: 600; }
+  .amt-bal   { font-weight: 700; }
   .amt-bal.has-bal { color: #DC2626; }
   .amt-bal.no-bal  { color: #059669; }
 
   /* Status badge */
-  .sbadge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 11px; border-radius: 20px; font-size: 11.5px; font-weight: 700; }
+  .sbadge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
   .sbadge.paid    { background: #DCFCE7; color: #16A34A; }
   .sbadge.partial { background: #FEF3C7; color: #D97706; }
   .sbadge.pending { background: #FEE2E2; color: #DC2626; }
 
+  /* Action buttons */
+  .action-cell { display: flex; gap: 6px; align-items: center; }
   .view-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: #F1F5F9; color: #475569;
-    border: 1px solid #E2E8F0; border-radius: 8px;
-    padding: 6px 13px; font-size: 12px; font-weight: 600;
-    text-decoration: none; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #EFF6FF; color: #2563EB;
+    border: 1px solid #BFDBFE; border-radius: 7px;
+    padding: 4px 10px; font-size: 11px; font-weight: 700;
+    text-decoration: none; white-space: nowrap; transition: all .15s;
   }
   .view-btn:hover { background: #2563EB; color: #fff; border-color: #2563EB; }
+  .del-btn {
+    display: inline-flex; align-items: center;
+    background: #FEE2E2; color: #DC2626;
+    border: 1px solid #FECACA; border-radius: 7px;
+    padding: 4px 8px; font-size: 12px;
+    cursor: pointer; transition: all .15s; line-height: 1;
+  }
+  .del-btn:hover { background: #DC2626; color: #fff; border-color: #DC2626; }
 
   .empty-state { text-align: center; padding: 64px 20px; color: #94A3B8; }
   .empty-state .big { font-size: 48px; margin-bottom: 12px; }
@@ -91,7 +119,8 @@
 
   @media(max-width:800px) {
     .kpi-strip { grid-template-columns: 1fr; }
-    .toolbar { flex-direction: column; align-items: stretch; }
+    .toolbar-body { flex-direction: column; align-items: stretch; }
+    .search-box { max-width: 100%; }
   }
 </style>
 {% endblock %}
@@ -101,122 +130,128 @@
 
   <!-- KPI Strip -->
   <div class="kpi-strip">
-    <div class="kpi-strip-card">
-      <div class="ksc-icon blue">🛒</div>
+    <div class="kpi-card">
+      <div class="kc-icon blue">🛒</div>
       <div>
-        <div class="ksc-lbl">Total Purchased</div>
-        <div class="ksc-val blue">₹{{ "{:,.0f}".format(total_amount) }}</div>
+        <div class="kc-lbl">Total Purchased</div>
+        <div class="kc-val blue">₹{{ "{:,.0f}".format(total_amount) }}</div>
       </div>
     </div>
-    <div class="kpi-strip-card">
-      <div class="ksc-icon green">✅</div>
+    <div class="kpi-card">
+      <div class="kc-icon green">✅</div>
       <div>
-        <div class="ksc-lbl">Amount Paid</div>
-        <div class="ksc-val green">₹{{ "{:,.0f}".format(total_paid) }}</div>
+        <div class="kc-lbl">Amount Paid</div>
+        <div class="kc-val green">₹{{ "{:,.0f}".format(total_paid) }}</div>
       </div>
     </div>
-    <div class="kpi-strip-card">
-      <div class="ksc-icon red">⏳</div>
+    <div class="kpi-card">
+      <div class="kc-icon red">⏳</div>
       <div>
-        <div class="ksc-lbl">Balance Payable</div>
-        <div class="ksc-val red">₹{{ "{:,.0f}".format(total_due) }}</div>
+        <div class="kc-lbl">Balance Payable</div>
+        <div class="kc-val red">₹{{ "{:,.0f}".format(total_due) }}</div>
       </div>
     </div>
   </div>
 
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-left">
+  <!-- Toolbar card -->
+  <div class="toolbar-card">
+    <div class="toolbar-head">
+      <span>🧾 Purchase Invoices</span>
+      <a href="/purchase/new" class="btn btn-primary" style="font-size:12.5px;padding:6px 16px;">+ New Purchase</a>
+    </div>
+    <div class="toolbar-body">
       <div class="search-box">
-        <span>🔍</span>
+        <span style="font-size:13px;">🔍</span>
         <input type="text" id="searchInput" placeholder="Search supplier, invoice no…" oninput="filterTable()">
       </div>
       <select class="filter-select" id="statusFilter" onchange="filterTable()">
         <option value="">All Statuses</option>
-        <option value="Pending">Pending</option>
-        <option value="Partial">Partial</option>
-        <option value="Paid">Paid</option>
+        <option value="pending">Pending</option>
+        <option value="partial">Partial</option>
+        <option value="paid">Paid</option>
       </select>
     </div>
-    <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
   </div>
 
   <!-- Table -->
   <div class="table-card">
-    <table id="purTable">
-      <thead>
-        <tr>
-          <th style="width:40px">#</th>
-          <th>Purchase ID</th>
-          <th>Supplier</th>
-          <th>Invoice No.</th>
-          <th>Date</th>
-          <th style="text-align:right">Before GST</th>
-          <th style="text-align:right">GST</th>
-          <th style="text-align:right">Grand Total</th>
-          <th style="text-align:right">Paid</th>
-          <th style="text-align:right">Balance</th>
-          <th>Status</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="purTbody">
-        {% for p in purchases %}
-        <tr class="pur-row" data-status="{{ p.status|lower }}"
-            data-search="{{ (p.supplier.name if p.supplier else p.supplier_name or '')|lower }} {{ (p.invoice_number or '')|lower }} {{ p.purchase_id|lower }}"
-            onclick="window.location='/purchase/view/{{ p.invoice_id }}'">
-          <td style="color:#94A3B8;font-size:12px;font-weight:600;text-align:center;">{{ loop.index }}</td>
-          <td><span class="pur-id">{{ p.purchase_id }}</span></td>
-          <td>
-            <span class="sup-name">{{ p.supplier.name if p.supplier else p.supplier_name or '—' }}</span>
-          </td>
-          <td><span class="inv-no">{{ p.invoice_number or '—' }}</span></td>
-          <td style="color:#64748B;font-size:12px;white-space:nowrap;">
-            {{ p.date.strftime('%d %b %Y') if p.date else '—' }}
-          </td>
-          <td style="text-align:right;color:#334155;">
-            ₹{{ "{:,.0f}".format(p.subtotal or 0) }}
-          </td>
-          <td style="text-align:right;color:#D97706;font-weight:600;">
-            ₹{{ "{:,.0f}".format(p.tax_amount or 0) }}
-          </td>
-          <td style="text-align:right;">
-            <span class="amt-total">₹{{ "{:,.0f}".format(p.grand_total or 0) }}</span>
-          </td>
-          <td style="text-align:right;">
-            <span class="amt-paid">₹{{ "{:,.0f}".format(p.paid_amount or 0) }}</span>
-          </td>
-          <td style="text-align:right;">
-            <span class="amt-bal {% if (p.balance or 0) > 0 %}has-bal{% else %}no-bal{% endif %}">
-              ₹{{ "{:,.0f}".format(p.balance or 0) }}
-            </span>
-          </td>
-          <td>
-            {% set st = (p.status or 'Pending')|lower %}
-            <span class="sbadge {{ st }}">
-              {% if st == 'paid' %}✓{% elif st == 'partial' %}⏳{% else %}⚠{% endif %}
-              {{ p.status or 'Pending' }}
-            </span>
-          </td>
-          <td onclick="event.stopPropagation()">
-            <a href="/purchase/view/{{ p.invoice_id }}" class="view-btn">View →</a>
-          </td>
-        </tr>
-        {% else %}
-        <tr id="emptyRow">
-          <td colspan="12">
-            <div class="empty-state">
-              <div class="big">📦</div>
-              <h3>No Purchase Invoices Yet</h3>
-              <p style="margin-bottom:20px">Record your first purchase to track supplier bills.</p>
-              <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    <div id="noResultsRow" style="display:none;text-align:center;padding:40px;color:#94A3B8;">
+    <div class="table-scroll">
+      <table id="purTable">
+        <thead>
+          <tr>
+            <th style="width:32px;text-align:center;">#</th>
+            <th>Purchase ID</th>
+            <th>Supplier</th>
+            <th>Invoice No.</th>
+            <th>Date</th>
+            <th style="text-align:right;">Before GST</th>
+            {% if is_gst_registered %}
+            <th style="text-align:right;">GST</th>
+            {% endif %}
+            <th style="text-align:right;">Grand Total</th>
+            <th style="text-align:right;">Paid</th>
+            <th style="text-align:right;">Balance</th>
+            <th>Status</th>
+            <th style="text-align:center;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="purTbody">
+          {% for p in purchases %}
+          <tr class="pur-row"
+              data-status="{{ (p.status or 'Pending')|lower }}"
+              data-search="{{ (p.supplier.name if p.supplier else p.supplier_name or '')|lower }} {{ (p.invoice_number or '')|lower }} {{ p.purchase_id|lower }}"
+              onclick="window.location='/purchase/view/{{ p.invoice_id }}'">
+
+            <td style="color:#94A3B8;font-size:11px;font-weight:700;text-align:center;">{{ loop.index }}</td>
+            <td><span class="pur-id">{{ p.purchase_id }}</span></td>
+            <td><span class="sup-name">{{ p.supplier.name if p.supplier else p.supplier_name or '—' }}</span></td>
+            <td><span class="inv-no">{{ p.invoice_number or '—' }}</span></td>
+            <td style="color:#64748B;font-size:11.5px;">{{ p.date.strftime('%d %b %Y') if p.date else '—' }}</td>
+            <td style="text-align:right;color:#334155;">₹{{ "{:,.0f}".format(p.subtotal or 0) }}</td>
+            {% if is_gst_registered %}
+            <td style="text-align:right;color:#D97706;font-weight:600;">₹{{ "{:,.0f}".format(p.tax_amount or 0) }}</td>
+            {% endif %}
+            <td style="text-align:right;"><span class="amt-total">₹{{ "{:,.0f}".format(p.grand_total or 0) }}</span></td>
+            <td style="text-align:right;"><span class="amt-paid">₹{{ "{:,.0f}".format(p.paid_amount or 0) }}</span></td>
+            <td style="text-align:right;">
+              <span class="amt-bal {% if (p.balance or 0) > 0 %}has-bal{% else %}no-bal{% endif %}">
+                ₹{{ "{:,.0f}".format(p.balance or 0) }}
+              </span>
+            </td>
+            <td>
+              {% set st = (p.status or 'Pending')|lower %}
+              <span class="sbadge {{ st }}">
+                {% if st == 'paid' %}✓{% elif st == 'partial' %}⏳{% else %}⚠{% endif %}
+                {{ p.status or 'Pending' }}
+              </span>
+            </td>
+            <td onclick="event.stopPropagation()">
+              <div class="action-cell" style="justify-content:center;">
+                 <a href="/purchase/view/{{ p.invoice_id }}" class="view-btn">View</a>
+                <a href="/purchase/edit/{{ p.invoice_id }}" class="view-btn" style="background:#EEF2FF;color:#4F46E5;border-color:#C7D2FE;" title="Edit rates">✏️</a>
+                <form method="POST" action="/purchase/delete/{{ p.invoice_id }}" style="margin:0;"
+                      onsubmit="return confirm('Delete {{ p.purchase_id }}? Stock adjustments will be reversed.')">
+                  <button type="submit" class="del-btn" title="Delete">🗑</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr id="emptyRow">
+            <td colspan="12">
+              <div class="empty-state">
+                <div class="big">📦</div>
+                <h3>No Purchase Invoices Yet</h3>
+                <p style="margin-bottom:20px">Record your first purchase to track supplier bills.</p>
+                <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div id="noResultsRow" style="display:none;text-align:center;padding:40px;color:#94A3B8;font-weight:600;">
       No results match your search.
     </div>
   </div>

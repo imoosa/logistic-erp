@@ -29,6 +29,15 @@
         </select>
       </div>
       
+      <div class="form-group" style="margin-top:16px;">
+  <label>Price List Type *</label>
+  <select name="list_type" required style="width:100%;">
+    <option value="">— Select Type —</option>
+    <option value="sales">Sales (rates charged to customers)</option>
+    <option value="purchase">Purchase (rates billed by courier)</option>
+  </select>
+</div>
+
       <div class="form-group">
         <label>Excel File (.xlsx, .xls) *</label>
         <input type="file" name="price_file" accept=".xlsx,.xls" required style="padding:10px;border:2px dashed #E5E7EB;border-radius:8px;width:100%;">

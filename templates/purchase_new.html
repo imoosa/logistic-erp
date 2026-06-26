@@ -1,313 +1,520 @@
 {% extends "base.html" %}
-{% block title %}New Purchase{% endblock %}
-{% block page_title %}New Purchase{% endblock %}
+{% block title %}New Purchase Bill{% endblock %}
+{% block page_title %}New Purchase Bill{% endblock %}
 {% set active = 'purchases' %}
 
 {% block extra_style %}
 <style>
-.pn-wrap {
-    max-width: 680px;
-    margin: 0 auto;
+.pn-wrap { max-width: 1180px; margin: 0 auto; }
+.pn-card { background:#fff; border:1px solid #E2E8F0; border-radius:16px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.05); margin-bottom:16px; }
+.pn-card-head { background:#1E3A5F; color:#fff; padding:14px 20px; font-size:14px; font-weight:700; display:flex; align-items:center; gap:10px; }
+.pn-card-body { padding:20px; }
+.pn-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.form-group { margin-bottom:0; }
+.form-group label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#64748B; margin-bottom:6px; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:9px 12px; border:1.5px solid #E2E8F0; border-radius:8px;
+  font-size:13px; color:#0F172A; background:#F8FAFC; box-sizing:border-box;
 }
-.pn-card {
-    background: #fff;
-    border: 1px solid #E2E8F0;
-    border-radius: 16px;
-    overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,.05);
-}
-.pn-card-head {
-    background: #1E3A5F;
-    color: #fff;
-    padding: 16px 24px;
-    font-size: 15px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.pn-card-body {
-    padding: 24px;
-}
-.pn-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-.form-group {
-    margin-bottom: 16px;
-}
-.form-group label {
-    display: block;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    color: #64748B;
-    margin-bottom: 6px;
-}
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 9px 12px;
-    border: 1.5px solid #E2E8F0;
-    border-radius: 8px;
-    font-size: 13px;
-    color: #0F172A;
-    background: #F8FAFC;
-    transition: border-color .15s;
-    box-sizing: border-box;
-}
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-    border-color: #4F46E5;
-    background: #fff;
-    outline: none;
-}
+.form-group input:focus, .form-group select:focus { border-color:#4F46E5; background:#fff; outline:none; }
 
-/* Amount cards */
-.amount-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 16px;
+/* Items table */
+.items-table-wrap { overflow-x:auto; }
+table.items-table { width:100%; border-collapse:collapse; min-width:1200px; }
+table.items-table th {
+  background:#F8FAFC; font-size:10.5px; font-weight:700; text-transform:uppercase;
+  letter-spacing:.3px; color:#64748B; padding:9px 8px; border-bottom:1px solid #E2E8F0; text-align:left; white-space:nowrap;
 }
-.amount-box {
-    background: #F8FAFC;
-    border: 1.5px solid #E2E8F0;
-    border-radius: 10px;
-    padding: 12px 14px;
+table.items-table td { padding:6px; border-bottom:1px solid #F1F5F9; vertical-align:middle; }
+table.items-table input, table.items-table select {
+  width:100%; padding:7px 8px; border:1.5px solid #E2E8F0; border-radius:7px;
+  font-size:12.5px; background:#F8FAFC; box-sizing:border-box;
 }
-.amount-box label {
-    display: block;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .4px;
-    color: #64748B;
-    margin-bottom: 6px;
-}
-.amount-box input {
-    width: 100%;
-    border: none;
-    background: transparent;
-    font-size: 18px;
-    font-weight: 800;
-    color: #0F172A;
-    outline: none;
-    box-sizing: border-box;
-}
-.amount-box.gst-box  { border-color: #FDE68A; background: #FFFBEB; }
-.amount-box.gst-box  input { color: #D97706; }
-.amount-box.grand-box { border-color: #BBF7D0; background: #F0FDF4; }
-.amount-box.grand-box input { color: #16A34A; }
-#gstAmount {
-    font-size: 18px;
-    font-weight: 800;
-    color: #D97706;
-    padding-top: 2px;
-}
+table.items-table input:focus, table.items-table select:focus { border-color:#4F46E5; background:#fff; outline:none; }
+.sno-cell { text-align:center; color:#94A3B8; font-weight:700; font-size:12px; width:34px; }
+.line-total { font-weight:800; color:#16A34A; white-space:nowrap; }
+.line-gst-amt { font-weight:600; color:#D97706; white-space:nowrap; }
+.remove-row-btn { background:#FEE2E2; color:#DC2626; border:none; border-radius:6px; width:26px; height:26px; cursor:pointer; font-weight:700; }
+.add-row-btn { margin-top:10px; background:#EEF2FF; color:#4F46E5; border:1.5px dashed #C7D2FE; border-radius:8px; padding:8px 16px; font-size:12.5px; font-weight:700; cursor:pointer; }
 
-/* Upload zone */
-.upload-zone {
-    border: 2px dashed #CBD5E1;
-    border-radius: 10px;
-    padding: 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: all .2s;
-    background: #F8FAFC;
-}
-.upload-zone:hover { border-color: #4F46E5; background: #EEF2FF; }
-.upload-zone .uz-icon { font-size: 32px; margin-bottom: 6px; }
-.upload-zone .uz-label { font-size: 13px; font-weight: 600; color: #334155; }
-.upload-zone .uz-sub { font-size: 11px; color: #94A3B8; margin-top: 2px; }
-#fileNameDisplay {
-    margin-top: 8px;
-    font-size: 12px;
-    color: #4F46E5;
-    font-weight: 600;
-    display: none;
-}
+/* Interstate toggle */
+.gst-toggle-row { display:flex; align-items:center; gap:12px; margin-top:14px; }
+.gst-toggle-row label { font-size:12px; font-weight:600; color:#334155; margin:0; }
+.toggle-switch { position:relative; display:inline-block; width:42px; height:22px; }
+.toggle-switch input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#CBD5E1; border-radius:22px; transition:.2s; }
+.toggle-slider:before { position:absolute; content:""; height:16px; width:16px; left:3px; bottom:3px; background:#fff; border-radius:50%; transition:.2s; }
+.toggle-switch input:checked + .toggle-slider { background:#4F46E5; }
+.toggle-switch input:checked + .toggle-slider:before { transform:translateX(20px); }
 
-/* Divider */
-.pn-divider {
-    border: none;
-    border-top: 1px solid #F1F5F9;
-    margin: 4px 0 20px;
+.grand-total-bar {
+  display:flex; justify-content:flex-end; align-items:center; gap:20px;
+  padding:14px 20px; background:#F0FDF4; border-top:1px solid #E2E8F0; flex-wrap:wrap;
 }
+.grand-total-bar .tot-block { text-align:right; }
+.grand-total-bar .tot-lbl { font-size:11px; font-weight:700; color:#64748B; text-transform:uppercase; }
+.grand-total-bar .tot-val { font-size:18px; font-weight:800; }
 
-/* Footer */
-.pn-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 16px 24px;
-    background: #F8FAFC;
-    border-top: 1px solid #E2E8F0;
-}
+.upload-zone { border:2px dashed #CBD5E1; border-radius:10px; padding:20px; text-align:center; cursor:pointer; background:#F8FAFC; }
+.upload-zone:hover { border-color:#4F46E5; background:#EEF2FF; }
+#fileNameDisplay { margin-top:8px; font-size:12px; color:#4F46E5; font-weight:600; display:none; }
 
-@media(max-width:600px) {
-    .pn-row { grid-template-columns: 1fr; }
-    .amount-grid { grid-template-columns: 1fr; }
-}
+.pn-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 20px; background:#F8FAFC; border-top:1px solid #E2E8F0; }
+.hint { font-size:11px; color:#94A3B8; margin-top:4px; }
+
+/* Hide GST columns when company not GST registered */
+{% if not is_gst_registered %}
+.gst-col { display:none !important; }
+{% endif %}
 </style>
 {% endblock %}
 
 {% block content %}
-
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-    <div>
-        <h2>🛒 New Purchase</h2>
-        <p style="color:#64748B;font-size:13px;">Record a supplier invoice — stock will update via manifest</p>
-    </div>
-    <a href="/purchase/list" class="btn btn-ghost">← Back</a>
+  <div>
+    <h2>🧾 New Purchase Bill</h2>
+    <p style="color:#64748B;font-size:13px;">Courier bill against AWB(s) — saving this deducts stock</p>
+  </div>
+  <a href="/purchase/list" class="btn btn-ghost">← Back</a>
 </div>
 
 <div class="pn-wrap">
-<form method="POST" action="/purchase/new" enctype="multipart/form-data">
+<form method="POST" action="/purchase/new" enctype="multipart/form-data" id="purchaseForm">
 
-    <div class="pn-card" style="margin-bottom:16px;">
-        <div class="pn-card-head">🏭 Supplier Details</div>
-        <div class="pn-card-body">
-
-            <div class="form-group">
-                <label>Supplier</label>
-                <select name="supplier_id" id="supplierSelect" onchange="onSupplierChange(this)">
-                    <option value="">— Select supplier —</option>
-                    {% for s in suppliers %}
-                    <option value="{{ s.id }}" data-name="{{ s.name }}">{{ s.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label>Or type supplier name <span style="color:#CBD5E1;font-weight:400">(if not in list)</span></label>
-                <input type="text" name="supplier_name" id="supplierName" placeholder="e.g. ABC Traders">
-            </div>
-
-            <div class="pn-row">
-                <div class="form-group" style="margin-bottom:0;">
-                    <label>Supplier Invoice No.</label>
-                    <input type="text" name="invoice_number" placeholder="e.g. INV-2025-001">
-                </div>
-                <div class="form-group" style="margin-bottom:0;">
-                    <label>Invoice Date</label>
-                    <input type="date" name="invoice_date" value="{{ today }}">
-                </div>
-            </div>
-
+  <div class="pn-card">
+    <div class="pn-card-head">🏭 Bill Details</div>
+    <div class="pn-card-body">
+      <div class="pn-row">
+        <div class="form-group">
+          <label>Supplier / Courier Company (billed by)</label>
+          <select name="supplier_id" id="supplierSelect" onchange="onSupplierChange(this)">
+            <option value="">— Select —</option>
+            {% for s in suppliers %}
+            <option value="{{ s.id }}" data-name="{{ s.name }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
         </div>
+        <div class="form-group">
+          <label>Or type name <span style="color:#CBD5E1;font-weight:400">(if not in list)</span></label>
+          <input type="text" name="supplier_name" id="supplierName" placeholder="e.g. Bluedart Express">
+        </div>
+      </div>
+      <div class="pn-row" style="margin-top:16px;">
+        <div class="form-group">
+          <label>Bill / Invoice No.</label>
+          <input type="text" name="invoice_number" placeholder="e.g. BD-INV-9981">
+        </div>
+        <div class="form-group">
+          <label>Bill Date</label>
+          <input type="date" name="invoice_date" value="{{ today }}">
+        </div>
+      </div>
+      {% if is_gst_registered %}
+      <div class="gst-toggle-row">
+        <span style="font-size:12px;color:#64748B;font-weight:700;">GST Type:</span>
+        <label class="toggle-switch">
+          <input type="checkbox" name="is_interstate" id="isInterstate" value="1" onchange="onGstTypeChange()">
+          <span class="toggle-slider"></span>
+        </label>
+        <label for="isInterstate" id="gstTypeLabel" style="cursor:pointer;">Intrastate (CGST + SGST)</label>
+        <span style="font-size:11px;color:#94A3B8;">Toggle for inter-state (IGST)</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+<!-- Purchase Rate Lookup -->
+<div class="pn-card" id="purchaseRateLookupCard">
+  <div class="pn-card-head">🔍 Purchase Rate Lookup</div>
+  <div class="pn-card-body">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Courier</label>
+        <select id="prlCourier" onchange="purchaseLookupRate()" style="width:100%;">
+          <option value="">— Select Courier —</option>
+          {% for pl in purchase_price_lists %}
+          <option value="{{ pl.courier }}">{{ pl.courier }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Destination Country</label>
+        <input type="text" id="prlDestination" placeholder="e.g. UK, USA" style="width:100%;" oninput="purchaseLookupRate()">
+      </div>
+      <div class="form-group" style="margin-bottom:0;">
+        <label>Weight (kg)</label>
+        <input type="number" id="prlWeight" step="0.1" min="0" placeholder="e.g. 1.5" style="width:100%;" oninput="purchaseLookupRate()">
+      </div>
+      <div style="padding-bottom:2px;">
+        <button type="button" class="btn btn-primary" onclick="purchaseLookupRate()">🔍 Lookup</button>
+      </div>
     </div>
 
-    <div class="pn-card" style="margin-bottom:16px;">
-        <div class="pn-card-head">💰 Amount Details</div>
-        <div class="pn-card-body">
-
-            <div class="amount-grid">
-                <div class="amount-box">
-                    <label>Amount Before GST (₹)</label>
-                    <input type="number" name="amount_before_gst" id="amountBeforeGst"
-                           min="0" step="0.01" placeholder="0.00"
-                           oninput="calcGst()" required>
-                </div>
-                <div class="amount-box gst-box">
-                    <label>GST Amount (₹)</label>
-                    <div id="gstAmount">0.00</div>
-                </div>
-                <div class="amount-box grand-box">
-                    <label>Grand Total (₹)</label>
-                    <input type="number" name="grand_total" id="grandTotal"
-                           min="0" step="0.01" placeholder="0.00"
-                           oninput="calcGst()" required>
-                </div>
-            </div>
-
-            <div class="form-group" style="margin-bottom:0;">
-                <label>Notes <span style="color:#CBD5E1;font-weight:400">(optional)</span></label>
-                <textarea name="notes" rows="2" placeholder="Any remarks about this purchase…"></textarea>
-            </div>
-
+    <div id="prlResult" style="display:none;margin-top:14px;padding:14px 18px;background:#F0FDF4;border-radius:10px;border:1px solid #86EFAC;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-size:12px;color:#15803D;font-weight:600;">✅ Purchase Rate Found:</span>
+          <span id="prlRateDisplay" style="font-size:20px;font-weight:800;color:#16A34A;margin-left:10px;">₹0.00</span>
+          <span id="prlRateDetails" style="font-size:12px;color:#15803D;margin-left:12px;"></span>
         </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-sm btn-success" onclick="applyPurchaseRateToRow()">📥 Apply to Selected Row</button>
+          <button type="button" class="btn btn-sm btn-ghost" onclick="closePurchaseRateResult()">✕</button>
+        </div>
+      </div>
     </div>
 
-    <div class="pn-card" style="margin-bottom:16px;">
-        <div class="pn-card-head">📎 Upload Invoice Bill</div>
-        <div class="pn-card-body">
-            <div class="upload-zone" onclick="document.getElementById('invoiceFile').click()">
-                <div class="uz-icon">📄</div>
-                <div class="uz-label">Click to upload or drag & drop</div>
-                <div class="uz-sub">PDF, PNG, JPG, WEBP — max 10 MB</div>
-                <div id="fileNameDisplay"></div>
-            </div>
-            <input type="file" id="invoiceFile" name="invoice_file"
-                   accept=".pdf,.png,.jpg,.jpeg,.webp"
-                   style="display:none" onchange="onFileSelected(this)">
-        </div>
+    <div id="prlError" style="display:none;margin-top:14px;padding:14px 18px;background:#FEF2F2;border-radius:10px;border:1px solid #FCA5A5;">
+      <span style="color:#DC2626;font-size:13px;">❌ <span id="prlErrorMessage">No rate found</span></span>
     </div>
+  </div>
+</div>
 
-    <div class="pn-card">
-        <div class="pn-footer">
-            <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
-            <button type="submit" class="btn btn-primary" style="padding:10px 28px;">
-                💾 Save Purchase
-            </button>
-        </div>
+  <div class="pn-card">
+    <div class="pn-card-head">📦 Particulars (per AWB)</div>
+    <div class="pn-card-body" style="padding-bottom:0;">
+      <div class="items-table-wrap">
+        <table class="items-table" id="itemsTable">
+          <thead>
+            <tr>
+              <th>S.No</th>
+              <th style="min-width:140px">AWB Number</th>
+              <th style="min-width:160px">Party Name</th>
+              <th style="min-width:140px">Destination</th>
+              <th style="min-width:130px">Courier</th>
+              <th style="min-width:120px">Item</th>
+              <th style="min-width:80px">Qty</th>
+              <th style="min-width:90px">Weight (Kg)</th>
+              <th style="min-width:90px">Rate / Kg</th>
+              <th class="gst-col" style="min-width:80px">GST %</th>
+              <th class="gst-col" style="min-width:90px">GST Amt</th>
+              <th style="min-width:110px">Line Total</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+      <button type="button" class="add-row-btn" onclick="addRow()">+ Add Row</button>
+      <p class="hint">Type or pick an AWB number — party, destination and available stock auto-fill from that AWB's shipment record.</p>
     </div>
+    <div class="grand-total-bar">
+      {% if is_gst_registered %}
+      <div class="tot-block">
+        <div class="tot-lbl">Taxable</div>
+        <div class="tot-val" style="color:#334155;" id="subtotalDisplay">₹0.00</div>
+      </div>
+      <div class="tot-block">
+        <div class="tot-lbl">Total GST</div>
+        <div class="tot-val" style="color:#D97706;" id="taxDisplay">₹0.00</div>
+      </div>
+      {% endif %}
+      <div class="tot-block">
+        <div class="tot-lbl">Grand Total</div>
+        <div class="tot-val" style="color:#16A34A;font-size:22px;" id="grandTotalDisplay">₹0.00</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pn-card">
+    <div class="pn-card-head">📎 Upload Bill</div>
+    <div class="pn-card-body">
+      <div class="upload-zone" onclick="document.getElementById('invoiceFile').click()">
+        <div style="font-size:28px;">📄</div>
+        <div style="font-size:13px;font-weight:600;color:#334155;">Click to upload or drag & drop</div>
+        <div style="font-size:11px;color:#94A3B8;margin-top:2px;">PDF, PNG, JPG, WEBP — max 10 MB</div>
+        <div id="fileNameDisplay"></div>
+      </div>
+      <input type="file" id="invoiceFile" name="invoice_file" accept=".pdf,.png,.jpg,.jpeg,.webp" style="display:none" onchange="onFileSelected(this)">
+    </div>
+  </div>
+
+  <div class="pn-card">
+    <div class="form-group" style="padding:20px 20px 0;">
+      <label>Notes <span style="color:#CBD5E1;font-weight:400">(optional)</span></label>
+      <textarea name="notes" rows="2" placeholder="Any remarks…" style="margin-bottom:20px;"></textarea>
+    </div>
+    <div class="pn-footer">
+      <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary" style="padding:10px 28px;">💾 Save Purchase Bill</button>
+    </div>
+  </div>
 
 </form>
 </div>
-
 {% endblock %}
 
 {% block extra_script %}
 <script>
-function calcGst() {
-    const before = parseFloat(document.getElementById('amountBeforeGst').value) || 0;
-    const grand  = parseFloat(document.getElementById('grandTotal').value) || 0;
-    const gst    = grand - before;
-    document.getElementById('gstAmount').textContent =
-        gst >= 0 ? '₹' + gst.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
-}
+const COURIERS      = {{ courier_options|tojson }};
+const ITEM_TYPES    = {{ item_type_options|tojson }};
+const IS_GST        = {{ 'true' if is_gst_registered else 'false' }};
+const DEFAULT_GST   = 18;   // default GST % for courier bills
+let rowCount = 0;
+let isInterstate = false;
 
 function onSupplierChange(sel) {
-    const opt = sel.options[sel.selectedIndex];
-    const nameField = document.getElementById('supplierName');
-    if (opt && opt.dataset.name) {
-        nameField.value = opt.dataset.name;
-    } else {
-        nameField.value = '';
-    }
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('supplierName').value = (opt && opt.dataset.name) ? opt.dataset.name : '';
+}
+
+function onGstTypeChange() {
+  const cb = document.getElementById('isInterstate');
+  isInterstate = cb.checked;
+  document.getElementById('gstTypeLabel').textContent =
+    isInterstate ? 'Interstate (IGST)' : 'Intrastate (CGST + SGST)';
+  recalcAll();
 }
 
 function onFileSelected(input) {
-    const file = input.files[0];
-    const display = document.getElementById('fileNameDisplay');
-    if (file) {
-        display.textContent = '📎 ' + file.name;
-        display.style.display = 'block';
-    } else {
-        display.style.display = 'none';
-    }
+  const file = input.files[0];
+  const display = document.getElementById('fileNameDisplay');
+  if (file) { display.textContent = '📎 ' + file.name; display.style.display = 'block'; }
+  else { display.style.display = 'none'; }
 }
 
-// Drag & drop
-const zone = document.querySelector('.upload-zone');
-zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = '#4F46E5'; });
-zone.addEventListener('dragleave', () => { zone.style.borderColor = '#CBD5E1'; });
-zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.style.borderColor = '#CBD5E1';
-    const file = e.dataTransfer.files[0];
-    if (file) {
-        const input = document.getElementById('invoiceFile');
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        onFileSelected(input);
+function optionList(arr, withBlank) {
+  let html = withBlank ? '<option value="">—</option>' : '';
+  arr.forEach(v => html += `<option value="${v}">${v}</option>`);
+  return html;
+}
+
+function gstOptions(selected) {
+  const rates = [0, 5, 12, 18, 28];
+  return rates.map(r =>
+    `<option value="${r}" ${r === selected ? 'selected' : ''}>${r}%</option>`
+  ).join('');
+}
+
+function addRow() {
+  rowCount++;
+  const id = rowCount;
+  const tr = document.createElement('tr');
+  tr.dataset.rowId = id;
+  tr.innerHTML = `
+    <td class="sno-cell">${id}</td>
+    <td>
+      <input type="text" name="docket_no[]" list="awbList${id}" placeholder="Type/select AWB"
+             onchange="onAwbChange(this, ${id})" autocomplete="off">
+      <datalist id="awbList${id}"></datalist>
+    </td>
+    <td><input type="text" name="party_name[]" placeholder="Auto-filled" readonly></td>
+    <td><input type="text" name="destination[]" placeholder="Auto-filled" readonly></td>
+    <td>
+      <select name="courier_name[]" required>
+        ${optionList(COURIERS, true)}
+      </select>
+    </td>
+    <td>
+      <select name="item_select_${id}" onchange="onItemChange(this, ${id})">
+        <option value="">— Item —</option>
+      </select>
+      <input type="hidden" name="item_name[]" id="itemName${id}">
+      <input type="hidden" name="stock_item_id[]" id="stockItemId${id}">
+    </td>
+    <td><input type="number" name="item_qty[]" id="itemQty${id}" min="0" step="1" value="0"></td>
+    <td><input type="number" name="weight_kg[]" id="weight${id}" min="0" step="0.01" value="0" oninput="calcLine(${id})"></td>
+    <td><input type="number" name="rate_per_kg[]" id="rate${id}" min="0" step="0.01" value="0" oninput="calcLine(${id})"></td>
+    <td class="gst-col">
+      <select name="gst_percent[]" id="gst${id}" onchange="calcLine(${id})">
+        ${gstOptions(DEFAULT_GST)}
+      </select>
+    </td>
+    <td class="gst-col line-gst-amt" id="gstAmt${id}">₹0.00</td>
+    <td class="line-total" id="lineTotal${id}">₹0.00</td>
+    <td><button type="button" class="remove-row-btn" onclick="removeRow(${id})">✕</button></td>
+  `;
+  document.getElementById('itemsBody').appendChild(tr);
+
+  // Respect display:none for non-GST
+  if (!IS_GST) {
+    tr.querySelectorAll('.gst-col').forEach(el => el.style.display = 'none');
+  }
+
+  loadAwbOptions(id);
+}
+
+function removeRow(id) {
+  const tr = document.querySelector(`tr[data-row-id="${id}"]`);
+  if (tr) tr.remove();
+  calcGrandTotal();
+}
+
+function calcLine(id) {
+  const w = parseFloat(document.getElementById('weight' + id).value) || 0;
+  const r = parseFloat(document.getElementById('rate' + id).value) || 0;
+  const taxable = w * r;
+
+  let gstPct = 0;
+  let gstAmt = 0;
+  if (IS_GST) {
+    const gstSel = document.getElementById('gst' + id);
+    gstPct = gstSel ? (parseFloat(gstSel.value) || 0) : 0;
+    gstAmt = round2(taxable * gstPct / 100);
+  }
+
+  const lineTotal = round2(taxable + gstAmt);
+
+  const gstAmtEl = document.getElementById('gstAmt' + id);
+  if (gstAmtEl) gstAmtEl.textContent = '₹' + fmt(gstAmt);
+  document.getElementById('lineTotal' + id).textContent = '₹' + fmt(lineTotal);
+
+  calcGrandTotal();
+}
+
+function recalcAll() {
+  document.querySelectorAll('[id^="lineTotal"]').forEach(el => {
+    const id = el.id.replace('lineTotal', '');
+    calcLine(id);
+  });
+}
+
+let prlCurrentRate = null;
+let prlCurrentWeight = null;
+
+function purchaseLookupRate() {
+  const courier     = document.getElementById('prlCourier').value;
+  const destination = document.getElementById('prlDestination').value.trim();
+  const weight      = parseFloat(document.getElementById('prlWeight').value);
+
+  document.getElementById('prlResult').style.display = 'none';
+  document.getElementById('prlError').style.display  = 'none';
+
+  if (!courier || !destination || !weight || weight <= 0) return;
+
+  document.getElementById('prlRateDisplay').textContent = '⏳ Loading...';
+  document.getElementById('prlResult').style.display = 'block';
+
+  fetch(`/api/purchase-rate-lookup?courier=${encodeURIComponent(courier)}&destination=${encodeURIComponent(destination)}&weight=${weight}`)
+    .then(r => r.json())
+    .then(data => {
+      if (data.error) {
+        document.getElementById('prlResult').style.display = 'none';
+        document.getElementById('prlErrorMessage').textContent = data.error;
+        document.getElementById('prlError').style.display = 'block';
+        return;
+      }
+      prlCurrentRate   = data.rate;
+      prlCurrentWeight = data.weight_used;
+      document.getElementById('prlRateDisplay').textContent = `₹${data.rate.toLocaleString('en-IN')}`;
+      document.getElementById('prlRateDetails').textContent = `${data.country_matched} · ${data.weight_used}kg (${data.courier})`;
+      document.getElementById('prlResult').style.display = 'block';
+      document.getElementById('prlError').style.display  = 'none';
+    })
+    .catch(() => {
+      document.getElementById('prlResult').style.display = 'none';
+      document.getElementById('prlErrorMessage').textContent = 'Error connecting to server';
+      document.getElementById('prlError').style.display = 'block';
+    });
+}
+
+function applyPurchaseRateToRow() {
+  if (!prlCurrentRate || !prlCurrentWeight) {
+    alert('Please lookup a rate first.');
+    return;
+  }
+  // Applies rate/kg to the LAST row added (or you can target a specific row)
+  const rows = document.querySelectorAll('#itemsBody tr');
+  if (!rows.length) { alert('Add a row first.'); return; }
+  const lastRow = rows[rows.length - 1];
+  const rowId   = lastRow.dataset.rowId;
+
+  const ratePerKg = prlCurrentRate / prlCurrentWeight;
+  document.getElementById('rate' + rowId).value   = ratePerKg.toFixed(2);
+  document.getElementById('weight' + rowId).value = prlCurrentWeight;
+  calcLine(rowId);
+  closePurchaseRateResult();
+}
+
+function closePurchaseRateResult() {
+  document.getElementById('prlResult').style.display = 'none';
+  document.getElementById('prlError').style.display  = 'none';
+}
+
+function calcGrandTotal() {
+  let subtotal = 0, taxTotal = 0, grand = 0;
+
+  document.querySelectorAll('#itemsBody tr').forEach(tr => {
+    const id = tr.dataset.rowId;
+    if (!id) return;
+    const w = parseFloat(document.getElementById('weight' + id)?.value) || 0;
+    const r = parseFloat(document.getElementById('rate' + id)?.value) || 0;
+    const taxable = w * r;
+    let gstAmt = 0;
+    if (IS_GST) {
+      const gstSel = document.getElementById('gst' + id);
+      const gstPct = gstSel ? (parseFloat(gstSel.value) || 0) : 0;
+      gstAmt = round2(taxable * gstPct / 100);
     }
-});
+    subtotal += taxable;
+    taxTotal += gstAmt;
+    grand    += taxable + gstAmt;
+  });
+
+  const subEl = document.getElementById('subtotalDisplay');
+  const taxEl = document.getElementById('taxDisplay');
+  if (subEl) subEl.textContent = '₹' + fmt(subtotal);
+  if (taxEl) taxEl.textContent = '₹' + fmt(taxTotal);
+  document.getElementById('grandTotalDisplay').textContent = '₹' + fmt(grand);
+}
+
+function round2(v) { return Math.round(v * 100) / 100; }
+function fmt(v) {
+  return (v || 0).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+async function loadAwbOptions(id) {
+  try {
+    const res = await fetch('/api/purchase/awb-list');
+    const data = await res.json();
+    const dl = document.getElementById('awbList' + id);
+    dl.innerHTML = data.map(d => `<option value="${d.docket_no}">`).join('');
+  } catch (e) { /* non-fatal */ }
+}
+
+async function onAwbChange(input, id) {
+  const docket = input.value.trim();
+  if (!docket) return;
+  const tr = input.closest('tr');
+  try {
+    const res = await fetch('/api/purchase/awb-info/' + encodeURIComponent(docket));
+    if (!res.ok) {
+      tr.querySelector('[name="party_name[]"]').value = '';
+      tr.querySelector('[name="destination[]"]').value = '';
+      return;
+    }
+    const data = await res.json();
+    tr.querySelector('[name="party_name[]"]').value = data.party_name || '';
+    tr.querySelector('[name="destination[]"]').value = data.destination || '';
+
+    const sel = tr.querySelector(`select[name="item_select_${id}"]`);
+    sel.innerHTML = '<option value="">— Item —</option>' +
+      data.items.map(it =>
+        `<option value="${it.stock_item_id || ''}" data-name="${it.name}" data-qty="${it.available_qty}" data-weight="${it.weight_kg}">
+          ${it.name} (avail: ${it.available_qty} ${it.unit}${it.weight_kg ? ', ' + it.weight_kg.toFixed(1) + 'kg' : ''})
+        </option>`
+      ).join('');
+
+    if (data.carrier_suggested) {
+      const courierSel = tr.querySelector('select[name="courier_name[]"]');
+      const match = Array.from(courierSel.options).find(o => o.value.toLowerCase() === data.carrier_suggested.toLowerCase());
+      if (match) courierSel.value = match.value;
+    }
+  } catch (e) { /* non-fatal */ }
+}
+
+function onItemChange(sel, id) {
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('itemName' + id).value = opt.dataset.name || '';
+  document.getElementById('stockItemId' + id).value = opt.value || '';
+  if (opt.dataset.qty) document.getElementById('itemQty' + id).value = opt.dataset.qty;
+  if (opt.dataset.weight && parseFloat(opt.dataset.weight) > 0) {
+    document.getElementById('weight' + id).value = opt.dataset.weight;
+    calcLine(id);
+  }
+}
+
+// Start with one row
+addRow();
 </script>
 {% endblock %}

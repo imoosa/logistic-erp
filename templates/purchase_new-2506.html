@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+{% block title %}New Purchase{% endblock %}
+{% block page_title %}New Purchase{% endblock %}
+{% set active = 'purchases' %}
+
+{% block extra_style %}
+<style>
+.pn-wrap {
+    max-width: 680px;
+    margin: 0 auto;
+}
+.pn-card {
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.pn-card-head {
+    background: #1E3A5F;
+    color: #fff;
+    padding: 16px 24px;
+    font-size: 15px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.pn-card-body {
+    padding: 24px;
+}
+.pn-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.form-group {
+    margin-bottom: 16px;
+}
+.form-group label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748B;
+    margin-bottom: 6px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 9px 12px;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #0F172A;
+    background: #F8FAFC;
+    transition: border-color .15s;
+    box-sizing: border-box;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    border-color: #4F46E5;
+    background: #fff;
+    outline: none;
+}
+
+/* Amount cards */
+.amount-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+.amount-box {
+    background: #F8FAFC;
+    border: 1.5px solid #E2E8F0;
+    border-radius: 10px;
+    padding: 12px 14px;
+}
+.amount-box label {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    color: #64748B;
+    margin-bottom: 6px;
+}
+.amount-box input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    font-weight: 800;
+    color: #0F172A;
+    outline: none;
+    box-sizing: border-box;
+}
+.amount-box.gst-box  { border-color: #FDE68A; background: #FFFBEB; }
+.amount-box.gst-box  input { color: #D97706; }
+.amount-box.grand-box { border-color: #BBF7D0; background: #F0FDF4; }
+.amount-box.grand-box input { color: #16A34A; }
+#gstAmount {
+    font-size: 18px;
+    font-weight: 800;
+    color: #D97706;
+    padding-top: 2px;
+}
+
+/* Upload zone */
+.upload-zone {
+    border: 2px dashed #CBD5E1;
+    border-radius: 10px;
+    padding: 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+    background: #F8FAFC;
+}
+.upload-zone:hover { border-color: #4F46E5; background: #EEF2FF; }
+.upload-zone .uz-icon { font-size: 32px; margin-bottom: 6px; }
+.upload-zone .uz-label { font-size: 13px; font-weight: 600; color: #334155; }
+.upload-zone .uz-sub { font-size: 11px; color: #94A3B8; margin-top: 2px; }
+#fileNameDisplay {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #4F46E5;
+    font-weight: 600;
+    display: none;
+}
+
+/* Divider */
+.pn-divider {
+    border: none;
+    border-top: 1px solid #F1F5F9;
+    margin: 4px 0 20px;
+}
+
+/* Footer */
+.pn-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 24px;
+    background: #F8FAFC;
+    border-top: 1px solid #E2E8F0;
+}
+
+@media(max-width:600px) {
+    .pn-row { grid-template-columns: 1fr; }
+    .amount-grid { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <div>
+        <h2>🛒 New Purchase</h2>
+        <p style="color:#64748B;font-size:13px;">Record a supplier invoice — stock will update via manifest</p>
+    </div>
+    <a href="/purchase/list" class="btn btn-ghost">← Back</a>
+</div>
+
+<div class="pn-wrap">
+<form method="POST" action="/purchase/new" enctype="multipart/form-data">
+
+    <div class="pn-card" style="margin-bottom:16px;">
+        <div class="pn-card-head">🏭 Supplier Details</div>
+        <div class="pn-card-body">
+
+            <div class="form-group">
+                <label>Supplier</label>
+                <select name="supplier_id" id="supplierSelect" onchange="onSupplierChange(this)">
+                    <option value="">— Select supplier —</option>
+                    {% for s in suppliers %}
+                    <option value="{{ s.id }}" data-name="{{ s.name }}">{{ s.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Or type supplier name <span style="color:#CBD5E1;font-weight:400">(if not in list)</span></label>
+                <input type="text" name="supplier_name" id="supplierName" placeholder="e.g. ABC Traders">
+            </div>
+
+            <div class="pn-row">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Supplier Invoice No.</label>
+                    <input type="text" name="invoice_number" placeholder="e.g. INV-2025-001">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label>Invoice Date</label>
+                    <input type="date" name="invoice_date" value="{{ today }}">
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="pn-card" style="margin-bottom:16px;">
+        <div class="pn-card-head">💰 Amount Details</div>
+        <div class="pn-card-body">
+
+            <div class="amount-grid">
+                <div class="amount-box">
+                    <label>Amount Before GST (₹)</label>
+                    <input type="number" name="amount_before_gst" id="amountBeforeGst"
+                           min="0" step="0.01" placeholder="0.00"
+                           oninput="calcGst()" required>
+                </div>
+                <div class="amount-box gst-box">
+                    <label>GST Amount (₹)</label>
+                    <div id="gstAmount">0.00</div>
+                </div>
+                <div class="amount-box grand-box">
+                    <label>Grand Total (₹)</label>
+                    <input type="number" name="grand_total" id="grandTotal"
+                           min="0" step="0.01" placeholder="0.00"
+                           oninput="calcGst()" required>
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:0;">
+                <label>Notes <span style="color:#CBD5E1;font-weight:400">(optional)</span></label>
+                <textarea name="notes" rows="2" placeholder="Any remarks about this purchase…"></textarea>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="pn-card" style="margin-bottom:16px;">
+        <div class="pn-card-head">📎 Upload Invoice Bill</div>
+        <div class="pn-card-body">
+            <div class="upload-zone" onclick="document.getElementById('invoiceFile').click()">
+                <div class="uz-icon">📄</div>
+                <div class="uz-label">Click to upload or drag & drop</div>
+                <div class="uz-sub">PDF, PNG, JPG, WEBP — max 10 MB</div>
+                <div id="fileNameDisplay"></div>
+            </div>
+            <input type="file" id="invoiceFile" name="invoice_file"
+                   accept=".pdf,.png,.jpg,.jpeg,.webp"
+                   style="display:none" onchange="onFileSelected(this)">
+        </div>
+    </div>
+
+    <div class="pn-card">
+        <div class="pn-footer">
+            <a href="/purchase/list" class="btn btn-ghost">Cancel</a>
+            <button type="submit" class="btn btn-primary" style="padding:10px 28px;">
+                💾 Save Purchase
+            </button>
+        </div>
+    </div>
+
+</form>
+</div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+function calcGst() {
+    const before = parseFloat(document.getElementById('amountBeforeGst').value) || 0;
+    const grand  = parseFloat(document.getElementById('grandTotal').value) || 0;
+    const gst    = grand - before;
+    document.getElementById('gstAmount').textContent =
+        gst >= 0 ? '₹' + gst.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2}) : '—';
+}
+
+function onSupplierChange(sel) {
+    const opt = sel.options[sel.selectedIndex];
+    const nameField = document.getElementById('supplierName');
+    if (opt && opt.dataset.name) {
+        nameField.value = opt.dataset.name;
+    } else {
+        nameField.value = '';
+    }
+}
+
+function onFileSelected(input) {
+    const file = input.files[0];
+    const display = document.getElementById('fileNameDisplay');
+    if (file) {
+        display.textContent = '📎 ' + file.name;
+        display.style.display = 'block';
+    } else {
+        display.style.display = 'none';
+    }
+}
+
+// Drag & drop
+const zone = document.querySelector('.upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor = '#4F46E5'; });
+zone.addEventListener('dragleave', () => { zone.style.borderColor = '#CBD5E1'; });
+zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.style.borderColor = '#CBD5E1';
+    const file = e.dataTransfer.files[0];
+    if (file) {
+        const input = document.getElementById('invoiceFile');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        onFileSelected(input);
+    }
+});
+</script>
+{% endblock %}
