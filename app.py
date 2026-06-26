@@ -52,7 +52,7 @@ def json_loads_filter(value, default=None):
 # ── Database Configuration ────────────────────────────────────────────────────
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
+    f"sqlite:///{os.path.join(_DATA_DIR, 'platform.db')}"
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
