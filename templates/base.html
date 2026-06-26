@@ -135,24 +135,51 @@
     .topbar-welcome-name { font-size: 13px; font-weight: 700; color: var(--gray-900); }
     .topbar-welcome-greeting { font-size: 11px; color: var(--gray-500); }
 
-    .topbar-logout {
-      display: flex; align-items: center; gap: 7px;
-      background: var(--danger-light); color: var(--danger);
-      border: 1px solid #FECACA;
-      border-radius: 40px; padding: 8px 16px;
-      font-size: 13px; font-weight: 600;
-      text-decoration: none; transition: all .15s;
+    /* User dropdown */
+    .topbar-user-wrap { position: relative; }
+    .topbar-welcome { cursor: pointer; user-select: none; }
+    .topbar-welcome-caret {
+      font-size: 10px; color: var(--gray-500); margin-left: 4px; transition: transform .2s;
     }
-    .topbar-logout:hover { background: var(--danger); color: #fff; }
-    .topbar-switch {
-      display: flex; align-items: center; gap: 7px;
-      background: var(--primary-light); color: var(--primary);
-      border: 1px solid #BFDBFE;
-      border-radius: 40px; padding: 8px 16px;
-      font-size: 13px; font-weight: 600;
-      text-decoration: none; transition: all .15s;
+    .topbar-user-wrap.open .topbar-welcome-caret { transform: rotate(180deg); }
+
+    .user-dropdown {
+      display: none;
+      position: absolute; top: calc(100% + 10px); right: 0;
+      min-width: 230px;
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+      z-index: 200;
+      overflow: hidden;
     }
-    .topbar-switch:hover { background: var(--primary); color: #fff; }
+    .topbar-user-wrap.open .user-dropdown { display: block; }
+
+    .user-dropdown-header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--gray-100);
+      background: linear-gradient(135deg, #EFF6FF 0%, #EDE9FE 100%);
+    }
+    .user-dropdown-name { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+    .user-dropdown-email { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
+    .user-dropdown-role {
+      display: inline-block; margin-top: 6px;
+      background: linear-gradient(90deg, #2563EB, #7C3AED);
+      color: #fff; font-size: 9px; font-weight: 700;
+      padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .user-dropdown-body { padding: 8px; }
+    .user-dropdown-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 12px; border-radius: 9px;
+      font-size: 13px; font-weight: 600;
+      text-decoration: none; transition: all .15s; cursor: pointer;
+    }
+    .user-dropdown-item.switch-item { color: var(--primary); }
+    .user-dropdown-item.switch-item:hover { background: var(--primary-light); }
+    .user-dropdown-item.logout-item { color: var(--danger); }
+    .user-dropdown-item.logout-item:hover { background: var(--danger-light); }
 
     /* layout defined in CORE LAYOUT FIX section below */
 
@@ -277,7 +304,7 @@
           <span class="nav-icon">📄</span><span>Customer Invoices</span>
         </a>
         <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
-          <span class="nav-icon">📝</span><span>Shipper Invoices</span>
+          <span class="nav-icon">📝</span><span>Booking Invoices</span>
         </a>
         <a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
           <span class="nav-icon">📦</span><span>Orders</span>
@@ -382,13 +409,6 @@
       </div>
     </nav>
 
-    <!-- Sidebar Logout -->
-    <div class="sidebar-foot">
-      <a href="{{ url_for('logout') }}" class="logout-btn">
-        <span>🚪</span>
-        <span>Sign Out</span>
-      </a>
-    </div>
   </aside>
 
   <!-- ── MAIN ── -->
@@ -398,21 +418,33 @@
       <span class="topbar-title">{% block page_title %}{% endblock %}</span>
       <div class="topbar-right">
         {% if session.user %}
-        <div class="topbar-welcome">
-          <div class="topbar-welcome-avatar">{{ session.user.full_name[0]|upper if session.user.full_name else 'U' }}</div>
-          <div class="topbar-welcome-text">
-            <div class="topbar-welcome-name">Welcome, {{ session.user.full_name.split()[0] if session.user.full_name else 'User' }}! 👋</div>
-            <div class="topbar-welcome-greeting">{{ session.user.role|replace('_',' ')|title }}</div>
+        <div class="topbar-user-wrap" id="userWrap">
+          <div class="topbar-welcome" id="userTrigger">
+            <div class="topbar-welcome-avatar">{{ session.user.full_name[0]|upper if session.user.full_name else 'U' }}</div>
+            <div class="topbar-welcome-text">
+              <div class="topbar-welcome-name">Welcome, {{ session.user.full_name.split()[0] if session.user.full_name else 'User' }}! 👋</div>
+              <div class="topbar-welcome-greeting">{{ session.user.role|replace('_',' ')|title }}</div>
+            </div>
+            <span class="topbar-welcome-caret">▼</span>
+          </div>
+          <div class="user-dropdown" id="userDropdown">
+            <div class="user-dropdown-header">
+              <div class="user-dropdown-name">{{ session.user.full_name or 'User' }}</div>
+              <div class="user-dropdown-email">{{ session.user.email or '' }}</div>
+              <span class="user-dropdown-role">{{ session.user.role|replace('_',' ')|title }}</span>
+            </div>
+            <div class="user-dropdown-body">
+              {% if session.user.role in ['owner', 'super_admin'] %}
+              <a href="{{ url_for('select_company') }}" class="user-dropdown-item switch-item">
+                🏢 Switch Company
+              </a>
+              {% endif %}
+              <a href="{{ url_for('logout') }}" class="user-dropdown-item logout-item">
+                🚪 Logout
+              </a>
+            </div>
           </div>
         </div>
-        {% if session.user.role in ['owner', 'super_admin'] %}
-        <a href="{{ url_for('select_company') }}" class="topbar-switch" title="Switch or add company">
-          🏢 Switch Company
-        </a>
-        {% endif %}
-        <a href="{{ url_for('logout') }}" class="topbar-logout">
-          <span>🚪</span> Logout
-        </a>
         {% endif %}
       </div>
     </div>
@@ -431,5 +463,22 @@
 
 </div>
 {% block extra_script %}{% endblock %}
+<script>
+  (function(){
+    var wrap = document.getElementById('userWrap');
+    var trigger = document.getElementById('userTrigger');
+    if (!wrap || !trigger) return;
+    trigger.addEventListener('click', function(e){
+      e.stopPropagation();
+      wrap.classList.toggle('open');
+    });
+    document.addEventListener('click', function(){
+      wrap.classList.remove('open');
+    });
+    document.getElementById('userDropdown').addEventListener('click', function(e){
+      e.stopPropagation();
+    });
+  })();
+</script>
 </body>
 </html>
