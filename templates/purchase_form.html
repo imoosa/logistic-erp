@@ -327,7 +327,7 @@ const supDropdown = document.getElementById('sup_dropdown');
 
 supplierInput.addEventListener('input', function() {
   const query = this.value.toLowerCase().trim();
-  if (query.length < 2) {
+  if (query.length < 1) {
     supDropdown.style.display = 'none';
     return;
   }
@@ -340,7 +340,7 @@ supplierInput.addEventListener('input', function() {
   }
   
   supDropdown.innerHTML = matches.map(s => `
-    <div class="dropdown-item" data-id="${s.id}" data-gst="${escapeHtml(s.gst||'')}">
+    <div class="dropdown-item" data-id="${s.id}" data-name="${escapeHtml(s.name)}" data-gst="${escapeHtml(s.gst||'')}">
       <div class="dropdown-item-name">${escapeHtml(s.name)}</div>
       <div class="dropdown-item-sub">${s.gst ? 'GST: ' + escapeHtml(s.gst) : ''}</div>
     </div>
@@ -349,7 +349,7 @@ supplierInput.addEventListener('input', function() {
   supDropdown.querySelectorAll('.dropdown-item').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.dataset.id;
-      const name = el.querySelector('.dropdown-item-name').textContent;
+      const name = el.dataset.name;
       const gst = el.dataset.gst;
       document.getElementById('supplier_name').value = name;
       document.getElementById('supplier_id_hidden').value = id;
