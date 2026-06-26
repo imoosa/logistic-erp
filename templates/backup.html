@@ -1,366 +1,505 @@
 {% extends "base.html" %}
+{% block title %}Backup & Restore{% endblock %}
+{% block page_title %}Backup & Restore{% endblock %}
+
+{% block extra_style %}
+<style>
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(15,23,42,0.55); backdrop-filter: blur(3px);
+    z-index: 500; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+    width: 100%; max-width: 520px; margin: 20px;
+    animation: modalIn .18s ease;
+  }
+  .modal-box.modal-sm { max-width: 420px; }
+  @keyframes modalIn { from { opacity:0; transform:translateY(-14px); } to { opacity:1; transform:translateY(0); } }
+
+  .modal-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .modal-header-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .modal-header-icon.blue  { background: var(--primary-light); }
+  .modal-header-icon.amber { background: #FEF3C7; }
+  .modal-title-text h3 { font-size: 15px; font-weight: 700; color: var(--gray-900); }
+  .modal-title-text p  { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+  .modal-close {
+    margin-left: auto; background: none; border: none;
+    font-size: 20px; color: var(--gray-400); cursor: pointer; line-height: 1;
+    padding: 4px 8px; border-radius: 6px;
+  }
+  .modal-close:hover { background: var(--gray-100); color: var(--gray-700); }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid var(--gray-100);
+    display: flex; justify-content: flex-end; gap: 10px;
+  }
+
+  /* ── Warning alert ── */
+  .alert-warn {
+    background: #FEF3C7; border: 1px solid #FDE68A; border-radius: 10px;
+    padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #92400E; margin-bottom: 16px;
+  }
+  .alert-warn-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert-danger {
+    background: #FEE2E2; border: 1px solid #FECACA; border-radius: 10px;
+    padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #7F1D1D; margin-bottom: 16px;
+  }
+
+  /* ── Stat cards ── */
+  .stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card {
+    background: #fff; border: 1px solid var(--gray-100); border-radius: 14px;
+    padding: 18px 20px; display: flex; align-items: center; gap: 14px;
+  }
+  .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+  .stat-icon.blue   { background: var(--primary-light); }
+  .stat-icon.green  { background: var(--success-light); }
+  .stat-icon.amber  { background: #FEF3C7; }
+  .stat-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  .stat-value { font-size: 20px; font-weight: 800; color: var(--gray-900); margin-top: 2px; }
+
+  /* ── Action bar ── */
+  .action-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 10px;
+  }
+  .action-bar h2 { font-size: 16px; font-weight: 700; color: var(--gray-800); }
+
+  /* ── Table ── */
+  .backup-table { border-radius: 14px; overflow: hidden; border: 1px solid var(--gray-100); }
+  .backup-table table { margin: 0; }
+  .backup-table th { background: var(--gray-50); font-size: 11px; }
+  .backup-table td { vertical-align: middle; }
+  .backup-id { font-family: monospace; font-size: 12px; color: var(--primary); background: var(--primary-light); padding: 3px 8px; border-radius: 6px; }
+
+  /* ── Empty state ── */
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-state-icon { font-size: 48px; margin-bottom: 14px; }
+  .empty-state h3 { font-size: 16px; font-weight: 700; color: var(--gray-700); margin-bottom: 6px; }
+  .empty-state p  { font-size: 13px; color: var(--gray-500); margin-bottom: 20px; }
+
+  /* ── Checkbox ── */
+  .check-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--gray-100); }
+  .check-row:last-child { border-bottom: none; }
+  .check-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--primary); flex-shrink: 0; }
+  .check-row label { font-size: 13px; font-weight: 500; color: var(--gray-700); margin: 0; cursor: pointer; }
+  .check-row small { font-size: 11px; color: var(--gray-400); display: block; margin-top: 1px; }
+
+  /* ── Action buttons in table ── */
+  .tbl-actions { display: flex; gap: 6px; align-items: center; }
+  .tbl-btn {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: 1px solid var(--gray-200); background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer; text-decoration: none; transition: all .15s;
+  }
+  .tbl-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+  .tbl-btn.danger:hover { background: var(--danger-light); border-color: #FECACA; }
+  .tbl-btn.warn:hover   { background: #FEF3C7; border-color: #FDE68A; }
+
+  /* ── Status badges ── */
+  .status-completed { background: var(--success-light); color: var(--success); }
+  .status-pending   { background: #FEF3C7; color: var(--warning); }
+
+  /* ── Toggle hidden section ── */
+  .cloud-fields { display: none; margin-top: 12px; }
+  .cloud-fields.visible { display: block; }
+
+  @media(max-width:768px) { .stat-grid { grid-template-columns: 1fr; } }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="page-title-box">
-                <h4 class="page-title">Backup & Restore</h4>
-                <p class="text-muted">Manage your company data backups</p>
+
+<!-- Stat Cards -->
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="stat-icon blue">💾</div>
+    <div>
+      <div class="stat-label">Total Backups</div>
+      <div class="stat-value">{{ backups|length }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green">✅</div>
+    <div>
+      <div class="stat-label">Completed</div>
+      <div class="stat-value">{{ backups|selectattr('status','equalto','completed')|list|length }}</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon amber">📦</div>
+    <div>
+      <div class="stat-label">Total Size</div>
+      <div class="stat-value">{{ "%.1f"|format(backups|sum(attribute='file_size_mb')) }} MB</div>
+    </div>
+  </div>
+</div>
+
+<!-- Action bar -->
+<div class="action-bar">
+  <h2>📋 Available Backups</h2>
+  <div style="display:flex;gap:10px;">
+    <button class="btn btn-ghost" onclick="openModal('scheduleModal')">⏰ Schedule</button>
+    <button class="btn btn-primary" onclick="openModal('createModal')">💾 Create Backup</button>
+  </div>
+</div>
+
+<!-- Backups Table -->
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if backups %}
+    <div class="table-wrap backup-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Backup ID</th>
+            <th>Date & Time</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th>Cloud</th>
+            <th>Last Restored</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for backup in backups %}
+          <tr>
+            <td><span class="backup-id">{{ backup.backup_id }}</span></td>
+            <td style="font-size:13px;">{{ backup.backup_date.strftime('%d %b %Y, %H:%M') }}</td>
+            <td style="font-size:13px;">{{ "%.2f"|format(backup.file_size_mb) }} MB</td>
+            <td>
+              <span class="badge {% if backup.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
+                {% if backup.status == 'completed' %}✔ Completed{% else %}⏳ {{ backup.status|title }}{% endif %}
+              </span>
+            </td>
+            <td style="font-size:13px;">
+              {% if backup.cloud_backup %}☁️ Yes{% else %}<span style="color:var(--gray-400);">—</span>{% endif %}
+            </td>
+            <td style="font-size:13px;">
+              {% if backup.restore_date %}{{ backup.restore_date.strftime('%d %b %Y') }}{% else %}<span style="color:var(--gray-400);">—</span>{% endif %}
+            </td>
+            <td>
+              <div class="tbl-actions">
+                <!-- Download -->
+                <a href="{{ url_for('download_backup', backup_id=backup.backup_id) }}"
+                   class="tbl-btn" title="Download">⬇️</a>
+                <!-- Restore -->
+                <button class="tbl-btn warn" title="Restore"
+                  onclick="openRestore('{{ backup.backup_id }}', '{{ backup.backup_date.strftime('%d %b %Y %H:%M') }}')">↩️</button>
+                <!-- Upload to Cloud -->
+                <button class="tbl-btn" title="Upload to Cloud"
+                  onclick="openCloudUpload('{{ backup.backup_id }}')">☁️</button>
+                <!-- Delete -->
+                <form method="POST" action="{{ url_for('delete_backup_record', backup_id=backup.backup_id) }}"
+                      onsubmit="return confirm('Delete this backup permanently?');" style="margin:0;">
+                  <button type="submit" class="tbl-btn danger" title="Delete">🗑️</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">💾</div>
+      <h3>No backups yet</h3>
+      <p>Create your first backup to protect your company data.</p>
+      <button class="btn btn-primary" onclick="openModal('createModal')">💾 Create First Backup</button>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Create Backup
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal-box">
+    <form method="POST" action="{{ url_for('create_backup') }}">
+      <div class="modal-header">
+        <div class="modal-header-icon blue">💾</div>
+        <div class="modal-title-text">
+          <h3>Create New Backup</h3>
+          <p>Snapshot your current company data</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeModal('createModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="check-row">
+          <input type="checkbox" id="incAttach" name="include_attachments" value="true" checked>
+          <label for="incAttach">
+            Include attachments
+            <small>Invoices, documents and uploaded files</small>
+          </label>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="uploadCloud" name="upload_to_cloud" value="true"
+                 onchange="toggleSection('createCloudFields', this.checked)">
+          <label for="uploadCloud">
+            Upload to cloud storage
+            <small>Send backup to S3, GCS or FTP after creation</small>
+          </label>
+        </div>
+
+        <div class="cloud-fields" id="createCloudFields">
+          <div class="form-group" style="margin-top:8px;">
+            <label>Cloud Destination</label>
+            <select name="cloud_destination" onchange="switchCloudForm('createCloud', this.value)">
+              {% for key, name in backup_destinations.items() %}
+              <option value="{{ key }}">{{ name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <!-- S3 -->
+          <div id="createCloud-s3">
+            <div class="grid-2">
+              <div class="form-group"><label>Access Key ID</label><input type="text" name="access_key" placeholder="AKIA..."></div>
+              <div class="form-group"><label>Secret Access Key</label><input type="password" name="secret_key" placeholder="••••••••"></div>
             </div>
-        </div>
-    </div>
-
-    <!-- Create Backup Button -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#createBackupModal">
-                <i class="fas fa-database"></i> Create New Backup
-            </button>
-            <button type="button" class="btn btn-info" data-toggle="modal" data-target="#scheduleBackupModal">
-                <i class="fas fa-clock"></i> Schedule Automatic Backups
-            </button>
-        </div>
-    </div>
-
-    <!-- Backups List -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Available Backups</h5>
-                </div>
-                <div class="card-body">
-                    {% if backups %}
-                    <div class="table-responsive">
-                        <table class="table table-hover">
-                            <thead>
-                                <tr>
-                                    <th>Backup ID</th>
-                                    <th>Date</th>
-                                    <th>Size (MB)</th>
-                                    <th>Status</th>
-                                    <th>Cloud Backup</th>
-                                    <th>Restored</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for backup in backups %}
-                                <tr>
-                                    <td><code>{{ backup.backup_id }}</code></td>
-                                    <td>{{ backup.backup_date.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-                                    <td>{{ "%.2f"|format(backup.file_size_mb) }}</td>
-                                    <td>
-                                        {% if backup.status == 'completed' %}
-                                        <span class="badge badge-success">Completed</span>
-                                        {% else %}
-                                        <span class="badge badge-warning">{{ backup.status }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if backup.cloud_backup %}
-                                        <i class="fas fa-check-circle text-success"></i> Yes
-                                        {% else %}
-                                        <i class="fas fa-times-circle text-muted"></i> No
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if backup.restore_date %}
-                                        {{ backup.restore_date.strftime('%Y-%m-%d') }}
-                                        {% else %}
-                                        -
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group" role="group">
-                                            <a href="{{ url_for('download_backup', backup_id=backup.backup_id) }}" 
-                                               class="btn btn-sm btn-secondary" title="Download">
-                                                <i class="fas fa-download"></i>
-                                            </a>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-warning" 
-                                                    data-toggle="modal" 
-                                                    data-target="#restoreBackupModal"
-                                                    data-backup-id="{{ backup.backup_id }}"
-                                                    data-backup-date="{{ backup.backup_date.strftime('%Y-%m-%d %H:%M:%S') }}"
-                                                    title="Restore">
-                                                <i class="fas fa-undo"></i>
-                                            </button>
-                                            <button type="button" 
-                                                    class="btn btn-sm btn-info" 
-                                                    data-toggle="modal" 
-                                                    data-target="#uploadCloudModal"
-                                                    data-backup-id="{{ backup.backup_id }}"
-                                                    title="Upload to Cloud">
-                                                <i class="fas fa-cloud-upload-alt"></i>
-                                            </button>
-                                            <form method="POST" action="{{ url_for('delete_backup_record', backup_id=backup.backup_id) }}" 
-                                                  style="display: inline;"
-                                                  onsubmit="return confirm('Are you sure you want to delete this backup?');">
-                                                <button type="submit" class="btn btn-sm btn-danger" title="Delete">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <i class="fas fa-database fa-4x text-muted mb-3"></i>
-                        <p>No backups found. Click "Create New Backup" to get started.</p>
-                    </div>
-                    {% endif %}
-                </div>
+            <div class="grid-2">
+              <div class="form-group"><label>Bucket Name</label><input type="text" name="bucket" placeholder="my-backup-bucket"></div>
+              <div class="form-group"><label>Region</label><input type="text" name="region" value="us-east-1"></div>
             </div>
+          </div>
+          <!-- GCS -->
+          <div id="createCloud-gcs" style="display:none;">
+            <div class="form-group"><label>Service Account JSON Key</label><input type="text" name="credentials_file" placeholder="Path to credentials.json"></div>
+            <div class="form-group"><label>Bucket Name</label><input type="text" name="gcs_bucket" placeholder="my-gcs-bucket"></div>
+          </div>
+          <!-- FTP -->
+          <div id="createCloud-ftp" style="display:none;">
+            <div class="grid-2">
+              <div class="form-group"><label>Host</label><input type="text" name="host" placeholder="ftp.example.com"></div>
+              <div class="form-group"><label>Port</label><input type="number" name="port" value="22"></div>
+            </div>
+            <div class="grid-2">
+              <div class="form-group"><label>Username</label><input type="text" name="username"></div>
+              <div class="form-group"><label>Password</label><input type="password" name="password"></div>
+            </div>
+            <div class="form-group"><label>Remote Path</label><input type="text" name="path" value="/"></div>
+          </div>
         </div>
-    </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('createModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">💾 Create Backup</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Create Backup Modal -->
-<div class="modal fade" id="createBackupModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('create_backup') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title">Create New Backup</h5>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="includeAttachments" name="include_attachments" value="true" checked>
-                            <label class="custom-control-label" for="includeAttachments">
-                                Include attachments (invoices, documents)
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="uploadToCloud" name="upload_to_cloud" value="true">
-                            <label class="custom-control-label" for="uploadToCloud">
-                                Upload to cloud storage
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div id="cloudOptions" style="display: none;">
-                        <div class="form-group">
-                            <label>Cloud Destination</label>
-                            <select class="form-control" name="cloud_destination">
-                                {% for key, name in backup_destinations.items() %}
-                                <option value="{{ key }}">{{ name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        
-                        <div id="s3Options" class="cloud-options">
-                            <div class="form-group">
-                                <label>AWS Access Key ID</label>
-                                <input type="text" class="form-control" name="access_key">
-                            </div>
-                            <div class="form-group">
-                                <label>AWS Secret Access Key</label>
-                                <input type="password" class="form-control" name="secret_key">
-                            </div>
-                            <div class="form-group">
-                                <label>S3 Bucket Name</label>
-                                <input type="text" class="form-control" name="bucket">
-                            </div>
-                            <div class="form-group">
-                                <label>AWS Region</label>
-                                <input type="text" class="form-control" name="region" value="us-east-1">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Create Backup</button>
-                </div>
-            </form>
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Restore Backup
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="restoreModal">
+  <div class="modal-box modal-sm">
+    <form method="POST" id="restoreForm" action="">
+      <div class="modal-header">
+        <div class="modal-header-icon amber">↩️</div>
+        <div class="modal-title-text">
+          <h3>Restore Backup</h3>
+          <p>This will overwrite all current data</p>
         </div>
-    </div>
+        <button type="button" class="modal-close" onclick="closeModal('restoreModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="alert-warn">
+          <span class="alert-warn-icon">⚠️</span>
+          <div><strong>Irreversible action.</strong> Restoring will replace all current company data with the selected backup. Make sure you have a recent backup before proceeding.</div>
+        </div>
+        <p style="font-size:13px;color:var(--gray-700);">
+          Restore from backup <strong id="restoreIdLabel" style="color:var(--primary);"></strong>
+          created on <strong id="restoreDateLabel"></strong>?
+        </p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('restoreModal')">Cancel</button>
+        <button type="submit" class="btn btn-danger">↩️ Yes, Restore</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Restore Backup Modal -->
-<div class="modal fade" id="restoreBackupModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="" id="restoreForm">
-                <div class="modal-header">
-                    <h5 class="modal-title">Restore Backup</h5>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-warning">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <strong>Warning!</strong> Restoring will replace all current data with the backup data. 
-                        This action cannot be undone.
-                    </div>
-                    <p>Are you sure you want to restore from backup <strong id="restoreBackupId"></strong> 
-                       created on <strong id="restoreBackupDate"></strong>?</p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-warning">Restore</button>
-                </div>
-            </form>
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Upload to Cloud
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="cloudModal">
+  <div class="modal-box">
+    <form method="POST" id="cloudForm" action="">
+      <div class="modal-header">
+        <div class="modal-header-icon blue">☁️</div>
+        <div class="modal-title-text">
+          <h3>Upload Backup to Cloud</h3>
+          <p>Send this backup to your cloud storage</p>
         </div>
-    </div>
+        <button type="button" class="modal-close" onclick="closeModal('cloudModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="backup_id" id="cloudBackupId">
+        <div class="form-group">
+          <label>Cloud Destination</label>
+          <select name="destination" id="cloudDest" onchange="switchCloudForm('cloudSection', this.value)">
+            {% for key, name in backup_destinations.items() %}
+            <option value="{{ key }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- S3 -->
+        <div id="cloudSection-s3">
+          <div class="grid-2">
+            <div class="form-group"><label>Access Key ID</label><input type="text" name="access_key" placeholder="AKIA..."></div>
+            <div class="form-group"><label>Secret Access Key</label><input type="password" name="secret_key" placeholder="••••••••"></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group"><label>Bucket Name</label><input type="text" name="bucket" placeholder="my-backup-bucket"></div>
+            <div class="form-group"><label>Region</label><input type="text" name="region" value="us-east-1"></div>
+          </div>
+        </div>
+        <!-- GCS -->
+        <div id="cloudSection-gcs" style="display:none;">
+          <div class="form-group"><label>Service Account JSON Key</label><input type="text" name="credentials_file" placeholder="Path to credentials.json"></div>
+          <div class="form-group"><label>Bucket Name</label><input type="text" name="gcs_bucket" placeholder="my-gcs-bucket"></div>
+        </div>
+        <!-- FTP -->
+        <div id="cloudSection-ftp" style="display:none;">
+          <div class="grid-2">
+            <div class="form-group"><label>Host</label><input type="text" name="host" placeholder="ftp.example.com"></div>
+            <div class="form-group"><label>Port</label><input type="number" name="port" value="22"></div>
+          </div>
+          <div class="grid-2">
+            <div class="form-group"><label>Username</label><input type="text" name="username"></div>
+            <div class="form-group"><label>Password</label><input type="password" name="password"></div>
+          </div>
+          <div class="form-group"><label>Remote Path</label><input type="text" name="path" value="/"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('cloudModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">☁️ Upload to Cloud</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Schedule Backup Modal -->
-<div class="modal fade" id="scheduleBackupModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('schedule_backup') }}">
-                <div class="modal-header">
-                    <h5 class="modal-title">Schedule Automatic Backups</h5>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>Frequency</label>
-                        <select class="form-control" name="frequency">
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Time of Day (24-hour format)</label>
-                        <input type="time" class="form-control" name="time_of_day" value="02:00">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Retention (days)</label>
-                        <input type="number" class="form-control" name="retention_days" value="30" min="1" max="365">
-                        <small class="form-text text-muted">Backups older than this will be automatically deleted</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="scheduleUploadCloud" name="upload_to_cloud" value="true">
-                            <label class="custom-control-label" for="scheduleUploadCloud">
-                                Automatically upload to cloud
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Save Schedule</button>
-                </div>
-            </form>
+
+<!-- ══════════════════════════════════════════════
+     MODAL: Schedule Backup
+════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal-box">
+    <form method="POST" action="{{ url_for('schedule_backup') }}">
+      <div class="modal-header">
+        <div class="modal-header-icon blue">⏰</div>
+        <div class="modal-title-text">
+          <h3>Schedule Automatic Backups</h3>
+          <p>Set up recurring backups for your company</p>
         </div>
-    </div>
+        <button type="button" class="modal-close" onclick="closeModal('scheduleModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Frequency</label>
+            <select name="frequency">
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Time of Day</label>
+            <input type="time" name="time_of_day" value="02:00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Retention (days)</label>
+          <input type="number" name="retention_days" value="30" min="1" max="365">
+          <small style="font-size:11px;color:var(--gray-400);display:block;margin-top:4px;">Backups older than this will be auto-deleted</small>
+        </div>
+        <div class="check-row">
+          <input type="checkbox" id="schedCloud" name="upload_to_cloud" value="true">
+          <label for="schedCloud">
+            Auto-upload to cloud after each backup
+            <small>Uses your last saved cloud credentials</small>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('scheduleModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">⏰ Save Schedule</button>
+      </div>
+    </form>
+  </div>
 </div>
 
-<!-- Upload to Cloud Modal -->
-<div class="modal fade" id="uploadCloudModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form method="POST" action="" id="uploadCloudForm">
-                <div class="modal-header">
-                    <h5 class="modal-title">Upload Backup to Cloud</h5>
-                    <button type="button" class="close" data-dismiss="modal">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" name="backup_id" id="uploadBackupId">
-                    
-                    <div class="form-group">
-                        <label>Cloud Destination</label>
-                        <select class="form-control" name="destination" id="cloudDestination">
-                            {% for key, name in backup_destinations.items() %}
-                            <option value="{{ key }}">{{ name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    
-                    <div id="cloudConfigFields">
-                        <!-- AWS S3 Fields -->
-                        <div class="s3-fields" style="display: block;">
-                            <div class="form-group">
-                                <label>AWS Access Key ID</label>
-                                <input type="text" class="form-control" name="access_key">
-                            </div>
-                            <div class="form-group">
-                                <label>AWS Secret Access Key</label>
-                                <input type="password" class="form-control" name="secret_key">
-                            </div>
-                            <div class="form-group">
-                                <label>S3 Bucket Name</label>
-                                <input type="text" class="form-control" name="bucket">
-                            </div>
-                            <div class="form-group">
-                                <label>AWS Region</label>
-                                <input type="text" class="form-control" name="region" value="us-east-1">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary">Upload to Cloud</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+{% endblock %}
 
+{% block extra_script %}
 <script>
-// Show/hide cloud options
-$('#uploadToCloud').change(function() {
-    $('#cloudOptions').toggle(this.checked);
-});
+  /* ── Modal helpers ── */
+  function openModal(id) {
+    document.getElementById(id).classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  // Close on overlay click
+  document.querySelectorAll('.modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target === el) closeModal(el.id);
+    });
+  });
 
-// Handle restore modal
-$('#restoreBackupModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
-    var backupId = button.data('backup-id');
-    var backupDate = button.data('backup-date');
-    
-    var modal = $(this);
-    modal.find('#restoreBackupId').text(backupId);
-    modal.find('#restoreBackupDate').text(backupDate);
-    modal.find('#restoreForm').attr('action', '/backup/restore/' + backupId);
-});
+  /* ── Restore modal ── */
+  function openRestore(backupId, backupDate) {
+    document.getElementById('restoreIdLabel').textContent = backupId;
+    document.getElementById('restoreDateLabel').textContent = backupDate;
+    document.getElementById('restoreForm').action = '/backup/restore/' + backupId;
+    openModal('restoreModal');
+  }
 
-// Handle upload cloud modal
-$('#uploadCloudModal').on('show.bs.modal', function(event) {
-    var button = $(event.relatedTarget);
-    var backupId = button.data('backup-id');
-    
-    var modal = $(this);
-    modal.find('#uploadBackupId').val(backupId);
-    modal.find('#uploadCloudForm').attr('action', '/backup/upload-to-cloud/' + backupId);
-});
+  /* ── Cloud upload modal ── */
+  function openCloudUpload(backupId) {
+    document.getElementById('cloudBackupId').value = backupId;
+    document.getElementById('cloudForm').action = '/backup/upload-to-cloud/' + backupId;
+    openModal('cloudModal');
+  }
 
-// Show/hide cloud-specific fields
-$('#cloudDestination').change(function() {
-    var dest = $(this).val();
-    $('.s3-fields, .gcs-fields, .ftp-fields').hide();
-    
-    if (dest === 's3') {
-        $('.s3-fields').show();
-    } else if (dest === 'gcs') {
-        $('.gcs-fields').show();
-    } else if (dest === 'ftp') {
-        $('.ftp-fields').show();
-    }
-});
+  /* ── Toggle cloud fields in create modal ── */
+  function toggleSection(sectionId, show) {
+    var el = document.getElementById(sectionId);
+    if (show) el.classList.add('visible');
+    else el.classList.remove('visible');
+  }
+
+  /* ── Switch cloud provider fields ── */
+  function switchCloudForm(prefix, dest) {
+    ['s3','gcs','ftp'].forEach(function(p) {
+      var el = document.getElementById(prefix + '-' + p);
+      if (el) el.style.display = (p === dest) ? 'block' : 'none';
+    });
+  }
 </script>
-
-<style>
-.cloud-options {
-    display: none;
-}
-</style>
 {% endblock %}
