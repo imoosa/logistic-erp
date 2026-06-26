@@ -196,13 +196,20 @@
           <input type="date" name="date" value="{{ today }}" required />
         </div>
         <div class="form-group">
-          <label>Category *</label>
-          <select name="category" required>
-            {% for cat in categories %}
-              <option value="{{ cat }}">{{ cat }}</option>
-            {% endfor %}
-          </select>
-        </div>
+  <label>Category *</label>
+  <select name="category" required onchange="onCategoryChange(this)">
+    {% for cat in categories %}
+      <option value="{{ cat }}">{{ cat }}</option>
+    {% endfor %}
+  </select>
+</div>
+<!-- Others reason — shown only when Others is selected -->
+<div class="form-group" id="othersReasonGroup"
+     style="display:none; margin-bottom:14px;">
+  <label>Reason for Others *</label>
+  <input type="text" name="others_reason" id="othersReason"
+         placeholder="Describe what this expense is for…" />
+</div>
         <div class="form-group">
           <label>Amount (₹) *</label>
           <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required />
@@ -475,6 +482,28 @@
     });
   }
 
+  function onCategoryChange(sel) {
+  const grp = document.getElementById('othersReasonGroup');
+  const inp = document.getElementById('othersReason');
+  if (sel.value === 'Others') {
+    grp.style.display = 'block';
+    inp.required = true;
+  } else {
+    grp.style.display = 'none';
+    inp.required = false;
+    inp.value = '';
+  }
+}
+
+// On submit, if Others — copy reason into description if description is blank
+document.querySelector('#addExpenseForm form').addEventListener('submit', function() {
+  const cat    = this.querySelector('[name="category"]').value;
+  const reason = document.getElementById('othersReason').value.trim();
+  const descEl = this.querySelector('[name="description"]');
+  if (cat === 'Others' && reason && !descEl.value.trim()) {
+    descEl.value = reason;
+  }
+});
   // ── Filter / Form helpers ─────────────────────────────────────────────────
   function applyFilter() {
     const fd = document.getElementById('fromDate').value;
