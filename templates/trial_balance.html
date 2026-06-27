@@ -3,90 +3,325 @@
 {% block page_title %}Trial Balance{% endblock %}
 {% set active = 'trial_balance' %}
 
+{% block extra_style %}
+<style>
+  /* ── Page header ── */
+  .tb-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .tb-header h2 {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--gray-900);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tb-header h2 span.icon-wrap {
+    width: 40px; height: 40px; border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent), var(--primary));
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .tb-sub {
+    font-size: 13px;
+    color: var(--gray-500);
+    font-weight: 400;
+    margin-top: 3px;
+  }
+
+  /* ── Filter card ── */
+  .filter-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    padding: 18px 20px;
+    margin-bottom: 22px;
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: end;
+    max-width: 480px;
+  }
+  .filter-actions { display: flex; gap: 8px; }
+
+  /* ── KPI strip ── */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 22px;
+  }
+  .kpi-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .kpi-icon-box {
+    width: 46px; height: 46px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .kpi-icon-box.blue   { background: var(--primary-light); }
+  .kpi-icon-box.green  { background: var(--success-light); }
+  .kpi-icon-box.amber  { background: var(--warning-light); }
+  .kpi-icon-box.red    { background: var(--danger-light); }
+  .kpi-label { font-size: 11.5px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .kpi-value { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+  .kpi-value.blue  { color: var(--primary); }
+  .kpi-value.green { color: var(--success); }
+  .kpi-value.amber { color: var(--warning); }
+  .kpi-value.red   { color: var(--danger); }
+
+  /* ── Main card ── */
+  .tb-card {
+    background: #fff;
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    overflow: hidden;
+  }
+  .tb-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gray-100);
+    background: var(--gray-50);
+  }
+  .tb-card-header strong { font-size: 14px; font-weight: 700; color: var(--gray-900); }
+  .tb-card-header .as-on {
+    font-size: 12px; color: var(--gray-500); font-weight: 500;
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  /* ── Table ── */
+  .tb-table { width: 100%; border-collapse: collapse; }
+  .tb-table thead th {
+    padding: 11px 16px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--gray-500);
+    background: var(--gray-50);
+    text-align: left;
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .tb-table thead th.num { text-align: right; }
+  .tb-table tbody td {
+    padding: 13px 16px;
+    font-size: 13px;
+    color: var(--gray-700);
+    border-bottom: 1px solid var(--gray-100);
+  }
+  .tb-table tbody tr:last-child td { border-bottom: none; }
+  .tb-table tbody tr:hover { background: #FAFBFF; }
+  .tb-table td.num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tb-table tfoot td {
+    padding: 13px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gray-900);
+    background: var(--gray-50);
+    border-top: 2px solid var(--gray-200);
+  }
+  .tb-table tfoot td.num { text-align: right; }
+  .tb-table tfoot tr.diff-row td {
+    background: var(--warning-light);
+    color: var(--warning);
+    border-top: none;
+  }
+
+  /* ── Amount colours ── */
+  .amt-debit  { color: var(--primary); font-weight: 700; }
+  .amt-credit { color: var(--danger);  font-weight: 700; }
+  .dash       { color: var(--gray-300); }
+
+  /* ── Balance status banner ── */
+  .status-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 16px;
+    padding: 14px 20px;
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    font-weight: 600;
+  }
+  .status-banner.balanced {
+    background: var(--success-light);
+    color: var(--success);
+    border: 1px solid #86EFAC;
+  }
+  .status-banner.unbalanced {
+    background: var(--warning-light);
+    color: var(--warning);
+    border: 1px solid #FDE68A;
+  }
+  .status-banner .banner-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .status-banner.balanced .banner-icon   { background: rgba(5,150,105,.15); }
+  .status-banner.unbalanced .banner-icon { background: rgba(217,119,6,.15); }
+  .status-banner .banner-text { line-height: 1.4; }
+  .status-banner .banner-title { font-size: 14px; font-weight: 800; margin-bottom: 1px; }
+  .status-banner .banner-detail { font-size: 12px; font-weight: 500; opacity: .8; }
+
+  /* ── Empty state ── */
+  .empty-row td {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--gray-400);
+    font-size: 13px;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 900px) {
+    .kpi-strip { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .filter-row { grid-template-columns: 1fr; }
+    .kpi-strip { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <h2>⚖️ Trial Balance</h2>
+
+<!-- Page Header -->
+<div class="tb-header">
+  <div>
+    <h2>
+      <span class="icon-wrap">⚖️</span>
+      Trial Balance
+    </h2>
+    <div class="tb-sub">Verify that total debits equal total credits at a point in time</div>
+  </div>
 </div>
 
-<!-- Filter Form -->
-<div class="card" style="margin-bottom: 24px;">
-  <div class="card-body">
-    <form method="GET" action="{{ url_for('trial_balance') }}" class="filter-form">
-      <div class="grid-3" style="gap: 16px; align-items: end;">
-        <div class="form-group">
-          <label>As On Date</label>
-          <input type="date" name="as_on_date" value="{{ as_on_date.isoformat() if as_on_date else '' }}">
-        </div>
-        <div>
-          <button type="submit" class="btn btn-primary">Show Trial Balance</button>
-          <a href="{{ url_for('trial_balance') }}" class="btn btn-ghost">Today</a>
-        </div>
+<!-- Filter -->
+<div class="filter-card">
+  <form method="GET" action="{{ url_for('trial_balance') }}">
+    <div class="filter-row">
+      <div class="form-group" style="margin-bottom:0">
+        <label>As On Date</label>
+        <input type="date" name="as_on_date" value="{{ as_on_date.isoformat() if as_on_date else '' }}">
       </div>
-    </form>
-  </div>
+      <div class="filter-actions">
+        <button type="submit" class="btn btn-primary">Show</button>
+        <a href="{{ url_for('trial_balance') }}" class="btn btn-ghost">Today</a>
+      </div>
+    </div>
+  </form>
 </div>
 
-<!-- Summary Card -->
-<div class="kpi-grid" style="margin-bottom: 24px;">
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#EEF2FF;color:#4F46E5">💰</div>
-    <div class="kpi-val" style="color:#4F46E5">₹{{ "{:,.2f}".format(total_debits) }}</div>
-    <div class="kpi-lbl">Total Debits</div>
+<!-- KPI Strip -->
+<div class="kpi-strip">
+  <div class="kpi-card">
+    <div class="kpi-icon-box blue">💰</div>
+    <div>
+      <div class="kpi-label">Total Debits</div>
+      <div class="kpi-value blue">₹{{ "{:,.2f}".format(total_debits) }}</div>
+    </div>
   </div>
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#DCFCE7;color:#16A34A">💳</div>
-    <div class="kpi-val" style="color:#16A34A">₹{{ "{:,.2f}".format(total_credits) }}</div>
-    <div class="kpi-lbl">Total Credits</div>
+  <div class="kpi-card">
+    <div class="kpi-icon-box green">💳</div>
+    <div>
+      <div class="kpi-label">Total Credits</div>
+      <div class="kpi-value green">₹{{ "{:,.2f}".format(total_credits) }}</div>
+    </div>
   </div>
-  <div class="kpi">
-    <div class="kpi-icon" style="background:#FEF3C7;color:#D97706">⚖️</div>
-    <div class="kpi-val" style="color:#D97706">₹{{ "{:,.2f}".format(difference) }}</div>
-    <div class="kpi-lbl">Difference</div>
+  <div class="kpi-card">
+    <div class="kpi-icon-box {% if difference == 0 %}green{% else %}red{% endif %}">
+      {% if difference == 0 %}✓{% else %}⚠️{% endif %}
+    </div>
+    <div>
+      <div class="kpi-label">Difference</div>
+      <div class="kpi-value {% if difference == 0 %}green{% else %}red{% endif %}">
+        {% if difference == 0 %}Balanced{% else %}₹{{ "{:,.2f}".format(difference) }}{% endif %}
+      </div>
+    </div>
   </div>
 </div>
 
 <!-- Trial Balance Table -->
-<div class="card">
-  <div class="card-header">
+<div class="tb-card">
+  <div class="tb-card-header">
     <strong>Trial Balance</strong>
-    <span>As on {{ as_on_date.strftime('%d %b %Y') if as_on_date else '-' }}</span>
+    <span class="as-on">
+      📅 As on {{ as_on_date.strftime('%d %b %Y') if as_on_date else '—' }}
+    </span>
   </div>
   <div class="table-wrap">
-    <table class="table">
+    <table class="tb-table">
       <thead>
         <tr>
           <th>Account Name</th>
-          <th>Debit (₹)</th>
-          <th>Credit (₹)</th>
+          <th class="num">Debit (₹)</th>
+          <th class="num">Credit (₹)</th>
         </tr>
       </thead>
       <tbody>
         {% for account in accounts %}
         <tr>
-          <td><strong>{{ account.name }}</strong></td>
-          <td class="{% if account.debit > 0 %}text-success{% endif %}">
-            {% if account.debit > 0 %}₹{{ "{:,.2f}".format(account.debit) }}{% else %}-{% endif %}
+          <td style="font-weight:600; color:var(--gray-800);">{{ account.name }}</td>
+          <td class="num">
+            {% if account.debit > 0 %}
+              <span class="amt-debit">₹{{ "{:,.2f}".format(account.debit) }}</span>
+            {% else %}
+              <span class="dash">—</span>
+            {% endif %}
           </td>
-          <td class="{% if account.credit > 0 %}text-danger{% endif %}">
-            {% if account.credit > 0 %}₹{{ "{:,.2f}".format(account.credit) }}{% else %}-{% endif %}
+          <td class="num">
+            {% if account.credit > 0 %}
+              <span class="amt-credit">₹{{ "{:,.2f}".format(account.credit) }}</span>
+            {% else %}
+              <span class="dash">—</span>
+            {% endif %}
           </td>
         </tr>
         {% else %}
-        <tr>
-          <td colspan="3" style="text-align: center;">No accounts found</td>
+        <tr class="empty-row">
+          <td colspan="3">
+            <div style="font-size:32px;margin-bottom:8px;">📭</div>
+            No accounts found
+          </td>
         </tr>
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr style="background: #F9FAFB; font-weight: bold;">
-          <td style="text-align: right;">Total:</td>
-          <td>₹{{ "{:,.2f}".format(total_debits) }}</td>
-          <td>₹{{ "{:,.2f}".format(total_credits) }}</td>
+        <tr>
+          <td style="text-align:right; color:var(--gray-500); font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;">Total</td>
+          <td class="num">₹{{ "{:,.2f}".format(total_debits) }}</td>
+          <td class="num">₹{{ "{:,.2f}".format(total_credits) }}</td>
         </tr>
         {% if difference != 0 %}
-        <tr style="background: #FEF3C7;">
-          <td style="text-align: right;">Difference:</td>
-          <td colspan="2" style="color: #D97706;">₹{{ "{:,.2f}".format(difference) }}</td>
+        <tr class="diff-row">
+          <td style="text-align:right;">Difference</td>
+          <td class="num" colspan="2">₹{{ "{:,.2f}".format(difference) }}</td>
         </tr>
         {% endif %}
       </tfoot>
@@ -94,36 +329,23 @@
   </div>
 </div>
 
-<!-- Note if difference exists -->
+<!-- Balance Status Banner -->
 {% if difference != 0 %}
-<div class="alert alert-warning" style="margin-top: 16px; padding: 12px; background: #FEF3C7; border-radius: 8px;">
-  <strong>⚠️ Note:</strong> The trial balance is not balanced. The difference of ₹{{ "{:,.2f}".format(difference) }} needs to be investigated.
+<div class="status-banner unbalanced">
+  <div class="banner-icon">⚠️</div>
+  <div class="banner-text">
+    <div class="banner-title">Trial Balance Not Balanced</div>
+    <div class="banner-detail">A difference of ₹{{ "{:,.2f}".format(difference) }} exists and needs investigation before closing accounts.</div>
+  </div>
 </div>
 {% else %}
-<div class="alert alert-success" style="margin-top: 16px; padding: 12px; background: #DCFCE7; border-radius: 8px;">
-  <strong>✓ Balanced:</strong> The trial balance is balanced. Total Debits equal Total Credits.
+<div class="status-banner balanced">
+  <div class="banner-icon">✓</div>
+  <div class="banner-text">
+    <div class="banner-title">Trial Balance Balanced</div>
+    <div class="banner-detail">Total debits equal total credits. Books are in order as on {{ as_on_date.strftime('%d %b %Y') if as_on_date else 'selected date' }}.</div>
+  </div>
 </div>
 {% endif %}
 
-<style>
-.text-success {
-  color: #16A34A;
-  font-weight: 600;
-}
-.text-danger {
-  color: #DC2626;
-  font-weight: 600;
-}
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
-.alert-warning {
-  border: 1px solid #FDE68A;
-}
-.alert-success {
-  border: 1px solid #86EFAC;
-}
-</style>
 {% endblock %}
