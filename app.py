@@ -5378,19 +5378,60 @@ def api_docket_info(docket_no):
         if meta.get("docket_no", "") == docket_no:
             cname = inv.client_obj.name if inv.client_obj else (inv.contact_person or "")
             cphone = inv.client_obj.phone if inv.client_obj else (inv.phone or "")
+
+            # Calculate total box weight from packages
+            packages = meta.get("packages", [])
+            box_weight = sum(
+                float(p.get("weight") or 0) * float(p.get("qty") or 1)
+                for p in packages
+            )
+            freight_weight = float(meta.get("freight_weight") or 0)
+            total_weight = box_weight if box_weight > 0 else freight_weight
+
+            # Build dimensions list for estimate from invoice packages
+            dimensions = [
+                {
+                    "label": p.get("name") or p.get("type") or "Box",
+                    "l": p.get("length") or p.get("l") or "",
+                    "w": p.get("width") or p.get("w") or "",
+                    "h": p.get("height") or p.get("h") or "",
+                    "wt": p.get("weight") or "",
+                }
+                for p in packages
+                if p.get("name") or p.get("type")
+            ]
+
             return jsonify({
-                "invoice_id": inv.invoice_id,
-                "client_id": inv.client_id,
-                "shipper_name": meta.get("shipper_name", cname),
-                "shipper_phone": meta.get("shipper_phone", cphone),
-                "shipper_address": meta.get("shipper_address", ""),
-                "receiver_name": meta.get("receiver_name", ""),
-                "receiver_phone": meta.get("receiver_phone", ""),
+                "invoice_id":       inv.invoice_id,
+                "client_id":        inv.client_id,
+                "shipper_name":     meta.get("shipper_name", cname),
+                "shipper_phone":    meta.get("shipper_phone", cphone),
+                # split address fields
+                "shipper_address1": meta.get("shipper_address1", ""),
+                "shipper_address2": meta.get("shipper_address2", ""),
+                "shipper_city":     meta.get("shipper_city", ""),
+                "shipper_state":    meta.get("shipper_state", ""),
+                "shipper_pincode":  meta.get("shipper_pincode", ""),
+                "shipper_country":  meta.get("shipper_country", "India"),
+                "shipper_address":  meta.get("shipper_address", ""),
+                "receiver_name":    meta.get("receiver_name", ""),
+                "receiver_phone":   meta.get("receiver_phone", ""),
+                "receiver_address1": meta.get("receiver_address1", ""),
+                "receiver_address2": meta.get("receiver_address2", ""),
+                "receiver_city":    meta.get("receiver_city", ""),
+                "receiver_state":   meta.get("receiver_state", ""),
+                "receiver_pincode": meta.get("receiver_pincode", ""),
+                "receiver_country": meta.get("receiver_country", "India"),
                 "receiver_address": meta.get("receiver_address", ""),
-                "destination": meta.get("destination", ""),
-                "shipment_type": meta.get("shipment_type", ""),
-                "mode": meta.get("mode", ""),
-                "carrier": meta.get("carrier", ""),
+                "destination":      meta.get("destination", ""),
+                "shipment_type":    meta.get("shipment_type", ""),
+                "mode":             meta.get("mode", ""),
+                "carrier":          meta.get("carrier", ""),
+                # weight / dimensions
+                "weight":           str(round(total_weight, 2)),
+                "box_weight":       str(round(box_weight, 2)),
+                "freight_weight":   str(freight_weight),
+                "dimensions":       dimensions,
             })
     return jsonify({"error": "not found"}), 404
 
@@ -5734,16 +5775,43 @@ def estimate_new():
         client_id = int(client_id_raw) if client_id_raw else None
 
         # Pack metadata into terms
+        def _fmt_addr(a1, a2, city, state, pin, country):
+            parts = [p for p in [a1, a2, city, state, pin, country] if p]
+            return ", ".join(parts)
+
+        shipper_address = _fmt_addr(
+            request.form.get("shipper_address1",""), request.form.get("shipper_address2",""),
+            request.form.get("shipper_city",""), request.form.get("shipper_state",""),
+            request.form.get("shipper_pincode",""), request.form.get("shipper_country",""),
+        )
+        receiver_address = _fmt_addr(
+            request.form.get("receiver_address1",""), request.form.get("receiver_address2",""),
+            request.form.get("receiver_city",""), request.form.get("receiver_state",""),
+            request.form.get("receiver_pincode",""), request.form.get("receiver_country",""),
+        )
+
         terms_data = json.dumps({
             "docket_no": request.form.get("docket_no", ""),
             "linked_invoice_id": request.form.get("linked_invoice_id", ""),
             "shipper_name": request.form.get("shipper_name", ""),
             "shipper_phone": request.form.get("shipper_phone", ""),
-            "shipper_address": request.form.get("shipper_address", ""),
+            "shipper_address1": request.form.get("shipper_address1", ""),
+            "shipper_address2": request.form.get("shipper_address2", ""),
+            "shipper_city":     request.form.get("shipper_city", ""),
+            "shipper_state":    request.form.get("shipper_state", ""),
+            "shipper_pincode":  request.form.get("shipper_pincode", ""),
+            "shipper_country":  request.form.get("shipper_country", "India"),
+            "shipper_address":  shipper_address,
             "receiver_name": request.form.get("receiver_name", ""),
             "receiver_phone": request.form.get("receiver_phone", ""),
             "receiver_company": request.form.get("receiver_company", ""),
-            "receiver_address": request.form.get("receiver_address", ""),
+            "receiver_address1": request.form.get("receiver_address1", ""),
+            "receiver_address2": request.form.get("receiver_address2", ""),
+            "receiver_city":     request.form.get("receiver_city", ""),
+            "receiver_state":    request.form.get("receiver_state", ""),
+            "receiver_pincode":  request.form.get("receiver_pincode", ""),
+            "receiver_country":  request.form.get("receiver_country", "India"),
+            "receiver_address":  receiver_address,
             "destination": request.form.get("destination", ""),
             "payment_mode": request.form.get("payment_mode", "credit"),
             "upi_app": request.form.get("upi_app", ""),
@@ -5877,11 +5945,23 @@ def estimate_new():
             "shipper_id": existing.client_id or "",
             "shipper_name": meta.get("shipper_name", existing.contact_person or ""),
             "shipper_phone": meta.get("shipper_phone", existing.phone or ""),
-            "shipper_address": meta.get("shipper_address", ""),
+            "shipper_address":  meta.get("shipper_address", ""),
+            "shipper_address1": meta.get("shipper_address1", ""),
+            "shipper_address2": meta.get("shipper_address2", ""),
+            "shipper_city":     meta.get("shipper_city", ""),
+            "shipper_state":    meta.get("shipper_state", ""),
+            "shipper_pincode":  meta.get("shipper_pincode", ""),
+            "shipper_country":  meta.get("shipper_country", "India"),
             "receiver_name": meta.get("receiver_name", ""),
             "receiver_phone": meta.get("receiver_phone", ""),
             "receiver_company": meta.get("receiver_company", ""),
-            "receiver_address": meta.get("receiver_address", ""),
+            "receiver_address":  meta.get("receiver_address", ""),
+            "receiver_address1": meta.get("receiver_address1", ""),
+            "receiver_address2": meta.get("receiver_address2", ""),
+            "receiver_city":     meta.get("receiver_city", ""),
+            "receiver_state":    meta.get("receiver_state", ""),
+            "receiver_pincode":  meta.get("receiver_pincode", ""),
+            "receiver_country":  meta.get("receiver_country", "India"),
             "destination": meta.get("destination", ""),
             "docket_no": current_docket_no,
             "linked_invoice_id": meta.get("linked_invoice_id", ""),
@@ -5977,10 +6057,22 @@ def estimate_view(estimate_id):
         "terms_text":    meta if not meta.get("docket_no") else "",
         "docket_no":         meta.get("docket_no", ""),
         "shipper_address":    meta.get("shipper_address", ""),
+        "shipper_address1":   meta.get("shipper_address1", ""),
+        "shipper_address2":   meta.get("shipper_address2", ""),
+        "shipper_city":       meta.get("shipper_city", ""),
+        "shipper_state":      meta.get("shipper_state", ""),
+        "shipper_pincode":    meta.get("shipper_pincode", ""),
+        "shipper_country":    meta.get("shipper_country", "India"),
         "receiver_name":     meta.get("receiver_name", ""),
         "receiver_company":  meta.get("receiver_company", ""),
         "receiver_phone":    meta.get("receiver_phone", ""),
         "receiver_address":  meta.get("receiver_address", ""),
+        "receiver_address1": meta.get("receiver_address1", ""),
+        "receiver_address2": meta.get("receiver_address2", ""),
+        "receiver_city":     meta.get("receiver_city", ""),
+        "receiver_state":    meta.get("receiver_state", ""),
+        "receiver_pincode":  meta.get("receiver_pincode", ""),
+        "receiver_country":  meta.get("receiver_country", "India"),
         "destination":       meta.get("destination", ""),
         "shipment_type":     meta.get("shipment_type", ""),
         "mode":              meta.get("mode", ""),
@@ -6027,16 +6119,43 @@ def estimate_save():
     client_id = int(client_id_raw) if client_id_raw else None
 
     # Pack metadata into terms (including receiver_company and reference)
+    def _fmt_addr(a1, a2, city, state, pin, country):
+        parts = [p for p in [a1, a2, city, state, pin, country] if p]
+        return ", ".join(parts)
+
+    shipper_address = _fmt_addr(
+        request.form.get("shipper_address1",""), request.form.get("shipper_address2",""),
+        request.form.get("shipper_city",""), request.form.get("shipper_state",""),
+        request.form.get("shipper_pincode",""), request.form.get("shipper_country",""),
+    )
+    receiver_address = _fmt_addr(
+        request.form.get("receiver_address1",""), request.form.get("receiver_address2",""),
+        request.form.get("receiver_city",""), request.form.get("receiver_state",""),
+        request.form.get("receiver_pincode",""), request.form.get("receiver_country",""),
+    )
+
     terms_data = json.dumps({
         "docket_no": request.form.get("docket_no", ""),
         "linked_invoice_id": request.form.get("linked_invoice_id", ""),
         "shipper_name": request.form.get("shipper_name", ""),
         "shipper_phone": request.form.get("shipper_phone", ""),
-        "shipper_address": request.form.get("shipper_address", ""),
+        "shipper_address1": request.form.get("shipper_address1", ""),
+        "shipper_address2": request.form.get("shipper_address2", ""),
+        "shipper_city":     request.form.get("shipper_city", ""),
+        "shipper_state":    request.form.get("shipper_state", ""),
+        "shipper_pincode":  request.form.get("shipper_pincode", ""),
+        "shipper_country":  request.form.get("shipper_country", "India"),
+        "shipper_address":  shipper_address,
         "receiver_name": request.form.get("receiver_name", ""),
         "receiver_phone": request.form.get("receiver_phone", ""),
         "receiver_company": request.form.get("receiver_company", ""),  # ADDED
-        "receiver_address": request.form.get("receiver_address", ""),
+        "receiver_address1": request.form.get("receiver_address1", ""),
+        "receiver_address2": request.form.get("receiver_address2", ""),
+        "receiver_city":     request.form.get("receiver_city", ""),
+        "receiver_state":    request.form.get("receiver_state", ""),
+        "receiver_pincode":  request.form.get("receiver_pincode", ""),
+        "receiver_country":  request.form.get("receiver_country", "India"),
+        "receiver_address":  receiver_address,
         "destination": request.form.get("destination", ""),
         "weight": request.form.get("weight", "0.00"),
         "reference": request.form.get("reference", ""),  # ADDED (Aadhar/PAN)
