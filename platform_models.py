@@ -124,6 +124,8 @@ class Company(db.Model):
     address               = db.Column(db.String(300), nullable=True)
     phone                 = db.Column(db.String(20),  nullable=True)
     logo                  = db.Column(db.String(300), nullable=True)
+    awb_prefix   = db.Column(db.String(10),  nullable=False, default="AHL")
+    awb_start    = db.Column(db.Integer,     nullable=False, default=81000)
     created_at            = db.Column(db.Date,        nullable=False, default=date.today)
     is_active             = db.Column(db.Boolean,     nullable=False, default=True)
     is_gst_registered = db.Column(db.Boolean, nullable=False, default=True)
