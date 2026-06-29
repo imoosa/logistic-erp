@@ -50,9 +50,24 @@ def json_loads_filter(value, default=None):
         return default or {}
 
 # ── Database Configuration ────────────────────────────────────────────────────
+def _resolve_data_dir() -> str:
+    """Try DATA_DIR first, fall back to /tmp/erp_data if not writable yet."""
+    for candidate in (os.environ.get("DATA_DIR", "/data"), "/tmp/erp_data"):
+        try:
+            os.makedirs(candidate, exist_ok=True)
+            test = os.path.join(candidate, ".write_test")
+            open(test, "w").close()
+            os.remove(test)
+            return candidate
+        except OSError:
+            continue
+    raise RuntimeError("No writable data directory. Set DATA_DIR env var on Render.")
+
+_DATA_DIR = _resolve_data_dir()
+
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
+    f"sqlite:///{os.path.join(_DATA_DIR, 'platform.db')}"
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
