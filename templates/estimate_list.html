@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Booking Invoices{% endblock %}
-{% block page_title %}Booking Invoices{% endblock %}
+{% block title %}Performa Invoices{% endblock %}
+{% block page_title %}Performa Invoices{% endblock %}
 {% set active = 'estimate' %}
 
 {% block extra_style %}
@@ -107,7 +107,7 @@
               <div style="font-size:36px;margin-bottom:10px">&#128203;</div>
               No shipper invoices found{% if current_status != 'All' %} with status "{{ current_status }}"{% endif %}.
               <br><br>
-              <a href="/estimate/new" class="btn-new" style="font-size:12px;padding:7px 16px">+ Create First Shipper Invoice</a>
+              
             </div>
           </td>
         </tr>
