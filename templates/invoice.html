@@ -54,6 +54,16 @@
   .three-panel-grid input,
   .three-panel-grid select { width:100%; min-width:0; box-sizing:border-box; }
 
+  /* Performa Invoice collapse */
+  .perf-header { cursor:pointer; user-select:none; }
+  .perf-header:hover .perf-toggle-icon { color:#4338CA; }
+  .perf-toggle-icon { font-size:13px; color:#9CA3AF; transition:transform .2s ease; display:inline-block; }
+  .perf-collapsed .perf-toggle-icon { transform:rotate(-90deg); }
+  .perf-body-wrap { overflow:hidden; }
+  .perf-collapsed .perf-body-wrap { display:none; }
+  .perf-collapsed-summary { display:none; font-size:12px; color:#6B7280; }
+  .perf-collapsed .perf-collapsed-summary { display:inline; }
+
   /* Performa Invoice table */
   .performa-table { width:100%; border-collapse:collapse; }
   .performa-table th { padding:10px 8px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#4F46E5; text-align:left; }
@@ -382,7 +392,7 @@
       <div class="form-group">
         <label>Type of Shipment</label>
         <select name="shipment_type">
-          {% for t in ['NON DC','DC','DOOR TO DOOR','AIRPORT TO AIRPORT','CARGO'] %}
+          {% for t in ['DOX', 'NDOX'] %}
           <option value="{{ t }}" {% if form_data.shipment_type == t %}selected{% endif %}>{{ t }}</option>
           {% endfor %}
         </select>
@@ -429,56 +439,7 @@
 
   </div><!-- /end 3-col inline grid -->
 
-<!-- Rate Lookup Section -->
-<div class="card card-body" style="margin-bottom:16px">
-  <div class="section-title">🚀 Rate Lookup</div>
-  
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
-    <div class="form-group" style="margin-bottom:0;">
-      <label>Courier</label>
-      <select id="rateCourier" onchange="lookupRate()" style="width:100%;">
-        <option value="">— Select Courier —</option>
-        {% for pl in price_lists %}
-        <option value="{{ pl.courier }}">{{ pl.courier }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    
-    <div class="form-group" style="margin-bottom:0;">
-      <label>Destination Country</label>
-      <input type="text" id="rateDestination" placeholder="e.g. UK, USA" style="width:100%;" oninput="lookupRate()">
-    </div>
-    
-    <div class="form-group" style="margin-bottom:0;">
-      <label>Weight (kg)</label>
-      <input type="number" id="rateWeight" step="0.1" min="0" placeholder="e.g. 1.5" style="width:100%;" oninput="lookupRate()">
-    </div>
-    
-    <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;">
-      <button type="button" class="btn btn-primary" onclick="lookupRate()">🔍 Lookup</button>
-    </div>
-  </div>
-  
-  <!-- Rate Result -->
-  <div id="rateResult" style="display:none;margin-top:14px;padding:14px 18px;background:#F0FDF4;border-radius:10px;border:1px solid #86EFAC;">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div>
-        <span style="font-size:12px;color:#15803D;font-weight:600;">✅ Rate Found:</span>
-        <span id="rateDisplay" style="font-size:20px;font-weight:800;color:#16A34A;margin-left:10px;">₹0.00</span>
-        <span id="rateDetails" style="font-size:12px;color:#15803D;margin-left:12px;"></span>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-sm btn-success" onclick="applyRateToFreight()">📥 Apply to Freight</button>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="closeRateResult()">✕</button>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Error Result -->
-  <div id="rateError" style="display:none;margin-top:14px;padding:14px 18px;background:#FEF2F2;border-radius:10px;border:1px solid #FCA5A5;">
-    <span style="color:#DC2626;font-size:13px;">❌ <span id="rateErrorMessage">No rate found</span></span>
-  </div>
-</div>
+
 
   <!-- Packages -->
   <div class="card card-body" style="margin-bottom:16px">
@@ -552,71 +513,58 @@
     </div>
   </div>
 
-
-  <!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
-  <div class="card card-body" style="margin-bottom:16px;border:2px solid #4F46E5;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div>
-        <div class="section-title" style="border-bottom:none;margin-bottom:2px;color:#4338CA;">📋 Performa Invoice Items</div>
-        <span style="font-size:11px;color:#6B7280;">Items declared by shipper — used in Performa Invoice &amp; Docket print</span>
-      </div>
-      <div>
-        <span style="font-size:12px;font-weight:600;color:#4338CA;">Total: <span id="perfGrandDisplay" style="font-size:15px;font-weight:800;">₹0.00</span></span>
-      </div>
+  <!-- Rate Lookup Section -->
+<div class="card card-body" style="margin-bottom:16px">
+  <div class="section-title">🚀 Rate Lookup</div>
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Courier</label>
+      <select id="rateCourier" onchange="lookupRate()" style="width:100%;">
+        <option value="">— Select Courier —</option>
+        {% for pl in price_lists %}
+        <option value="{{ pl.courier }}">{{ pl.courier }}</option>
+        {% endfor %}
+      </select>
     </div>
-    <div style="overflow-x:auto">
-      <table class="performa-table">
-        <thead>
-          <tr>
-            <th width="5%">#</th>
-            <th width="55%">Description of Goods</th>
-            <th width="12%">Quantity</th>
-            <th width="14%">Rate (₹)</th>
-            <th width="14%">Amount (₹)</th>
-            <th width="4%"></th>
-          </tr>
-        </thead>
-        <tbody id="perfBody">
-          {% set perf_items = form_data.performa_items if form_data and form_data.performa_items else [] %}
-          {% if perf_items %}
-            {% for item in perf_items %}
-            <tr class="perf-row">
-              <td style="color:#9CA3AF;font-size:12px;text-align:center;">{{ loop.index }}</td>
-              <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value="{{ item.description }}"></td>
-              <td><input type="number" name="perf_qty[]" class="perf-qty" value="{{ item.qty }}" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
-              <td><input type="number" name="perf_rate[]" class="perf-rate" value="{{ item.rate }}" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
-              <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
-              <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
-            </tr>
-            {% endfor %}
-          {% else %}
-          <tr class="perf-row">
-            <td style="color:#9CA3AF;font-size:12px;text-align:center;">1</td>
-            <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value=""></td>
-            <td><input type="number" name="perf_qty[]" class="perf-qty" value="1" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
-            <td><input type="number" name="perf_rate[]" class="perf-rate" value="0" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
-            <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
-            <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
-          </tr>
-          {% endif %}
-        </tbody>
-      </table>
+    
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Destination Country</label>
+      <input type="text" id="rateDestination" placeholder="e.g. UK, USA" style="width:100%;" oninput="lookupRate()">
     </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-      <button type="button" onclick="addPerfRow()" class="btn btn-ghost btn-sm" style="border-color:#4F46E5;color:#4F46E5;">+ Add Item</button>
-      <div style="background:#EEF2FF;border-radius:10px;padding:12px 18px;min-width:240px;">
-        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;"><span>Sub-total</span><span id="perfSubtotal">₹0.00</span></div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:16px;font-weight:800;color:#4338CA;border-top:2px solid #C7D2FE;margin-top:6px;padding-top:10px;"><span>Total (INR)</span><span id="perfTotal">₹0.00</span></div>
-      </div>
+    
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Weight (kg)</label>
+      <input type="number" id="rateWeight" step="0.1" min="0" placeholder="e.g. 1.5" style="width:100%;" oninput="lookupRate()">
     </div>
-    <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;background:#F5F3FF;border-radius:8px;">
-      <span style="font-size:12px;color:#4338CA;font-weight:600;">📦 Chargeable Weight:</span>
-      <input type="number" name="perf_weight" id="perfWeight" step="0.01" min="0"
-             value="{{ form_data.perf_weight or '' }}" placeholder="e.g. 2.50"
-             style="width:100px;padding:5px 10px;border:1.5px solid #C7D2FE;border-radius:6px;font-weight:700;">
-      <span style="font-size:12px;color:#6B7280;">kg</span>
+    
+    <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;">
+      <button type="button" class="btn btn-primary" onclick="lookupRate()">🔍 Lookup</button>
     </div>
   </div>
+  
+  <!-- Rate Result -->
+  <div id="rateResult" style="display:none;margin-top:14px;padding:14px 18px;background:#F0FDF4;border-radius:10px;border:1px solid #86EFAC;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <span style="font-size:12px;color:#15803D;font-weight:600;">✅ Rate Found:</span>
+        <span id="rateDisplay" style="font-size:20px;font-weight:800;color:#16A34A;margin-left:10px;">₹0.00</span>
+        <span id="rateDetails" style="font-size:12px;color:#15803D;margin-left:12px;"></span>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-sm btn-success" onclick="applyRateToFreight()">📥 Apply to Freight</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="closeRateResult()">✕</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Error Result -->
+  <div id="rateError" style="display:none;margin-top:14px;padding:14px 18px;background:#FEF2F2;border-radius:10px;border:1px solid #FCA5A5;">
+    <span style="color:#DC2626;font-size:13px;">❌ <span id="rateErrorMessage">No rate found</span></span>
+  </div>
+</div>
+
+  
 
   <!-- Freight & Charges -->
   <div class="card card-body" style="margin-bottom:16px">
@@ -680,6 +628,76 @@
     </div>
   </div>
 
+  <!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
+  {% set perf_items_initial = form_data.performa_items if form_data and form_data.performa_items else [] %}
+  <div class="card card-body perf-section{{ '' if perf_items_initial else ' perf-collapsed' }}" id="perfSection" style="margin-bottom:16px;border:2px solid #4F46E5;">
+    <div class="perf-header" onclick="togglePerfSection()" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="perf-toggle-icon">▾</span>
+        <div>
+          <div class="section-title" style="border-bottom:none;margin-bottom:2px;color:#4338CA;">📋 Performa Invoice Items</div>
+          <span style="font-size:11px;color:#6B7280;">Items declared by shipper — used in Performa Invoice &amp; Docket print <span class="perf-collapsed-summary">(click to add items)</span></span>
+        </div>
+      </div>
+      <div>
+        <span style="font-size:12px;font-weight:600;color:#4338CA;">Total: <span id="perfGrandDisplay" style="font-size:15px;font-weight:800;">₹0.00</span></span>
+      </div>
+    </div>
+    <div class="perf-body-wrap">
+    <div style="overflow-x:auto">
+      <table class="performa-table">
+        <thead>
+          <tr>
+            <th width="5%">#</th>
+            <th width="55%">Description of Goods</th>
+            <th width="12%">Quantity</th>
+            <th width="14%">Rate (₹)</th>
+            <th width="14%">Amount (₹)</th>
+            <th width="4%"></th>
+          </tr>
+        </thead>
+        <tbody id="perfBody">
+          {% set perf_items = form_data.performa_items if form_data and form_data.performa_items else [] %}
+          {% if perf_items %}
+            {% for item in perf_items %}
+            <tr class="perf-row">
+              <td style="color:#9CA3AF;font-size:12px;text-align:center;">{{ loop.index }}</td>
+              <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value="{{ item.description }}"></td>
+              <td><input type="number" name="perf_qty[]" class="perf-qty" value="{{ item.qty }}" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
+              <td><input type="number" name="perf_rate[]" class="perf-rate" value="{{ item.rate }}" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
+              <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
+              <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+          <tr class="perf-row">
+            <td style="color:#9CA3AF;font-size:12px;text-align:center;">1</td>
+            <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value=""></td>
+            <td><input type="number" name="perf_qty[]" class="perf-qty" value="1" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
+            <td><input type="number" name="perf_rate[]" class="perf-rate" value="0" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
+            <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
+            <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+      <button type="button" onclick="addPerfRow()" class="btn btn-ghost btn-sm" style="border-color:#4F46E5;color:#4F46E5;">+ Add Item</button>
+      <div style="background:#EEF2FF;border-radius:10px;padding:12px 18px;min-width:240px;">
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;"><span>Sub-total</span><span id="perfSubtotal">₹0.00</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:16px;font-weight:800;color:#4338CA;border-top:2px solid #C7D2FE;margin-top:6px;padding-top:10px;"><span>Total (INR)</span><span id="perfTotal">₹0.00</span></div>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;background:#F5F3FF;border-radius:8px;">
+      <span style="font-size:12px;color:#4338CA;font-weight:600;">📦 Chargeable Weight:</span>
+      <input type="number" name="perf_weight" id="perfWeight" step="0.01" min="0"
+             value="{{ form_data.perf_weight or '' }}" placeholder="e.g. 2.50"
+             style="width:100px;padding:5px 10px;border:1.5px solid #C7D2FE;border-radius:6px;font-weight:700;">
+      <span style="font-size:12px;color:#6B7280;">kg</span>
+    </div>
+    </div><!-- /perf-body-wrap -->
+  </div>
     <!-- ─── RETURN / RESALE CHARGES SECTION ─── -->
   <div class="card card-body" style="margin-bottom:16px;border:2px solid #F59E0B;background:#FFFBEB;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -780,6 +798,7 @@
     </div>
   </div>
 
+  
   <!-- Payment Mode -->
   <div class="card card-body" style="margin-bottom:16px">
     <div class="section-title">Payment Mode</div>
@@ -1141,6 +1160,10 @@ function handleFormEnter(e) {
 }
 
 /* ── Performa Invoice ── */
+function togglePerfSection() {
+  document.getElementById('perfSection').classList.toggle('perf-collapsed');
+}
+
 function addPerfRow() {
   const tbody = document.getElementById('perfBody');
   const count = tbody.querySelectorAll('.perf-row').length + 1;
