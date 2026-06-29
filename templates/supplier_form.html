@@ -102,6 +102,24 @@
              placeholder="Primary contact at the supplier, e.g. Suresh Patil">
     </div>
 
+    <!-- ══ 1b. Brands / Courier Tie-ups ════════════════════════════════════ -->
+    <div class="section-title">🏷️ Brands / Courier Tie-ups</div>
+    <div class="field-hint" style="margin-bottom:10px;">
+      If this supplier bills for multiple courier brands (e.g. Bluedart, DPD, DHL under one parent), list them here. They'll show as the only courier options when this supplier is picked on a Purchase Bill. Leave empty to use the general courier list instead.
+    </div>
+    <div id="brandRows">
+      {% set eb = existing_brands or [] %}
+      {% if eb %}
+        {% for b in eb %}
+        <div class="brand-row" style="display:flex;gap:8px;margin-bottom:8px;">
+          <input type="text" name="brand_name[]" value="{{ b }}" placeholder="e.g. Bluedart" style="flex:1;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="removeBrandRow(this)" title="Remove">✕</button>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addBrandRow()" style="margin-top:4px;">+ Add Brand</button>
+
     <!-- ══ 2. Contact Details ════════════════════════════════════════════ -->
     <div class="section-title">📞 Contact Details</div>
 
@@ -309,9 +327,31 @@ function validateGST(input) {
   }
 }
 
+function addBrandRow() {
+  const wrap = document.getElementById('brandRows');
+  const row  = document.createElement('div');
+  row.className = 'brand-row';
+  row.style.cssText = 'display:flex;gap:8px;margin-bottom:8px;';
+  row.innerHTML = `
+    <input type="text" name="brand_name[]" placeholder="e.g. Bluedart" style="flex:1;">
+    <button type="button" class="btn btn-ghost btn-sm" onclick="removeBrandRow(this)" title="Remove">✕</button>
+  `;
+  wrap.appendChild(row);
+  row.querySelector('input').focus();
+}
+
+function removeBrandRow(btn) {
+  btn.closest('.brand-row').remove();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const g = document.getElementById('gstInput');
   if (g && g.value) validateGST(g);
+
+  // Start with one empty brand row if none exist yet, so the field isn't hidden
+  if (document.getElementById('brandRows').children.length === 0) {
+    addBrandRow();
+  }
 });
 </script>
 {% endblock %}

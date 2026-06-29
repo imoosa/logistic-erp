@@ -1,6 +1,6 @@
 {% extends "base.html" %}
-{% block title %}Invoices{% endblock %}
-{% block page_title %}All Invoices{% endblock %}
+{% block title %}Bookings{% endblock %}
+{% block page_title %}Bookings{% endblock %}
 {% set active = 'invoice' %}
 
 {% block extra_style %}
@@ -69,9 +69,9 @@
 
 {% block content %}
 
-<div class="page-header">
-  <h2>🚚 Customer Invoices</h2>
-  
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <h2 style="margin: 0;">🚚 Booking</h2>
+  <a href="/invoice/customer" class="btn btn-primary">+ New Invoice</a>
 </div>
 
 {% set total_billed  = invoices | sum(attribute='total') %}
@@ -94,7 +94,6 @@
     <div class="s-label">Balance Pending</div>
     <div class="s-val red">₹{{ "{:,.0f}".format(total_balance) }}</div>
   </div>
-  <a href="/invoice/customer" class="btn btn-primary">+ New Invoice</a>
 </div>
 
 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">
@@ -122,7 +121,7 @@
           <th>Amount</th>
           <th>Status</th>
           <th>Resale</th>
-          <th></th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -213,9 +212,9 @@
 </td>
           <!-- View -->
           <td>
-            <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm">View →</a>
-            <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm" title="View">👁️</a>
-            <a href="/invoice/new?edit={{ inv.id }}" class="btn btn-ghost btn-sm" title="Edit">✏️</a>
+            
+            <a href="/invoice/view/{{ inv.id }}" class="btn btn-ghost btn-sm" title="View">👁️View</a>
+            <a href="/invoice/new?edit={{ inv.id }}" class="btn btn-ghost btn-sm" title="Edit">✏️Edit</a>
           </td>
 
         </tr>

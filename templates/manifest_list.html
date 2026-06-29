@@ -19,7 +19,14 @@
     .day-panel { display: none !important; }
     .day-panel.active { display: block !important; }
     body { margin: 0; padding: 0; }
+    
+    .sidebar, .topbar, .page-header, .filter-bar,
+    [style*="margin-bottom:14px;display:flex;align-items:center;gap:10px;"],
+    .card.card-body:has(form), .summary-strip,
+    .date-tabs-wrap, .action-links, .btn { display: none !important; }
+    /* ... rest of your print styles ... */
 }
+
 
 /* ── Date Tabs ── */
 .date-tabs-wrap {
@@ -162,7 +169,7 @@ td.shipper-cell.continuation {
     </div>
     <div style="display:flex;gap:8px;">
         <button onclick="window.print()" class="btn btn-ghost">🖨️ Print</button>
-        <a href="/manifest/create" class="btn btn-primary">+ New Manifest</a>
+        
     </div>
 </div>
 
@@ -190,6 +197,21 @@ td.shipper-cell.continuation {
   Group manifests by date for tab rendering.
   We collect unique dates in order (already sorted desc from query).
 #}
+
+<!-- ── Supplier (Parent Company) Filter ── -->
+<div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;">
+    <label style="font-size:13px;font-weight:600;color:#374151;">Filter by Company:</label>
+    <select onchange="if(this.value){window.location='/manifest/list?supplier_id='+this.value}else{window.location='/manifest/list'}"
+            style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;min-width:200px;">
+        <option value="">— All —</option>
+        {% for sup in suppliers_with_brands %}
+        <option value="{{ sup.id }}" {{ 'selected' if supplier_id and supplier_id|int == sup.id }}>{{ sup.name }}</option>
+        {% endfor %}
+    </select>
+    {% if selected_supplier_name %}
+    <span style="font-size:12px;color:#6B7280;">Showing manifests for <strong>{{ selected_supplier_name }}</strong>'s brands only</span>
+    {% endif %}
+</div>
 
 <!-- ── Date Tabs ── -->
 <div class="date-tabs-wrap">
@@ -233,6 +255,7 @@ td.shipper-cell.continuation {
                     <th style="width:90px;">Manifest ID</th>
                     <th>#</th>
                     <th>Courier Company</th>
+                    <th style="width:120px;">Company</th>
                     <th style="width:70px;text-align:center;">Qty</th>
                     <th style="width:100px;">Item Type</th>
                     <th style="width:140px;">Docket / AWB</th>
@@ -260,6 +283,14 @@ td.shipper-cell.continuation {
 
                             <td style="color:#9CA3AF;font-size:12px;">{{ loop.index }}</td>
                             <td><span class="courier-pill">{{ entry.courier_name }}</span></td>
+                            <td>
+                                {% set parent = brand_to_supplier.get(entry.courier_name.strip().lower()) %}
+                                {% if parent %}
+                                <span style="font-size:11px;color:#7C3AED;font-weight:600;">{{ parent }}</span>
+                                {% else %}
+                                <span style="color:#D1D5DB;">—</span>
+                                {% endif %}
+                            </td>
                             <td style="text-align:center;"><span class="boxes-badge">{{ entry.boxes }}</span></td>
                             <td style="font-size:12px;color:#374151;">{{ entry.item_type or entry.stock_item_name or 'Box' }}</td>
                             <td style="font-family:monospace;font-size:12px;color:#374151;">
@@ -285,15 +316,16 @@ td.shipper-cell.continuation {
                             <td colspan="4" style="text-align:right;padding-right:8px;">
                                 Total for {{ mfst.manifest_id }}:
                             </td>
+                            <td></td>
                             <td class="sub-val" style="text-align:center;">{{ mfst.total_boxes }} </td>
-                            <td colspan="3"></td>
+                            <td colspan="4"></td>
                         </tr>
 
                     {% else %}
                         <tr class="data-row shipper-first-row">
                             <td class="shipper-cell">{{ mfst.shipper_client_name }}</td>
                             <td><span class="mft-id">{{ mfst.manifest_id }}</span></td>
-                            <td colspan="4" style="color:#9CA3AF;font-style:italic;">No entries</td>
+                            <td colspan="7" style="color:#9CA3AF;font-style:italic;">No entries</td>
                             <td class="action-links">
                                 <a href="/manifest/view/{{ mfst.id }}">View</a>
                                 <a href="/manifest/edit/{{ mfst.id }}">Edit</a>

@@ -246,16 +246,45 @@ table.items-table input:focus, table.items-table select:focus { border-color:#4F
 
 {% block extra_script %}
 <script>
-const COURIERS      = {{ courier_options|tojson }};
+const COURIERS      = {{ courier_options|tojson }};   // fallback list, used when supplier has no brands registered
 const ITEM_TYPES    = {{ item_type_options|tojson }};
 const IS_GST        = {{ 'true' if is_gst_registered else 'false' }};
 const DEFAULT_GST   = 18;   // default GST % for courier bills
 let rowCount = 0;
 let isInterstate = false;
+let ACTIVE_COURIERS = COURIERS;   // the list actually shown — swapped per-supplier by onSupplierChange()
 
-function onSupplierChange(sel) {
+async function onSupplierChange(sel) {
   const opt = sel.options[sel.selectedIndex];
   document.getElementById('supplierName').value = (opt && opt.dataset.name) ? opt.dataset.name : '';
+
+  const supplierId = sel.value;
+  if (!supplierId) {
+    ACTIVE_COURIERS = COURIERS;
+    refreshAllCourierSelects();
+    return;
+  }
+
+  try {
+    const res  = await fetch(`/api/supplier/${supplierId}/brands`);
+    const data = await res.json();
+    ACTIVE_COURIERS = (data.brands && data.brands.length) ? data.brands : COURIERS;
+  } catch (err) {
+    console.error('Failed to load supplier brands, falling back to general list:', err);
+    ACTIVE_COURIERS = COURIERS;
+  }
+  refreshAllCourierSelects();
+}
+
+function refreshAllCourierSelects() {
+  document.querySelectorAll('select[name="courier_name[]"]').forEach(sel => {
+    const current = sel.value;
+    sel.innerHTML = optionList(ACTIVE_COURIERS, true);
+    // keep the previously chosen courier selected if it's still a valid option
+    if (current && ACTIVE_COURIERS.includes(current)) {
+      sel.value = current;
+    }
+  });
 }
 
 function onGstTypeChange() {
@@ -302,7 +331,7 @@ function addRow() {
     <td><input type="text" name="destination[]" placeholder="Auto-filled" readonly></td>
     <td>
       <select name="courier_name[]" required>
-        ${optionList(COURIERS, true)}
+        ${optionList(ACTIVE_COURIERS, true)}
       </select>
     </td>
     <td>

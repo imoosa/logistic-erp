@@ -1,509 +1,485 @@
 {% extends "base.html" %}
 {% block title %}AWB {{ invoice.docket_no }}{% endblock %}
-{% block page_title %}Shipment Invoice{% endblock %}
+{% block page_title %}Customer Invoice{% endblock %}
 {% set active = 'invoice' %}
 
 {% block extra_style %}
 <style>
-  @media print {
-  /* Hide absolutely everything */
+/* ── Screen styles ──────────────────────────────────────────── */
+.meta-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px; }
+@media(max-width:768px){ .meta-grid{ grid-template-columns:1fr 1fr; } }
+.meta-card { background:#fff; border:1px solid #E5E7EB; border-radius:12px; padding:14px 16px; }
+.meta-card .lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:#9CA3AF; margin-bottom:4px; }
+.meta-card .val { font-size:15px; font-weight:700; color:#111827; }
+.meta-card .sub { font-size:12px; color:#6B7280; margin-top:2px; }
+
+.section-card { background:#fff; border:1px solid #E5E7EB; border-radius:12px; padding:18px 20px; margin-bottom:14px; }
+.section-card h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:#9CA3AF; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #F3F4F6; }
+
+.detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+.detail-row .dl { font-size:11px; color:#9CA3AF; }
+.detail-row .dv { font-size:14px; font-weight:600; color:#111827; }
+
+.items-table { width:100%; border-collapse:collapse; }
+.items-table th { padding:9px 10px; font-size:11px; font-weight:700; text-transform:uppercase; background:#1F2937; color:#fff; text-align:left; }
+.items-table td { padding:9px 10px; border-bottom:1px solid #F3F4F6; font-size:13px; }
+.items-table tfoot td { font-weight:700; background:#F9FAFB; }
+
+.badge { display:inline-flex; align-items:center; gap:4px; padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; }
+.badge-paid    { background:#DCFCE7; color:#16A34A; }
+.badge-partial { background:#FEF9C3; color:#CA8A04; }
+.badge-pending { background:#FEE2E2; color:#DC2626; }
+.badge-draft   { background:#F3F4F6; color:#6B7280; }
+
+.print-bar { display:flex; gap:10px; flex-wrap:wrap; }
+.print-btn { display:flex; align-items:center; gap:6px; padding:9px 18px; border-radius:8px; border:1.5px solid; font-size:13px; font-weight:600; cursor:pointer; background:#fff; transition:all .15s; }
+.print-btn:hover { filter:brightness(0.95); }
+.pb-pxc      { border-color:#16A34A; color:#16A34A; }
+.pb-pxc:hover{ background:#DCFCE7; }
+.pb-perf     { border-color:#4F46E5; color:#4F46E5; }
+.pb-perf:hover{ background:#EEF2FF; }
+.pb-box      { border-color:#D97706; color:#D97706; }
+.pb-box:hover{ background:#FEF3C7; }
+.pb-sc       { border-color:#9333EA; color:#9333EA; }
+.pb-sc:hover { background:#F3E8FF; }
+.pb-awb      { border-color:#0EA5E9; color:#0EA5E9; }
+.pb-awb:hover{ background:#E0F2FE; }
+
+/* ── PRINT BASE ─────────────────────────────────────────────── */
+@media print {
+  @page { margin: 5mm; size: A4; }
+  body { background:#fff !important; }
+  .no-print { display:none !important; }
+  .main { margin-left:0 !important; }
+  .content { padding:0 !important; }
   body * { visibility: hidden !important; }
-
-  /* Show only the active invoice area */
-  #printArea,  #printArea *,
-  #printArea2, #printArea2 *,
-  #printArea3, #printArea3 * { visibility: visible !important; }
-
-  /* Formats 1, 2 & 3 — fixed single-page layout */
-  #printArea, #printArea2, #printArea3 {
-    position: fixed !important;
-    top: 0 !important; left: 0 !important;
-    width: 100% !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-  }
-
-  .f3 { page-break-inside: avoid; break-inside: avoid; }
-
-  @page { margin: 0.4cm; }
+  #activePrintArea, #activePrintArea * { visibility: visible !important; }
+  #activePrintArea { position: static; width:100%; }
 }
-
-  .fmt-tab { padding:8px 20px; border-radius:8px; cursor:pointer; background:#F3F4F6;
-             font-weight:600; font-size:13px; border:2px solid transparent; transition:all .15s; }
-  .fmt-tab.active { background:#4F46E5; color:#fff; border-color:#4F46E5; }
-
-  /* ═══════════ FORMAT 1 — Modern ═══════════ */
-  .f1 { font-family:'Segoe UI',Arial,sans-serif; max-width:820px; margin:0 auto;
-        background:#fff; border-radius:14px; overflow:hidden;
-        box-shadow:0 4px 24px rgba(0,0,0,.09); }
-
-  .f1-hdr { background:linear-gradient(135deg,#1E40AF,#4F46E5); color:#fff; padding:26px 32px 22px; }
-  .f1-hdr h1 { font-size:22px; font-weight:900; letter-spacing:1.5px; margin:0 0 4px; }
-  .awb-big { font-family:'Courier New',monospace; font-size:28px; font-weight:900;
-             letter-spacing:2px; background:rgba(255,255,255,.18);
-             padding:6px 16px; border-radius:8px; display:inline-block; }
-
-  /* 4-column meta strip */
-  .f1-meta { display:grid; grid-template-columns:repeat(4,1fr); border-bottom:1.5px solid #F3F4F6; }
-  .f1-meta-box { padding:14px 18px; border-right:1px solid #F3F4F6; }
-  .f1-meta-box:last-child { border-right:none; }
-  .ml { font-size:9.5px; text-transform:uppercase; letter-spacing:.8px; color:#9CA3AF; font-weight:700; margin-bottom:3px; }
-  .mv { font-size:13.5px; font-weight:700; color:#111827; }
-
-  /* mode / status badges */
-  .badge-mode { display:inline-flex; align-items:center; gap:5px;
-                padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; }
-  .bm-air     { background:#EEF2FF; color:#4338CA; }
-  .bm-sea     { background:#E0F2FE; color:#0369A1; }
-  .bm-road    { background:#FEF9C3; color:#92400E; }
-  .bm-courier { background:#F0FDF4; color:#15803D; }
-  .bm-default { background:#F3F4F6; color:#374151; }
-
-  .badge-status { display:inline-flex; align-items:center; gap:4px;
-                  padding:4px 12px; border-radius:20px; font-size:12px; font-weight:700; }
-  .bs-paid    { background:#DCFCE7; color:#16A34A; }
-  .bs-partial { background:#FEF9C3; color:#CA8A04; }
-  .bs-pending { background:#FEE2E2; color:#DC2626; }
-
-  /* 3-column parties row */
-  .f1-parties { display:grid; grid-template-columns:1fr 1fr 1fr; border-bottom:1.5px solid #F3F4F6; }
-  .f1-party   { padding:16px 20px; border-right:1px solid #F3F4F6; }
-  .f1-party:last-child { border-right:none; }
-  .party-lbl  { font-size:9.5px; font-weight:800; text-transform:uppercase;
-                letter-spacing:.9px; color:#9CA3AF; margin-bottom:8px;
-                padding-bottom:6px; border-bottom:1px solid #F3F4F6; }
-  .party-name { font-size:14px; font-weight:700; color:#111827; }
-  .party-sub  { font-size:12px; color:#6B7280; margin-top:3px; line-height:1.6; }
-
-  /* charges grid */
-  .charges-wrap { display:grid; grid-template-columns:1fr 1fr; border-top:1.5px solid #F3F4F6; }
-  .charges-left  { padding:18px 22px; border-right:1px solid #F3F4F6; }
-  .charges-right { padding:18px 22px; }
-  .charge-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13px; color:#374151; }
-  .charge-row.grand    { font-size:16px; font-weight:900; border-top:2px solid #E5E7EB; margin-top:8px; padding-top:10px; }
-  .charge-row.paid-row { color:#16A34A; font-weight:700; }
-  .charge-row.bal-row  { color:#DC2626; font-weight:800; font-size:14px; }
-
-  .f1-foot { padding:16px 24px; background:#F9FAFB; border-top:1.5px solid #E5E7EB;
-             display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
-
-  /* ═══════════ FORMAT 2 — Classic Print ═══════════ */
-  .f2 { font-family:Arial,sans-serif; max-width:820px; margin:0 auto;
-        background:#fff; border:2px solid #111; }
-  .f2 * { box-sizing:border-box; }
-  .f2-top { display:grid; grid-template-columns:1fr 1fr; border-bottom:2px solid #111; }
-  .f2-co  { padding:14px 16px; border-right:1px solid #111; }
-  .f2-co h2 { font-size:19px; font-weight:900; text-transform:uppercase; margin:0 0 3px; }
-  .f2-co p  { font-size:11px; margin:2px 0; color:#333; }
-  .f2-title { padding:14px 16px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
-  .f2-title h3 { font-size:16px; font-weight:900; text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; }
-  .f2-awb { font-family:'Courier New',monospace; font-size:18px; font-weight:900;
-            background:#000; color:#fff; padding:4px 12px; border-radius:4px;
-            letter-spacing:2px; display:inline-block; margin-bottom:6px; }
-  .f2-parties { display:grid; grid-template-columns:repeat(3,1fr); border-bottom:1px solid #111; }
-  .f2-party   { padding:10px 12px; border-right:1px solid #111; }
-  .f2-party:last-child { border-right:none; }
-  .f2-plbl { font-size:9.5px; font-weight:900; text-transform:uppercase;
-             border-bottom:1px solid #ccc; padding-bottom:4px; margin-bottom:6px; }
-  .f2-party p { font-size:11px; margin:2px 0; }
-  .f2-charges { display:grid; grid-template-columns:1fr 1fr; border-top:2px solid #111; }
-  .f2-ship-info { padding:12px 14px; border-right:1px solid #111; font-size:11px; }
-  .f2-ship-info h4 { font-size:11px; font-weight:900; text-transform:uppercase; margin:0 0 6px; }
-  .f2-ship-info p  { margin:2px 0; }
-  .f2-amts { padding:12px 14px; }
-  .f2-amt-row { display:flex; justify-content:space-between; font-size:12px; padding:3px 0; }
-  .f2-amt-row.total { font-weight:900; font-size:14px; border-top:1.5px solid #111; padding-top:6px; margin-top:6px; }
-  .f2-bottom { display:grid; grid-template-columns:1fr 1fr; border-top:2px solid #111; }
-  .f2-terms { padding:12px 14px; border-right:1px solid #111; font-size:10.5px; }
-  .f2-terms h4 { font-size:11px; font-weight:900; text-transform:uppercase; margin:0 0 6px; }
-  .f2-sign { padding:12px 14px; display:flex; flex-direction:column; align-items:flex-end; justify-content:flex-end; font-size:11px; }
-  .sig-line { border-top:1px solid #111; width:160px; margin-top:40px; padding-top:4px;
-              text-align:center; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.5px; }
-
-  /* ═══════════ FORMAT 3 — PXC Style Pre-Printed Receipt ═══════════ */
-  .f3-page { font-family:Arial,sans-serif; max-width:820px; margin:0 auto; background:#fff; }
-  .f3-page * { box-sizing:border-box; }
-
-  /* One copy block (Admin / Accounts) */
-  .f3 { border:1.5px solid #111; font-size:10.5px; margin-bottom:14px; padding:10px 14px 8px; position:relative; }
-  .f3:last-child { margin-bottom:0; }
-  .f3-track-top { text-align:center; font-size:10px; font-weight:700; letter-spacing:1px; margin-bottom:4px; }
-
-  .f3-hdr-row { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1.5px solid #111; padding-bottom:8px; margin-bottom:8px; }
-  .f3-hdr-left { display:flex; gap:10px; align-items:center; }
-  .f3-logo-box { width:42px; height:34px; border:1.5px solid #111; display:flex; align-items:center; justify-content:center; font-size:18px; }
-  .f3-co-name { font-size:17px; font-weight:900; letter-spacing:.4px; line-height:1.1; }
-  .f3-co-sub  { font-size:9px; font-weight:700; color:#333; margin-top:2px; }
-  .f3-co-web  { font-size:7.5px; color:#555; margin-top:1px; }
-  .f3-awb-big { font-family:'Courier New',monospace; font-size:22px; font-weight:900; letter-spacing:1px; text-align:right; }
-
-  .f3-barcode-row { text-align:center; padding:4px 0 8px; border-bottom:1.5px solid #111; margin-bottom:6px; }
-  .f3-barcode-row svg { height:34px; }
-
-  /* ACCOUNT / CUSTOMER / ORIGIN / DEST / SERVICE strip */
-  .f3-toprow { display:grid; grid-template-columns: 1.1fr 1.4fr .9fr 1.2fr .9fr; border-bottom:1.5px solid #111; }
-  .f3-toprow > div { padding:4px 8px; border-right:1px solid #111; }
-  .f3-toprow > div:last-child { border-right:none; }
-  .f3-lbl { font-size:8px; font-weight:800; text-transform:uppercase; color:#333; letter-spacing:.4px; }
-  .f3-val { font-size:10.5px; font-weight:700; margin-top:2px; }
-  .f3-svc-badge { background:#222; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:3px 4px; border-radius:2px; display:inline-block; }
-
-  /* CUSTOMER / RECIPIENT two-column block */
-  .f3-parties { display:grid; grid-template-columns: 1fr 1fr; border-bottom:1.5px solid #111; }
-  .f3-party { padding:6px 10px; border-right:1px solid #111; }
-  .f3-party:last-child { border-right:none; }
-  .f3-party .f3-lbl { margin-bottom:3px; }
-  .f3-party p { font-size:9.5px; margin:1px 0; line-height:1.45; }
-  .f3-party .pname { font-size:10.5px; font-weight:800; }
-  .f3-meta-line { display:flex; gap:14px; margin-top:4px; font-size:9px; flex-wrap:wrap; }
-
-  /* DESCRIPTION / PIECES / CHARGEABLE WT / SHIPMENT VALUE / BOOKING DATE row */
-  .f3-midrow { display:grid; grid-template-columns: 1fr .55fr .9fr .95fr; border-bottom:1.5px solid #111; }
-  .f3-midrow > div { padding:6px 8px; border-right:1px solid #111; }
-  .f3-midrow > div:last-child { border-right:none; }
-  .f3-midrow .f3-big { font-size:15px; font-weight:800; margin-top:3px; }
-  .f3-stamp-box { background:#222; color:#fff; font-weight:900; font-size:13px; text-align:center; padding:6px 4px; text-transform:uppercase; letter-spacing:1px; margin-top:2px; }
-  .f3-shipval-lbl { display:flex; justify-content:space-between; }
-
-  /* PICKUP / SHIPPER AGREEMENT + ACCOUNTS info row */
-  .f3-botrow { display:grid; grid-template-columns: 1.3fr 1.3fr .9fr; border-bottom:1.5px solid #111; }
-  .f3-botrow > div { padding:6px 8px; border-right:1px solid #111; font-size:8.5px; line-height:1.5; color:#333; }
-  .f3-botrow > div:last-child { border-right:none; }
-  .f3-botrow .f3-lbl { margin-bottom:3px; }
-  .f3-acct-row { display:flex; justify-content:space-between; font-size:9.5px; margin:2px 0; }
-  .f3-routing { background:#222; color:#fff; text-align:center; font-weight:800; font-size:9.5px; padding:3px 4px; margin-top:4px; }
-
-  .f3-terms { padding:6px 8px 2px; font-size:7.8px; color:#444; line-height:1.5; }
-  .f3-terms strong { font-size:8.3px; }
-
-  .f3-track-bottom { text-align:center; font-size:9px; font-weight:700; letter-spacing:1px; padding-top:4px; }
-
-  /* Shipper Copy — exists only for print, never shown on screen */
-  .f3-print-only { display:none; }
-  @media print {
-    .f3-print-only { display:block !important; }
-    .f3-print-only .f3 { page-break-before: always; break-before: page; }
-    body { background: #fff !important; }
+/* ── AWB COPIES PRINT CONFIGURATION ─────────────────────────── */
+@media print {
+  .awb-copy-block {
+    height: 143.5mm;
+    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: auto;
+    break-after: auto;
   }
+  .awb-copy-block:nth-child(2) {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .awb-copy-block:last-child {
+    height: auto;
+    overflow: visible;
+  }
+}
+/* ── PXC RECEIPT ─────────────────────────────────────────────── */
+.f3 { font-family:Arial,sans-serif; font-size:10.5px; border:1.5px solid #111; padding:10px 14px 8px; position:relative; }
+.f3 * { box-sizing:border-box; }
+.f3-track-top { text-align:center; font-size:11px; font-weight:800; letter-spacing:1.5px; margin-top:2px; margin-bottom:6px; font-family:'Courier New',monospace; }
+.f3-hdr-row { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1.5px solid #111; padding-bottom:8px; margin-bottom:8px; }
+.f3-hdr-left { display:flex; gap:10px; align-items:center; }
+.f3-logo-box { width:42px; height:34px; border:1.5px solid #111; display:flex; align-items:center; justify-content:center; font-size:18px; }
+.f3-co-name { font-size:16px; font-weight:900; letter-spacing:.4px; line-height:1.1; }
+.f3-co-sub  { font-size:9px; font-weight:700; color:#333; margin-top:2px; }
+.f3-co-web  { font-size:7.5px; color:#555; margin-top:1px; }
+.f3-awb-big { font-family:'Courier New',monospace; font-size:22px; font-weight:900; letter-spacing:1px; text-align:right; }
+.f3-barcode-row { text-align:center; padding:4px 0 8px; border-bottom:1.5px solid #111; margin-bottom:6px; }
+.f3-barcode-row svg { height:34px; }
+.f3-toprow { display:grid; grid-template-columns: 1.1fr 1.4fr .9fr 1.2fr .9fr; border-bottom:1.5px solid #111; }
+.f3-toprow > div { padding:4px 8px; border-right:1px solid #111; }
+.f3-toprow > div:last-child { border-right:none; }
+.f3-lbl { font-size:8px; font-weight:800; text-transform:uppercase; color:#333; letter-spacing:.4px; }
+.f3-val { font-size:10.5px; font-weight:700; margin-top:2px; }
+.f3-svc-badge { background:#222; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:3px 4px; border-radius:2px; display:inline-block; }
+.f3-parties { display:grid; grid-template-columns: 1fr 1fr; border-bottom:1.5px solid #111; }
+.f3-party { padding:6px 10px; border-right:1px solid #111; }
+.f3-party:last-child { border-right:none; }
+.f3-party p { font-size:9.5px; margin:1px 0; line-height:1.45; }
+.f3-party .pname { font-size:10.5px; font-weight:800; }
+.f3-meta-line { display:flex; gap:14px; margin-top:4px; font-size:9px; flex-wrap:wrap; }
+.f3-midrow { display:grid; grid-template-columns: 1fr .55fr .9fr .95fr; border-bottom:1.5px solid #111; }
+.f3-midrow > div { padding:6px 8px; border-right:1px solid #111; }
+.f3-midrow > div:last-child { border-right:none; }
+.f3-midrow .f3-big { font-size:15px; font-weight:800; margin-top:3px; }
+.f3-stamp-box { background:#222; color:#fff; font-weight:900; font-size:12px; text-align:center; padding:5px 4px; text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+.f3-shipval-lbl { display:flex; justify-content:space-between; }
+.f3-botrow { display:grid; grid-template-columns: 1.3fr 1.3fr .9fr; border-bottom:1.5px solid #111; }
+.f3-botrow > div { padding:6px 8px; border-right:1px solid #111; font-size:8.5px; line-height:1.5; color:#333; }
+.f3-botrow > div:last-child { border-right:none; }
+.f3-acct-row { display:flex; justify-content:space-between; font-size:9.5px; margin:2px 0; }
+.f3-routing { background:#222; color:#fff; text-align:center; font-weight:800; font-size:9.5px; padding:3px 4px; margin-top:4px; }
+.f3-terms { padding:5px 8px 2px; font-size:7.5px; color:#444; line-height:1.5; }
+.f3-track-bottom { text-align:center; font-size:9px; font-weight:700; letter-spacing:1px; padding-top:4px; }
+.f3-copy-block { position:relative; margin-bottom:14px; page-break-after:always; }
+.f3-copy-block:last-child { page-break-after:auto; }
+.f3-copy-label { position:absolute; top:-9px; right:14px; background:#111; color:#fff; font-size:9px; font-weight:800; letter-spacing:1px; padding:2px 10px; border-radius:3px; text-transform:uppercase; }
+
+/* ── AWB COPY (exact-sample layout: Admin/Accounts/Shipper copy) ──────── */
+.awb-copy-block { margin-bottom:0; }
+.awb-doc { font-family:Arial,sans-serif; border:2px solid #111; padding:14px 16px 10px; font-size:11px; box-sizing:border-box; }
+
+@media print {
+  .awb-copy-block {
+    height: 143.5mm;      /* half of 287mm printable A4 height (297mm - 2x5mm margin) */
+    overflow: hidden;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: auto;
+    break-after: auto;
+  }
+  /* 2nd copy (Accounts) ends page 1; 3rd copy (Shipper) starts fresh on page 2 */
+  .awb-copy-block:nth-child(2) {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+  .awb-copy-block:last-child {
+    height: auto;
+    overflow: visible;
+  }
+}
+.awb-top { display:flex; justify-content:space-between; align-items:flex-start; }
+.awb-hdr-left { display:flex; gap:10px; align-items:center; }
+.awb-logo-box { width:46px; height:38px; border:1.5px solid #111; display:flex; align-items:center; justify-content:center; font-size:20px; }
+.awb-co-name { font-size:19px; font-weight:900; letter-spacing:.3px; line-height:1.15; }
+.awb-co-sub { font-size:9.5px; font-weight:700; color:#333; margin-top:2px; }
+.awb-co-web { font-size:8px; color:#555; margin-top:1px; }
+.awb-no-big { font-family:'Courier New',monospace; font-size:26px; font-weight:900; letter-spacing:1px; text-align:right; }
+.awb-barcode-row { text-align:center; padding:6px 0; }
+.awb-barcode-row svg { height:36px; width:auto; max-width:100%; display:block; margin:0 auto; }
+.awb-no-below { text-align:right; font-family:'Courier New',monospace; font-size:13px; font-weight:800; letter-spacing:1px; margin:2px 0 8px; }
+.awb-info-row { display:grid; grid-template-columns: .8fr 1.2fr .9fr 1.2fr .8fr; border-top:1.5px solid #111; border-bottom:1.5px solid #111; }
+.awb-info-row > div { padding:5px 8px; border-right:1px solid #111; position:relative; }
+.awb-info-row > div:last-child { border-right:none; }
+.awb-lbl { font-size:8.5px; font-weight:800; text-transform:uppercase; color:#333; }
+.awb-val { font-size:12px; font-weight:800; margin-top:2px; }
+.awb-svc-badge { background:#222; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:3px 4px; margin-top:3px; }
+.awb-parties { display:grid; grid-template-columns:1fr 1fr; border-bottom:1.5px solid #111; }
+.awb-party { padding:6px 10px; border-right:1px solid #111; }
+.awb-party:last-child { border-right:none; }
+.awb-party .awb-lbl { margin-top:5px; }
+.awb-party .awb-lbl:first-child { margin-top:0; }
+.awb-party .awb-pval { font-size:11.5px; font-weight:700; margin:1px 0 2px; }
+.awb-party-meta { display:flex; gap:14px; margin-top:4px; font-size:9px; flex-wrap:wrap; }
+.awb-botgrid { display:grid; grid-template-columns: 1.3fr 1fr 1.3fr 1fr; border-bottom:1.5px solid #111; }
+.awb-botgrid > div { padding:6px 8px; border-right:1px solid #111; }
+.awb-botgrid > div:last-child { border-right:none; }
+.awb-big-val { font-size:16px; font-weight:800; margin-top:3px; }
+.awb-agreement { margin-top:10px; font-size:8px; color:#444; line-height:1.5; }
+.awb-copy-label-box { background:#222; color:#fff; font-weight:900; font-size:14px; text-align:center; padding:10px 6px; text-transform:uppercase; letter-spacing:1px; margin-top:8px; }
+.awb-cheque-fav { font-size:9.5px; margin-top:2px; }
+.awb-acct-row { display:flex; justify-content:space-between; font-size:9.5px; margin:3px 0; }
+.awb-routing { background:#222; color:#fff; text-align:center; font-weight:800; font-size:10px; padding:4px; margin-top:6px; }
+.awb-terms { padding:6px 8px 2px; font-size:8px; color:#444; line-height:1.5; }
+.awb-track-bottom { text-align:center; font-size:10px; font-weight:700; letter-spacing:1px; padding-top:5px; font-family:'Courier New',monospace; }
+
+/* ── PERFORMA INVOICE PRINT ─────────────────────────────────── */
+.pf-doc { font-family:Arial,sans-serif; font-size:12px; color:#000; padding:10mm 12mm; width:100%; }
+.pf-header { text-align:center; border-bottom:3px double #000; padding-bottom:6px; margin-bottom:10px; }
+.pf-company { font-size:20px; font-weight:900; letter-spacing:1px; }
+.pf-tagline { font-size:10px; color:#444; }
+.pf-title   { font-size:15px; font-weight:700; margin:6px 0; text-transform:uppercase; letter-spacing:2px; }
+.pf-meta    { display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px; }
+.pf-meta-box{ border:1px solid #999; border-radius:3px; padding:4px 8px; }
+.pf-parties { display:grid; grid-template-columns:1fr 1fr; border:1px solid #999; margin-bottom:10px; }
+.pf-party   { padding:8px 10px; font-size:11px; }
+.pf-party:first-child { border-right:1px solid #999; }
+.pf-party strong { display:block; font-size:10px; text-transform:uppercase; color:#555; margin-bottom:3px; letter-spacing:.5px; }
+.pf-table   { width:100%; border-collapse:collapse; margin-bottom:8px; font-size:11px; }
+.pf-table th{ background:#1a1a2e; color:#fff; padding:6px 8px; text-align:left; font-size:10px; text-transform:uppercase; }
+.pf-table td{ padding:5px 8px; border-bottom:1px solid #ddd; }
+.pf-table tfoot td { font-weight:700; border-top:2px solid #999; }
+.pf-summary { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+.pf-totals  { border:1px solid #999; padding:8px 10px; font-size:11px; }
+.pf-totals-row { display:flex; justify-content:space-between; padding:2px 0; }
+.pf-totals-row.grand { font-weight:900; font-size:14px; border-top:2px solid #000; margin-top:4px; padding-top:4px; }
+.pf-sign { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; font-size:11px; border-top:1px solid #ddd; padding-top:10px; }
+.pf-sign-box { text-align:center; }
+.pf-sign-line { border-top:1px solid #000; margin-top:30px; padding-top:4px; }
+.pf-notes { font-size:10px; color:#444; padding:6px 0; border-top:1px solid #ddd; margin-top:8px; }
+.pf-terms { font-size:9px; color:#666; margin-top:10px; border-top:1px solid #ddd; padding-top:6px; }
+
+/* ── BOX LABEL PRINT (PXC Style — exact match to screenshot 1) ─ */
+.bl-doc { font-family:Arial,sans-serif; font-size:11px; color:#000; padding:6mm; width:100%; }
+.bl-page { border:1.5px solid #888; margin:0 auto 20px; page-break-inside:avoid; }
+.bl-awb-top { text-align:center; font-size:10px; font-weight:700; color:#444; margin-bottom:4px; letter-spacing:1px; }
+/* Header: logo+name | (spacer) | page count */
+.bl-hdr { display:grid; grid-template-columns:1fr auto; align-items:center; border-bottom:1.5px solid #888; padding:12px 16px; }
+.bl-logo-area { display:flex; align-items:center; gap:10px; }
+.bl-logo-icon { width:46px; height:38px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+.bl-co-name { font-size:17px; font-weight:900; line-height:1.15; letter-spacing:.3px; }
+.bl-co-sub { font-size:9px; font-weight:700; color:#333; margin-top:2px; letter-spacing:.3px; }
+.bl-co-web { font-size:7.5px; color:#555; margin-top:1px; }
+.bl-pg-count { font-size:22px; font-weight:900; text-align:right; padding-left:16px; border-left:1.5px solid #888; align-self:stretch; display:flex; align-items:center; }
+/* Top 4-col meta row: Account | Customer | Origin/Destination | Service */
+.bl-meta-top { display:grid; grid-template-columns:.8fr 1.4fr 1fr 1fr; border-bottom:1.5px solid #888; }
+.bl-meta-cell { padding:6px 10px; border-right:1.5px solid #888; }
+.bl-meta-cell:last-child { border-right:none; }
+.bl-lbl { font-size:8px; font-weight:700; text-transform:uppercase; color:#555; display:block; letter-spacing:.3px; }
+.bl-val { font-size:12px; font-weight:800; display:block; margin-top:2px; }
+.bl-svc-badge { background:#111; color:#fff; font-size:10px; font-weight:800; text-align:center; padding:4px 6px; margin-top:3px; letter-spacing:.5px; }
+/* Right-side weight stack (Actual / Box / Box Vol / Dimension) sits beside the whole label */
+.bl-weight-stack { border-left:1.5px solid #888; display:flex; flex-direction:column; }
+.bl-weight-stack .bl-meta-cell { border-right:none; border-bottom:1.5px solid #888; flex:1; }
+.bl-weight-stack .bl-meta-cell:last-child { border-bottom:none; }
+/* Outer wrapper: main column + weight stack column */
+.bl-outer { display:grid; grid-template-columns:1fr 170px; }
+.bl-main-col { display:flex; flex-direction:column; }
+/* Party rows: tag | block | block */
+.bl-party-row { display:grid; grid-template-columns:120px 1fr 1fr; border-bottom:1.5px solid #888; }
+.bl-party-tag { background:#fff; color:#111; font-size:9px; font-weight:800; padding:6px 10px; display:flex; align-items:center; line-height:1.3; text-transform:uppercase; border-right:1.5px solid #888; }
+.bl-party-block { padding:6px 10px; border-right:1.5px solid #888; }
+.bl-party-block:last-child { border-right:none; }
+.bl-party-lbl { font-size:8px; font-weight:700; text-transform:uppercase; color:#555; display:block; margin-bottom:2px; letter-spacing:.3px; }
+.bl-party-name { font-size:12px; font-weight:800; display:block; }
+.bl-party-addr { font-size:10px; color:#222; line-height:1.4; }
+/* Detail rows reuse the same 3-col grid */
+.bl-detail-row { display:grid; grid-template-columns:120px 1fr 1fr; border-bottom:1.5px solid #888; }
+/* Combined Description | Pieces | Chargeable WT | Booking Date | Routing Code row */
+.bl-detail-cell-full { display:grid; grid-template-columns:1.6fr .7fr 1fr 1fr 1.1fr; border-bottom:1.5px solid #888; }
+.bl-detail-cell { padding:6px 10px; border-right:1.5px solid #888; }
+.bl-detail-cell:last-child { border-right:none; }
+.bl-routing-stamp { background:#111; color:#fff; font-size:9px; font-weight:800; text-align:center; padding:3px 4px; letter-spacing:.5px; margin-top:2px; }
+/* Bottom row: shipper agreement | AWB + barcode | BOX LABEL stamp */
+.bl-barcode-row { display:grid; grid-template-columns:1.4fr 1.6fr .8fr; align-items:flex-start; padding:10px 16px; gap:10px; }
+.bl-awb-big { font-size:24px; font-weight:900; letter-spacing:1.5px; text-align:center; }
+.bl-barcode-svg { width:100%; height:34px; display:block; margin-top:4px; }
+.bl-box-stamp { font-size:13px; font-weight:900; text-align:center; letter-spacing:1px; }
+/* Footer notes */
+.bl-footer-notes { padding:6px 14px; border-top:1.5px solid #888; font-size:7.5px; color:#444; line-height:1.5; }
+
+/* ── SHIPPER / CONSIGNEE LABEL (matches screenshot 2) ────────── */
+.sc-doc { font-family:Arial,sans-serif; color:#000; padding:8mm; width:100%; }
+.sc-awb-top { text-align:center; font-size:10px; font-weight:700; color:#444; margin-bottom:10px; letter-spacing:1px; }
+.sc-box { border:1.5px solid #000; padding:14px 18px 16px; margin-bottom:18px; page-break-inside:avoid; }
+.sc-box:last-of-type { margin-bottom:0; }
+.sc-top-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px; }
+.sc-role { font-size:14px; font-weight:800; letter-spacing:.3px; }
+.sc-company { font-size:14px; font-weight:800; text-decoration:underline; margin-left:10px; }
+.sc-pagecount { font-size:13px; font-weight:700; }
+.sc-field-row { display:flex; margin-bottom:7px; font-size:12px; }
+.sc-field-lbl { width:90px; flex-shrink:0; color:#000; }
+.sc-field-val { font-weight:400; }
+.sc-bottom-row { display:flex; justify-content:space-between; align-items:flex-end; margin-top:10px; }
+.sc-bottom-fields { flex:1; }
+.sc-bottom-fields .sc-field-row { margin-bottom:6px; }
+.sc-barcode-wrap { text-align:right; min-width:220px; }
+.sc-awb-num { font-size:15px; font-weight:800; margin-bottom:4px; }
+.sc-barcode-svg { width:220px; height:32px; display:block; margin-left:auto; }
+.sc-divider { border-top:1px dashed #999; margin:18px 0; }
+
+/* Print area hidden on screen */
+#pxcPrintArea, #perfPrintArea, #boxPrintArea, #awbPrintArea, #scPrintArea { display:none; }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<!-- Action bar -->
+<!-- ── ACTION BAR ──────────────────────────────────────────── -->
 <div class="no-print" style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-  <a href="/invoice/list" class="btn btn-ghost btn-sm">← Back to List</a>
+  <a href="/invoice/list" class="btn btn-ghost btn-sm">← Back to Invoices</a>
+  <a href="/invoice/new?edit={{ invoice.id }}" class="btn btn-ghost btn-sm" title="Edit">✏️Edit</a>
   <div style="flex:1"></div>
-  <button onclick="downloadPDF()" class="btn btn-primary btn-sm">⬇️ Download PDF</button>
-  <button onclick="downloadPDF()" class="btn btn-ghost btn-sm">🖨️ Print</button>
+  <div class="print-bar">
+    <button class="print-btn pb-pxc" onclick="triggerPrint('pxc')">🧾 Customer Invoice</button>
+    <button class="print-btn pb-awb" onclick="triggerPrint('awb')">📑 AWB Copies</button>
+    <button class="print-btn pb-perf" onclick="triggerPrint('perf')">📋 Performa Invoice</button>
+    <button class="print-btn pb-box" onclick="triggerPrint('box')">📦 Box Label</button>
+    <button class="print-btn pb-sc" onclick="triggerPrint('sc')">🏷️ Label</button>
+  </div>
 </div>
 
-<!-- Format switcher -->
-<div class="no-print" style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-  <span style="font-size:13px;font-weight:600;color:#6B7280;margin-right:4px">Format:</span>
-  <div class="fmt-tab active" onclick="switchFormat(1,this)">🎨 Modern</div>
-  <div class="fmt-tab"        onclick="switchFormat(2,this)">📋 Classic Print</div>
-  <div class="fmt-tab"        onclick="switchFormat(3,this)">🏷️ PXC Receipt</div>
+<!-- ── META CARDS ─────────────────────────────────────────── -->
+<div class="meta-grid no-print">
+  <div class="meta-card">
+    <div class="lbl">AWB / Docket</div>
+    <div class="val" style="font-family:monospace;color:#15803D">{{ invoice.docket_no }}</div>
+    <div class="sub">{{ invoice.shipment_type or 'Courier' }}</div>
+  </div>
+  <div class="meta-card">
+    <div class="lbl">Invoice #</div>
+    <div class="val">{{ invoice.id }}</div>
+    <div class="sub">{{ invoice.date.strftime('%d %b %Y') if invoice.date else '—' }}</div>
+  </div>
+  <div class="meta-card">
+    <div class="lbl">Status</div>
+    <div class="val">
+      {% set s = invoice.status|lower %}
+      {% if s == 'paid' %}<span class="badge badge-paid">✓ Paid</span>
+      {% elif s == 'partial' %}<span class="badge badge-partial">⏳ Partial</span>
+      {% elif s == 'draft' %}<span class="badge badge-draft">📝 Draft</span>
+      {% else %}<span class="badge badge-pending">⚠ Pending</span>{% endif %}
+    </div>
+  </div>
+  <div class="meta-card">
+    <div class="lbl">Shipper</div>
+    <div class="val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+    <div class="sub">{{ invoice.customer_phone or '' }}</div>
+  </div>
+  <div class="meta-card">
+    <div class="lbl">Destination</div>
+    <div class="val">{{ invoice.destination or '—' }}</div>
+    <div class="sub">{{ invoice.receiver_name or '' }}</div>
+  </div>
+  <div class="meta-card">
+    <div class="lbl">Grand Total</div>
+    <div class="val" style="color:#4F46E5">₹{{ "{:,.2f}".format(invoice.total | float) }}</div>
+    <div class="sub">Balance: ₹{{ "{:,.2f}".format(invoice.balance | float) }}</div>
+  </div>
 </div>
 
-
-<!-- ══════════════════════════
-     FORMAT 1 — Modern
-══════════════════════════ -->
-<div id="format1">
-<div class="f1" id="printArea">
-
-  <!-- Gradient header -->
-  <div class="f1-hdr">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px">
-      <div>
-        <h1>SHIPMENT INVOICE</h1>
-        <div class="awb-big">{{ invoice.docket_no }}</div>
-        <div style="opacity:.7;font-size:12px;margin-top:4px">AWB / Docket Number</div>
-      </div>
-      <div style="text-align:right">
-        <div style="background:rgba(255,255,255,.15);padding:12px 18px;border-radius:10px;min-width:140px">
-          <div style="font-size:10px;opacity:.7;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">Invoice #</div>
-          <div style="font-size:20px;font-weight:800">{{ invoice.id }}</div>
-          <div style="font-size:11px;opacity:.7;margin-top:6px">
-            {{ invoice.date.strftime('%d %b %Y') if invoice.date else invoice.date }}
-          </div>
-        </div>
-      </div>
+<!-- ── PARTIES ─────────────────────────────────────────────── -->
+<div class="no-print" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+  <div class="section-card">
+    <h4>📤 Consignor (Shipper)</h4>
+    <div class="detail-grid">
+      <div class="detail-row"><span class="dl">Name</span><span class="dv">{{ invoice.shipper_name or '—' }}</span></div>
+      <div class="detail-row"><span class="dl">Phone</span><span class="dv">{{ invoice.customer_phone or '—' }}</span></div>
+      <div class="detail-row" style="grid-column:1/-1"><span class="dl">Address</span><span class="dv">
+        {{ invoice.shipper_address1 or '' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}
+        {% if invoice.shipper_city %}<br>{{ invoice.shipper_city }}{% if invoice.shipper_state %}, {{ invoice.shipper_state }}{% endif %} {{ invoice.shipper_pincode or '' }}{% endif %}
+      </span></div>
     </div>
   </div>
-
-  <!-- Meta strip -->
-  <div class="f1-meta">
-    <!-- Mode -->
-    <div class="f1-meta-box">
-      <div class="ml">Mode</div>
-      <div class="mv">
-        {% set m = (invoice.mode or '') | upper %}
-        {% if m == 'AIR' %}<span class="badge-mode bm-air">✈️ Air</span>
-        {% elif m == 'SEA' %}<span class="badge-mode bm-sea">🚢 Sea</span>
-        {% elif m == 'ROAD' %}<span class="badge-mode bm-road">🚛 Road</span>
-        {% elif m == 'COURIER' %}<span class="badge-mode bm-courier">📦 Courier</span>
-        {% elif invoice.mode %}<span class="badge-mode bm-default">{{ invoice.mode }}</span>
-        {% else %}<span style="color:#9CA3AF">—</span>{% endif %}
-      </div>
-    </div>
-    <!-- Carrier -->
-    <div class="f1-meta-box">
-      <div class="ml">Carrier</div>
-      <div class="mv">{{ invoice.carrier or '—' }}</div>
-    </div>
-    <!-- Shipment Type -->
-    <div class="f1-meta-box">
-      <div class="ml">Shipment Type</div>
-      <div class="mv">{{ invoice.shipment_type or '—' }}</div>
-    </div>
-    <!-- Status -->
-    <div class="f1-meta-box">
-      <div class="ml">Status</div>
-      <div class="mv">
-        {% if invoice.status == 'paid' %}<span class="badge-status bs-paid">✓ Paid</span>
-        {% elif invoice.status == 'partial' %}<span class="badge-status bs-partial">⏳ Partial</span>
-        {% else %}<span class="badge-status bs-pending">⚠ Pending</span>{% endif %}
-      </div>
+  <div class="section-card">
+    <h4>📥 Consignee (Receiver)</h4>
+    <div class="detail-grid">
+      <div class="detail-row"><span class="dl">Name</span><span class="dv">{{ invoice.receiver_name or '—' }}</span></div>
+      <div class="detail-row"><span class="dl">Phone</span><span class="dv">{{ invoice.receiver_phone or '—' }}</span></div>
+      <div class="detail-row"><span class="dl">Destination</span><span class="dv">{{ invoice.destination or '—' }}</span></div>
+      <div class="detail-row"><span class="dl">Country</span><span class="dv">{{ invoice.receiver_country or '—' }}</span></div>
+      <div class="detail-row" style="grid-column:1/-1"><span class="dl">Address</span><span class="dv">
+        {{ invoice.receiver_address1 or '' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}
+        {% if invoice.receiver_city %}<br>{{ invoice.receiver_city }}{% if invoice.receiver_state %}, {{ invoice.receiver_state }}{% endif %} {{ invoice.receiver_pincode or '' }}{% endif %}
+      </span></div>
     </div>
   </div>
+</div>
 
-  <!-- Parties: Shipper | Receiver | Payment -->
-  <div class="f1-parties">
-    <div class="f1-party">
-      <div class="party-lbl">📤 Shipper (Sender)</div>
-      <div class="party-name">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
-      <div class="party-sub">
-        {% if invoice.customer_name and invoice.shipper_name and invoice.shipper_name != invoice.customer_name %}
-        <div>🏢 {{ invoice.customer_name }}</div>{% endif %}
-        {% if invoice.customer_phone %}<div>📞 {{ invoice.customer_phone }}</div>{% endif %}
-        {% if invoice.shipper_address %}<div>📍 {{ invoice.shipper_address }}</div>{% endif %}
-      </div>
+<!-- ── CHARGES ─────────────────────────────────────────────── -->
+<div class="no-print" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+  <div class="section-card">
+    <h4>💰 Charges</h4>
+    {% for label, val in [
+      ('Freight (' ~ (invoice.freight_rate_per_kg or '') ~ '/kg)', invoice.freight),
+      ('Fuel Surcharge', invoice.fuel_charge),
+      ('Other Charges', invoice.other_charges),
+    ] %}
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:13px;">
+      <span style="color:#6B7280">{{ label }}</span>
+      <span style="font-weight:600">₹{{ "{:,.2f}".format(val | float) }}</span>
     </div>
-
-    <div class="f1-party">
-      <div class="party-lbl">📥 Receiver (Consignee)</div>
-      <div class="party-name">{{ invoice.receiver_name or '—' }}</div>
-      <div class="party-sub">
-        {% if invoice.receiver_phone %}<div>📞 {{ invoice.receiver_phone }}</div>{% endif %}
-        {% if invoice.receiver_address %}<div>📍 {{ invoice.receiver_address }}</div>{% endif %}
-        {% if invoice.destination %}<div>🌍 <strong>{{ invoice.destination }}</strong></div>{% endif %}
-      </div>
+    {% endfor %}
+    {% if invoice.tax and invoice.tax|float > 0 %}
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:13px;">
+      <span style="color:#6B7280">GST (18%)</span>
+      <span style="font-weight:600">₹{{ "{:,.2f}".format(invoice.tax | float) }}</span>
     </div>
-
-    <div class="f1-party">
-      <div class="party-lbl">💳 Payment</div>
-      <div class="party-sub" style="margin-top:6px">
-        <div><strong>Mode:</strong> {{ invoice.payment_mode | capitalize if invoice.payment_mode else '—' }}</div>
-        {% if invoice.upi_app %}<div><strong>App:</strong> {{ invoice.upi_app | capitalize }}</div>{% endif %}
-        {% if invoice.transaction_id %}<div><strong>Ref:</strong> {{ invoice.transaction_id }}</div>{% endif %}
-        {% if invoice.cheque_no %}<div><strong>Cheque:</strong> {{ invoice.cheque_no }}</div>{% endif %}
-        {% if invoice.cheque_bank %}<div><strong>Bank:</strong> {{ invoice.cheque_bank }}</div>{% endif %}
-      </div>
+    {% endif %}
+    <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;font-weight:800;">
+      <span>Grand Total</span><span style="color:#4F46E5">₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;color:#16A34A;font-weight:600;">
+      <span>✓ Amount Paid</span><span>₹{{ "{:,.2f}".format(invoice.paid | float) }}</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:14px;font-weight:700;color:#DC2626;">
+      <span>Balance Due</span><span>₹{{ "{:,.2f}".format(invoice.balance | float) }}</span>
     </div>
   </div>
-
-  <!-- Charges + Shipment Summary -->
-  <div class="charges-wrap">
-    <!-- Left: charge breakdown -->
-    <div class="charges-left">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#9CA3AF;margin-bottom:12px">Charge Breakdown</div>
-      <div class="charge-row">
-        <span>
-          Freight Charges
-          {% if invoice.freight_rate_per_kg and invoice.freight_rate_per_kg | float > 0 %}
-          <div style="font-size:11px;color:#9CA3AF;font-weight:400">₹{{ invoice.freight_rate_per_kg }}/kg</div>
-          {% endif %}
-        </span>
-        <span>₹{{ "{:,.2f}".format(invoice.freight | float) }}</span>
-      </div>
-      <div class="charge-row">
-        <span>Fuel Surcharge</span>
-        <span>₹{{ "{:,.2f}".format(invoice.fuel_charge | float) }}</span>
-      </div>
-      <div class="charge-row">
-        <span>
-          Other Charges
-          {% if invoice.other_charges_reason %}
-          <div style="font-size:11px;color:#9CA3AF;font-weight:400">{{ invoice.other_charges_reason }}</div>
-          {% endif %}
-        </span>
-        <span>₹{{ "{:,.2f}".format(invoice.other_charges | float) }}</span>
-      </div>
-      <div class="charge-row" style="color:#6B7280">
-        <span>GST (18%)</span>
-        <span>₹{{ "{:,.2f}".format(invoice.tax | float) }}</span>
-      </div>
-      <div class="charge-row grand">
-        <span>Grand Total</span>
-        <span>₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
-      </div>
-      <div class="charge-row paid-row">
-        <span>✓ Amount Paid</span>
-        <span>₹{{ "{:,.2f}".format(invoice.paid | float) }}</span>
-      </div>
-      <div class="charge-row bal-row">
-        <span>Balance Due</span>
-        <span>₹{{ "{:,.2f}".format(invoice.balance | float) }}</span>
-      </div>
+  <div class="section-card">
+    <h4>🚚 Shipment Info</h4>
+    {% for label, val in [
+      ('Product', invoice.product or '—'),
+      ('Vendor', invoice.vendor or '—'),
+      ('Mode', invoice.mode or '—'),
+      ('Carrier', invoice.carrier or '—'),
+      ('Carrier Ref', invoice.carrier_ref or '—'),
+      ('Payment Mode', (invoice.payment_mode or 'Cash') | capitalize),
+    ] %}
+    <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F3F4F6;font-size:13px;">
+      <span style="color:#6B7280">{{ label }}</span>
+      <span style="font-weight:600">{{ val }}</span>
     </div>
+    {% endfor %}
+    {% if invoice.notes %}
+    <div style="margin-top:10px;padding:8px 12px;background:#FFFBEB;border-radius:8px;font-size:12px;color:#92400E;">
+      📝 {{ invoice.notes }}
+    </div>
+    {% endif %}
+  </div>
+</div>
 
-    <!-- Right: shipment summary -->
-    <div class="charges-right">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:#9CA3AF;margin-bottom:12px">Shipment Summary</div>
-      {% set rows = [
-        ('AWB / Docket',   invoice.docket_no),
-        ('Invoice Date',   invoice.date.strftime('%d %b %Y') if invoice.date else '—'),
-        ('Carrier',        invoice.carrier or '—'),
-        ('Mode',           invoice.mode or '—'),
-        ('Shipment Type',  invoice.shipment_type or '—'),
-        ('Destination',    invoice.destination or '—'),
-      ] %}
-      {% for label, val in rows %}
-      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dashed #F3F4F6;font-size:13px">
-        <span style="color:#6B7280">{{ label }}</span>
-        <span style="font-weight:600;color:#111827">{{ val }}</span>
-      </div>
+<!-- ── PACKAGES ────────────────────────────────────────────── -->
+{% if invoice.packages %}
+<div class="section-card no-print" style="margin-bottom:14px">
+  <h4>📦 Packages</h4>
+  <table class="items-table">
+    <thead><tr><th>#</th><th>Item</th><th>Type</th><th>Qty</th><th>L</th><th>W</th><th>H</th><th>Weight</th></tr></thead>
+    <tbody>
+      {% for pkg in invoice.packages %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ pkg.name }}</td>
+        <td>{{ pkg.type }}</td>
+        <td>{{ pkg.qty }}</td>
+        <td>{{ pkg.length or '—' }}</td>
+        <td>{{ pkg.width or '—' }}</td>
+        <td>{{ pkg.height or '—' }}</td>
+        <td>{{ pkg.weight or '—' }} kg</td>
+      </tr>
       {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
 
-      {% if invoice.notes %}
-      <div style="margin-top:12px;background:#FFFBEB;border-radius:8px;padding:10px 12px;font-size:12px;color:#92400E">
-        📝 <strong>Notes:</strong> {{ invoice.notes }}
-      </div>
-      {% endif %}
-    </div>
+<!-- ── PERFORMA INVOICE ITEMS ─────────────────────────────── -->
+{% if invoice.performa_items %}
+<div class="section-card no-print" style="margin-bottom:14px;border:1.5px solid #4F46E5;">
+  <h4 style="color:#4338CA;">📋 Performa Invoice Items</h4>
+  <table class="items-table">
+    <thead style="background:#4F46E5;">
+      <tr><th>#</th><th>Description of Goods</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate (₹)</th><th style="text-align:right">Amount (₹)</th></tr>
+    </thead>
+    <tbody>
+      {% for item in invoice.performa_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.description }}</td>
+        <td style="text-align:right">{{ item.qty }}</td>
+        <td style="text-align:right">{{ "%.2f"|format(item.rate | float) }}</td>
+        <td style="text-align:right">{{ "%.2f"|format((item.qty | float) * (item.rate | float)) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;padding:10px;">Total (INR)</td>
+        <td style="text-align:right;padding:10px;color:#4338CA;">
+          ₹{% set ns = namespace(total=0) %}{% for item in invoice.performa_items %}{% set ns.total = ns.total + (item.qty|float * item.rate|float) %}{% endfor %}{{ "%.2f"|format(ns.total) }}
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+  {% if invoice.perf_weight %}
+  <div style="margin-top:10px;font-size:13px;color:#4338CA;">
+    <strong>Chargeable Weight:</strong> {{ invoice.perf_weight }} kg
   </div>
-
-  <!-- Footer -->
-  <div class="f1-foot">
-    <div style="font-size:11px;color:#9CA3AF;max-width:480px">
-      <strong>Terms & Conditions:</strong> Payment due within 15 days. Late payments subject to 18% interest per annum.
-      Claims for loss/damage must be lodged within 7 days of delivery.
-    </div>
-    <div style="font-size:11px;color:#9CA3AF">Computer generated invoice — no signature required.</div>
-  </div>
-
-</div><!-- /f1 -->
-</div><!-- /format1 -->
+  {% endif %}
+</div>
+{% endif %}
 
 
-<!-- ══════════════════════════
-     FORMAT 2 — Classic Print
-══════════════════════════ -->
-<div id="format2" style="display:none">
-<div class="f2" id="printArea2">
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- PRINT AREAS (hidden on screen, shown during print)         -->
+<!-- ════════════════════════════════════════════════════════════ -->
 
-  <div class="f2-top">
-    <div class="f2-co">
-      <h2>Your Company Name</h2>
-      <p>Address Line 1, City, State – 000000</p>
-      <p>Phone: +91 9999999999 | Email: company@email.com</p>
-      <p>GSTIN: 29AAAAA1234F1Z &nbsp;|&nbsp; IEC: AAAAA1234F</p>
-    </div>
-    <div class="f2-title">
-      <h3>Shipment Invoice</h3>
-      <div class="f2-awb">{{ invoice.docket_no }}</div>
-      <p style="font-size:10px;color:#666;margin:0">AWB / Docket No.</p>
-      <p style="margin-top:8px"><strong>Invoice No:</strong> {{ invoice.id }}</p>
-      <p><strong>Date:</strong> {{ invoice.date.strftime('%d %b %Y') if invoice.date else invoice.date }}</p>
-      <p><strong>Status:</strong>
-        {% if invoice.status == 'paid' %}✓ Paid
-        {% elif invoice.status == 'partial' %}⏳ Partial
-        {% else %}⚠ Pending{% endif %}</p>
-    </div>
-  </div>
-
-  <div class="f2-parties">
-    <div class="f2-party">
-      <div class="f2-plbl">Shipper (Sender)</div>
-      <p><strong>{{ invoice.shipper_name or invoice.customer_name or '—' }}</strong></p>
-      {% if invoice.customer_phone %}<p>Phone: {{ invoice.customer_phone }}</p>{% endif %}
-      {% if invoice.shipper_address %}<p>Addr: {{ invoice.shipper_address }}</p>{% endif %}
-    </div>
-    <div class="f2-party">
-      <div class="f2-plbl">Receiver (Consignee)</div>
-      <p><strong>{{ invoice.receiver_name or '—' }}</strong></p>
-      {% if invoice.receiver_phone %}<p>Phone: {{ invoice.receiver_phone }}</p>{% endif %}
-      {% if invoice.receiver_address %}<p>Addr: {{ invoice.receiver_address }}</p>{% endif %}
-      {% if invoice.destination %}<p>Dest: {{ invoice.destination }}</p>{% endif %}
-    </div>
-    <div class="f2-party">
-      <div class="f2-plbl">Shipment Info</div>
-      <p><strong>Carrier:</strong> {{ invoice.carrier or '—' }}</p>
-      <p><strong>Mode:</strong> {{ invoice.mode or '—' }}</p>
-      <p><strong>Type:</strong> {{ invoice.shipment_type or '—' }}</p>
-      <p><strong>Payment:</strong> {{ invoice.payment_mode | capitalize if invoice.payment_mode else '—' }}</p>
-    </div>
-  </div>
-
-  <div class="f2-charges">
-    <div class="f2-ship-info">
-      <h4>Charge Details</h4>
-      <p><strong>Freight:</strong> ₹{{ "{:,.2f}".format(invoice.freight | float) }}
-        {% if invoice.freight_rate_per_kg and invoice.freight_rate_per_kg | float > 0 %}<br><span style="color:#666;font-size:10px">₹{{ invoice.freight_rate_per_kg }}/kg</span>{% endif %}
-      </p>
-      <p><strong>Fuel Surcharge:</strong> ₹{{ "{:,.2f}".format(invoice.fuel_charge | float) }}</p>
-      <p><strong>Other Charges:</strong> ₹{{ "{:,.2f}".format(invoice.other_charges | float) }}
-        {% if invoice.other_charges_reason %}<br><span style="color:#666;font-size:10px">{{ invoice.other_charges_reason }}</span>{% endif %}
-      </p>
-      <p><strong>GST (18%):</strong> ₹{{ "{:,.2f}".format(invoice.tax | float) }}</p>
-      {% if invoice.notes %}
-      <div style="margin-top:10px;padding-top:8px;border-top:1px solid #ddd">
-        <strong>Notes:</strong> {{ invoice.notes }}
-      </div>
-      {% endif %}
-    </div>
-    <div class="f2-amts">
-      <div class="f2-amt-row"><span>Grand Total</span><span>₹ {{ "{:,.2f}".format(invoice.total | float) }}</span></div>
-      <div class="f2-amt-row" style="color:#16A34A">
-        <span>Amount Paid</span><span>₹ {{ "{:,.2f}".format(invoice.paid | float) }}</span>
-      </div>
-      <div class="f2-amt-row total" style="color:#DC2626">
-        <span>Balance Due</span><span>₹ {{ "{:,.2f}".format(invoice.balance | float) }}</span>
-      </div>
-      <div style="margin-top:12px;font-size:10.5px;color:#555">
-        <strong>Amount in Words:</strong><br>
-        <em id="amtWords2">—</em>
-      </div>
-    </div>
-  </div>
-
-  <div class="f2-bottom">
-    <div class="f2-terms">
-      <h4>Terms & Conditions</h4>
-      <p>1. Claims for loss/damage must be reported within 7 days of delivery.</p>
-      <p>2. Interest @ 18% p.a. on overdue payments.</p>
-      <p>3. Carrier liability as per airway bill / bill of lading terms.</p>
-      <p>4. Subject to local jurisdiction only.</p>
-    </div>
-    <div class="f2-sign">
-      <p style="font-size:10px;color:#666">Certified that the above particulars are true and correct.</p>
-      <div class="sig-line">Authorised Signatory</div>
-    </div>
-  </div>
-
-  <div style="text-align:center;padding:8px;font-size:10px;color:#999;border-top:1px solid #eee">
-    Computer generated invoice — no signature required.
-  </div>
-
-</div><!-- /f2 -->
-</div><!-- /format2 -->
-
-
-<!-- ══════════════════════════
-     FORMAT 3 — PXC Pacific Global Style Pre-Printed Receipt
-     (two stacked copies: ADMIN COPY + ACCOUNTS COPY)
-══════════════════════════ -->
-<div id="format3" style="display:none">
-<div class="f3-page" id="printArea3">
-
-{% macro pxc_copy(badge_text) %}
+{% macro f3_receipt(copy_label=none) %}
+<div class="f3-copy-block">
+{% if copy_label %}<div class="f3-copy-label">{{ copy_label }}</div>{% endif %}
 <div class="f3">
-  <div class="f3-track-top">{{ invoice.docket_no }}</div>
-
-  <!-- Company header + AWB -->
   <div class="f3-hdr-row">
     <div class="f3-hdr-left">
       <div class="f3-logo-box">📦</div>
@@ -519,7 +495,6 @@
     <div class="f3-awb-big">{{ invoice.docket_no }}</div>
   </div>
 
-  <!-- Barcode placeholder row -->
   <div class="f3-barcode-row">
     <svg viewBox="0 0 300 40" preserveAspectRatio="none">
       {% for i in range(60) %}
@@ -527,82 +502,59 @@
       {% endfor %}
     </svg>
   </div>
+  <div class="f3-track-top">{{ invoice.docket_no }}</div>
 
-  <!-- Account / Customer / Origin / Destination / Service strip -->
   <div class="f3-toprow">
-    <div>
-      <div class="f3-lbl">Account / Invoice No.</div>
-      <div class="f3-val">{{ invoice.id }}</div>
-    </div>
-    <div>
-      <div class="f3-lbl">Customer</div>
-      <div class="f3-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
-    </div>
-    <div>
-      <div class="f3-lbl">Origin</div>
-      <div class="f3-val">{{ invoice.origin or 'India' }}</div>
-    </div>
-    <div>
-      <div class="f3-lbl">Destination</div>
-      <div class="f3-val">{{ invoice.destination or '—' }}</div>
-    </div>
+    <div><div class="f3-lbl">Account / Invoice No.</div><div class="f3-val">{{ invoice.id }}</div></div>
+    <div><div class="f3-lbl">Customer</div><div class="f3-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div></div>
+    <div><div class="f3-lbl">Origin</div><div class="f3-val">{{ invoice.origin or 'India' }}</div></div>
+    <div><div class="f3-lbl">Destination</div><div class="f3-val">{{ invoice.destination or '—' }}</div></div>
     <div>
       <div class="f3-lbl">Service</div>
       <span class="f3-svc-badge">{{ invoice.mode or '—' }}</span>
-      <div class="f3-meta-line">
-        <span>Wt: <strong>{{ invoice.weight }} kg</strong></span>
-      </div>
+      <div class="f3-meta-line"><span>Wt: <strong>{{ invoice.weight }} kg</strong></span></div>
     </div>
   </div>
 
-  <!-- Sender / Recipient two-column block -->
   <div class="f3-parties">
     <div class="f3-party">
       <div class="f3-lbl">Sender's Name</div>
       <p class="pname">{{ invoice.shipper_name or invoice.customer_name or '—' }}</p>
-      <div class="f3-lbl" style="margin-top:6px">Address</div>
-      <p>
-        {{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}
-      </p>
+      <div class="f3-lbl" style="margin-top:5px">Address</div>
+      <p>{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}</p>
       <div class="f3-meta-line">
         <span>PIN: <strong>{{ invoice.shipper_pincode or '—' }}</strong></span>
         <span>State: <strong>{{ invoice.shipper_state or '—' }}</strong></span>
         <span>Country: <strong>{{ invoice.shipper_country or 'India' }}</strong></span>
       </div>
       <div class="f3-meta-line">
-        <span>Tel No.: <strong>{{ invoice.customer_phone or '—' }}</strong></span>
+        <span>Tel: <strong>{{ invoice.customer_phone or '—' }}</strong></span>
         <span>City: <strong>{{ invoice.shipper_city or '—' }}</strong></span>
       </div>
     </div>
     <div class="f3-party">
       <div class="f3-lbl">Recipient's Name</div>
       <p class="pname">{{ invoice.receiver_name or '—' }}</p>
-      <div class="f3-lbl" style="margin-top:6px">Address</div>
-      <p>
-        {{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}
-      </p>
+      <div class="f3-lbl" style="margin-top:5px">Address</div>
+      <p>{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}</p>
       <div class="f3-meta-line">
         <span>PIN: <strong>{{ invoice.receiver_pincode or '—' }}</strong></span>
         <span>State: <strong>{{ invoice.receiver_state or '—' }}</strong></span>
       </div>
       <div class="f3-meta-line">
-        <span>Tel No.: <strong>{{ invoice.receiver_phone or '—' }}</strong></span>
+        <span>Tel: <strong>{{ invoice.receiver_phone or '—' }}</strong></span>
         <span>Country: <strong>{{ invoice.receiver_country or invoice.destination or '—' }}</strong></span>
         <span>City: <strong>{{ invoice.receiver_city or '—' }}</strong></span>
       </div>
     </div>
   </div>
 
-  <!-- Description of Goods (from packages) / Pieces / Chargeable Wt / Shipment Value + Booking Date -->
   <div class="f3-midrow">
     <div>
       <div class="f3-lbl">Description of Goods</div>
       <div style="font-size:10px;margin-top:3px">
-        {% if invoice.packages %}
-          {{ invoice.packages | map(attribute='name') | select | join(', ') }}
-        {% else %}
-          {{ invoice.notes or '—' }}
-        {% endif %}
+        {% if invoice.packages %}{{ invoice.packages | map(attribute='name') | select | join(', ') }}
+        {% else %}{{ invoice.notes or '—' }}{% endif %}
       </div>
       <div style="margin-top:10px;font-size:7.8px;color:#444;line-height:1.5">
         <strong>Shipper Agreement</strong><br>
@@ -628,11 +580,14 @@
         <span>₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
         <span>{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</span>
       </div>
-      <div class="f3-stamp-box">{{ badge_text }}</div>
+      <div class="f3-stamp-box">
+        {% if invoice.status|lower == 'paid' %}PAID
+        {% elif invoice.status|lower == 'partial' %}PARTIAL
+        {% else %}PENDING{% endif %}
+      </div>
     </div>
   </div>
 
-  <!-- Pickup name/sign | Payment / invoice / freight breakdown | Routing -->
   <div class="f3-botrow">
     <div>
       <div class="f3-lbl">Pick Up</div>
@@ -655,8 +610,8 @@
     <div>
       <div class="f3-acct-row"><span>Status</span>
         <strong>
-          {% if invoice.status == 'paid' %}PAID
-          {% elif invoice.status == 'partial' %}PARTIAL
+          {% if invoice.status|lower == 'paid' %}PAID
+          {% elif invoice.status|lower == 'partial' %}PARTIAL
           {% else %}PENDING{% endif %}
         </strong>
       </div>
@@ -665,79 +620,536 @@
     </div>
   </div>
 
-  <!-- Terms & Conditions -->
   <div class="f3-terms">
-    <strong>Terms &amp; Conditions:</strong><br>
-    1. No Claims would be entertained for any damage during transit &amp; delay in delivery due to any reason.<br>
-    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.<br>
-    3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.<br>
+    <strong>Terms &amp; Conditions:</strong>
+    1. No Claims would be entertained for any damage during transit &amp; delay in delivery due to any reason.&nbsp;|&nbsp;
+    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.&nbsp;|&nbsp;
+    3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.&nbsp;|&nbsp;
     *** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***
   </div>
 
   <div class="f3-track-bottom">{{ invoice.docket_no }}</div>
 </div>
+</div>
 {% endmacro %}
 
-{{ pxc_copy('ADMIN COPY') }}
-{{ pxc_copy('ACCOUNTS COPY') }}
-<div class="f3-print-only">{{ pxc_copy('SHIPPER COPY') }}</div>
+<!-- ① PXC RECEIPT (single copy) -->
+<div id="pxcPrintArea">
+{{ f3_receipt() }}
+</div><!-- /pxcPrintArea -->
 
+{% macro awb_copy(copy_label) %}
+<div class="awb-copy-block">
+<div class="awb-doc">
+  <div class="awb-top">
+    <div class="awb-hdr-left">
+      <div class="awb-logo-box">📦</div>
+      <div>
+        <div class="awb-co-name">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+        <div class="awb-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
+        <div class="awb-co-web">
+          WEBSITE: {{ company_website if company_website is defined else 'WWW.PACIFICEXP.NET' }}
+          &nbsp;•&nbsp; E-MAIL: {{ company_email if company_email is defined else 'INFO@PACIFICEXP.NET' }}
+        </div>
+      </div>
+    </div>
+    <div class="awb-no-big">{{ invoice.docket_no }}</div>
+  </div>
+
+  <div class="awb-barcode-row">
+    <svg viewBox="0 0 300 40">
+      {% for i in range(60) %}
+      <rect x="{{ i * 5 }}" y="0" width="{{ 1 if i % 2 == 0 else 3 }}" height="40" fill="#111"></rect>
+      {% endfor %}
+      
+    </svg>
+    <div class="awb-no-below">{{ invoice.docket_no }}</div>
+  </div>
+  
+
+  <div class="awb-info-row">
+    <div>
+      <div class="awb-lbl">Account</div>
+      <div class="awb-val">{{ invoice.id }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Customer</div>
+      <div class="awb-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Origin</div>
+      <div class="awb-val">{{ invoice.origin or 'India' }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Destination</div>
+      <div class="awb-val">{{ invoice.destination or '—' }}</div>
+      <div class="awb-svc-badge">{{ invoice.mode or 'SERVICE' }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Weight</div>
+      <div class="awb-val">{{ "%.3f"|format(invoice.weight|float) }}</div>
+      <div class="awb-lbl" style="margin-top:5px">Dimension in CM</div>
+      <div class="awb-val" style="font-size:9.5px">
+        {% if invoice.packages and invoice.packages[0].length %}{{ invoice.packages[0].length }}*{{ invoice.packages[0].width }}*{{ invoice.packages[0].height }}*{{ invoice.packages[0].qty|int }}{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="awb-parties">
+    <div class="awb-party">
+      <div class="awb-lbl">Sender's Company</div>
+      <div class="awb-pval">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+      <div class="awb-lbl">Sender's Name</div>
+      <div class="awb-pval">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+      <div class="awb-lbl">Address</div>
+      <div>{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}</div>
+      <div class="awb-party-meta">
+        <span>PIN Code: <strong>{{ invoice.shipper_pincode or '—' }}</strong></span>
+        <span>State: <strong>{{ invoice.shipper_state or '—' }}</strong></span>
+      </div>
+      <div class="awb-party-meta">
+        <span>Tel No.: <strong>{{ invoice.customer_phone or '—' }}</strong></span>
+        <span>City: <strong>{{ invoice.shipper_city or '—' }}</strong></span>
+        <span>Country: <strong>{{ invoice.shipper_country or 'India' }}</strong></span>
+      </div>
+    </div>
+    <div class="awb-party">
+      <div class="awb-lbl">Recipient's Company</div>
+      <div class="awb-pval">{{ invoice.receiver_name or '—' }}</div>
+      <div class="awb-lbl">Recipient's Name</div>
+      <div class="awb-pval">{{ invoice.receiver_name or '—' }}</div>
+      <div class="awb-lbl">Address</div>
+      <div>{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}</div>
+      <div class="awb-party-meta">
+        <span>PIN Code: <strong>{{ invoice.receiver_pincode or '—' }}</strong></span>
+        <span>State: <strong>{{ invoice.receiver_state or '—' }}</strong></span>
+      </div>
+      <div class="awb-party-meta">
+        <span>Tel No.: <strong>{{ invoice.receiver_phone or '—' }}</strong></span>
+        <span>City: <strong>{{ invoice.receiver_city or '—' }}</strong></span>
+        <span>Country: <strong>{{ invoice.receiver_country or invoice.destination or '—' }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="awb-botgrid">
+    <div>
+      <div class="awb-lbl">Description of Goods</div>
+      <div class="awb-big-val" style="font-size:12px">
+        {% if invoice.packages %}{{ invoice.packages | map(attribute='name') | select | join(', ') }}{% else %}{{ invoice.notes or '—' }}{% endif %}
+      </div>
+      <div class="awb-agreement">
+        <strong>Shipper Agreement</strong><br>
+        Shipper agrees to {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}
+        standard terms and conditions of carriage. Shipper's signature:
+        <span style="display:inline-block;border-bottom:1px solid #111;width:90px">&nbsp;</span>
+      </div>
+    </div>
+    <div>
+      <div class="awb-lbl">Pieces</div>
+      <div class="awb-big-val">{{ invoice.pieces }}</div>
+      <div class="awb-copy-label-box">{{ copy_label }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Chargeable Wt</div>
+      <div class="awb-big-val">{{ "%.3f"|format(invoice.weight|float) }}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <span class="awb-lbl">Shipment Value</span>
+        <span class="awb-lbl">Booking Date</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:700">
+        <span>₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
+        <span>{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</span>
+      </div>
+      <div class="awb-cheque-fav">
+        All cheques should be drawn in favour of<br>
+        <strong>{{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</strong>
+      </div>
+      <div class="awb-acct-row"><span>Invoice No.:</span><strong>{{ invoice.id }}</strong></div>
+      <div class="awb-acct-row"><span>E-Way Bill No.:</span><strong>—</strong></div>
+    </div>
+    <div>
+      <div class="awb-lbl">Vol. Wt</div>
+      <div class="awb-big-val" style="font-size:13px">—</div>
+      <div class="awb-acct-row" style="margin-top:8px"><span>Method of Payment</span></div>
+      <div style="font-weight:800;font-size:11px">{{ (invoice.payment_mode or 'cash') | upper }}</div>
+      <div class="awb-routing">{{ invoice.mode or 'ROUTING CODE' }}</div>
+    </div>
+  </div>
+
+  <div class="awb-terms">
+    <strong>Terms &amp; Conditions:</strong>
+    1. No Claims would be entertained for any damage during transit &amp; delay in delivery due to any reason.&nbsp;|&nbsp;
+    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.&nbsp;|&nbsp;
+    3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.&nbsp;|&nbsp;
+    *** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***
+  </div>
+
+  <div class="awb-track-bottom">{{ invoice.docket_no }}</div>
 </div>
-</div><!-- /format3 -->
+</div>
+{% endmacro %}
 
+<!-- ④ AWB COPIES (admin + accounts + shipper copy — matches physical sample) -->
+<div id="awbPrintArea">
+{{ awb_copy('ADMIN COPY') }}
+{{ awb_copy('ACCOUNTS COPY') }}
+{{ awb_copy('SHIPPER COPY') }}
+</div><!-- /awbPrintArea -->
+
+<!-- ② PERFORMA INVOICE PRINT -->
+<div id="perfPrintArea">
+<div class="pf-doc">
+  <div class="pf-header">
+    <div class="pf-company">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+    <div class="pf-tagline">International Courier &amp; Freight Forwarder</div>
+    <div class="pf-title">Proforma Invoice</div>
+  </div>
+
+  <div class="pf-meta">
+    <div>
+      <div><strong>Invoice No:</strong> {{ invoice.id }}</div>
+      <div><strong>AWB / Docket:</strong> {{ invoice.docket_no or '—' }}</div>
+    </div>
+    <div class="pf-meta-box">
+      <div><strong>Date:</strong> {{ invoice.date.strftime('%d %b %Y') if invoice.date else '—' }}</div>
+      <div><strong>Destination:</strong> {{ invoice.destination or '—' }}</div>
+    </div>
+  </div>
+
+  <div class="pf-parties">
+    <div class="pf-party">
+      <strong>Shipper / Sender</strong>
+      <div><strong>{{ invoice.shipper_name or invoice.customer_name or '—' }}</strong></div>
+      <div>{{ invoice.shipper_address1 or '' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}</div>
+      {% if invoice.shipper_city %}<div>{{ invoice.shipper_city }}{% if invoice.shipper_state %}, {{ invoice.shipper_state }}{% endif %} {{ invoice.shipper_pincode or '' }}</div>{% endif %}
+      <div>Ph: {{ invoice.customer_phone or '—' }}</div>
+      {% if invoice.shipper_doc_type or invoice.shipper_doc_no %}
+      <div style="margin-top:5px;font-size:10px;color:#4F46E5;font-weight:600;">{{ invoice.shipper_doc_type or '' }}: {{ invoice.shipper_doc_no or '' }}</div>
+      {% endif %}
+    </div>
+    <div class="pf-party">
+      <strong>Consignee / Receiver</strong>
+      <div><strong>{{ invoice.receiver_name or '—' }}</strong></div>
+      <div>{{ invoice.receiver_address1 or '' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}</div>
+      {% if invoice.receiver_city %}<div>{{ invoice.receiver_city }}{% if invoice.receiver_state %}, {{ invoice.receiver_state }}{% endif %} {{ invoice.receiver_pincode or '' }}</div>{% endif %}
+      <div>Ph: {{ invoice.receiver_phone or '—' }}</div>
+      <div>{{ invoice.destination or '' }}</div>
+      {% if invoice.receiver_doc_type or invoice.receiver_doc_no %}
+      <div style="margin-top:5px;font-size:10px;color:#4F46E5;font-weight:600;">{{ invoice.receiver_doc_type or '' }}: {{ invoice.receiver_doc_no or '' }}</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if invoice.performa_items %}
+  <table class="pf-table">
+    <thead>
+      <tr><th>#</th><th>Description of Goods</th><th>Qty</th><th style="text-align:right">Rate (₹)</th><th style="text-align:right">Amount (₹)</th></tr>
+    </thead>
+    <tbody>
+      {% for item in invoice.performa_items %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ item.description }}</td>
+        <td>{{ item.qty }}</td>
+        <td style="text-align:right">{{ "%.2f"|format(item.rate|float) }}</td>
+        <td style="text-align:right">{{ "%.2f"|format(item.qty|float * item.rate|float) }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      {% set ns = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns.t = ns.t + i.qty|float * i.rate|float %}{% endfor %}
+      <tr><td colspan="4" style="text-align:right">Total Amount (INR)</td><td style="text-align:right">₹{{ "%.2f"|format(ns.t) }}</td></tr>
+    </tfoot>
+  </table>
+  <div class="pf-summary">
+    <div>
+      <div><strong>Chargeable Weight:</strong> {{ invoice.perf_weight or invoice.weight or '—' }} kg</div>
+    </div>
+    <div class="pf-totals">
+      {% set ns = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns.t = ns.t + i.qty|float * i.rate|float %}{% endfor %}
+      <div class="pf-totals-row"><span>Sub Total</span><span>₹{{ "%.2f"|format(ns.t) }}</span></div>
+      <div class="pf-totals-row grand"><span>Grand Total</span><span>₹{{ "%.2f"|format(ns.t) }}</span></div>
+    </div>
+  </div>
+  {% else %}
+  <div style="padding:20px;text-align:center;color:#6B7280;font-size:12px;">No performa invoice items recorded for this shipment.</div>
+  {% endif %}
+
+  {% if invoice.notes %}
+  <div class="pf-notes"><strong>Notes:</strong> {{ invoice.notes }}</div>
+  {% endif %}
+
+  <div class="pf-sign">
+    <div class="pf-sign-box">
+      <div class="pf-sign-line">Authorised Signatory</div>
+      <div style="font-size:9px;color:#555">For {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</div>
+    </div>
+    <div class="pf-sign-box">
+      <div class="pf-sign-line">Shipper's Signature</div>
+      <div style="font-size:9px;color:#555">Date: ___________</div>
+    </div>
+  </div>
+
+  <div class="pf-terms">
+    1. No claims will be entertained for any damage during transit &amp; delay in delivery due to any reason.<br>
+    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 Kgs or the declared value whichever is lower.<br>
+    3. This AWB is for the account holder and it is not transferable.
+  </div>
+</div>
+</div><!-- /perfPrintArea -->
+
+
+<!-- ③ BOX LABEL PRINT (PXC style - matches screenshot 1) -->
+<div id="boxPrintArea">
+<div class="bl-doc">
+  {% set pkg = invoice.packages[0] if invoice.packages else none %}
+  {% set wt = pkg.weight if pkg and pkg.weight else invoice.weight %}
+  {% set l = pkg.length if pkg else '' %}
+  {% set w_dim = pkg.width if pkg else '' %}
+  {% set h = pkg.height if pkg else '' %}
+  {% set pkg_qty = pkg.qty if pkg else 1 %}
+  {% set dims = (l|string ~ '*' ~ w_dim|string ~ '*' ~ h|string ~ '*' ~ pkg_qty|string) if (l and w_dim and h) else '—' %}
+  {% set volwt = ((l|float * w_dim|float * h|float * pkg_qty|float) / 5000)|round(3) if (l and w_dim and h) else '—' %}
+  {% set pkg_name = pkg.name if pkg else (invoice.notes or '—') %}
+
+  <div class="bl-awb-top">{{ invoice.docket_no }}</div>
+  <div class="bl-page">
+    <div class="bl-outer">
+      <div class="bl-main-col">
+        <!-- Header -->
+        <div class="bl-hdr">
+          <div class="bl-logo-area">
+            <div class="bl-logo-icon">📦</div>
+            <div>
+              <div class="bl-co-name">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+              <div class="bl-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
+              <div class="bl-co-web">WEBSITE: {{ company_website if company_website is defined else 'WWW.PACIFICEXP.NET' }} &nbsp;•&nbsp; E-MAIL: {{ company_email if company_email is defined else 'INFO@PACIFICEXP.NET' }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Account | Customer | Origin/Destination | Service -->
+        <div class="bl-meta-top">
+          <div class="bl-meta-cell"><span class="bl-lbl">Account</span><span class="bl-val">{{ invoice.id }}</span></div>
+          <div class="bl-meta-cell"><span class="bl-lbl">Customer</span><span class="bl-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</span></div>
+          <div class="bl-meta-cell"><span class="bl-lbl">Origin</span><span class="bl-val">{{ invoice.shipper_city or invoice.origin or 'INDIA' }}</span><span class="bl-lbl" style="margin-top:6px">Destination</span><span class="bl-val">{{ invoice.destination or '—' }}</span></div>
+          <div class="bl-meta-cell"><span class="bl-lbl">Service</span><span class="bl-svc-badge">{{ invoice.product or invoice.mode or '—' }}</span></div>
+        </div>
+
+        <!-- Sender's Company -->
+        <div class="bl-party-row">
+          <div class="bl-party-tag">SENDER'S COMPANY</div>
+          <div class="bl-party-block">
+            <span class="bl-party-name">{{ invoice.shipper_company or invoice.shipper_name or invoice.customer_name or '—' }}</span>
+          </div>
+          <div class="bl-party-block">
+            <span class="bl-party-lbl">Recipient's Company</span>
+            <span class="bl-party-name">{{ invoice.receiver_company or invoice.receiver_name or '—' }}</span>
+          </div>
+        </div>
+
+        <!-- Sender's Name -->
+        <div class="bl-party-row">
+          <div class="bl-party-tag">SENDER'S NAME</div>
+          <div class="bl-party-block">
+            <span class="bl-party-name">{{ invoice.shipper_name or invoice.customer_name or '—' }}</span>
+          </div>
+          <div class="bl-party-block">
+            <span class="bl-party-lbl">Recipient's Name</span>
+            <span class="bl-party-name">{{ invoice.receiver_name or '—' }}</span>
+          </div>
+        </div>
+
+        <!-- Address -->
+        <div class="bl-party-row">
+          <div class="bl-party-tag">ADDRESS</div>
+          <div class="bl-party-block">
+            <span class="bl-party-addr">{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}<br>{{ invoice.shipper_address2 }}{% endif %}</span>
+          </div>
+          <div class="bl-party-block">
+            <span class="bl-party-addr">{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}<br>{{ invoice.receiver_address2 }}{% endif %}</span>
+          </div>
+        </div>
+
+        <!-- PIN Code -->
+        <div class="bl-detail-row">
+          <div class="bl-party-tag">PIN CODE</div>
+          <div class="bl-party-block"><span class="bl-val">{{ invoice.shipper_pincode or '—' }}</span></div>
+          <div class="bl-party-block"><span class="bl-val">{{ invoice.receiver_pincode or '—' }}</span></div>
+        </div>
+
+        <!-- TEL NO. -->
+        <div class="bl-detail-row">
+          <div class="bl-party-tag">TEL NO.</div>
+          <div class="bl-party-block"><span class="bl-val" style="font-size:11px">{{ invoice.customer_phone or '—' }}</span></div>
+          <div class="bl-party-block"><span class="bl-val" style="font-size:11px">{{ invoice.receiver_phone or '—' }}</span></div>
+        </div>
+
+        <!-- CITY -->
+        <div class="bl-detail-row">
+          <div class="bl-party-tag">CITY</div>
+          <div class="bl-party-block"><span class="bl-val" style="font-size:11px">{{ invoice.shipper_city or '—' }}</span>&nbsp;&nbsp;<span style="font-size:9px;color:#555;font-weight:400">{{ invoice.shipper_country or 'INDIA' }}</span></div>
+          <div class="bl-party-block"><span class="bl-val" style="font-size:11px">{{ invoice.receiver_city or '—' }}</span>&nbsp;&nbsp;<span style="font-size:9px;color:#555;font-weight:400">{{ invoice.receiver_country or invoice.destination or '—' }}</span></div>
+        </div>
+
+        <!-- Description | Pieces | Chargeable WT | Booking Date | Routing Code -->
+        <div class="bl-detail-cell-full">
+          <div class="bl-detail-cell">
+            <span class="bl-lbl">Description of Goods</span>
+            <span class="bl-val" style="font-size:11px">{{ pkg_name }}</span>
+          </div>
+          <div class="bl-detail-cell">
+            <span class="bl-lbl">Pieces</span>
+            <span class="bl-val">{{ pkg_qty }}</span>
+          </div>
+          <div class="bl-detail-cell">
+            <span class="bl-lbl">Chargeable WT</span>
+            <span class="bl-val">{{ wt }}</span>
+          </div>
+          <div class="bl-detail-cell">
+            <span class="bl-lbl">Booking Date</span>
+            <span class="bl-val" style="font-size:11px">{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</span>
+          </div>
+          <div class="bl-detail-cell">
+            <span class="bl-lbl">Routing Code</span>
+            <div class="bl-routing-stamp">{{ invoice.mode or '—' }}</div>
+          </div>
+        </div>
+
+        <!-- Shipper agreement | AWB + barcode | BOX LABEL stamp -->
+        <div class="bl-barcode-row">
+          <div>
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">SHIPPER AGREEMENT</div>
+            <div style="font-size:7.5px;color:#444;line-height:1.4;">SHIPPER AGREES TO {{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }} STANDARD TERM AND CONDITIONS OF CARRIAGE.</div>
+            <div style="margin-top:8px;font-size:7.5px;font-weight:700;">SHIPPER'S SIGNATURE</div>
+            <div style="font-size:7.5px;margin-top:2px;">DATE</div>
+          </div>
+          <div>
+            <div class="bl-awb-big">{{ invoice.docket_no }}</div>
+            <svg class="bl-barcode-svg" viewBox="0 0 300 40" preserveAspectRatio="none">
+              {% for i in range(70) %}
+              <rect x="{{ i * 4.3 }}" y="0" width="{{ 1 if i % 3 == 0 else 2 }}" height="40" fill="#111"></rect>
+              {% endfor %}
+            </svg>
+          </div>
+          <div>
+            <div class="bl-box-stamp">BOX LABEL</div>
+          </div>
+        </div>
+
+        <!-- Footer notes -->
+        <div class="bl-footer-notes">
+          1. No Claims would be entertained for any damage during transit &amp; delay in delivery due to any reason.<br>
+          2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.<br>
+          3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.<br>
+          *** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***
+        </div>
+      </div>
+
+      <!-- Right-side weight stack -->
+      <div class="bl-weight-stack">
+        <div class="bl-meta-cell"><span class="bl-lbl">Actual Weight</span><span class="bl-val">{{ wt }}</span></div>
+        <div class="bl-meta-cell"><span class="bl-lbl">Box Weight</span><span class="bl-val">{{ wt }}</span></div>
+        <div class="bl-meta-cell"><span class="bl-lbl">Box Vol. Weight</span><span class="bl-val">{{ volwt }}</span></div>
+        <div class="bl-meta-cell"><span class="bl-lbl">Dimension in CM</span><span class="bl-val" style="font-size:10px">{{ dims }}</span></div>
+        <div class="bl-meta-cell" style="display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;">1 / {{ invoice.packages|length if invoice.packages else 1 }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- /boxPrintArea -->
+
+<!-- ⑤ SHIPPER / CONSIGNEE LABEL (matches screenshot 2) -->
+<div id="scPrintArea">
+<div class="sc-doc">
+  <div class="sc-awb-top">{{ invoice.docket_no }}</div>
+
+  {% macro sc_barcode() %}
+  <svg class="sc-barcode-svg" viewBox="0 0 300 40" preserveAspectRatio="none">
+    {% for i in range(70) %}
+    <rect x="{{ i * 4.3 }}" y="0" width="{{ 1 if i % 3 == 0 else 2 }}" height="40" fill="{{ ['#111','#1d4ed8','#dc2626','#16a34a','#111'][i % 5] }}"></rect>
+    {% endfor %}
+  </svg>
+  {% endmacro %}
+
+  <!-- SHIPPER block -->
+  <div class="sc-box">
+    <div class="sc-top-row">
+      <span><span class="sc-role">SHIPPER</span> &nbsp; <span class="sc-company">{{ invoice.shipper_company or invoice.shipper_name or invoice.customer_name or '—' }}</span></span>
+      <span class="sc-pagecount">1 / {{ invoice.packages|length if invoice.packages else 1 }}</span>
+    </div>
+    <div class="sc-field-row"><span class="sc-field-lbl">Name</span><span class="sc-field-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</span></div>
+    <div class="sc-field-row"><span class="sc-field-lbl">Address</span><span class="sc-field-val">{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}{% if invoice.shipper_city %}, {{ invoice.shipper_city }}{% endif %}{% if invoice.shipper_state %}, {{ invoice.shipper_state }}{% endif %}</span></div>
+    <div class="sc-bottom-row">
+      <div class="sc-bottom-fields">
+        <div class="sc-field-row"><span class="sc-field-lbl">Pincode</span><span class="sc-field-val">{{ invoice.shipper_pincode or '—' }}</span></div>
+        <div class="sc-field-row"><span class="sc-field-lbl">City</span><span class="sc-field-val">{{ invoice.shipper_city or '—' }}</span></div>
+        <div class="sc-field-row"><span class="sc-field-lbl">State</span><span class="sc-field-val">{{ invoice.shipper_state or '—' }}</span></div>
+        <div class="sc-field-row"><span class="sc-field-lbl">Country</span><span class="sc-field-val" style="font-weight:700">{{ invoice.shipper_country or 'INDIA' }}</span></div>
+      </div>
+      <div class="sc-barcode-wrap">
+        <div class="sc-awb-num">{{ invoice.docket_no }}</div>
+        {{ sc_barcode() }}
+      </div>
+    </div>
+  </div>
+
+  <!-- CONSIGNEE block -->
+  <div class="sc-box">
+    <div class="sc-top-row">
+      <span><span class="sc-role">CONSIGNEE</span> &nbsp; <span class="sc-company">{{ invoice.receiver_company or invoice.receiver_name or '—' }}</span></span>
+      <span class="sc-pagecount">1 / {{ invoice.packages|length if invoice.packages else 1 }}</span>
+    </div>
+    <div class="sc-field-row"><span class="sc-field-lbl">Name</span><span class="sc-field-val">{{ invoice.receiver_name or '—' }}</span></div>
+    <div class="sc-field-row"><span class="sc-field-lbl">Address</span><span class="sc-field-val">{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}{% if invoice.receiver_city %}, {{ invoice.receiver_city }}{% endif %}{% if invoice.receiver_state %}, {{ invoice.receiver_state }}{% endif %}</span></div>
+    <div class="sc-bottom-row">
+      <div class="sc-bottom-fields">
+        <div class="sc-field-row"><span class="sc-field-lbl">Pincode</span><span class="sc-field-val">{{ invoice.receiver_pincode or '—' }}</span></div>
+        <div class="sc-field-row"><span class="sc-field-lbl">City</span><span class="sc-field-val">{{ invoice.receiver_city or '—' }}</span></div>
+        <div class="sc-field-row"><span class="sc-field-lbl">State</span><span class="sc-field-val">{{ invoice.receiver_state or '—' }}</span></div>
+        <div class="sc-field-row"><span class="sc-field-lbl">Country</span><span class="sc-field-val" style="font-weight:700">{{ invoice.receiver_country or invoice.destination or '—' }}</span></div>
+      </div>
+      <div class="sc-barcode-wrap">
+        <div class="sc-awb-num">{{ invoice.docket_no }}</div>
+        {{ sc_barcode() }}
+      </div>
+    </div>
+  </div>
+</div>
+</div><!-- /scPrintArea -->
 
 
 <script>
-let activeFormat = 1;
+let _activePrintId = null;
 
-function switchFormat(num, el) {
-  activeFormat = num;
-  document.querySelectorAll('.fmt-tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('format1').style.display = num === 1 ? 'block' : 'none';
-  document.getElementById('format2').style.display = num === 2 ? 'block' : 'none';
-  document.getElementById('format3').style.display = num === 3 ? 'block' : 'none';
-  if (num === 2) setAmountInWords();
-}
-
-function numToWords(num) {
-  const ones = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine',
-                 'Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen',
-                 'Seventeen','Eighteen','Nineteen'];
-  const tens = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
-  if (num === 0) return 'Zero';
-  function h(n) {
-    if (n < 20)       return ones[n];
-    if (n < 100)      return tens[Math.floor(n/10)] + (n%10 ? ' '+ones[n%10] : '');
-    if (n < 1000)     return ones[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' '+h(n%100) : '');
-    if (n < 100000)   return h(Math.floor(n/1000))   + ' Thousand' + (n%1000   ? ' '+h(n%1000)   : '');
-    if (n < 10000000) return h(Math.floor(n/100000)) + ' Lakh'     + (n%100000 ? ' '+h(n%100000) : '');
-    return h(Math.floor(n/10000000)) + ' Crore' + (n%10000000 ? ' '+h(n%10000000) : '');
+function triggerPrint(type) {
+  // Reset previous active area back to its original id
+  if (_activePrintId) {
+    const prev = document.getElementById('activePrintArea');
+    if (prev) prev.id = _activePrintId;
   }
-  const i = Math.floor(num), d = Math.round((num - i) * 100);
-  return h(i) + ' Rupees' + (d > 0 ? ' and ' + h(d) + ' Paise' : '') + ' Only';
-}
 
-function setAmountInWords() {
-  const el = document.getElementById('amtWords2');
-  if (el) el.textContent = numToWords({{ invoice.total | float }});
-}
+  const map = { pxc: 'pxcPrintArea', awb: 'awbPrintArea', perf: 'perfPrintArea', box: 'boxPrintArea', sc: 'scPrintArea' };
+  const targetId = map[type];
+  if (!targetId) return;
 
-function downloadPDF() {
-  const d1 = document.getElementById('format1').style.display;
-  const d2 = document.getElementById('format2').style.display;
-  const d3 = document.getElementById('format3').style.display;
-  document.getElementById('format1').style.display = activeFormat === 1 ? 'block' : 'none';
-  document.getElementById('format2').style.display = activeFormat === 2 ? 'block' : 'none';
-  document.getElementById('format3').style.display = activeFormat === 3 ? 'block' : 'none';
-  document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
-  window.print();
+  // Rename to activePrintArea so CSS @media print targets it
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  el.id = 'activePrintArea';
+  _activePrintId = targetId;
+
   setTimeout(() => {
-    document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
-    document.getElementById('format1').style.display = d1;
-    document.getElementById('format2').style.display = d2;
-    document.getElementById('format3').style.display = d3;
-  }, 500);
+    window.print();
+    window.addEventListener('afterprint', function cleanup() {
+      const active = document.getElementById('activePrintArea');
+      if (active) active.id = _activePrintId;
+      _activePrintId = null;
+      window.removeEventListener('afterprint', cleanup);
+    });
+  }, 80);
 }
 </script>
+
 {% endblock %}

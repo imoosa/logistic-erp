@@ -25,10 +25,104 @@
       --gray-700: #334155; --gray-800: #1E293B; --gray-900: #0F172A;
       --font: 'Plus Jakarta Sans', sans-serif;
       --sidebar-w: 265px;
+      --sidebar-collapsed-w: 60px;
       --topbar-h: 70px;
       --radius: 14px;
     }
     body { font-family: var(--font); background: var(--gray-50); color: var(--gray-800); }
+
+    /* ── SIDEBAR COLLAPSE ── */
+    .sidebar { transition: width .22s cubic-bezier(.4,0,.2,1); }
+    .sidebar.collapsed { width: var(--sidebar-collapsed-w); overflow: hidden; }
+    .sidebar.collapsed .sidebar-logo-text,
+    .sidebar.collapsed .sidebar-logo-sub,
+    .sidebar.collapsed .company-pill,
+    .sidebar.collapsed .nav-section-title,
+    .sidebar.collapsed .nav-item span:last-child,
+    .sidebar.collapsed .sidebar-foot a span:last-child { display: none; }
+    .sidebar.collapsed .sidebar-logo { justify-content: center; }
+    .sidebar.collapsed .sidebar-header { padding: 16px 10px; }
+    .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
+    .sidebar.collapsed .nav-icon { font-size: 18px; }
+    .sidebar.collapsed .sidebar-foot a { justify-content: center; padding: 10px; }
+    .sidebar-toggle-btn {
+      position: absolute; bottom: 16px; right: -14px;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: #fff; border: 1.5px solid var(--gray-200);
+      box-shadow: 0 2px 8px rgba(0,0,0,.12);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: var(--gray-600); z-index: 101;
+      transition: all .15s;
+    }
+    .sidebar-toggle-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .main { transition: margin-left .22s cubic-bezier(.4,0,.2,1); }
+    .main.collapsed { margin-left: var(--sidebar-collapsed-w); }
+
+    /* ── SIDEBAR COLLAPSE TOGGLE ── */
+.sidebar-toggle-btn {
+  position: fixed;
+  top: 50%;
+  left: 265px; /* Right edge of sidebar when expanded */
+  transform: translateY(-50%);
+  width: 28px;
+  height: 60px;
+  background: linear-gradient(180deg, #2563EB, #7C3AED);
+  border: none;
+  border-radius: 0 10px 10px 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #fff;
+  z-index: 102;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.2);
+  padding: 0;
+}
+.sidebar-toggle-btn:hover {
+  width: 34px;
+  box-shadow: 3px 0 20px rgba(37, 99, 235, 0.35);
+  background: linear-gradient(180deg, #1D4ED8, #6D28D9);
+}
+.sidebar-toggle-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+/* Tooltip on hover */
+.sidebar-toggle-btn .tooltip {
+  display: none;
+  position: absolute;
+  right: 36px;
+  background: var(--gray-900);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.sidebar-toggle-btn:hover .tooltip {
+  display: block;
+}
+
+/* Collapsed state - move button to left edge of collapsed sidebar */
+.sidebar.collapsed ~ .sidebar-toggle-btn,
+.sidebar.collapsed .sidebar-toggle-btn {
+  left: 60px;
+  border-radius: 0 10px 10px 0;
+  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.15);
+}
+
+/* Arrow rotation */
+.sidebar-toggle-btn .arrow {
+  transition: transform 0.3s ease;
+  display: inline-block;
+}
+.sidebar.collapsed .sidebar-toggle-btn .arrow {
+  transform: rotate(180deg);
+}
 
     /* ── SIDEBAR ── */
     .sidebar {
@@ -36,7 +130,7 @@
       background: var(--gray-900);
       position: fixed; top: 0; left: 0; height: 100vh;
       display: flex; flex-direction: column;
-      z-index: 100; overflow-y: auto;
+      z-index: 100; overflow-y: auto; overflow-x: hidden;
       scrollbar-width: thin; scrollbar-color: #334155 transparent;
     }
     .sidebar::-webkit-scrollbar { width: 4px; }
@@ -261,7 +355,8 @@
 <div class="wrapper">
 
   <!-- ── SIDEBAR ── -->
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">◀</button>
     <div class="sidebar-header">
       <div class="sidebar-logo">
         <div class="sidebar-logo-icon">🚚</div>
@@ -301,14 +396,14 @@
       <div class="nav-section">
         <div class="nav-section-title">Sales</div>
         <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
-          <span class="nav-icon">📄</span><span>Customer Invoices</span>
+          <span class="nav-icon">📄</span><span>Booking</span>
         </a>
         <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
-          <span class="nav-icon">📝</span><span>Booking Invoices</span>
+          <span class="nav-icon">📝</span><span>Performa invoices</span>
         </a>
-        <a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
+        <!--<a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
           <span class="nav-icon">📦</span><span>Orders</span>
-        </a>
+        </a>-->
         <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
           <span class="nav-icon">👥</span><span>Clients</span>
         </a>
@@ -477,6 +572,26 @@
     });
     document.getElementById('userDropdown').addEventListener('click', function(e){
       e.stopPropagation();
+    });
+  })();
+
+  // Sidebar collapse/expand
+  (function(){
+    var sidebar = document.getElementById('sidebar');
+    var main = document.querySelector('.main');
+    var btn = document.getElementById('sidebarToggle');
+    if (!sidebar || !btn) return;
+    var collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+    function apply(c) {
+      if (c) { sidebar.classList.add('collapsed'); main.classList.add('collapsed'); btn.textContent = '▶'; }
+      else    { sidebar.classList.remove('collapsed'); main.classList.remove('collapsed'); btn.textContent = '◀'; }
+    }
+    apply(collapsed);
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      collapsed = !collapsed;
+      localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+      apply(collapsed);
     });
   })();
 </script>

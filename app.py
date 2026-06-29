@@ -20,7 +20,7 @@ from customer_models import (
     Estimate, EstimateItem,
     PurchaseInvoice, PurchaseInvoiceItem, StockPurchaseHistory,
     CashTransaction, Loan, LoanRepayment,
-    BankAccount, BankTransaction, CompanyManifest, ManifestEntry, Expense, Supplier,
+    BankAccount, BankTransaction, CompanyManifest, ManifestEntry, Expense, Supplier, SupplierBrand,
     PriceList, RateLookup)
 from db_router import get_customer_session, init_customer_db_for_company
 from backup_utils import BACKUP_DESTINATIONS
@@ -50,24 +50,9 @@ def json_loads_filter(value, default=None):
         return default or {}
 
 # ── Database Configuration ────────────────────────────────────────────────────
-def _resolve_data_dir() -> str:
-    """Try DATA_DIR first, fall back to /tmp/erp_data if not writable yet."""
-    for candidate in (os.environ.get("DATA_DIR", "/data"), "/tmp/erp_data"):
-        try:
-            os.makedirs(candidate, exist_ok=True)
-            test = os.path.join(candidate, ".write_test")
-            open(test, "w").close()
-            os.remove(test)
-            return candidate
-        except OSError:
-            continue
-    raise RuntimeError("No writable data directory. Set DATA_DIR env var on Render.")
-
-_DATA_DIR = _resolve_data_dir()
-
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    f"sqlite:///{os.path.join(_DATA_DIR, 'platform.db')}"
+    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
@@ -765,6 +750,8 @@ def add_new_company():
             created_at=date.today(),
             is_active=True,
             is_gst_registered=is_gst,
+            awb_prefix=(request.form.get("awb_prefix", "AHL") or "AHL").strip().upper(),
+            awb_start=int(request.form.get("awb_start", 81000) or 81000),
         )
         db.session.add(new_company)
         db.session.commit()
@@ -832,6 +819,8 @@ def add_new_company():
                 current_count=companies_count,
                 max_companies=plan_obj.max_companies if plan_obj.max_companies == "Unlimited" else int(plan_obj.max_companies),
                 can_add=can_add_more,
+                awb_prefix="AHL",
+                awb_start=81000,
             )
 
 @app.route("/select-company", methods=["GET", "POST"])
@@ -884,7 +873,8 @@ def register():
         full_name        = request.form.get("full_name", "").strip()
         phone            = request.form.get("phone", "").strip()
         plan_key         = request.form.get("subscription_plan", "basic")
-
+        awb_prefix = request.form.get("awb_prefix", "AHL").strip().upper() or "AHL"
+        awb_start  = int(request.form.get("awb_start", 81000) or 81000)
         # ── Pull primary company fields ───────────────────────────────────────
         company_name     = request.form.get("company_name", "").strip()
         address          = request.form.get("address", request.form.get("company_address_1", "")).strip()
@@ -961,7 +951,7 @@ def register():
         db.session.flush()  # get id without committing
 
         # ── Helper: create one Company record + its customer DB ───────────────
-        def _create_company(c_name, c_address, c_phone, c_gst_registered, c_gst_number):
+        def _create_company(c_name, c_address, c_phone, c_gst_registered, c_gst_number, c_awb_prefix="AHL", c_awb_start=81000):
             comp_count = Company.query.count()
             c_id       = f"COMP{comp_count + 1:03d}"
 
@@ -980,8 +970,9 @@ def register():
                 is_gst_registered=c_gst_registered,
                 created_at=date.today(),
                 is_active=True,
-                # storage_type always 'cloud' — managed by Nexa, no user choice needed
                 storage_type="cloud",
+                awb_prefix=c_awb_prefix,
+                awb_start=c_awb_start,
             )
             db.session.add(company)
             db.session.flush()  # make company_id available before commit
@@ -990,7 +981,8 @@ def register():
 
         # ── Create primary company ─────────────────────────────────────────────
         primary_company_id = _create_company(
-            company_name, address, company_phone, is_gst, gst_number
+            company_name, address, company_phone, is_gst, gst_number,
+            awb_prefix, awb_start
         )
 
         # ── Create extra companies ────────────────────────────────────────────
@@ -1005,6 +997,8 @@ def register():
                 ec.get("phone", ""),
                 bool(ec.get("is_gst_registered", True)),
                 ec.get("gst_number", ""),
+                (ec.get("awb_prefix", "") or "AHL").strip().upper() or "AHL",
+                int(ec.get("awb_start", 81000) or 81000),
             )
             extra_company_ids.append(ec_id)
 
@@ -3067,12 +3061,12 @@ def purchase_invoice_delete(invoice_id):
 
     # ── Reverse supplier payable ──────────────────────────────────────────────
     # Only reverse the UNPAID portion (paid_amount was already deducted from
-    # supplier.pending when payments were recorded).
+    # supplier.payable when payments were recorded).
     if invoice.supplier_id:
         supplier = cdb.get(Client, invoice.supplier_id)
         if supplier:
             unpaid = invoice.balance or 0
-            supplier.pending = max(0, (supplier.pending or 0) - unpaid)
+            supplier.payable = max(0, (supplier.payable or 0) - unpaid)
 
     # cascade="all, delete-orphan" on items + purchase_history handles child rows
     cdb.delete(invoice)
@@ -3256,7 +3250,7 @@ def purchase_invoice_new():
         if supplier_id:
             supplier = cdb.get(Client, int(supplier_id))
             if supplier:
-                supplier.pending = (supplier.pending or 0) + grand_total
+                supplier.payable = (supplier.payable or 0) + grand_total
 
         cdb.commit()
 
@@ -3450,7 +3444,7 @@ def purchase_invoice_edit(invoice_id):
         if diff != 0 and invoice.supplier_id:
             supplier = cdb.get(Client, invoice.supplier_id)
             if supplier:
-                supplier.pending = max(0, (supplier.pending or 0) + diff)
+                supplier.payable = max(0, (supplier.payable or 0) + diff)
 
         cdb.commit()
         flash(f"Purchase bill {invoice_id} updated successfully.", "success")
@@ -3491,7 +3485,7 @@ def purchase_make_payment(pk):
         invoice.status = "Partial"
     
     if invoice.supplier:
-        invoice.supplier.pending -= amount
+        invoice.supplier.payable -= amount
     
     cdb.commit()
     flash(f"Payment of ₹{amount:,.2f} recorded!")
@@ -3523,8 +3517,20 @@ def purchase_make_payment(pk):
         invoice.status = "Partial"
 
     if invoice.supplier:
-        invoice.supplier.pending = max(0, (invoice.supplier.pending or 0) - amount)
+        invoice.supplier.payable = max(0, (invoice.supplier.payable or 0) - amount)
 
+    # Record payment ledger entry
+    pmt = PurchasePayment(
+        company_id  = company_id,
+        invoice_id  = invoice.id,
+        supplier_id = invoice.supplier_id,
+        date        = date.today(),
+        amount      = amount,
+        pay_mode    = pay_mode,
+        narration   = narration,
+        created_by  = session.get("user", {}).get("user_id")
+    )
+    cdb.add(pmt)
     cdb.commit()
     flash(f"Payment of ₹{amount:,.2f} via {pay_mode} recorded. {narration}")
     return redirect(url_for("purchase_invoice_view", invoice_id=invoice.invoice_id))
@@ -3912,6 +3918,8 @@ def invoice_new():
             "shipper_state": meta.get("shipper_state", ""),  
             "shipper_pincode": meta.get("shipper_pincode", ""),  
             "shipper_country": meta.get("shipper_country", "India"), 
+            "shipper_doc_type": meta.get("shipper_doc_type", ""),
+            "shipper_doc_no": meta.get("shipper_doc_no", ""),
             "receiver_name": meta.get("receiver_name", ""),
             "receiver_phone": meta.get("receiver_phone", ""),
             "receiver_address1": meta.get("receiver_address1", meta.get("receiver_address", "")),  
@@ -3920,6 +3928,8 @@ def invoice_new():
             "receiver_state": meta.get("receiver_state", ""),  
             "receiver_pincode": meta.get("receiver_pincode", ""),  
             "receiver_country": meta.get("receiver_country", "India"),
+            "receiver_doc_type": meta.get("receiver_doc_type", ""),
+            "receiver_doc_no": meta.get("receiver_doc_no", ""),
             "destination": meta.get("destination", ""),
             "shipment_type": meta.get("shipment_type", ""),
             "mode": meta.get("mode", ""),
@@ -3951,7 +3961,19 @@ def invoice_new():
             "resale_date": getattr(existing_invoice, 'resale_date', ''),
             "resale_notes": getattr(existing_invoice, 'resale_notes', ''),
         }
-        
+        # ── Load linked Performa Invoice items ──────────────────────────────
+        linked_est = cdb.query(Estimate).filter_by(company_id=company_id).filter(
+            Estimate.terms.like(f'%"linked_invoice_id": "{existing_invoice.invoice_id}"%')
+        ).first()
+        if linked_est and linked_est.terms:
+            try:
+                perf_meta = json.loads(linked_est.terms)
+                form_data["performa_items"] = perf_meta.get("line_items", [])
+                form_data["perf_weight"]    = perf_meta.get("weight", "")
+                form_data["perf_reference"] = perf_meta.get("reference", "")
+            except Exception:
+                pass
+        # ────────────────────────────────────────────────────────────────────
         docket_no = meta.get("docket_no", "")
         
         # Get packages from meta
@@ -4205,6 +4227,8 @@ def invoice_customer_update():
         "shipper_state": request.form.get("shipper_state", ""),  
         "shipper_pincode": request.form.get("shipper_pincode", ""),  
         "shipper_country": request.form.get("shipper_country", "India"),
+        "shipper_doc_type": request.form.get("shipper_doc_type", ""),
+        "shipper_doc_no": request.form.get("shipper_doc_no", ""),
         "receiver_name": request.form.get("receiver_name", ""),
         "receiver_phone": request.form.get("receiver_phone", ""),
         "receiver_address1": request.form.get("receiver_address1", ""),  
@@ -4213,6 +4237,8 @@ def invoice_customer_update():
         "receiver_state": request.form.get("receiver_state", ""),  
         "receiver_pincode": request.form.get("receiver_pincode", ""),  
         "receiver_country": request.form.get("receiver_country", "India"),
+        "receiver_doc_type": request.form.get("receiver_doc_type", ""),
+        "receiver_doc_no": request.form.get("receiver_doc_no", ""),
         "destination": request.form.get("destination", ""),
         "shipment_type": request.form.get("shipment_type", ""),
         "mode": request.form.get("mode", ""),
@@ -4267,6 +4293,125 @@ def invoice_customer_update():
     invoice.resale_reason = resale_reason
     invoice.resale_date = resale_date
     invoice.resale_notes = resale_notes
+
+    cdb.commit()
+
+    # ── Save Performa Invoice items (linked Estimate) ───────────────────────────
+    # This block was missing here entirely — invoice_customer_save (create) had it,
+    # invoice_customer_update (edit) did not, so edits to performa items never persisted.
+    perf_descs  = request.form.getlist("perf_desc[]")
+    perf_qtys   = request.form.getlist("perf_qty[]")
+    perf_rates  = request.form.getlist("perf_rate[]")
+    perf_weight = request.form.get("perf_weight", "0.00").strip()
+    perf_ref    = request.form.get("perf_reference", "").strip()
+
+    perf_items = []
+    perf_subtotal = 0.0
+    for i in range(len(perf_descs)):
+        desc = (perf_descs[i] or "").strip()
+        if not desc:
+            continue
+        qty  = float(perf_qtys[i])  if i < len(perf_qtys)  and perf_qtys[i]  else 0.0
+        rate = float(perf_rates[i]) if i < len(perf_rates) and perf_rates[i] else 0.0
+        perf_subtotal += qty * rate
+        perf_items.append({"description": desc, "qty": qty, "rate": rate})
+
+    def _fmt_addr_pi(a1, a2, city, state, pin, country):
+        return ", ".join(p for p in [a1, a2, city, state, pin, country] if p)
+
+    perf_terms = json.dumps({
+        "docket_no":        docket_no,
+        "linked_invoice_id": invoice.invoice_id,
+        "shipper_name":     request.form.get("shipper_name", ""),
+        "shipper_phone":    request.form.get("customer_phone", ""),
+        "shipper_address1": request.form.get("shipper_address1", ""),
+        "shipper_address2": request.form.get("shipper_address2", ""),
+        "shipper_city":     request.form.get("shipper_city", ""),
+        "shipper_state":    request.form.get("shipper_state", ""),
+        "shipper_pincode":  request.form.get("shipper_pincode", ""),
+        "shipper_country":  request.form.get("shipper_country", "India"),
+        "shipper_address":  _fmt_addr_pi(
+            request.form.get("shipper_address1",""), request.form.get("shipper_address2",""),
+            request.form.get("shipper_city",""), request.form.get("shipper_state",""),
+            request.form.get("shipper_pincode",""), request.form.get("shipper_country",""),
+        ),
+        "receiver_name":    request.form.get("receiver_name", ""),
+        "receiver_phone":   request.form.get("receiver_phone", ""),
+        "receiver_company": "",
+        "receiver_address1": request.form.get("receiver_address1", ""),
+        "receiver_address2": request.form.get("receiver_address2", ""),
+        "receiver_city":    request.form.get("receiver_city", ""),
+        "receiver_state":   request.form.get("receiver_state", ""),
+        "receiver_pincode": request.form.get("receiver_pincode", ""),
+        "receiver_country": request.form.get("receiver_country", "India"),
+        "receiver_address": _fmt_addr_pi(
+            request.form.get("receiver_address1",""), request.form.get("receiver_address2",""),
+            request.form.get("receiver_city",""), request.form.get("receiver_state",""),
+            request.form.get("receiver_pincode",""), request.form.get("receiver_country",""),
+        ),
+        "destination":  request.form.get("destination", ""),
+        "weight":       perf_weight,
+        "reference":    perf_ref,
+        "line_items":   perf_items,
+        "dimensions":   [],
+    })
+
+    existing_est = cdb.query(Estimate).filter_by(
+        company_id=company_id
+    ).filter(
+        Estimate.terms.like(f'%"linked_invoice_id": "{invoice.invoice_id}"%')
+    ).first()
+
+    if perf_items:
+        if existing_est:
+            existing_est.client_id      = client_id
+            existing_est.date           = date.fromisoformat(invoice_date)
+            existing_est.status         = "Paid"
+            existing_est.contact_person = request.form.get("shipper_name", "")
+            existing_est.phone          = request.form.get("customer_phone", "")
+            existing_est.subtotal       = perf_subtotal
+            existing_est.grand_total    = perf_subtotal
+            existing_est.tax_amount     = 0
+            existing_est.terms          = perf_terms
+            cdb.query(EstimateItem).filter_by(estimate_id=existing_est.id).delete()
+            for item in perf_items:
+                cdb.add(EstimateItem(
+                    estimate_id=existing_est.id,
+                    description=item["description"],
+                    qty=item["qty"],
+                    rate=item["rate"],
+                    discount=0,
+                ))
+        else:
+            ship_count = cdb.query(Estimate).filter_by(company_id=company_id).count()
+            est_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+            est = Estimate(
+                estimate_id    = est_id,
+                company_id     = company_id,
+                client_id      = client_id,
+                date           = date.fromisoformat(invoice_date),
+                status         = "Paid",
+                contact_person = request.form.get("shipper_name", ""),
+                phone          = request.form.get("customer_phone", ""),
+                subtotal       = perf_subtotal,
+                grand_total    = perf_subtotal,
+                tax_amount     = 0,
+                terms          = perf_terms,
+            )
+            cdb.add(est)
+            cdb.flush()
+            for item in perf_items:
+                cdb.add(EstimateItem(
+                    estimate_id  = est.id,
+                    description  = item["description"],
+                    qty          = item["qty"],
+                    rate         = item["rate"],
+                    discount     = 0,
+                ))
+    elif existing_est:
+        # All performa rows were cleared in the edit form — remove the stale Estimate.
+        cdb.query(EstimateItem).filter_by(estimate_id=existing_est.id).delete()
+        cdb.delete(existing_est)
 
     cdb.commit()
 
@@ -4354,6 +4499,8 @@ def invoice_view(invoice_id):
         "shipper_state": meta.get("shipper_state", ""),
         "shipper_pincode": meta.get("shipper_pincode", ""),
         "shipper_country": meta.get("shipper_country", ""),
+        "shipper_doc_type": meta.get("shipper_doc_type", ""),
+        "shipper_doc_no": meta.get("shipper_doc_no", ""),
         "receiver_name": meta.get("receiver_name", ""),
         "receiver_phone": meta.get("receiver_phone", ""),
         "receiver_address1": meta.get("receiver_address1", ""),
@@ -4362,6 +4509,8 @@ def invoice_view(invoice_id):
         "receiver_state": meta.get("receiver_state", ""),
         "receiver_pincode": meta.get("receiver_pincode", ""),
         "receiver_country": meta.get("receiver_country", ""),
+        "receiver_doc_type": meta.get("receiver_doc_type", ""),
+        "receiver_doc_no": meta.get("receiver_doc_no", ""),
         "destination":      meta.get("destination", ""),
         "origin":           meta.get("origin", "India"),
         "shipment_type":    meta.get("shipment_type", ""),
@@ -4382,6 +4531,20 @@ def invoice_view(invoice_id):
         "notes":            inv.email or "",
         "packages":         meta.get("packages", []),
     }
+
+    # ── Load linked Performa Invoice items (was missing — items existed in DB
+    #    but this route never queried for them, so view/print never showed them) ──
+    linked_est = cdb.query(Estimate).filter_by(company_id=company_id).filter(
+        Estimate.terms.like(f'%"linked_invoice_id": "{inv.invoice_id}"%')
+    ).first()
+    if linked_est and linked_est.terms:
+        try:
+            perf_meta = json.loads(linked_est.terms)
+            invoice["performa_items"] = perf_meta.get("line_items", [])
+            invoice["perf_weight"]    = perf_meta.get("weight", "")
+            invoice["perf_reference"] = perf_meta.get("reference", "")
+        except Exception:
+            pass
 
     # Derive pieces and total chargeable weight from the saved package rows
     # (falls back to freight_weight if no per-package rows exist)
@@ -4585,13 +4748,32 @@ AWB_COUNTER_KEY = "awb_last" # we store the last-used counter in a tiny helper
     seq = AWB_START + cust_count
     return f"{AWB_PREFIX}{seq}"""
 def _next_awb_number(company_id):
-    """Generate the next sequential AWB/docket number for this company."""
+    """Generate next sequential AWB using company-specific prefix + start."""
+    from platform_models import Company as PlatformCompany
+    co = PlatformCompany.query.filter_by(company_id=company_id).first()
+    prefix    = (co.awb_prefix if co else None) or "AHL"
+    awb_start = (co.awb_start  if co else None) or 81000
+
     cdb = get_cdb()
-    cust_count = cdb.query(Invoice).filter_by(company_id=company_id).filter(Invoice.invoice_id.like("CUST-%")).count()
-    AWB_PREFIX = "AHL"
-    AWB_START = 81000
-    seq = AWB_START + cust_count
-    return f"{AWB_PREFIX}{seq}"
+    # Find highest existing number for THIS company's prefix
+    rows = (
+        cdb.query(Invoice.terms)
+        .filter(Invoice.company_id == company_id)
+        .filter(Invoice.terms.isnot(None))
+        .all()
+    )
+    max_seq = awb_start - 1
+    for (terms,) in rows:
+        try:
+            meta = json.loads(terms or "{}")
+            dno  = meta.get("docket_no", "")
+            if dno.startswith(prefix):
+                num = int(dno[len(prefix):])
+                if num > max_seq:
+                    max_seq = num
+        except (ValueError, TypeError):
+            pass
+    return f"{prefix}{max_seq + 1}"
 
 @app.route("/invoice/customer")
 @login_required
@@ -4651,6 +4833,8 @@ def invoice_customer_save():
     action         = request.form.get("action", "final")
 
     # ── Charges & totals ──────────────────────────────────────────────────────
+    freight_weight = float(request.form.get("freight_weight", 0) or 0)
+    freight_rate   = float(request.form.get("freight_rate_per_kg", 0) or 0)
     freight        = float(request.form.get("freight_amount", 0) or 0)
     fuel           = float(request.form.get("fuel_surcharge",  0) or 0)
     other          = float(request.form.get("other_charges",   0) or 0)
@@ -4832,6 +5016,8 @@ def invoice_customer_save():
         "shipper_state": request.form.get("shipper_state", ""),
         "shipper_pincode": request.form.get("shipper_pincode", ""),
         "shipper_country": request.form.get("shipper_country", "India"),
+        "shipper_doc_type": request.form.get("shipper_doc_type", ""),
+        "shipper_doc_no": request.form.get("shipper_doc_no", ""),
         "receiver_name": request.form.get("receiver_name", ""),
         "receiver_phone": request.form.get("receiver_phone", ""),
         "receiver_address1": request.form.get("receiver_address1", ""),
@@ -4840,6 +5026,8 @@ def invoice_customer_save():
         "receiver_state": request.form.get("receiver_state", ""),
         "receiver_pincode": request.form.get("receiver_pincode", ""),
         "receiver_country": request.form.get("receiver_country", "India"),
+        "receiver_doc_type": request.form.get("receiver_doc_type", ""),
+        "receiver_doc_no": request.form.get("receiver_doc_no", ""),
         "destination":      request.form.get("destination", ""),
         "shipment_type":    request.form.get("shipment_type", ""),
         "mode":             request.form.get("mode", ""),
@@ -4857,6 +5045,8 @@ def invoice_customer_save():
         "cheque_date":      cheque_date,
         "cheque_bank":      cheque_bank,
         "freight":          freight,
+        "freight_weight":   freight_weight,
+        "freight_rate_per_kg": freight_rate,
         "fuel":             fuel,
         "other":            other,
         "gst":              gst,
@@ -5003,6 +5193,119 @@ def invoice_customer_save():
         if client and hasattr(client, "pending"):
             client.pending = (client.pending or 0) + balance
 
+    # ── Save Performa Invoice items (linked Estimate) ──────────────────────────
+    perf_descs  = request.form.getlist("perf_desc[]")
+    perf_qtys   = request.form.getlist("perf_qty[]")
+    perf_rates  = request.form.getlist("perf_rate[]")
+    perf_weight = request.form.get("perf_weight", "0.00").strip()
+    perf_ref    = request.form.get("perf_reference", "").strip()
+
+    perf_items = []
+    perf_subtotal = 0.0
+    for i in range(len(perf_descs)):
+        desc = (perf_descs[i] or "").strip()
+        if not desc:
+            continue
+        qty  = float(perf_qtys[i])  if i < len(perf_qtys)  and perf_qtys[i]  else 0.0
+        rate = float(perf_rates[i]) if i < len(perf_rates) and perf_rates[i] else 0.0
+        perf_subtotal += qty * rate
+        perf_items.append({"description": desc, "qty": qty, "rate": rate})
+
+    if perf_items:
+        def _fmt_addr_pi(a1, a2, city, state, pin, country):
+            return ", ".join(p for p in [a1, a2, city, state, pin, country] if p)
+
+        perf_terms = json.dumps({
+            "docket_no":        docket_no,
+            "linked_invoice_id": invoice_id,   # links back to the CUST- invoice
+            "shipper_name":     request.form.get("shipper_name", ""),
+            "shipper_phone":    request.form.get("customer_phone", ""),
+            "shipper_address1": request.form.get("shipper_address1", ""),
+            "shipper_address2": request.form.get("shipper_address2", ""),
+            "shipper_city":     request.form.get("shipper_city", ""),
+            "shipper_state":    request.form.get("shipper_state", ""),
+            "shipper_pincode":  request.form.get("shipper_pincode", ""),
+            "shipper_country":  request.form.get("shipper_country", "India"),
+            "shipper_address":  _fmt_addr_pi(
+                request.form.get("shipper_address1",""), request.form.get("shipper_address2",""),
+                request.form.get("shipper_city",""), request.form.get("shipper_state",""),
+                request.form.get("shipper_pincode",""), request.form.get("shipper_country",""),
+            ),
+            "receiver_name":    request.form.get("receiver_name", ""),
+            "receiver_phone":   request.form.get("receiver_phone", ""),
+            "receiver_company": "",
+            "receiver_address1": request.form.get("receiver_address1", ""),
+            "receiver_address2": request.form.get("receiver_address2", ""),
+            "receiver_city":    request.form.get("receiver_city", ""),
+            "receiver_state":   request.form.get("receiver_state", ""),
+            "receiver_pincode": request.form.get("receiver_pincode", ""),
+            "receiver_country": request.form.get("receiver_country", "India"),
+            "receiver_address": _fmt_addr_pi(
+                request.form.get("receiver_address1",""), request.form.get("receiver_address2",""),
+                request.form.get("receiver_city",""), request.form.get("receiver_state",""),
+                request.form.get("receiver_pincode",""), request.form.get("receiver_country",""),
+            ),
+            "destination":  request.form.get("destination", ""),
+            "weight":       perf_weight,
+            "reference":    perf_ref,
+            "line_items":   perf_items,
+            "dimensions":   [],   # dimensions come from the packages section
+        })
+
+        # Check if an Estimate already exists for this docket (edit scenario)
+        existing_est = cdb.query(Estimate).filter_by(
+            company_id=company_id
+        ).filter(
+            Estimate.terms.like(f'%"linked_invoice_id": "{invoice_id}"%')
+        ).first()
+
+        if existing_est:
+            existing_est.client_id      = client_id
+            existing_est.date           = date.fromisoformat(invoice_date)
+            existing_est.status         = "Paid"
+            existing_est.contact_person = request.form.get("shipper_name", "")
+            existing_est.phone          = request.form.get("customer_phone", "")
+            existing_est.subtotal       = perf_subtotal
+            existing_est.grand_total    = perf_subtotal
+            existing_est.tax_amount     = 0
+            existing_est.terms          = perf_terms
+            cdb.query(EstimateItem).filter_by(estimate_id=existing_est.id).delete()
+            for item in perf_items:
+                cdb.add(EstimateItem(
+                    estimate_id=existing_est.id,
+                    description=item["description"],
+                    qty=item["qty"],
+                    rate=item["rate"],
+                    discount=0,
+                ))
+        else:
+            ship_count = cdb.query(Estimate).filter_by(company_id=company_id).count()
+            est_id = f"SHIP-{datetime.now().strftime('%Y%m%d')}-{ship_count + 1:03d}"
+            est = Estimate(
+                estimate_id    = est_id,
+                company_id     = company_id,
+                client_id      = client_id,
+                date           = date.fromisoformat(invoice_date),
+                status         = "Paid",
+                contact_person = request.form.get("shipper_name", ""),
+                phone          = request.form.get("customer_phone", ""),
+                subtotal       = perf_subtotal,
+                grand_total    = perf_subtotal,
+                tax_amount     = 0,
+                terms          = perf_terms,
+            )
+            cdb.add(est)
+            cdb.flush()
+            for item in perf_items:
+                cdb.add(EstimateItem(
+                    estimate_id  = est.id,
+                    description  = item["description"],
+                    qty          = item["qty"],
+                    rate         = item["rate"],
+                    discount     = 0,
+                ))
+
+
     cdb.commit()
 
     # ── Build flash message ───────────────────────────────────────────────────
@@ -5047,6 +5350,7 @@ def _normalize_supplier(s):
     """Return a dict whose keys match what suppliers.html / supplier_form.html expect."""
     return {
         "id":              s.id,
+        "name": s.name,
         "supplier_name":   s.name,
         "supplier_type":   s.supplier_type   or "Business",
         "contact_person":  s.contact_person  or "",
@@ -5104,7 +5408,7 @@ def supplier_new():
             ).first()
             if existing_gst:
                 flash(f"GST number {gst} is already registered to supplier '{existing_gst.name}'. Please check and try again.", "error")
-                return render_template("supplier_form.html", form_data=f)
+                return render_template("supplier_form.html", form_data=f, existing_brands=f.getlist("brand_name[]"))
 
         new_supplier = Supplier(
             company_id      = company_id,
@@ -5134,9 +5438,21 @@ def supplier_new():
         )
         cdb.add(new_supplier)
         cdb.commit()
+
+        brand_names = [b.strip() for b in f.getlist("brand_name[]") if b.strip()]
+        seen = set()
+        for b in brand_names:
+            key = b.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cdb.add(SupplierBrand(supplier_id=new_supplier.id, brand_name=b))
+        if brand_names:
+            cdb.commit()
+
         flash(f"Supplier '{new_supplier.name}' added successfully!")
         return redirect(url_for("supplier_list"))
-    return render_template("supplier_form.html", form_data={})
+    return render_template("supplier_form.html", form_data={}, existing_brands=[])
 
 @app.route("/debug/suppliers")
 @login_required
@@ -5175,7 +5491,12 @@ def supplier_edit(supplier_pk):
             ).first()
             if existing_gst:
                 flash(f"GST number {gst} is already registered to supplier '{existing_gst.name}'.", "error")
-                return render_template("supplier_form.html", supplier=_normalize_supplier(s), form_data=f)
+                return render_template(
+                    "supplier_form.html",
+                    supplier=_normalize_supplier(s),
+                    form_data=f,
+                    existing_brands=f.getlist("brand_name[]")
+                )
 
         s.name            = f.get("supplier_name",   s.name).strip()
         s.supplier_type   = f.get("supplier_type",   s.supplier_type)
@@ -5198,10 +5519,28 @@ def supplier_edit(supplier_pk):
         s.opening_balance = float(f.get("opening_balance", s.opening_balance or 0) or 0)
         s.status          = f.get("status", s.status)
         s.notes           = f.get("notes",  s.notes or "").strip()
+
+        # Replace brand list with whatever was submitted (simplest correct
+        # behavior for a short add/remove-row UI — no per-row diffing needed)
+        cdb.query(SupplierBrand).filter_by(supplier_id=s.id).delete()
+        brand_names = [b.strip() for b in f.getlist("brand_name[]") if b.strip()]
+        seen = set()
+        for b in brand_names:
+            key = b.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            cdb.add(SupplierBrand(supplier_id=s.id, brand_name=b))
+
         cdb.commit()
         flash(f"Supplier '{s.name}' updated successfully!")
         return redirect(url_for("supplier_list"))
-    return render_template("supplier_form.html", supplier=_normalize_supplier(s), form_data={})
+    return render_template(
+        "supplier_form.html",
+        supplier=_normalize_supplier(s),
+        form_data={},
+        existing_brands=sorted(b.brand_name for b in s.brands)
+    )
 
 
 @app.route("/suppliers/<int:supplier_pk>/delete", methods=["GET", "POST"])
@@ -5214,6 +5553,21 @@ def supplier_delete(supplier_pk):
     cdb.commit()
     flash("Supplier deleted.")
     return redirect(url_for("supplier_list"))
+
+@app.route("/api/supplier/<int:supplier_pk>/brands")
+@login_required
+def api_supplier_brands(supplier_pk):
+    """Return this supplier's registered brand/courier names for the purchase form's
+    dependent courier dropdown. Empty list means 'no brands registered' — the
+    frontend falls back to the general COURIER_OPTIONS list in that case."""
+    cdb        = get_cdb()
+    company_id = get_current_company()
+    s = cdb.query(Supplier).filter_by(id=supplier_pk, company_id=company_id).first()
+    if not s:
+        return jsonify({"brands": []}), 404
+    brands = sorted(b.brand_name for b in s.brands)
+    return jsonify({"brands": brands})
+
 
 @app.route("/api/customers/list")
 @login_required
@@ -6250,10 +6604,11 @@ def manifest_list():
         return redirect(url_for('login'))
     cdb = get_customer_session(company_id)
 
-    from_date  = request.args.get('from_date')
-    to_date    = request.args.get('to_date')
-    shipper_id = request.args.get('shipper_id')
-    courier    = request.args.get('courier', '').strip()
+    from_date   = request.args.get('from_date')
+    to_date     = request.args.get('to_date')
+    shipper_id  = request.args.get('shipper_id')
+    courier     = request.args.get('courier', '').strip()
+    supplier_id = request.args.get('supplier_id', '').strip()
 
     q = cdb.query(CompanyManifest).filter_by(company_id=company_id)
 
@@ -6275,6 +6630,19 @@ def manifest_list():
             ManifestEntry.courier_name.ilike(f'%{courier}%')
         )
 
+    # NEW — matches on supplier name itself PLUS any registered brand names
+    selected_supplier_name = None
+    if supplier_id:
+        sup = cdb.query(Supplier).filter_by(id=int(supplier_id), company_id=company_id).first()
+        if sup:
+            selected_supplier_name = sup.name
+            # Include supplier's own name + all brand names for the ilike match
+            match_names = [sup.name] + [b.brand_name for b in sup.brands]
+            from sqlalchemy import or_
+            q = q.join(ManifestEntry).filter(
+                or_(*[ManifestEntry.courier_name.ilike(f'%{n}%') for n in match_names])
+            )
+
     manifests = q.order_by(CompanyManifest.date.desc(), CompanyManifest.id.desc()).all()
 
     clients      = cdb.query(Client).filter_by(company_id=company_id, status='Active').order_by(Client.name).all()
@@ -6284,6 +6652,23 @@ def manifest_list():
         for e in m.entries:
             courier_set.add(e.courier_name.strip().lower())
     unique_couriers = len(courier_set)
+
+    # NEW — all suppliers show in filter, not just ones with brand rows
+    suppliers_with_brands = (
+        cdb.query(Supplier)
+        .filter_by(company_id=company_id)
+        .order_by(Supplier.name)
+        .all()
+    )
+
+    # Map courier_name -> parent supplier name.
+    # Includes both registered SupplierBrand entries AND the supplier's own name.
+    brand_to_supplier = {}
+    for sup in suppliers_with_brands:
+        # The supplier name itself matches (e.g. "Blue Dart Aviation" in ManifestEntry.courier_name)
+        brand_to_supplier[sup.name.strip().lower()] = sup.name
+        for b in sup.brands:
+            brand_to_supplier[b.brand_name.strip().lower()] = sup.name
 
     from collections import defaultdict
     grouped_manifests = defaultdict(list)
@@ -6299,6 +6684,10 @@ def manifest_list():
         to_date=to_date,
         shipper_id=shipper_id,
         courier=courier,
+        supplier_id=supplier_id,
+        selected_supplier_name=selected_supplier_name,
+        suppliers_with_brands=suppliers_with_brands,
+        brand_to_supplier=brand_to_supplier,
         total_manifests=len(manifests),
         total_boxes=total_boxes,
         unique_couriers=unique_couriers,
@@ -9183,10 +9572,9 @@ def _creditor_summary(company_id):
     For suppliers with no invoices or fully paid, show zero balance.
     """
     cdb = get_cdb()
-    suppliers = cdb.query(Client).filter(
-        Client.company_id == company_id,
-        db.or_(Client.client_type == "Supplier", Client.client_type == "Both")
-    ).order_by(Client.name).all()
+    suppliers = cdb.query(Supplier).filter(
+        Supplier.company_id == company_id
+    ).order_by(Supplier.name).all()
 
     today = date.today()
     rows = []
@@ -9365,7 +9753,7 @@ def debtor_statement(client_pk):
 def creditor_statement(supplier_pk):
     cdb = get_cdb()
     company_id = get_current_company()
-    s          = _first_or_404(cdb.query(Client).filter_by(id=supplier_pk, company_id=company_id).first())
+    s = _first_or_404(cdb.query(Supplier).filter_by(id=supplier_pk, company_id=company_id).first())
 
     invoices = (cdb.query(PurchaseInvoice)
                 .filter_by(company_id=company_id, supplier_id=s.id)
@@ -9419,7 +9807,7 @@ def creditor_statement(supplier_pk):
     total_credit = sum(r["credit"] for r in ledger)
 
     return render_template("ledger_statement.html",
-                           entity=_normalize_client(s),
+                           entity=_normalize_supplier(s),
                            ledger=ledger,
                            total_debit=total_debit,
                            total_credit=total_credit,
@@ -9438,7 +9826,7 @@ def _outstanding_invoices_for_client(company_id, client_id):
     cdb = get_cdb()
     invs = (cdb.query(Invoice)
             .filter_by(company_id=company_id, client_id=client_id)
-            .filter(Invoice.status.in_(["Draft", "Partial"]))
+            .filter(Invoice.status.in_(["Pending", "Partial"]))
             .order_by(Invoice.date.asc())
             .all())
     result = []
@@ -9492,38 +9880,91 @@ def _build_invoices_json(company_id, entities, fetch_fn):
 @app.route("/receipts/new")
 @login_required
 def receipt_new():
-    cdb = get_cdb()
-    company_id    = get_current_company()
-    all_clients   = cdb.query(Client).filter_by(company_id=company_id).order_by(Client.name).all()
-    selected_id   = request.args.get("client_id", type=int)
-    invoices_json = _build_invoices_json(company_id, all_clients,
-                                         _outstanding_invoices_for_client)
+    cdb        = get_cdb()
+    company_id = get_current_company()
+    all_clients    = cdb.query(Client).filter_by(company_id=company_id).order_by(Client.name).all()
+    bank_accounts  = cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').all()
+    selected_id    = request.args.get("client_id", type=int)
+    invoices_json  = _build_invoices_json(company_id, all_clients, _outstanding_invoices_for_client)
+
+    # Build receipt history — cash + bank transactions
+    history = []
+    cash_receipts = (cdb.query(CashTransaction)
+                     .filter_by(company_id=company_id, category="Receipt")
+                     .order_by(CashTransaction.date.desc())
+                     .limit(100).all())
+    for t in cash_receipts:
+        history.append({
+            "date":      t.date.strftime("%d %b %Y") if t.date else "",
+            "reference": t.reference or "—",
+            "client":    t.description,
+            "amount":    t.amount,
+            "mode":      "Cash",
+            "bank_name": "Cash in Hand",
+            "notes":     t.notes or "",
+        })
+
+    bank_receipts = (cdb.query(BankTransaction)
+                     .filter_by(company_id=company_id, type="credit")
+                     .filter(BankTransaction.description.like("Payment received%"))
+                     .order_by(BankTransaction.date.desc())
+                     .limit(100).all())
+    for t in bank_receipts:
+        bank_name = ""
+        if t.bank_account:
+            bank_name = f"{t.bank_account.bank_name} – {t.bank_account.account_name}"
+        history.append({
+            "date":      t.date.strftime("%d %b %Y") if t.date else "",
+            "reference": t.reference or "—",
+            "client":    t.description,
+            "amount":    t.amount,
+            "mode":      t.transaction_mode or "Bank",
+            "bank_name": bank_name,
+            "notes":     t.notes or "",
+        })
+    history.sort(key=lambda x: x["date"], reverse=True)
+
     return render_template(
-        "receipt_payment.html",
-        mode="receipt",
+        "record_receipt.html",
         entities=all_clients,
+        bank_accounts=bank_accounts,
         invoices_json=invoices_json,
         selected_id=selected_id,
         today=str(date.today()),
+        history=history,
     )
 
 
 @app.route("/receipts/save", methods=["POST"])
 @login_required
 def receipt_save():
-    cdb = get_cdb()
+    cdb         = get_cdb()
     company_id  = get_current_company()
     entity_id   = request.form.get("entity_id", type=int)
     amount      = request.form.get("amount", type=float, default=0)
     invoice_ids = [int(x) for x in request.form.get("invoice_ids", "").split(",") if x.strip()]
     narration   = request.form.get("narration", "")
     pay_mode    = request.form.get("pay_mode", "Cash")
+    bank_account_id = request.form.get("bank_account_id", type=int)
     txn_date_str = request.form.get("txn_date")
     txn_date    = date.fromisoformat(txn_date_str) if txn_date_str else date.today()
 
     if not entity_id or amount <= 0:
-        flash("Please select a client and enter a valid amount.")
+        flash("Please select a client and enter a valid amount.", "error")
         return redirect(url_for("receipt_new"))
+
+    # Validate bank account required for non-cash
+    bank_account = None
+    if pay_mode.lower() != "cash":
+        if not bank_account_id:
+            flash("Please select a bank account for non-cash payments.", "error")
+            return redirect(url_for("receipt_new"))
+        bank_account = cdb.query(BankAccount).filter_by(
+            id=bank_account_id, company_id=company_id, status='Active'
+        ).first()
+        if not bank_account:
+            flash("Selected bank account not found or inactive.", "error")
+            return redirect(url_for("receipt_new"))
 
     if not invoice_ids:
         rows = _outstanding_invoices_for_client(company_id, entity_id)
@@ -9553,15 +9994,14 @@ def receipt_save():
         if hasattr(inv, "paid_amount"):
             inv.paid_amount = (inv.paid_amount or 0) + apply
 
-        # FIX 1: Update status correctly
         if inv_balance <= 0:
             inv.status = "Paid"
         elif apply > 0:
             inv.status = "Partial"
 
-        # Record payment in cash/bank
         if apply > 0:
-            if pay_mode == "cash":
+            if pay_mode.lower() == "cash":
+                # Record in Cash in Hand
                 cash_txn = CashTransaction(
                     company_id=company_id,
                     type="income",
@@ -9570,78 +10010,126 @@ def receipt_save():
                     description=f"Payment received for invoice {inv.invoice_id} - {narration}",
                     amount=apply,
                     reference=inv.invoice_id,
-                    notes=f"Payment from client via {pay_mode}",
+                    notes=f"Payment from client via Cash",
                     created_by=get_current_user().get('email')
                 )
                 cdb.add(cash_txn)
             else:
-                # For bank/UPI/cheque payments, record in bank account
-                bank_account = cdb.query(BankAccount).filter_by(
-                    company_id=company_id, status='Active'
-                ).first()
-                if bank_account:
-                    bank_txn = BankTransaction(
-                        bank_account_id=bank_account.id,
-                        company_id=company_id,
-                        type="credit",
-                        date=txn_date,
-                        description=f"Payment received for invoice {inv.invoice_id}",
-                        amount=apply,
-                        reference=inv.invoice_id,
-                        transaction_mode=pay_mode.title(),
-                        notes=narration,
-                        created_by=get_current_user().get('email')
-                    )
-                    cdb.add(bank_txn)
-                    bank_account.balance += apply
+                # Record in the chosen bank account
+                bank_txn = BankTransaction(
+                    bank_account_id=bank_account.id,
+                    company_id=company_id,
+                    type="credit",
+                    date=txn_date,
+                    description=f"Payment received for invoice {inv.invoice_id}",
+                    amount=apply,
+                    reference=inv.invoice_id,
+                    transaction_mode=pay_mode.title(),
+                    notes=narration,
+                    created_by=get_current_user().get('email')
+                )
+                cdb.add(bank_txn)
+                bank_account.balance += apply
 
     client = cdb.query(Client).filter_by(id=entity_id, company_id=company_id).first()
     if client and hasattr(client, "pending") and client.pending:
         client.pending = max(0, (client.pending or 0) - settled)
 
     cdb.commit()
-    flash(f"Receipt of ₹{settled:,.2f} recorded via {pay_mode}. {narration}")
+
+    dest = bank_account.bank_name if bank_account else "Cash in Hand"
+    flash(f"Receipt of ₹{settled:,.2f} recorded via {pay_mode} → {dest}. {narration}", "success")
     return redirect(url_for("debtors_list"))
 
 
 @app.route("/payments/new")
 @login_required
 def payment_new():
-    cdb = get_cdb()
-    company_id    = get_current_company()
-    all_suppliers = cdb.query(Client).filter(
-        Client.company_id == company_id,
-        Client.client_type.in_(["Supplier", "Both"])
-    ).order_by(Client.name).all()
-    selected_id   = request.args.get("supplier_id", type=int)
-    invoices_json = _build_invoices_json(company_id, all_suppliers,
-                                         _outstanding_invoices_for_supplier)
+    cdb        = get_cdb()
+    company_id = get_current_company()
+    all_suppliers  = cdb.query(Supplier).filter_by(company_id=company_id).order_by(Supplier.name).all()
+    bank_accounts  = cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').all()
+    selected_id    = request.args.get("supplier_id", type=int)
+    invoices_json  = _build_invoices_json(company_id, all_suppliers, _outstanding_invoices_for_supplier)
+
+    # Build payment history — cash + bank transactions
+    history = []
+    cash_payments = (cdb.query(CashTransaction)
+                     .filter_by(company_id=company_id, category="Payment")
+                     .order_by(CashTransaction.date.desc())
+                     .limit(100).all())
+    for t in cash_payments:
+        history.append({
+            "date":      t.date.strftime("%d %b %Y") if t.date else "",
+            "reference": t.reference or "—",
+            "supplier":  t.description,
+            "amount":    t.amount,
+            "mode":      "Cash",
+            "bank_name": "Cash in Hand",
+            "notes":     t.notes or "",
+        })
+
+    bank_payments = (cdb.query(BankTransaction)
+                     .filter_by(company_id=company_id, type="debit")
+                     .filter(BankTransaction.description.like("Payment made%"))
+                     .order_by(BankTransaction.date.desc())
+                     .limit(100).all())
+    for t in bank_payments:
+        bank_name = ""
+        if t.bank_account:
+            bank_name = f"{t.bank_account.bank_name} – {t.bank_account.account_name}"
+        history.append({
+            "date":      t.date.strftime("%d %b %Y") if t.date else "",
+            "reference": t.reference or "—",
+            "supplier":  t.description,
+            "amount":    t.amount,
+            "mode":      t.transaction_mode or "Bank",
+            "bank_name": bank_name,
+            "notes":     t.notes or "",
+        })
+    history.sort(key=lambda x: x["date"], reverse=True)
+
     return render_template(
-        "receipt_payment.html",
-        mode="payment",
+        "record_payment.html",
         entities=all_suppliers,
+        bank_accounts=bank_accounts,
         invoices_json=invoices_json,
         selected_id=selected_id,
         today=str(date.today()),
+        history=history,
     )
 
 
 @app.route("/payments/save", methods=["POST"])
 @login_required
 def payment_save():
-    cdb = get_cdb()
+    cdb         = get_cdb()
     company_id  = get_current_company()
     entity_id   = request.form.get("entity_id", type=int)
     amount      = request.form.get("amount", type=float, default=0)
     invoice_ids = [int(x) for x in request.form.get("invoice_ids", "").split(",") if x.strip()]
     narration   = request.form.get("narration", "")
     pay_mode    = request.form.get("pay_mode", "Cash")
+    bank_account_id = request.form.get("bank_account_id", type=int)
     txn_date_str = request.form.get("txn_date")
     txn_date    = date.fromisoformat(txn_date_str) if txn_date_str else date.today()
 
     if not entity_id or amount <= 0:
-        flash("Please select a supplier and enter a valid amount.")
+        flash("Please select a supplier and enter a valid amount.", "error")
         return redirect(url_for("payment_new"))
+
+    # Validate bank account required for non-cash
+    bank_account = None
+    if pay_mode.lower() != "cash":
+        if not bank_account_id:
+            flash("Please select a bank account for non-cash payments.", "error")
+            return redirect(url_for("payment_new"))
+        bank_account = cdb.query(BankAccount).filter_by(
+            id=bank_account_id, company_id=company_id, status='Active'
+        ).first()
+        if not bank_account:
+            flash("Selected bank account not found or inactive.", "error")
+            return redirect(url_for("payment_new"))
 
     if not invoice_ids:
         rows = _outstanding_invoices_for_supplier(company_id, entity_id)
@@ -9665,7 +10153,6 @@ def payment_save():
         inv.balance     = inv_balance - apply
         inv.paid_amount = (inv.paid_amount or 0) + apply
 
-        # Update status correctly
         if inv.balance <= 0:
             inv.status = "Paid"
         elif inv.paid_amount > 0:
@@ -9673,8 +10160,8 @@ def payment_save():
         else:
             inv.status = "Pending"
 
-        # Log payment in cash/bank transactions
-        if pay_mode == "cash":
+        if pay_mode.lower() == "cash":
+            # Record in Cash in Hand
             cash_txn = CashTransaction(
                 company_id=company_id,
                 type="expense",
@@ -9683,37 +10170,35 @@ def payment_save():
                 description=f"Payment made for purchase invoice {inv.invoice_number or inv.invoice_id} - {narration}",
                 amount=apply,
                 reference=inv.invoice_id,
-                notes=f"Payment to supplier via {pay_mode}",
+                notes=f"Payment to supplier via Cash",
                 created_by=get_current_user().get('email')
             )
             cdb.add(cash_txn)
         else:
-            # For bank/UPI/cheque payments
-            bank_account = cdb.query(BankAccount).filter_by(
-                company_id=company_id, status='Active'
-            ).first()
-            if bank_account:
-                bank_txn = BankTransaction(
-                    bank_account_id=bank_account.id,
-                    company_id=company_id,
-                    type="debit",
-                    date=txn_date,
-                    description=f"Payment made for purchase invoice {inv.invoice_number or inv.invoice_id}",
-                    amount=apply,
-                    reference=inv.invoice_id,
-                    transaction_mode=pay_mode.title(),
-                    notes=narration,
-                    created_by=get_current_user().get('email')
-                )
-                cdb.add(bank_txn)
-                bank_account.balance -= apply
+            # Record in the chosen bank account
+            bank_txn = BankTransaction(
+                bank_account_id=bank_account.id,
+                company_id=company_id,
+                type="debit",
+                date=txn_date,
+                description=f"Payment made for purchase invoice {inv.invoice_number or inv.invoice_id}",
+                amount=apply,
+                reference=inv.invoice_id,
+                transaction_mode=pay_mode.title(),
+                notes=narration,
+                created_by=get_current_user().get('email')
+            )
+            cdb.add(bank_txn)
+            bank_account.balance -= apply
 
-        # Update supplier pending amount
+        # Update supplier payable
         if inv.supplier:
-            inv.supplier.pending = max(0, (inv.supplier.pending or 0) - apply)
+            inv.supplier.payable = max(0, (inv.supplier.payable or 0) - apply)
 
     cdb.commit()
-    flash(f"Payment of ₹{settled:,.2f} recorded via {pay_mode}. {narration}")
+
+    dest = bank_account.bank_name if bank_account else "Cash in Hand"
+    flash(f"Payment of ₹{settled:,.2f} recorded via {pay_mode} → {dest}. {narration}", "success")
     return redirect(url_for("creditors_list"))
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -125,9 +125,28 @@ class Supplier(customer_db.Model):
     status          = customer_db.Column(customer_db.String(50),  nullable=False, default="Active")    # Active / Inactive / Blacklisted
     notes           = customer_db.Column(customer_db.Text,        nullable=True)
     created_at      = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
- 
+
+    brands = customer_db.relationship("SupplierBrand", back_populates="supplier", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<Supplier {self.id} – {self.name}>"
+
+
+# ── 5b. Supplier Brands (courier tie-ups under one supplier, e.g. IMD → Bluedart, DPD, DHL) ──
+class SupplierBrand(customer_db.Model):
+    __tablename__ = "supplier_brands"
+
+    id          = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    supplier_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("suppliers.id"), nullable=False)
+    brand_name  = customer_db.Column(customer_db.String(100), nullable=False)
+    created_at  = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+
+    supplier = customer_db.relationship("Supplier", back_populates="brands")
+
+    def __repr__(self):
+        return f"<SupplierBrand {self.brand_name} (supplier {self.supplier_id})>"
+
+
 # ── 6. Orders ─────────────────────────────────────────────────────────────────
 class Order(customer_db.Model):
     __tablename__ = "orders"
@@ -391,7 +410,21 @@ class PurchaseInvoiceItem(customer_db.Model):
 
     purchase_invoice = customer_db.relationship("PurchaseInvoice", back_populates="items")
 
+class PurchasePayment(customer_db.Model):
+    __tablename__ = "purchase_payments"
 
+    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
+    invoice_id     = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("purchase_invoices.id"), nullable=False)
+    supplier_id    = customer_db.Column(customer_db.Integer,     nullable=True)
+    date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    amount         = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    pay_mode       = customer_db.Column(customer_db.String(30),  nullable=False, default="Cash")
+    narration      = customer_db.Column(customer_db.String(300), nullable=True)
+    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by     = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    invoice = customer_db.relationship("PurchaseInvoice", backref="payments")
 # ── 11. Stock Purchase History ────────────────────────────────────────────────
 class StockPurchaseHistory(customer_db.Model):
     __tablename__ = "stock_purchase_history"

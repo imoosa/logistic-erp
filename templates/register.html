@@ -845,6 +845,21 @@
       <div class="gst-notice" id="gst-notice-${num}" style="display:none;">
         ⚠️ GST will not be applied to invoices for this company. You can enable it later from Company Settings.
       </div>
+      <div class="grid-2" style="margin-top:12px;">
+  <div class="form-group">
+    <label class="field-label">AWB / Docket Prefix</label>
+    <input type="text" name="awb_prefix_${num}" placeholder="e.g. AHL"
+           maxlength="10" style="font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.5px;"
+           value="AHL">
+    <div class="field-hint">3–6 letters printed before each docket number</div>
+  </div>
+  <div class="form-group">
+    <label class="field-label">AWB Starting Number</label>
+    <input type="number" name="awb_start_${num}" placeholder="e.g. 81000"
+           min="1" max="999999" value="81000">
+    <div class="field-hint">First docket will be PREFIX + this number</div>
+  </div>
+</div>
     </div>`;
   }
 
@@ -952,6 +967,8 @@
         gst_number:        gN ? gN.value.trim() : '',
         address:           (document.querySelector('input[name="company_address_' + i + '"]') || {}).value || '',
         phone:             (document.querySelector('input[name="company_phone_' + i + '"]') || {}).value || '',
+        awb_prefix: (document.querySelector(`input[name="awb_prefix_${i}"]`) || {}).value || 'AHL',
+        awb_start:  parseInt((document.querySelector(`input[name="awb_start_${i}"]`) || {}).value) || 81000,
       });
     }
     const hExtra = document.createElement('input');
@@ -967,6 +984,18 @@
       document.getElementById('submit-btn').disabled = true;
     }, 0);
 
+    const awbPrefix1 = document.querySelector('input[name="awb_prefix_1"]');
+    const awbStart1  = document.querySelector('input[name="awb_start_1"]');
+    if (awbPrefix1) {
+      const h = document.createElement('input');
+      h.type='hidden'; h.name='awb_prefix'; h.value=awbPrefix1.value.trim()||'AHL';
+      form.appendChild(h);
+    }
+    if (awbStart1) {
+      const h = document.createElement('input');
+      h.type='hidden'; h.name='awb_start'; h.value=parseInt(awbStart1.value)||81000;
+      form.appendChild(h);
+    }
     // 4. Allow the form to actually submit
     return true;
   }

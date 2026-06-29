@@ -1,0 +1,159 @@
+<!--
+{% macro awb_copy(copy_label) %}
+<div class="awb-copy-block">
+<div class="awb-doc">
+  <div class="awb-top">
+    <div class="awb-hdr-left">
+      <div class="awb-logo-box">📦</div>
+      <div>
+        <div class="awb-co-name">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+        <div class="awb-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
+        <div class="awb-co-web">
+          WEBSITE: {{ company_website if company_website is defined else 'WWW.PACIFICEXP.NET' }}
+          &nbsp;•&nbsp; E-MAIL: {{ company_email if company_email is defined else 'INFO@PACIFICEXP.NET' }}
+        </div>
+      </div>
+    </div>
+    <div class="awb-no-big">{{ invoice.docket_no }}</div>
+  </div>
+
+  <div class="awb-barcode-row">
+    <svg viewBox="0 0 300 40" preserveAspectRatio="none">
+      {% for i in range(60) %}
+      <rect x="{{ i * 5 }}" y="0" width="{{ 1 if i % 2 == 0 else 3 }}" height="40" fill="#111"></rect>
+      {% endfor %}
+      
+    </svg>
+    <div class="awb-no-below">{{ invoice.docket_no }}</div>
+  </div>
+  
+
+  <div class="awb-info-row">
+    <div>
+      <div class="awb-lbl">Account</div>
+      <div class="awb-val">{{ invoice.id }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Customer</div>
+      <div class="awb-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Origin</div>
+      <div class="awb-val">{{ invoice.origin or 'India' }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Destination</div>
+      <div class="awb-val">{{ invoice.destination or '—' }}</div>
+      <div class="awb-svc-badge">{{ invoice.mode or 'SERVICE' }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Weight</div>
+      <div class="awb-val">{{ "%.3f"|format(invoice.weight|float) }}</div>
+      <div class="awb-lbl" style="margin-top:5px">Dimension in CM</div>
+      <div class="awb-val" style="font-size:9.5px">
+        {% if invoice.packages and invoice.packages[0].length %}{{ invoice.packages[0].length }}*{{ invoice.packages[0].width }}*{{ invoice.packages[0].height }}*{{ invoice.packages[0].qty|int }}{% else %}—{% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="awb-parties">
+    <div class="awb-party">
+      <div class="awb-lbl">Sender's Company</div>
+      <div class="awb-pval">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+      <div class="awb-lbl">Sender's Name</div>
+      <div class="awb-pval">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+      <div class="awb-lbl">Address</div>
+      <div>{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}</div>
+      <div class="awb-party-meta">
+        <span>PIN Code: <strong>{{ invoice.shipper_pincode or '—' }}</strong></span>
+        <span>State: <strong>{{ invoice.shipper_state or '—' }}</strong></span>
+      </div>
+      <div class="awb-party-meta">
+        <span>Tel No.: <strong>{{ invoice.customer_phone or '—' }}</strong></span>
+        <span>City: <strong>{{ invoice.shipper_city or '—' }}</strong></span>
+        <span>Country: <strong>{{ invoice.shipper_country or 'India' }}</strong></span>
+      </div>
+    </div>
+    <div class="awb-party">
+      <div class="awb-lbl">Recipient's Company</div>
+      <div class="awb-pval">{{ invoice.receiver_name or '—' }}</div>
+      <div class="awb-lbl">Recipient's Name</div>
+      <div class="awb-pval">{{ invoice.receiver_name or '—' }}</div>
+      <div class="awb-lbl">Address</div>
+      <div>{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}</div>
+      <div class="awb-party-meta">
+        <span>PIN Code: <strong>{{ invoice.receiver_pincode or '—' }}</strong></span>
+        <span>State: <strong>{{ invoice.receiver_state or '—' }}</strong></span>
+      </div>
+      <div class="awb-party-meta">
+        <span>Tel No.: <strong>{{ invoice.receiver_phone or '—' }}</strong></span>
+        <span>City: <strong>{{ invoice.receiver_city or '—' }}</strong></span>
+        <span>Country: <strong>{{ invoice.receiver_country or invoice.destination or '—' }}</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="awb-botgrid">
+    <div>
+      <div class="awb-lbl">Description of Goods</div>
+      <div class="awb-big-val" style="font-size:12px">
+        {% if invoice.packages %}{{ invoice.packages | map(attribute='name') | select | join(', ') }}{% else %}{{ invoice.notes or '—' }}{% endif %}
+      </div>
+      <div class="awb-agreement">
+        <strong>Shipper Agreement</strong><br>
+        Shipper agrees to {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}
+        standard terms and conditions of carriage. Shipper's signature:
+        <span style="display:inline-block;border-bottom:1px solid #111;width:90px">&nbsp;</span>
+      </div>
+    </div>
+    <div>
+      <div class="awb-lbl">Pieces</div>
+      <div class="awb-big-val">{{ invoice.pieces }}</div>
+      <div class="awb-copy-label-box">{{ copy_label }}</div>
+    </div>
+    <div>
+      <div class="awb-lbl">Chargeable Wt</div>
+      <div class="awb-big-val">{{ "%.3f"|format(invoice.weight|float) }}</div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">
+        <span class="awb-lbl">Shipment Value</span>
+        <span class="awb-lbl">Booking Date</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:700">
+        <span>₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
+        <span>{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</span>
+      </div>
+      <div class="awb-cheque-fav">
+        All cheques should be drawn in favour of<br>
+        <strong>{{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</strong>
+      </div>
+      <div class="awb-acct-row"><span>Invoice No.:</span><strong>{{ invoice.id }}</strong></div>
+      <div class="awb-acct-row"><span>E-Way Bill No.:</span><strong>—</strong></div>
+    </div>
+    <div>
+      <div class="awb-lbl">Vol. Wt</div>
+      <div class="awb-big-val" style="font-size:13px">—</div>
+      <div class="awb-acct-row" style="margin-top:8px"><span>Method of Payment</span></div>
+      <div style="font-weight:800;font-size:11px">{{ (invoice.payment_mode or 'cash') | upper }}</div>
+      <div class="awb-routing">{{ invoice.mode or 'ROUTING CODE' }}</div>
+    </div>
+  </div>
+
+  <div class="awb-terms">
+    <strong>Terms &amp; Conditions:</strong>
+    1. No Claims would be entertained for any damage during transit &amp; delay in delivery due to any reason.&nbsp;|&nbsp;
+    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.&nbsp;|&nbsp;
+    3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.&nbsp;|&nbsp;
+    *** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***
+  </div>
+
+  <div class="awb-track-bottom">{{ invoice.docket_no }}</div>
+</div>
+</div>
+{% endmacro %}
+
+<!-- ④ AWB COPIES (admin + accounts + shipper copy — matches physical sample) --
+<div id="awbPrintArea">
+{{ awb_copy('ADMIN COPY') }}
+{{ awb_copy('ACCOUNTS COPY') }}
+{{ awb_copy('SHIPPER COPY') }}
+</div><!-- /awbPrintArea -->

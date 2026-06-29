@@ -42,6 +42,153 @@
   .address-grid .full-width { grid-column:1 / -1; }
   .address-grid .half-width { grid-column:span 1; }
   @media(max-width:600px){ .address-grid { grid-template-columns:1fr; } .address-grid .full-width, .address-grid .half-width { grid-column:1; } }
+
+  /* Three-panel inline layout responsive collapse */
+  @media(max-width:1100px){
+    .three-panel-grid { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media(max-width:700px){
+    .three-panel-grid { grid-template-columns: 1fr !important; }
+  }
+  /* Force all inputs/selects inside panels to respect column width */
+  .three-panel-grid input,
+  .three-panel-grid select { width:100%; min-width:0; box-sizing:border-box; }
+
+  /* Performa Invoice table */
+  .performa-table { width:100%; border-collapse:collapse; }
+  .performa-table th { padding:10px 8px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#4F46E5; text-align:left; }
+  .performa-table td { padding:6px 8px; border-bottom:1px solid #F3F4F6; vertical-align:middle; }
+  .performa-table tfoot td { background:#F9FAFB; font-weight:700; }
+  .performa-totals { display:flex; justify-content:flex-end; margin-top:14px; }
+  .performa-totals-box { background:#EEF2FF; border-radius:10px; padding:14px 20px; min-width:260px; }
+  .performa-total-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
+  .performa-total-row.grand { font-size:16px; font-weight:800; border-top:2px solid #C7D2FE; margin-top:6px; padding-top:10px; color:#4338CA; }
+
+  /* Print buttons bar */
+  .print-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+  .print-btn { display:flex; align-items:center; gap:7px; padding:10px 18px; border-radius:8px; border:1.5px solid; font-size:13px; font-weight:600; cursor:pointer; background:#fff; transition:all .15s; }
+  .print-btn:hover { filter:brightness(0.95); transform:translateY(-1px); }
+  .print-btn-invoice { border-color:#16A34A; color:#16A34A; }
+  .print-btn-invoice:hover { background:#DCFCE7; }
+  .print-btn-performa { border-color:#4F46E5; color:#4F46E5; }
+  .print-btn-performa:hover { background:#EEF2FF; }
+  .print-btn-docket { border-color:#DC2626; color:#DC2626; }
+  .print-btn-docket:hover { background:#FEE2E2; }
+  .print-btn-box { border-color:#D97706; color:#D97706; }
+  .print-btn-box:hover { background:#FEF3C7; }
+
+  /* ── PRINT STYLES ────────────────────────────────────────────── */
+  @media print {
+    body * { visibility: hidden !important; }
+    #printArea, #printArea * { visibility: visible !important; }
+    #printArea { position: fixed; top:0; left:0; width:100%; }
+    .no-print { display:none !important; }
+  }
+
+  /* Print layouts - hidden on screen */
+  #printCustomerInvoice, #printPerformaInvoice, #printDocket, #printBoxLabel { display:none; }
+
+  /* Customer invoice print */
+  .pi-page { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#111; max-width:210mm; margin:0 auto; padding:20px; }
+  .pi-logo-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:14px; border-bottom:3px solid #16A34A; }
+  .pi-company-name { font-size:22px; font-weight:900; color:#16A34A; letter-spacing:-0.5px; }
+  .pi-sub { font-size:11px; color:#6B7280; }
+  .pi-title { font-size:18px; font-weight:800; color:#1F2937; text-align:right; }
+  .pi-inv-no { font-size:13px; color:#4B5563; text-align:right; }
+  .pi-party-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:18px; }
+  .pi-party-box { background:#F9FAFB; border-radius:8px; padding:12px 14px; border-left:3px solid #16A34A; }
+  .pi-party-label { font-size:9px; text-transform:uppercase; font-weight:800; color:#6B7280; letter-spacing:1px; margin-bottom:6px; }
+  .pi-party-name { font-size:13px; font-weight:700; color:#111; margin-bottom:3px; }
+  .pi-party-addr { font-size:11px; color:#4B5563; line-height:1.5; }
+  .pi-meta-row { display:flex; gap:20px; margin-bottom:16px; }
+  .pi-meta-item { flex:1; background:#F3F4F6; border-radius:6px; padding:8px 12px; }
+  .pi-meta-label { font-size:9px; text-transform:uppercase; font-weight:700; color:#6B7280; letter-spacing:.8px; }
+  .pi-meta-val { font-size:13px; font-weight:700; color:#111; }
+  .pi-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+  .pi-table th { background:#16A34A; color:#fff; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.6px; text-align:left; }
+  .pi-table td { padding:8px 10px; border-bottom:1px solid #E5E7EB; font-size:11px; }
+  .pi-table tr:nth-child(even) td { background:#F9FAFB; }
+  .pi-totals { display:flex; justify-content:flex-end; }
+  .pi-totals-box { min-width:260px; }
+  .pi-total-row { display:flex; justify-content:space-between; padding:5px 10px; font-size:12px; border-bottom:1px solid #F3F4F6; }
+  .pi-grand { font-size:15px; font-weight:800; background:#16A34A; color:#fff; border-radius:6px; padding:10px 10px; margin-top:4px; display:flex; justify-content:space-between; }
+  .pi-footer { margin-top:30px; padding-top:14px; border-top:1px solid #E5E7EB; display:flex; justify-content:space-between; font-size:10px; color:#6B7280; }
+  .pi-sig-box { text-align:right; }
+  .pi-sig-line { border-top:1px solid #9CA3AF; width:140px; margin-top:40px; padding-top:4px; font-size:10px; color:#6B7280; }
+
+  /* Performa invoice print */
+  .pf-page { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#111; max-width:210mm; margin:0 auto; padding:20px; }
+  .pf-header { background:linear-gradient(135deg,#4F46E5,#7C3AED); color:#fff; border-radius:10px; padding:18px 22px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; }
+  .pf-company { font-size:20px; font-weight:900; }
+  .pf-type-label { font-size:24px; font-weight:900; opacity:0.9; }
+  .pf-party-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .pf-party-box { border:1.5px solid #E5E7EB; border-radius:8px; padding:12px 14px; }
+  .pf-party-label { font-size:9px; font-weight:800; text-transform:uppercase; color:#4F46E5; letter-spacing:1px; margin-bottom:5px; }
+  .pf-party-name { font-size:13px; font-weight:700; margin-bottom:3px; }
+  .pf-table { width:100%; border-collapse:collapse; margin-bottom:14px; }
+  .pf-table th { background:#4F46E5; color:#fff; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.5px; text-align:left; }
+  .pf-table td { padding:8px 10px; border-bottom:1px solid #E5E7EB; font-size:11px; }
+  .pf-table tr:nth-child(even) td { background:#F5F3FF; }
+  .pf-grand-box { background:#4F46E5; color:#fff; border-radius:8px; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; font-size:16px; font-weight:800; margin-top:10px; }
+  .pf-note { margin-top:16px; padding:10px 14px; background:#F5F3FF; border-radius:6px; font-size:10px; color:#4B5563; border-left:3px solid #4F46E5; }
+
+  /* Docket print */
+  .dk-page { font-family:'Courier New',monospace; font-size:12px; color:#111; max-width:190mm; margin:0 auto; border:2px solid #111; }
+  .dk-header { background:#1F2937; color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+  .dk-co { font-size:18px; font-weight:900; letter-spacing:1px; }
+  .dk-awb-big { font-size:28px; font-weight:900; letter-spacing:3px; color:#FCD34D; }
+  .dk-body { padding:16px 20px; }
+  .dk-parties { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:16px; border-bottom:2px dashed #9CA3AF; padding-bottom:16px; }
+  .dk-party-label { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid #111; margin-bottom:6px; padding-bottom:3px; }
+  .dk-party-name { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .dk-party-addr { font-size:11px; line-height:1.6; color:#374151; }
+  .dk-meta-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:2px dashed #9CA3AF; }
+  .dk-meta-cell { border:1px solid #D1D5DB; padding:8px; border-radius:4px; }
+  .dk-meta-label { font-size:9px; text-transform:uppercase; font-weight:700; color:#6B7280; display:block; margin-bottom:3px; }
+  .dk-meta-val { font-size:13px; font-weight:800; }
+  .dk-pkg-table { width:100%; border-collapse:collapse; margin-bottom:12px; }
+  .dk-pkg-table th { border:1px solid #374151; background:#374151; color:#fff; padding:6px 8px; font-size:10px; text-transform:uppercase; }
+  .dk-pkg-table td { border:1px solid #D1D5DB; padding:6px 8px; font-size:11px; }
+  .dk-barcode-row { text-align:center; padding:14px; border-top:2px dashed #9CA3AF; font-size:22px; letter-spacing:6px; font-weight:900; }
+  .dk-sig { display:flex; justify-content:space-between; margin-top:12px; font-size:10px; color:#6B7280; border-top:1px solid #D1D5DB; padding-top:10px; }
+  .dk-sig-line { border-top:1px solid #9CA3AF; width:120px; margin-top:30px; }
+
+  /* Box label print - PXC style */
+  .bx-page { font-family:'Arial',sans-serif; font-size:11px; color:#000; }
+  .bx-label { border:2px solid #000; margin:0 auto 20px; max-width:200mm; page-break-inside:avoid; }
+  /* Header row */
+  .bx-header { display:grid; grid-template-columns:auto 1fr auto; align-items:center; border-bottom:2px solid #000; padding:10px 14px; gap:12px; }
+  .bx-logo-area { display:flex; align-items:center; gap:8px; }
+  .bx-logo-icon { font-size:28px; }
+  .bx-company-name { font-size:16px; font-weight:900; line-height:1.1; }
+  .bx-company-sub { font-size:8px; color:#444; font-weight:400; }
+  .bx-page-count { font-size:20px; font-weight:900; text-align:right; }
+  /* Meta grid row */
+  .bx-meta-top { display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #000; }
+  .bx-meta-cell { padding:5px 8px; border-right:1px solid #000; }
+  .bx-meta-cell:last-child { border-right:none; }
+  .bx-meta-lbl { font-size:8px; font-weight:700; text-transform:uppercase; color:#555; display:block; }
+  .bx-meta-val { font-size:12px; font-weight:800; display:block; }
+  /* Party rows */
+  .bx-party-row { display:grid; grid-template-columns:130px 1fr 1fr; border-bottom:1px solid #000; }
+  .bx-party-tag { background:#000; color:#fff; font-size:11px; font-weight:900; padding:6px 10px; display:flex; align-items:center; }
+  .bx-party-block { padding:6px 10px; border-right:1px solid #000; }
+  .bx-party-block:last-child { border-right:none; }
+  .bx-party-label { font-size:8px; font-weight:700; text-transform:uppercase; color:#555; display:block; margin-bottom:2px; }
+  .bx-party-name-val { font-size:13px; font-weight:800; display:block; }
+  .bx-party-addr-val { font-size:10px; color:#222; line-height:1.4; }
+  /* Details grid */
+  .bx-details { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; border-bottom:1px solid #000; }
+  .bx-detail-cell { padding:6px 10px; border-right:1px solid #000; }
+  .bx-detail-cell:last-child { border-right:none; }
+  /* Barcode row */
+  .bx-barcode-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#f9f9f9; }
+  .bx-awb-big { font-size:26px; font-weight:900; letter-spacing:2px; }
+  .bx-barcode-img { font-size:40px; letter-spacing:4px; }
+  /* AWB number above label */
+  .bx-awb-top { text-align:center; font-size:11px; font-weight:700; margin-bottom:4px; }
+  /* BOX LABEL stamp */
+  .bx-box-label-stamp { font-size:20px; font-weight:900; border:3px solid #000; padding:4px 12px; display:inline-block; letter-spacing:2px; }
 </style>
 {% endblock %}
 
@@ -60,7 +207,7 @@
   <ul id="errorList"></ul>
 </div>
 
-<form method="POST" action="{{ '/invoice/customer/update' if is_edit else '/invoice/customer/save' }}" id="custInvForm" onsubmit="return validateCustForm(event)">
+<form method="POST" action="{{ '/invoice/customer/update' if is_edit else '/invoice/customer/save' }}" id="custInvForm" onsubmit="return validateCustForm(event)" onkeydown="return handleFormEnter(event)">
   <input type="hidden" name="payment_mode" id="paymentModeHidden" value="{{ form_data.payment_mode or 'cash' }}">
   <input type="hidden" name="upi_app" id="upiAppHidden" value="{{ form_data.upi_app or '' }}">
   {% if is_edit and invoice_id %}
@@ -89,8 +236,11 @@
     </div>
   </div>
 
+  <!-- Three-column inline layout: Consignor | Consignee | Shipment Details -->
+  <div class="three-panel-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px;align-items:stretch;">
+
   <!-- Customer / Consignor -->
-  <div class="card card-body" style="margin-bottom:16px">
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
     <div class="section-title">📤 Consignor (Shipper) Details</div>
     <div class="grid-2">
       <div class="form-group">
@@ -145,11 +295,24 @@
         <label>Country</label>
         <input type="text" name="shipper_country" id="shipperCountry" value="{{ form_data.shipper_country or 'India' }}" placeholder="Country">
       </div>
+      <div class="form-group half-width">
+        <label>Document Type</label>
+        <select name="shipper_doc_type">
+          <option value="">— Select —</option>
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID'] %}
+          <option value="{{ d }}" {% if form_data.shipper_doc_type == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document No.</label>
+        <input type="text" name="shipper_doc_no" value="{{ form_data.shipper_doc_no or '' }}" placeholder="Document number">
+      </div>
     </div>
   </div>
 
   <!-- Receiver / Consignee -->
-  <div class="card card-body" style="margin-bottom:16px">
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
     <div class="section-title">📥 Consignee (Receiver) Details</div>
     <div class="grid-2">
       <div class="form-group">
@@ -188,13 +351,34 @@
         <label>Country</label>
         <input type="text" name="receiver_country" value="{{ form_data.receiver_country or 'India' }}" placeholder="Country">
       </div>
+      <div class="form-group half-width">
+        <label>Document Type</label>
+        <select name="receiver_doc_type">
+          <option value="">— Select —</option>
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID'] %}
+          <option value="{{ d }}" {% if form_data.receiver_doc_type == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document No.</label>
+        <input type="text" name="receiver_doc_no" value="{{ form_data.receiver_doc_no or '' }}" placeholder="Document number">
+      </div>
     </div>
   </div>
 
   <!-- Shipment Details -->
-  <div class="card card-body" style="margin-bottom:16px">
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
     <div class="section-title">Shipment Details</div>
-    <div class="grid-3">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Product</label>
+        <input type="text" name="product" value="{{ form_data.product or '' }}" placeholder="e.g. INTL. SPX">
+      </div>
+      <div class="form-group">
+        <label>Vendor</label>
+        <input type="text" name="vendor" value="{{ form_data.vendor or '' }}" placeholder="e.g. Pacific Express">
+      </div>
       <div class="form-group">
         <label>Type of Shipment</label>
         <select name="shipment_type">
@@ -225,20 +409,12 @@
         <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="Tracking / AWB number">
       </div>
       <div class="form-group">
-        <label>Origin</label>
-        <input type="text" name="origin" value="{{ form_data.origin or 'India' }}" placeholder="Origin country/city">
-      </div>
-      <div class="form-group">
         <label>Destination</label>
         <input type="text" name="destination" value="{{ form_data.destination or '' }}" placeholder="Final destination city/country">
       </div>
       <div class="form-group">
         <label>Pickup Date</label>
         <input type="date" name="pickup_date" value="{{ form_data.pickup_date or '' }}">
-      </div>
-      <div class="form-group">
-        <label>Departure Time</label>
-        <input type="datetime-local" name="departure_time" value="{{ form_data.departure_time or '' }}">
       </div>
       <div class="form-group">
         <label>Expected Delivery Date</label>
@@ -250,6 +426,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /end 3-col inline grid -->
 
 <!-- Rate Lookup Section -->
 <div class="card card-body" style="margin-bottom:16px">
@@ -371,6 +549,72 @@
       <div>Total Volumetric Weight: <span id="volWt">0.00</span> kg</div>
       <div>Total Volume: <span id="totalVol">0.0000</span> cu.m</div>
       <div>Total Actual Weight: <span id="actualWt">0.00</span> kg</div>
+    </div>
+  </div>
+
+
+  <!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
+  <div class="card card-body" style="margin-bottom:16px;border:2px solid #4F46E5;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div>
+        <div class="section-title" style="border-bottom:none;margin-bottom:2px;color:#4338CA;">📋 Performa Invoice Items</div>
+        <span style="font-size:11px;color:#6B7280;">Items declared by shipper — used in Performa Invoice &amp; Docket print</span>
+      </div>
+      <div>
+        <span style="font-size:12px;font-weight:600;color:#4338CA;">Total: <span id="perfGrandDisplay" style="font-size:15px;font-weight:800;">₹0.00</span></span>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="performa-table">
+        <thead>
+          <tr>
+            <th width="5%">#</th>
+            <th width="55%">Description of Goods</th>
+            <th width="12%">Quantity</th>
+            <th width="14%">Rate (₹)</th>
+            <th width="14%">Amount (₹)</th>
+            <th width="4%"></th>
+          </tr>
+        </thead>
+        <tbody id="perfBody">
+          {% set perf_items = form_data.performa_items if form_data and form_data.performa_items else [] %}
+          {% if perf_items %}
+            {% for item in perf_items %}
+            <tr class="perf-row">
+              <td style="color:#9CA3AF;font-size:12px;text-align:center;">{{ loop.index }}</td>
+              <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value="{{ item.description }}"></td>
+              <td><input type="number" name="perf_qty[]" class="perf-qty" value="{{ item.qty }}" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
+              <td><input type="number" name="perf_rate[]" class="perf-rate" value="{{ item.rate }}" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
+              <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
+              <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
+            </tr>
+            {% endfor %}
+          {% else %}
+          <tr class="perf-row">
+            <td style="color:#9CA3AF;font-size:12px;text-align:center;">1</td>
+            <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value=""></td>
+            <td><input type="number" name="perf_qty[]" class="perf-qty" value="1" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
+            <td><input type="number" name="perf_rate[]" class="perf-rate" value="0" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
+            <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
+            <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
+      <button type="button" onclick="addPerfRow()" class="btn btn-ghost btn-sm" style="border-color:#4F46E5;color:#4F46E5;">+ Add Item</button>
+      <div style="background:#EEF2FF;border-radius:10px;padding:12px 18px;min-width:240px;">
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;"><span>Sub-total</span><span id="perfSubtotal">₹0.00</span></div>
+        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:16px;font-weight:800;color:#4338CA;border-top:2px solid #C7D2FE;margin-top:6px;padding-top:10px;"><span>Total (INR)</span><span id="perfTotal">₹0.00</span></div>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;background:#F5F3FF;border-radius:8px;">
+      <span style="font-size:12px;color:#4338CA;font-weight:600;">📦 Chargeable Weight:</span>
+      <input type="number" name="perf_weight" id="perfWeight" step="0.01" min="0"
+             value="{{ form_data.perf_weight or '' }}" placeholder="e.g. 2.50"
+             style="width:100px;padding:5px 10px;border:1.5px solid #C7D2FE;border-radius:6px;font-weight:700;">
+      <span style="font-size:12px;color:#6B7280;">kg</span>
     </div>
   </div>
 
@@ -611,7 +855,610 @@
   </div>
 </form>
 
+<!-- ── PRINT BUTTONS ────────────────────────────────────────────────────── -->
+{% if is_edit %}
+<div class="card card-body no-print" style="margin-top:20px;margin-bottom:30px;">
+  <div class="section-title">🖨️ Print Options</div>
+  <div class="print-bar">
+    <button type="button" class="print-btn print-btn-invoice" onclick="triggerPrint('invoice')">🧾 Customer Invoice</button>
+    <button type="button" class="print-btn print-btn-performa" onclick="triggerPrint('performa')">📋 Performa Invoice</button>
+    <button type="button" class="print-btn print-btn-docket" onclick="triggerPrint('docket')">🗂️ Docket / AWB</button>
+    <button type="button" class="print-btn print-btn-box" onclick="triggerPrint('box')">📦 Box Labels</button>
+    <button type="button" class="print-btn" style="border-color:#0891B2;color:#0891B2;" onclick="triggerPrint('awblabel')">🏷️ AWB Label</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── HIDDEN PRINT AREAS ─────────────────────────────────────────────── -->
+<div id="printArea" style="display:none;">
+
+  <!-- ① CUSTOMER INVOICE -->
+  <div id="printCustomerInvoice">
+    <div class="pi-page">
+      <div class="pi-logo-row">
+        <div>
+          <div class="pi-company-name">{{ company.name if company else 'Your Company' }}</div>
+          <div class="pi-sub">Freight &amp; Courier Services</div>
+        </div>
+        <div>
+          <div class="pi-title">CUSTOMER INVOICE</div>
+          <div class="pi-inv-no" style="font-weight:700;color:#16A34A;font-size:16px;">{{ invoice_id }}</div>
+          <div class="pi-inv-no">Date: {{ form_data.invoice_date or today }}</div>
+          <div class="pi-inv-no">AWB: <strong>{{ form_data.docket_no or docket_no or '' }}</strong></div>
+        </div>
+      </div>
+      <div class="pi-party-grid">
+        <div class="pi-party-box">
+          <div class="pi-party-label">📤 Consignor (Shipper)</div>
+          <div class="pi-party-name">{{ form_data.shipper_name or '' }}</div>
+          <div class="pi-party-addr">
+            {{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}, {{ form_data.shipper_address2 }}{% endif %}<br>
+            {{ form_data.shipper_city or '' }}{% if form_data.shipper_state %}, {{ form_data.shipper_state }}{% endif %} {{ form_data.shipper_pincode or '' }}<br>
+            Ph: {{ form_data.customer_phone or '' }}
+          </div>
+        </div>
+        <div class="pi-party-box" style="border-left-color:#4F46E5;">
+          <div class="pi-party-label" style="color:#4F46E5;">📥 Consignee (Receiver)</div>
+          <div class="pi-party-name">{{ form_data.receiver_name or '' }}</div>
+          <div class="pi-party-addr">
+            {{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}<br>
+            {{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} {{ form_data.receiver_pincode or '' }}<br>
+            Ph: {{ form_data.receiver_phone or '' }}
+          </div>
+        </div>
+      </div>
+      <div class="pi-meta-row">
+        <div class="pi-meta-item"><div class="pi-meta-label">Shipment Type</div><div class="pi-meta-val">{{ form_data.shipment_type or 'NON DC' }}</div></div>
+        <div class="pi-meta-item"><div class="pi-meta-label">Mode</div><div class="pi-meta-val">{{ form_data.mode or 'COURIER' }}</div></div>
+        <div class="pi-meta-item"><div class="pi-meta-label">Carrier</div><div class="pi-meta-val">{{ form_data.carrier or '—' }}</div></div>
+        <div class="pi-meta-item"><div class="pi-meta-label">Destination</div><div class="pi-meta-val">{{ form_data.destination or '—' }}</div></div>
+      </div>
+      <table class="pi-table">
+        <thead><tr><th>#</th><th>Description</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Freight ({{ form_data.freight_weight or 0 }} kg × ₹{{ form_data.freight_rate_per_kg or 0 }}/kg)</td><td style="text-align:right;">{{ "%.2f"|format(form_data.freight|float if form_data.freight else 0) }}</td></tr>
+          {% if form_data.fuel and form_data.fuel|float > 0 %}<tr><td>2</td><td>Fuel Surcharge</td><td style="text-align:right;">{{ "%.2f"|format(form_data.fuel|float) }}</td></tr>{% endif %}
+          {% if form_data.other and form_data.other|float > 0 %}<tr><td>3</td><td>Other Charges{% if form_data.other_charges_reason %} — {{ form_data.other_charges_reason }}{% endif %}</td><td style="text-align:right;">{{ "%.2f"|format(form_data.other|float) }}</td></tr>{% endif %}
+        </tbody>
+      </table>
+      <div class="pi-totals">
+        <div class="pi-totals-box">
+          {% set _base = (form_data.freight|float if form_data.freight else 0) + (form_data.fuel|float if form_data.fuel else 0) + (form_data.other|float if form_data.other else 0) %}
+          {% if is_gst_registered %}
+          <div class="pi-total-row"><span>Sub-total</span><span>₹{{ "%.2f"|format(_base) }}</span></div>
+          <div class="pi-total-row"><span>GST (18%)</span><span>₹{{ "%.2f"|format(_base * 0.18) }}</span></div>
+          {% endif %}
+          <div class="pi-grand"><span>GRAND TOTAL</span><span>₹{{ "%.2f"|format(_base * 1.18 if is_gst_registered else _base) }}</span></div>
+          <div class="pi-total-row" style="margin-top:8px;"><span>Amount Paid</span><span>₹{{ "%.2f"|format(form_data.amount_paid|float if form_data.amount_paid else 0) }}</span></div>
+          <div class="pi-total-row" style="color:#DC2626;font-weight:700;"><span>Balance Due</span><span>₹{{ "%.2f"|format((_base * 1.18 if is_gst_registered else _base) - (form_data.amount_paid|float if form_data.amount_paid else 0)) }}</span></div>
+        </div>
+      </div>
+      {% if form_data.notes %}<div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:11px;border-left:3px solid #16A34A;"><strong>Notes:</strong> {{ form_data.notes }}</div>{% endif %}
+      <div class="pi-footer">
+        <div>Payment Mode: <strong>{{ form_data.payment_mode or 'Cash' }}</strong>{% if form_data.upi_app %} via {{ form_data.upi_app }}{% endif %}</div>
+        <div class="pi-sig-box"><div class="pi-sig-line">Authorised Signatory</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② PERFORMA INVOICE -->
+  <div id="printPerformaInvoice">
+    <div class="pf-page">
+      <div class="pf-header">
+        <div>
+          <div class="pf-company">{{ company.name if company else 'Your Company' }}</div>
+          <div style="font-size:11px;opacity:0.8;margin-top:3px;">AWB: {{ form_data.docket_no or docket_no or '' }}</div>
+        </div>
+        <div class="pf-type-label">PERFORMA INVOICE</div>
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:16px;">
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Invoice #</span><strong>{{ invoice_id }}</strong></div>
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Date</span><strong>{{ form_data.invoice_date or today }}</strong></div>
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Destination</span><strong>{{ form_data.destination or '—' }}</strong></div>
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Weight (kg)</span><strong id="pfPrintWeight">—</strong></div>
+      </div>
+      <div class="pf-party-grid">
+        <div class="pf-party-box">
+          <div class="pf-party-label">From (Shipper)</div>
+          <div class="pf-party-name">{{ form_data.shipper_name or '' }}</div>
+          <div style="font-size:11px;color:#374151;line-height:1.5;">{{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}, {{ form_data.shipper_address2 }}{% endif %}<br>{{ form_data.shipper_city or '' }}{% if form_data.shipper_state %}, {{ form_data.shipper_state }}{% endif %} {{ form_data.shipper_pincode or '' }}</div>
+          {% if form_data.shipper_doc_type or form_data.shipper_doc_no %}<div style="margin-top:6px;font-size:10px;color:#4F46E5;font-weight:600;">{{ form_data.shipper_doc_type or '' }}: {{ form_data.shipper_doc_no or '' }}</div>{% endif %}
+        </div>
+        <div class="pf-party-box" style="border-color:#4F46E5;">
+          <div class="pf-party-label">To (Consignee)</div>
+          <div class="pf-party-name">{{ form_data.receiver_name or '' }}</div>
+          <div style="font-size:11px;color:#374151;line-height:1.5;">{{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}<br>{{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} {{ form_data.receiver_pincode or '' }}</div>
+          {% if form_data.receiver_doc_type or form_data.receiver_doc_no %}<div style="margin-top:6px;font-size:10px;color:#4F46E5;font-weight:600;">{{ form_data.receiver_doc_type or '' }}: {{ form_data.receiver_doc_no or '' }}</div>{% endif %}
+        </div>
+      </div>
+      <table class="pf-table">
+        <thead><tr><th>#</th><th>Description of Goods</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate (₹)</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+        <tbody id="pfPrintRows"></tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <div style="min-width:250px;">
+          <div style="display:flex;justify-content:space-between;padding:5px 10px;font-size:12px;"><span>Sub-total</span><span id="pfPrintSubtotal">₹0.00</span></div>
+          <div class="pf-grand-box"><span>TOTAL (INR)</span><span id="pfPrintTotal">₹0.00</span></div>
+        </div>
+      </div>
+      <div class="pf-note">
+        <strong>Declaration:</strong> I/We hereby declare that this performa invoice shows the true and correct value of the goods being shipped. The contents are for personal/gift use only.
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:24px;font-size:10px;color:#6B7280;border-top:1px solid #E5E7EB;padding-top:12px;">
+        <span>Nexa ERP · {{ today }}</span>
+        <div style="text-align:center;border-top:1px solid #9CA3AF;width:130px;margin-top:24px;padding-top:4px;">Shipper Signature</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ DOCKET / AWB -->
+  <div id="printDocket">
+    <div class="dk-page">
+      <div class="dk-header">
+        <div>
+          <div class="dk-co">{{ company.name if company else 'NEXA LOGISTICS' }}</div>
+          <div style="font-size:10px;opacity:0.65;margin-top:3px;">AIR WAYBILL / DOCKET</div>
+        </div>
+        <div class="dk-awb-big">{{ form_data.docket_no or docket_no or 'AWB#' }}</div>
+      </div>
+      <div class="dk-body">
+        <div class="dk-parties">
+          <div>
+            <div class="dk-party-label">FROM (SHIPPER)</div>
+            <div class="dk-party-name">{{ form_data.shipper_name or '' }}</div>
+            <div class="dk-party-addr">
+              {{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}<br>{{ form_data.shipper_address2 }}{% endif %}<br>
+              {{ form_data.shipper_city or '' }}{% if form_data.shipper_state %}, {{ form_data.shipper_state }}{% endif %} – {{ form_data.shipper_pincode or '' }}<br>
+              Ph: {{ form_data.customer_phone or '—' }}
+            </div>
+          </div>
+          <div>
+            <div class="dk-party-label">TO (CONSIGNEE)</div>
+            <div class="dk-party-name">{{ form_data.receiver_name or '' }}</div>
+            <div class="dk-party-addr">
+              {{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}<br>{{ form_data.receiver_address2 }}{% endif %}<br>
+              {{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} – {{ form_data.receiver_pincode or '' }}<br>
+              Ph: {{ form_data.receiver_phone or '—' }}
+            </div>
+          </div>
+        </div>
+        <div class="dk-meta-grid">
+          <div class="dk-meta-cell"><span class="dk-meta-label">Date</span><div class="dk-meta-val">{{ form_data.invoice_date or today }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Mode</span><div class="dk-meta-val">{{ form_data.mode or 'COURIER' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Carrier</span><div class="dk-meta-val">{{ form_data.carrier or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Destination</span><div class="dk-meta-val">{{ form_data.destination or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Weight (kg)</span><div class="dk-meta-val">{{ form_data.freight_weight or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Pieces</span><div class="dk-meta-val" id="dkPiecesCount">—</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Shipment Type</span><div class="dk-meta-val">{{ form_data.shipment_type or 'NON DC' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Carrier Ref</span><div class="dk-meta-val">{{ form_data.carrier_ref or '—' }}</div></div>
+        </div>
+        <table class="dk-pkg-table">
+          <thead><tr><th>#</th><th>Item / Description</th><th>Qty</th><th>L (cm)</th><th>W (cm)</th><th>H (cm)</th><th>Wt (kg)</th></tr></thead>
+          <tbody id="dkPkgRows"></tbody>
+        </table>
+        <div class="dk-barcode-row">║ {{ form_data.docket_no or docket_no or '▌▌▌▌▌▌▌▌▌' }} ║</div>
+        <div class="dk-sig">
+          <div><div class="dk-sig-line"></div>Shipper Signature</div>
+          <div style="text-align:center;"><div class="dk-sig-line" style="margin:0 auto;"></div>Receiver Signature</div>
+          <div style="text-align:right;"><div class="dk-sig-line" style="margin-left:auto;"></div>Office Seal &amp; Sig</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ BOX LABELS -->
+  <div id="printBoxLabels"></div>
+
+  <!-- ⑤ AWB LABEL (Shipper + Consignee boxes with barcode - matches PXC format) -->
+  <div id="printAwbLabel" style="font-family:Arial,sans-serif;font-size:12px;color:#000;max-width:200mm;margin:0 auto;">
+    <!-- AWB number centered at top -->
+    <div style="text-align:center;font-size:11px;font-weight:700;margin-bottom:4px;letter-spacing:1px;">{{ form_data.docket_no or docket_no or '' }}</div>
+
+    <!-- SHIPPER box -->
+    <div style="border:2px solid #000;margin-bottom:0;">
+      <!-- Shipper header row -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;border-bottom:1px solid #000;">
+        <div style="background:#000;color:#fff;font-weight:900;font-size:13px;padding:8px 10px;display:flex;align-items:center;letter-spacing:0.5px;">SHIPPER</div>
+        <div style="padding:8px 12px;border-right:1px solid #000;">
+          <div style="font-weight:900;font-size:15px;text-decoration:underline;">{{ form_data.shipper_name or '' }}</div>
+        </div>
+        <div style="padding:8px 12px;font-weight:900;font-size:18px;text-align:right;">1 / 1</div>
+      </div>
+      <!-- Shipper body -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;">
+        <!-- Left col: structured fields -->
+        <div style="padding:6px 10px;border-right:1px solid #000;font-size:11px;line-height:2;">
+          <div><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Name</span><span style="font-weight:600;">{{ form_data.shipper_name or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Address</span><span>{{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}, {{ form_data.shipper_address2 }}{% endif %}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Pincode</span><span>{{ form_data.shipper_pincode or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">City</span><span>{{ form_data.shipper_city or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">State</span><span>{{ form_data.shipper_state or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Country</span><span style="font-weight:900;font-size:12px;">{{ (form_data.shipper_country or 'INDIA')|upper }}</span></div>
+        </div>
+        <!-- Middle col: empty / TEL -->
+        <div style="padding:6px 12px;border-right:1px solid #000;">
+          <span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">TEL NO.</span>
+          <span style="font-size:12px;">{{ form_data.customer_phone or '' }}</span>
+        </div>
+        <!-- Right col: AWB + barcode (spans both shipper and consignee visually via border) -->
+        <div style="padding:6px 10px;text-align:center;">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;letter-spacing:1px;">{{ form_data.docket_no or docket_no or '' }}</div>
+          <div style="font-size:30px;letter-spacing:3px;font-weight:900;line-height:1;writing-mode:horizontal-tb;">▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSIGNEE box (border-top removed, joined to shipper) -->
+    <div style="border:2px solid #000;border-top:none;margin-bottom:10px;">
+      <!-- Consignee header row -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;border-bottom:1px solid #000;">
+        <div style="background:#000;color:#fff;font-weight:900;font-size:13px;padding:8px 10px;display:flex;align-items:center;letter-spacing:0.5px;">CONSIGNEE</div>
+        <div style="padding:8px 12px;border-right:1px solid #000;">
+          <div style="font-weight:900;font-size:15px;text-decoration:underline;">{{ form_data.receiver_name or '' }}</div>
+        </div>
+        <div style="padding:8px 12px;font-weight:900;font-size:18px;text-align:right;">1 / 1</div>
+      </div>
+      <!-- Consignee body -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;">
+        <div style="padding:6px 10px;border-right:1px solid #000;font-size:11px;">
+          <div><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Name</span><span style="font-weight:600;">{{ form_data.receiver_name or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Address</span><span>{{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}{% if form_data.receiver_city %}, {{ form_data.receiver_city }}{% endif %}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %}{% if form_data.receiver_pincode %}, {{ form_data.receiver_pincode }}{% endif %}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Pincode</span><span>{{ form_data.receiver_pincode or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">City</span><span>{{ form_data.receiver_city or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">State</span><span>{{ form_data.receiver_state or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Country</span><span style="font-weight:900;font-size:12px;">{{ (form_data.receiver_country or '')|upper }}</span></div>
+        </div>
+        <div style="padding:6px 12px;border-right:1px solid #000;">
+          <span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">TEL NO.</span>
+          <span style="font-size:12px;">{{ form_data.receiver_phone or '' }}</span>
+        </div>
+        <div style="padding:6px 10px;text-align:center;">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;letter-spacing:1px;">{{ form_data.docket_no or docket_no or '' }}</div>
+          <div style="font-size:30px;letter-spacing:3px;font-weight:900;line-height:1;">▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;border-top:2px dashed #2563EB;padding-top:8px;font-size:10px;color:#555;">- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+  </div>
+
+</div><!-- end #printArea -->
+
 <script>
+
+/* ── Enter key: move to next field, never submit ── */
+function handleFormEnter(e) {
+  if (e.key !== 'Enter') return true;
+  // Allow Enter in textarea
+  if (e.target.tagName === 'TEXTAREA') return true;
+  e.preventDefault();
+  const focusable = Array.from(document.querySelectorAll(
+    '#custInvForm input:not([disabled]):not([readonly]):not([type=hidden]), #custInvForm select:not([disabled]), #custInvForm textarea:not([disabled])'
+  ));
+  const idx = focusable.indexOf(e.target);
+  if (idx > -1 && idx < focusable.length - 1) focusable[idx + 1].focus();
+  return false;
+}
+
+/* ── Performa Invoice ── */
+function addPerfRow() {
+  const tbody = document.getElementById('perfBody');
+  const count = tbody.querySelectorAll('.perf-row').length + 1;
+  const tr = document.createElement('tr');
+  tr.className = 'perf-row';
+  tr.innerHTML = `
+    <td style="color:#9CA3AF;font-size:12px;text-align:center;">${count}</td>
+    <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="Description of goods..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;"></td>
+    <td><input type="number" name="perf_qty[]" class="perf-qty" value="1" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
+    <td><input type="number" name="perf_rate[]" class="perf-rate" value="0" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
+    <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
+    <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function removePerfRow(btn) {
+  const rows = document.querySelectorAll('#perfBody .perf-row');
+  if (rows.length === 1) { alert('Keep at least one performa item row.'); return; }
+  btn.closest('tr').remove();
+  calcPerforma();
+  // Renumber
+  document.querySelectorAll('#perfBody .perf-row').forEach((r, i) => {
+    r.cells[0].textContent = i + 1;
+  });
+}
+
+function calcPerforma() {
+  let total = 0;
+  document.querySelectorAll('#perfBody .perf-row').forEach(row => {
+    const qty = parseFloat(row.querySelector('.perf-qty')?.value) || 0;
+    const rate = parseFloat(row.querySelector('.perf-rate')?.value) || 0;
+    const amt = qty * rate;
+    const amtCell = row.querySelector('.perf-amt');
+    if (amtCell) amtCell.textContent = amt.toFixed(2);
+    total += amt;
+  });
+  const f = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+  if (document.getElementById('perfSubtotal')) document.getElementById('perfSubtotal').textContent = f(total);
+  if (document.getElementById('perfTotal')) document.getElementById('perfTotal').textContent = f(total);
+  if (document.getElementById('perfGrandDisplay')) document.getElementById('perfGrandDisplay').textContent = f(total);
+}
+
+/* ── Print trigger ── */
+function triggerPrint(type) {
+  // Build box labels dynamically from package rows
+  if (type === 'box') {
+    const awb = document.querySelector('[name="docket_no"]')?.value || '';
+    const shipperName = document.querySelector('[name="shipper_name"]')?.value || document.getElementById('shipperAddress1')?.value || '';
+    const receiverName = document.querySelector('[name="receiver_name"]')?.value || '';
+    const receiverAddr = [
+      document.querySelector('[name="receiver_address1"]')?.value,
+      document.querySelector('[name="receiver_address2"]')?.value,
+      document.querySelector('[name="receiver_city"]')?.value,
+      document.querySelector('[name="receiver_state"]')?.value,
+      document.querySelector('[name="receiver_pincode"]')?.value,
+    ].filter(Boolean).join(', ');
+    const shipperAddr = [
+      document.getElementById('shipperAddress1')?.value,
+      document.getElementById('shipperAddress2')?.value,
+      document.getElementById('shipperCity')?.value,
+      document.getElementById('shipperState')?.value,
+      document.getElementById('shipperPincode')?.value,
+    ].filter(Boolean).join(', ');
+    const dest = document.querySelector('[name="destination"]')?.value || '';
+    const totalPkg = document.querySelectorAll('#pkgBody tr').length;
+
+    let labelsHtml = '<div class="bx-page">';
+    document.querySelectorAll('#pkgBody tr').forEach((row, idx) => {
+      const name = row.querySelector('[name="pkg_name[]"]')?.value || 'Package';
+      const qty = row.querySelector('[name="pkg_qty[]"]')?.value || '1';
+      const wt = row.querySelector('[name="pkg_wt[]"]')?.value || '—';
+      const l = row.querySelector('[name="pkg_l[]"]')?.value || '';
+      const w = row.querySelector('[name="pkg_w[]"]')?.value || '';
+      const h = row.querySelector('[name="pkg_h[]"]')?.value || '';
+      const dims = (l && w && h) ? `${l}×${w}×${h}` : '—';
+      const volWt = (l && w && h) ? ((parseFloat(l)*parseFloat(w)*parseFloat(h))/5000).toFixed(3) : '—';
+
+      // Get company info from page
+      const companyName = document.querySelector('.pi-company-name')?.textContent || 'PXC PACIFIC GLOBAL PVT. LTD.';
+      const product = document.querySelector('[name="product"]')?.value || '';
+      const vendor = document.querySelector('[name="vendor"]')?.value || '';
+      const shipperDocType = document.querySelector('[name="shipper_doc_type"]')?.value || '';
+      const shipperDocNo = document.querySelector('[name="shipper_doc_no"]')?.value || '';
+      const receiverDocType = document.querySelector('[name="receiver_doc_type"]')?.value || '';
+      const receiverDocNo = document.querySelector('[name="receiver_doc_no"]')?.value || '';
+      const shipperCity = document.getElementById('shipperCity')?.value || '';
+      const shipperState = document.getElementById('shipperState')?.value || '';
+      const shipperPincode = document.getElementById('shipperPincode')?.value || '';
+      const shipperCountry = document.getElementById('shipperCountry')?.value || '';
+      const receiverCity = document.querySelector('[name="receiver_city"]')?.value || '';
+      const receiverState = document.querySelector('[name="receiver_state"]')?.value || '';
+      const receiverPincode = document.querySelector('[name="receiver_pincode"]')?.value || '';
+      const receiverCountry = document.querySelector('[name="receiver_country"]')?.value || '';
+      const bookingDate = document.querySelector('[name="invoice_date"]')?.value || '';
+      const mode = document.querySelector('[name="mode"]')?.value || '';
+      const carrierRef = document.querySelector('[name="carrier_ref"]')?.value || '';
+
+      const shipperPhone = document.querySelector('[name="customer_phone"]')?.value || '';
+      const receiverPhone = document.querySelector('[name="receiver_phone"]')?.value || '';
+      const totalQty = Array.from(document.querySelectorAll('#pkgBody [name="pkg_qty[]"]')).reduce((s,el)=>s+(parseFloat(el.value)||0),0);
+      const chargeableWt = document.getElementById('freightWeight')?.value || wt;
+
+      labelsHtml += `
+        <div class="bx-awb-top">${awb}</div>
+        <div class="bx-label">
+          <!-- Header: Logo | Company | Page count -->
+          <div class="bx-header">
+            <div class="bx-logo-area">
+              <div class="bx-logo-icon" style="font-size:36px;margin-right:10px;">✈</div>
+              <div>
+                <div class="bx-company-name" style="font-size:18px;font-weight:900;line-height:1.1;">${companyName}</div>
+                <div class="bx-company-sub">INTERNATIONAL COURIER / FREIGHT FORWARDER</div>
+                <div class="bx-company-sub">WEBSITE: WWW.PXCGLOBAL.NET &nbsp;|&nbsp; E-MAIL: INFO@PXCGLOBAL.NET</div>
+              </div>
+            </div>
+            <div></div>
+            <div class="bx-page-count" style="font-size:22px;font-weight:900;text-align:right;white-space:nowrap;">${idx+1} / ${totalPkg}</div>
+          </div>
+
+          <!-- Top meta row: Account | Customer | Origin | Destination | Service | Actual Weight -->
+          <div class="bx-meta-top" style="display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid #000;">
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Account</span><span class="bx-meta-val">${carrierRef || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Customer</span><span class="bx-meta-val">${shipperName}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Origin</span><span class="bx-meta-val">${shipperCity || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Destination</span><span class="bx-meta-val">${dest || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Service</span><span class="bx-meta-val">${product || mode || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Actual Weight</span><span class="bx-meta-val">${wt} kg</span></div>
+          </div>
+
+          <!-- Second meta row: Box Weight | Box Vol. Weight | Dimension in CM -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Box Weight</span><span class="bx-meta-val">${wt} kg</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Box Vol. Weight</span><span class="bx-meta-val">${volWt} kg</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Dimension in CM</span><span class="bx-meta-val">${dims}</span></div>
+          </div>
+
+          <!-- Sender's Company row -->
+          <div class="bx-party-row">
+            <div class="bx-party-tag" style="line-height:1.3;">SENDER'S<br>COMPANY</div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Sender's Company</span>
+              <span class="bx-party-name-val">${shipperName}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Recipient's Company</span>
+              <span class="bx-party-name-val">${receiverName}</span>
+            </div>
+          </div>
+
+          <!-- Sender's Name row -->
+          <div class="bx-party-row">
+            <div class="bx-party-tag" style="line-height:1.3;">SENDER'S<br>NAME</div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Sender's Name</span>
+              <span class="bx-party-name-val">${shipperName}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Recipient's Name</span>
+              <span class="bx-party-name-val">${receiverName}</span>
+            </div>
+          </div>
+
+          <!-- Address row -->
+          <div class="bx-party-row">
+            <div class="bx-party-tag">ADDRESS</div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Address</span>
+              <span class="bx-party-addr-val">${document.getElementById('shipperAddress1')?.value || ''}${document.getElementById('shipperAddress2')?.value ? '<br>'+document.getElementById('shipperAddress2').value : ''}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Address</span>
+              <span class="bx-party-addr-val">${document.querySelector('[name="receiver_address1"]')?.value || ''}${document.querySelector('[name="receiver_address2"]')?.value ? '<br>'+document.querySelector('[name="receiver_address2"]').value : ''}</span>
+            </div>
+          </div>
+
+          <!-- Pin Code | City | State | Tel No. -->
+          <div style="display:grid;grid-template-columns:130px 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-party-tag" style="font-size:10px;">PIN CODE</div>
+            <div class="bx-party-block"><span class="bx-meta-val">${shipperPincode || '—'}</span></div>
+            <div class="bx-party-block"><span class="bx-meta-val">${receiverPincode || '—'}</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:130px 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-party-tag" style="font-size:10px;">CITY</div>
+            <div class="bx-party-block"><span class="bx-meta-val">${shipperCity || '—'}</span>&nbsp;&nbsp;<span style="font-size:9px;color:#555;">${shipperState}</span></div>
+            <div class="bx-party-block"><span class="bx-meta-val">${receiverCity || '—'}</span>&nbsp;&nbsp;<span style="font-size:9px;color:#555;">${receiverState}</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:130px 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-party-tag" style="font-size:10px;">TEL NO.</div>
+            <div class="bx-party-block">
+              <span class="bx-meta-lbl">Shipper Tel.</span>
+              <span class="bx-meta-val" style="font-size:12px;">${shipperPhone || '—'}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-meta-lbl">Consignee Tel.</span>
+              <span class="bx-meta-val" style="font-size:12px;">${receiverPhone || '—'}</span>
+            </div>
+          </div>
+
+          <!-- Description | Pieces | Chargeable WT | Booking Date | Routing Code -->
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Description of Goods</span>
+              <span class="bx-meta-val" style="font-size:11px;">${name}</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Pieces</span>
+              <span class="bx-meta-val">${qty}</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Chargeable WT</span>
+              <span class="bx-meta-val">${chargeableWt} kg</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Booking Date</span>
+              <span class="bx-meta-val" style="font-size:11px;">${bookingDate}</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Routing Code</span>
+              <span class="bx-meta-val" style="font-size:11px;">${mode || '—'}</span>
+            </div>
+          </div>
+
+          <!-- Barcode / AWB row -->
+          <div class="bx-barcode-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;">
+            <div style="max-width:180px;">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">SHIPPER AGREEMENT</div>
+              <div style="font-size:8px;color:#444;line-height:1.4;">Shipper agrees to PXC Pacific Global Pvt. Ltd. Terms &amp; Conditions. This AWB is non-transferable.<br>No claims for loss if shipper has not physically received the parcel.</div>
+              <div style="margin-top:6px;font-size:8px;font-weight:700;">SHIPPER'S SIGNATURE</div>
+              <div style="border-top:1px solid #000;width:130px;margin-top:18px;"></div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:28px;font-weight:900;letter-spacing:2px;margin-bottom:4px;">${awb}</div>
+              <div style="font-size:38px;letter-spacing:4px;font-weight:900;line-height:1;">▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:20px;font-weight:900;border:3px solid #000;padding:6px 14px;letter-spacing:2px;display:inline-block;">BOX LABEL</div>
+            </div>
+          </div>
+
+          <!-- Footer notes -->
+          <div style="padding:6px 14px;border-top:1px solid #000;font-size:7.5px;color:#444;line-height:1.5;">
+            1. No Claims will be entertained for any damage during transit &amp; delay in delivery due to any misuse.<br>
+            2. Maximum claim for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.<br>
+            3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our care.
+          </div>
+        </div>`;
+    });
+    labelsHtml += '</div>';
+    document.getElementById('printBoxLabels').innerHTML = labelsHtml || '<div style="padding:20px;text-align:center;color:#6B7280;">No packages found.</div>';
+  }
+
+  // Fill docket package rows
+  if (type === 'docket') {
+    let rows = '';
+    document.querySelectorAll('#pkgBody tr').forEach((row, idx) => {
+      const name = row.querySelector('[name="pkg_name[]"]')?.value || '';
+      const qty  = row.querySelector('[name="pkg_qty[]"]')?.value  || '';
+      const l    = row.querySelector('[name="pkg_l[]"]')?.value    || '—';
+      const w    = row.querySelector('[name="pkg_w[]"]')?.value    || '—';
+      const h    = row.querySelector('[name="pkg_h[]"]')?.value    || '—';
+      const wt   = row.querySelector('[name="pkg_wt[]"]')?.value   || '—';
+      if (name) rows += `<tr><td>${idx+1}</td><td>${name}</td><td>${qty}</td><td>${l}</td><td>${w}</td><td>${h}</td><td>${wt}</td></tr>`;
+    });
+    const dkBody = document.getElementById('dkPkgRows');
+    if (dkBody) dkBody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center;color:#9CA3AF;">No packages</td></tr>';
+    const pieces = document.querySelectorAll('#pkgBody tr').length;
+    const el = document.getElementById('dkPiecesCount');
+    if (el) el.textContent = pieces;
+  }
+
+  // Fill performa invoice print rows
+  if (type === 'performa') {
+    let rows = '', subtotal = 0;
+    document.querySelectorAll('#perfBody .perf-row').forEach((row, idx) => {
+      const desc = row.querySelector('.perf-desc')?.value || '';
+      const qty  = parseFloat(row.querySelector('.perf-qty')?.value) || 0;
+      const rate = parseFloat(row.querySelector('.perf-rate')?.value) || 0;
+      const amt  = qty * rate;
+      subtotal += amt;
+      if (desc) rows += `<tr><td>${idx+1}</td><td>${desc}</td><td style="text-align:center;">${qty}</td><td style="text-align:right;">${rate.toFixed(2)}</td><td style="text-align:right;">${amt.toFixed(2)}</td></tr>`;
+    });
+    const f = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2});
+    ['pfPrintRows'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = rows; });
+    ['pfPrintSubtotal'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = f(subtotal); });
+    ['pfPrintTotal'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = f(subtotal); });
+    const wt = document.getElementById('perfWeight')?.value || '—';
+    const wEl = document.getElementById('pfPrintWeight');
+    if (wEl) wEl.textContent = wt;
+  }
+
+  // Show correct print area
+  const sections = {
+    invoice:  'printCustomerInvoice',
+    performa: 'printPerformaInvoice',
+    docket:   'printDocket',
+    box:      'printBoxLabels',
+    awblabel: 'printAwbLabel',
+  };
+  // Hide all, show only chosen
+  Object.values(sections).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const chosen = document.getElementById(sections[type]);
+  if (chosen) {
+    document.getElementById('printArea').style.display = 'block';
+    chosen.style.display = 'block';
+    setTimeout(() => {
+      window.print();
+      // After print, hide again
+      setTimeout(() => {
+        document.getElementById('printArea').style.display = 'none';
+        chosen.style.display = 'none';
+      }, 500);
+    }, 100);
+  }
+}
+
 /* ── Package rows ── */
 function addPkgRow() {
   const tr = document.createElement('tr');
@@ -1135,6 +1982,7 @@ function validateCustForm(e) {
 document.addEventListener('DOMContentLoaded', () => { 
   calcFreight();   // also calls calcInvoiceTotal internally
   calcPkg();
+  calcPerforma();
   
   // Set payment mode from hidden value
   const paymentMode = document.getElementById('paymentModeHidden').value;

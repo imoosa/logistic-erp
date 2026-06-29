@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+{% block title %}Record Payment{% endblock %}
+{% block page_title %}Record Payment{% endblock %}
+{% set active = 'payments' %}
+
+{% block extra_style %}
+<style>
+  .rp-header { background: linear-gradient(135deg, #7C3AED, #5B21B6);
+    border-radius: 16px; padding: 24px 32px; margin-bottom: 28px; color: #fff; }
+  .rp-header h2 { font-size: 22px; margin-bottom: 4px; }
+  .rp-header p  { opacity: .85; font-size: 13px; }
+
+  .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
+                   letter-spacing: .6px; color: var(--gray-400); margin-bottom: 12px; }
+
+  .mode-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+  .mode-tab  { flex: 1; padding: 14px; border: 2px solid var(--gray-200); border-radius: 12px;
+               text-align: center; cursor: pointer; font-weight: 600; font-size: 13px;
+               color: var(--gray-500); transition: all .15s; text-decoration: none; display: block; }
+  .mode-tab.active-payment { border-color: #7C3AED; background: #F5F3FF; color: #7C3AED; }
+  .mode-tab:hover { border-color: var(--gray-400); }
+
+  .invoice-picker { border: 1.5px solid var(--gray-200); border-radius: 12px; overflow: hidden; margin-top: 8px; }
+  .invoice-picker-header { background: var(--gray-50); padding: 10px 16px; font-size: 11px;
+                           font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+                           color: var(--gray-500); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px; }
+  .inv-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px;
+             align-items: center; padding: 12px 16px; border-top: 1px solid var(--gray-100);
+             transition: background .15s; }
+  .inv-row:hover { background: var(--gray-50); }
+  .inv-ref  { font-weight: 600; font-size: 13px; color: var(--primary); }
+  .inv-date { font-size: 12px; color: var(--gray-500); }
+  .inv-amt  { font-weight: 700; font-size: 13px; }
+  .inv-bal  { font-weight: 700; font-size: 13px; color: #DC2626; }
+  .inv-chk  { width: 18px; height: 18px; cursor: pointer; accent-color: #7C3AED; }
+
+  .pay-input-wrap { position: relative; }
+  .pay-input-wrap .currency-sym { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+                                   font-weight: 700; color: var(--gray-500); font-size: 15px; }
+  .pay-input-wrap input { padding-left: 28px !important; font-size: 20px !important; font-weight: 700; }
+
+  .method-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 6px; }
+  .method-card { border: 2px solid var(--gray-200); border-radius: 10px; padding: 12px 8px;
+                 text-align: center; cursor: pointer; transition: all .15s; }
+  .method-card input[type=radio] { display: none; }
+  .method-card:has(input:checked) { border-color: #7C3AED; background: #F5F3FF; color: #7C3AED; }
+  .method-icon { font-size: 22px; margin-bottom: 4px; }
+  .method-lbl  { font-size: 11px; font-weight: 600; }
+
+  /* Bank account selector */
+  .bank-selector-wrap {
+    margin-top: 16px;
+    padding: 16px;
+    background: #F5F3FF;
+    border: 1.5px solid #C4B5FD;
+    border-radius: 12px;
+    display: none;
+  }
+  .bank-selector-wrap.visible { display: block; }
+  .bank-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+  .bank-option-card {
+    border: 2px solid #C4B5FD;
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    background: white;
+    transition: all .15s;
+  }
+  .bank-option-card:has(input:checked) { border-color: #7C3AED; background: #F5F3FF; }
+  .bank-option-card input[type=radio] { display: none; }
+  .bank-option-name { font-weight: 700; font-size: 13px; color: #1E3A5F; }
+  .bank-option-sub  { font-size: 11px; color: #6B7280; margin-top: 2px; }
+  .bank-option-bal  { font-size: 12px; font-weight: 700; color: #7C3AED; margin-top: 6px; }
+  .no-bank-warning {
+    padding: 12px 16px;
+    background: #FEF3C7;
+    border: 1px solid #FCD34D;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #92400E;
+    margin-top: 10px;
+  }
+
+  .summary-strip { background: var(--gray-50); border: 1.5px solid var(--gray-200);
+                   border-radius: 12px; padding: 16px 20px; display: flex;
+                   justify-content: space-between; align-items: center; margin: 20px 0; }
+  .summary-strip .s-item { text-align: center; }
+  .summary-strip .s-val  { font-size: 18px; font-weight: 800; }
+  .summary-strip .s-lbl  { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+  .submit-bar { display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px; }
+  .no-invoices { text-align: center; padding: 40px; color: var(--gray-400); font-size: 14px; }
+
+  /* History table */
+  .history-section { margin-top: 32px; }
+  .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .history-title { font-size: 16px; font-weight: 700; color: var(--gray-800); }
+  .history-count { font-size: 12px; color: var(--gray-400); background: var(--gray-100);
+                   padding: 3px 10px; border-radius: 20px; }
+  .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .history-table thead th { background: var(--gray-50); padding: 10px 14px; text-align: left;
+                             font-size: 11px; font-weight: 700; text-transform: uppercase;
+                             letter-spacing: .5px; color: var(--gray-500);
+                             border-bottom: 2px solid var(--gray-200); }
+  .history-table tbody tr { border-bottom: 1px solid var(--gray-100); transition: background .12s; }
+  .history-table tbody tr:hover { background: #F5F3FF; }
+  .history-table tbody td { padding: 12px 14px; vertical-align: middle; }
+  .ht-ref  { font-weight: 700; color: var(--primary); font-size: 13px; }
+  .ht-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; max-width: 280px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ht-amt  { font-weight: 800; color: #7C3AED; font-size: 14px; }
+  .mode-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px;
+                font-weight: 700; }
+  .mode-cash  { background: #DCFCE7; color: #15803D; }
+  .mode-bank  { background: #DBEAFE; color: #1D4ED8; }
+  .mode-upi   { background: #EDE9FE; color: #6D28D9; }
+  .mode-cheque{ background: #FEF3C7; color: #B45309; }
+  .no-history { text-align: center; padding: 48px; color: var(--gray-400); }
+  .no-history-icon { font-size: 36px; margin-bottom: 10px; }
+  .search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
+  .search-bar input { flex: 1; padding: 9px 14px; border: 1.5px solid var(--gray-200);
+                      border-radius: 9px; font-size: 13px; outline: none; }
+  .search-bar input:focus { border-color: #7C3AED; }
+
+  @media(max-width:768px){
+    .method-grid{grid-template-columns:repeat(2,1fr);}
+    .invoice-picker-header,.inv-row{grid-template-columns:2fr 1fr 1fr;}
+    .inv-row .inv-date,.invoice-picker-header span:nth-child(2){display:none;}
+    .history-table .ht-desc { display: none; }
+    .bank-option-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Mode tabs -->
+<div class="mode-tabs">
+  <a href="/receipts/new" class="mode-tab">
+    💰 Record Receipt
+    <div style="font-size:11px; font-weight:400; margin-top:2px;">Money received from debtors</div>
+  </a>
+  <a href="/payments/new" class="mode-tab active-payment">
+    💸 Record Payment
+    <div style="font-size:11px; font-weight:400; margin-top:2px;">Money paid to creditors</div>
+  </a>
+</div>
+
+<!-- Header -->
+<div class="rp-header">
+  <h2>💸 Record Payment</h2>
+  <p>Select the supplier, pick purchase invoices to settle, and enter amount paid.</p>
+</div>
+
+<form method="POST" action="/payments/save" id="rpForm">
+  <div class="card">
+    <div class="card-body">
+
+      <!-- Step 1 -->
+      <div class="section-label">Step 1 — Select Supplier (Creditor)</div>
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="form-group" style="margin-bottom:0">
+          <label>Supplier *</label>
+          <select name="entity_id" id="entitySelect" required onchange="loadInvoices()">
+            <option value="">— Choose —</option>
+            {% for e in entities %}
+            <option value="{{ e.id }}" {{ 'selected' if selected_id == e.id }}>
+              {{ e.name }}{% if e.payable %} — ₹{{ "{:,.0f}".format(e.payable) }} pending{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label>Transaction Date *</label>
+          <input type="date" name="txn_date" value="{{ today }}" required>
+        </div>
+      </div>
+
+      <!-- Step 2: Invoice picker -->
+      <div id="invoiceSection" style="display:none; margin-bottom:20px;">
+        <div class="section-label">Step 2 — Select Bills to Settle <span id="invoiceCount" style="font-weight:400;text-transform:none;letter-spacing:0;"></span></div>
+        <div class="invoice-picker">
+          <div class="invoice-picker-header">
+            <span>Bill Ref</span>
+            <span>Date</span>
+            <span>Total</span>
+            <span>Balance Due</span>
+            <span><input type="checkbox" id="checkAll" onclick="toggleAll(this)" title="Select all" style="cursor:pointer;width:16px;height:16px;"></span>
+          </div>
+          <div id="invoiceList"></div>
+        </div>
+        <div style="font-size:12px; color:var(--gray-400); margin-top:8px;">
+          ☑ Selecting a bill will auto-fill the amount field below. You can adjust it.
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div id="amountSection" style="display:none;">
+        <div class="section-label">Step 3 — Payment Details</div>
+        <div class="grid-2" style="margin-bottom:20px;">
+          <div class="form-group" style="margin-bottom:0">
+            <label>Amount Paid (₹) *</label>
+            <div class="pay-input-wrap">
+              <span class="currency-sym">₹</span>
+              <input type="number" name="amount" id="amountInput" min="1" step="0.01"
+                     placeholder="0.00" required oninput="updateSummary()">
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Reference / Narration</label>
+            <input type="text" name="narration" placeholder="e.g. cheque no, UPI ref, note…">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Payment Mode</label>
+          <div class="method-grid">
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="Cash" checked onchange="onModeChange()">
+              <div class="method-icon">💵</div><div class="method-lbl">Cash</div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="Bank Transfer" onchange="onModeChange()">
+              <div class="method-icon">🏦</div><div class="method-lbl">Bank Transfer</div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="UPI" onchange="onModeChange()">
+              <div class="method-icon">📱</div><div class="method-lbl">UPI</div>
+            </label>
+            <label class="method-card">
+              <input type="radio" name="pay_mode" value="Cheque" onchange="onModeChange()">
+              <div class="method-icon">📋</div><div class="method-lbl">Cheque</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Bank Account Selector (shown for non-cash) -->
+        <div id="bankSelectorWrap" class="bank-selector-wrap">
+          <div style="font-weight:700; font-size:13px; color:#1E3A5F;">🏦 Select Bank Account to Debit</div>
+          <div style="font-size:12px; color:#6B7280; margin-top:2px;">Choose which account this payment goes out from</div>
+
+          {% if bank_accounts %}
+          <div class="bank-option-grid" id="bankOptionGrid">
+            {% for acc in bank_accounts %}
+            <label class="bank-option-card">
+              <input type="radio" name="bank_account_id" value="{{ acc.id }}"
+                     {% if loop.first %}checked{% endif %}>
+              <div class="bank-option-name">{{ acc.bank_name }}</div>
+              <div class="bank-option-sub">{{ acc.account_name }}</div>
+              <div class="bank-option-sub" style="font-size:10px; color:#9CA3AF;">{{ acc.account_number }}</div>
+              <div class="bank-option-bal">₹{{ "{:,.2f}".format(acc.balance) }}</div>
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="no-bank-warning">
+            ⚠️ No bank accounts found. <a href="/bank-accounts" style="color:#92400E; font-weight:700;">Add a bank account</a> first, or use Cash mode.
+          </div>
+          <input type="hidden" name="bank_account_id" value="">
+          {% endif %}
+        </div>
+
+        <div class="summary-strip">
+          <div class="s-item">
+            <div class="s-val" id="sumInvoices">0</div>
+            <div class="s-lbl">Bills Selected</div>
+          </div>
+          <div class="s-item">
+            <div class="s-val" id="sumSelected" style="color:#DC2626;">₹0</div>
+            <div class="s-lbl">Total Balance Selected</div>
+          </div>
+          <div class="s-item">
+            <div class="s-val" id="sumPaying" style="color:#7C3AED;">₹0</div>
+            <div class="s-lbl">Amount Paying</div>
+          </div>
+          <div class="s-item">
+            <div class="s-val" id="sumRemaining" style="color:#D97706;">₹0</div>
+            <div class="s-lbl">Remaining After</div>
+          </div>
+        </div>
+
+        <input type="hidden" name="invoice_ids" id="invoiceIdsInput">
+
+        <div class="submit-bar">
+          <a href="/creditors" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary" id="submitBtn" disabled>✅ Save Payment</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+<!-- ── Payment History ── -->
+<div class="card history-section">
+  <div class="card-body">
+    <div class="history-header">
+      <div class="history-title">📋 Payment History</div>
+      <span class="history-count">{{ history|length }} records</span>
+    </div>
+
+    {% if history %}
+    <div class="search-bar">
+      <input type="text" id="histSearch" placeholder="🔍 Search by reference, supplier, or amount…" oninput="filterHistory()">
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="history-table" id="histTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Date</th>
+            <th>Bill Ref</th>
+            <th>Description</th>
+            <th>Mode</th>
+            <th>Bank / Account</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in history %}
+          <tr>
+            <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
+            <td style="font-size:12px; color:var(--gray-600); white-space:nowrap;">{{ h.date }}</td>
+            <td><div class="ht-ref">{{ h.reference }}</div></td>
+            <td><div class="ht-desc" title="{{ h.supplier }}">{{ h.supplier }}</div></td>
+            <td>
+              {% set m = h.mode|lower %}
+              <span class="mode-badge {% if m == 'cash' %}mode-cash{% elif m == 'upi' %}mode-upi{% elif 'cheque' in m %}mode-cheque{% else %}mode-bank{% endif %}">
+                {{ h.mode }}
+              </span>
+            </td>
+            <td style="font-size:12px; color:var(--gray-600);">{{ h.bank_name or '—' }}</td>
+            <td style="text-align:right;"><span class="ht-amt">₹{{ "{:,.2f}".format(h.amount) }}</span></td>
+            <td style="font-size:12px; color:var(--gray-500);">{{ h.notes }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr style="border-top: 2px solid var(--gray-200); background: var(--gray-50);">
+            <td colspan="6" style="padding:12px 14px; font-weight:700; font-size:13px;">Total Paid</td>
+            <td style="text-align:right; padding:12px 14px; font-weight:800; font-size:15px; color:#7C3AED;">
+              ₹{{ "{:,.2f}".format(history|sum(attribute='amount')) }}
+            </td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    {% else %}
+    <div class="no-history">
+      <div class="no-history-icon">📭</div>
+      <div style="font-weight:600; color:var(--gray-600); margin-bottom:4px;">No payments recorded yet</div>
+      <div style="font-size:13px;">Payments you save above will appear here.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  const INVOICES_BY_ENTITY = {{ invoices_json | safe }};
+  const HAS_BANK_ACCOUNTS  = {{ 'true' if bank_accounts else 'false' }};
+
+  function fmt(n){ return '₹' + Number(n).toLocaleString('en-IN', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+
+  function onModeChange() {
+    const mode = document.querySelector('input[name="pay_mode"]:checked')?.value || 'Cash';
+    const wrap = document.getElementById('bankSelectorWrap');
+    if (mode !== 'Cash') {
+      wrap.classList.add('visible');
+      if (HAS_BANK_ACCOUNTS) {
+        document.querySelectorAll('input[name="bank_account_id"]').forEach(r => r.required = true);
+      }
+    } else {
+      wrap.classList.remove('visible');
+      document.querySelectorAll('input[name="bank_account_id"]').forEach(r => r.required = false);
+    }
+  }
+
+  function loadInvoices(){
+    const entityId = document.getElementById('entitySelect').value;
+    const list     = document.getElementById('invoiceList');
+    const sec      = document.getElementById('invoiceSection');
+    const amtSec   = document.getElementById('amountSection');
+    const countEl  = document.getElementById('invoiceCount');
+    document.getElementById('checkAll').checked = false;
+    if(!entityId){ sec.style.display='none'; amtSec.style.display='none'; return; }
+    const invs = INVOICES_BY_ENTITY[entityId] || [];
+    list.innerHTML = '';
+    if(invs.length === 0){
+      list.innerHTML = `<div class="no-invoices">🎉 No outstanding bills for this supplier!</div>`;
+      countEl.textContent = '';
+    } else {
+      countEl.textContent = `(${invs.length} outstanding)`;
+      invs.forEach(inv => {
+        list.innerHTML += `
+        <div class="inv-row">
+          <div><div class="inv-ref">${inv.ref}</div><div class="inv-date">${inv.date}</div></div>
+          <div class="inv-date">${inv.date}</div>
+          <div class="inv-amt">${fmt(inv.total)}</div>
+          <div class="inv-bal">${fmt(inv.balance)}</div>
+          <input type="checkbox" class="inv-chk" value="${inv.id}" data-balance="${inv.balance}" onchange="onCheckChange()">
+        </div>`;
+      });
+    }
+    sec.style.display = 'block';
+    amtSec.style.display = 'block';
+    updateSummary();
+  }
+
+  function toggleAll(master){
+    document.querySelectorAll('.inv-chk').forEach(c => c.checked = master.checked);
+    onCheckChange();
+  }
+
+  function onCheckChange(){
+    const checked = [...document.querySelectorAll('.inv-chk:checked')];
+    const totalBal = checked.reduce((s,c) => s + parseFloat(c.dataset.balance), 0);
+    document.getElementById('amountInput').value = totalBal.toFixed(2);
+    updateSummary();
+  }
+
+  function updateSummary(){
+    const checked  = [...document.querySelectorAll('.inv-chk:checked')];
+    const totalBal = checked.reduce((s,c) => s + parseFloat(c.dataset.balance), 0);
+    const paying   = parseFloat(document.getElementById('amountInput').value) || 0;
+    const remain   = Math.max(0, totalBal - paying);
+    document.getElementById('sumInvoices').textContent  = checked.length;
+    document.getElementById('sumSelected').textContent  = fmt(totalBal);
+    document.getElementById('sumPaying').textContent    = fmt(paying);
+    document.getElementById('sumRemaining').textContent = fmt(remain);
+    const ids = checked.map(c => c.value).join(',');
+    document.getElementById('invoiceIdsInput').value = ids;
+    document.getElementById('submitBtn').disabled = (paying <= 0);
+  }
+
+  function filterHistory(){
+    const q = document.getElementById('histSearch').value.toLowerCase();
+    document.querySelectorAll('#histTable tbody tr').forEach(row => {
+      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if(document.getElementById('entitySelect').value){ loadInvoices(); }
+    onModeChange(); // set initial state
+  });
+</script>
+{% endblock %}
