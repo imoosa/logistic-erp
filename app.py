@@ -539,112 +539,365 @@ def _first_or_404(obj):
         abort(404)
     return obj
 
-def parse_price_list(df, courier):
-    """Parse Excel price list into structured JSON"""
+_MULTI_WORD_COUNTRIES = [
+    'NEW ZELAND', 'NEW ZEALAND', 'SOUTH AFRICA', 'SOUTH KOREA', 'NORTH KOREA',
+    'SAUDI ARABIA', 'UNITED KINGDOM', 'UNITED STATES', 'UNITED ARAB EMIRATES',
+    'CZECH REPUBLIC', 'COSTA RICA', 'SRI LANKA', 'HONG KONG', 'PUERTO RICO',
+    'EL SALVADOR', 'DOMINICAN REPUBLIC',
+]
+
+
+def _split_country_label(col_label):
+    """
+    Splits a column header that may contain multiple country names jammed
+    together with single spaces (e.g. 'Germany Belgium Netherlands' or
+    'Australia New Zealand') into individual country names, without breaking
+    apart known multi-word country names like 'New Zealand' or 'Czech Republic'.
+    """
+    label_upper = col_label.upper()
+    found = []
+    remaining = label_upper
+
+    # Pull out known multi-word names first so they aren't split on whitespace.
+    for name in _MULTI_WORD_COUNTRIES:
+        if name in remaining:
+            found.append(name)
+            remaining = remaining.replace(name, ' ')
+
+    # Whatever's left, split on whitespace as single-word country names.
+    found.extend(remaining.split())
+    return found
+
+
+def _find_header_row(filepath, max_scan_rows=20):
+    """
+    Real rate-card files in this system have several blank/title rows before
+    the actual header row (e.g. row 0-7 blank, row 8 = title, row 9 = header).
+    pd.read_excel() with no skiprows treats row 0 as the header, which produces
+    'Unnamed: N' columns and silently breaks parsing. This scans raw cells to
+    find the row that actually looks like a header (contains COUNTRY, WEIGHT/KG,
+    or a country/weight-shaped row) and returns its 0-indexed row number for
+    pandas' `header=` argument.
+    """
+    import openpyxl
+    wb = openpyxl.load_workbook(filepath, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+
+    HEADER_HINTS = ('COUNTRY', 'WEIGHT', 'KG', 'DESTINATION')
+
+    for i, row in enumerate(ws.iter_rows(min_row=1, max_row=max_scan_rows, values_only=True)):
+        cells = [str(c).strip().upper() for c in row if c is not None and str(c).strip() != '']
+        if len(cells) < 2:
+            continue
+        if any(hint in c for c in cells for hint in HEADER_HINTS):
+            return i  # 0-indexed -> matches pandas header=i
+
+    return 0  # fallback: assume no blank rows
+
+
+def _extract_weight_from_label(label):
+    """
+    Parses weight-bearing column/row labels into a weight value.
+    Handles: '1.5 KG', '1.5KG', '8 KG +', '11 KG +', '1ST 500gms', '0.5'
+
+    NOTE: the '+' in a label (e.g. DPD's '8 KG +', '11 KG +', '21 KG +') does
+    NOT reliably mean "this column is a per-kg rate" - DPD uses '+' simply to
+    mean "this tier covers weights up to and including N kg", and the VALUE
+    in that column can still be a normal increasing tier total (e.g. '8 KG +'
+    sits right after '6 KG' in the sheet with a normal ~21% step up, not a
+    per-kg rate). Only the price itself - whether it represents a sane total
+    or a per-kg-sized number - reveals whether a column is a tier or a band.
+    That detection happens later in _build_tiers_and_bands(), not here.
+    Returns the weight value, or None if no weight can be parsed.
+    """
     import re
-    
+    s = str(label).strip().upper()
+
+    gms_match = re.search(r'(\d+(?:\.\d+)?)\s*GMS?\b', s)
+    if gms_match:
+        return float(gms_match.group(1)) / 1000.0
+
+    num_match = re.search(r'(\d+(?:\.\d+)?)', s)
+    if not num_match:
+        return None
+
+    return float(num_match.group(1))
+
+
+def _is_weight_label(label):
+    """True if a column header looks like a weight tier (not TIME/DAY/COUNTRY/etc)."""
+    s = str(label).strip().upper()
+    if not s or s in ('NAN', 'NONE'):
+        return False
+    if 'TIME' in s or 'DAY' in s or 'COUNTRY' in s:
+        return False
+    return ('KG' in s) or ('GMS' in s) or s.replace('.', '', 1).isdigit()
+
+
+def _build_tiers_and_bands(weight_value_pairs):
+    """
+    Given a list of (weight, is_band_flag, price) for one country/destination,
+    split into:
+      - tiers: [{weight, price}]  where price is the TOTAL price for that weight
+      - bands: [{min_kg, max_kg, rate_per_kg}] where price is PER-KG to be
+        multiplied by the actual shipment weight
+
+    A row/column enters a band in one of two ways:
+      1. Explicitly marked (DPD's "8 KG +", "11 KG +", "21 KG +" headers)
+      2. Detected: price drops SHARPLY relative to the previous tier (DHL/FEDEX
+         style, where the value silently switches from "total price at this
+         weight" to "rate per kg" around 10.5-11kg). A genuine band transition
+         drops the number by an order of magnitude (e.g. ~10,700 -> ~980),
+         not just a small rounding wobble between adjacent tiers (real rate
+         cards have noisy, sometimes flat or slightly-decreasing consecutive
+         tiers, e.g. DHL 6.5kg=8597.69 -> 7kg=8597.68). A small dip must NOT
+         be misread as a band, or weights just below the real breakpoint get
+         priced as if they were already per-kg, producing wildly wrong rates.
+    """
+    weight_value_pairs = sorted(weight_value_pairs, key=lambda x: x[0])
+
+    band_rows = []
+    tier_candidates = []
+    prev_price = None
+    band_started = False  # once we cross into bands, everything after stays banded
+
+    for weight, is_band_flag, price in weight_value_pairs:
+        if is_band_flag:
+            band_started = True
+            band_rows.append((weight, price))
+            continue
+
+        if band_started:
+            # Already past the breakpoint (explicitly marked earlier) -> stay banded.
+            band_rows.append((weight, price))
+            continue
+
+        if prev_price is not None and prev_price > 0 and price < prev_price * 0.5:
+            # Sharp drop (price roughly halved or more) -> real band transition,
+            # not tier-to-tier rounding noise.
+            band_started = True
+            band_rows.append((weight, price))
+        else:
+            tier_candidates.append((weight, price))
+            if price > 0:
+                prev_price = max(prev_price or 0, price)  # ignore small dips/noise
+
+    tiers = [{'weight': w, 'price': p} for w, p in tier_candidates]
+
+    bands = []
+    band_rows.sort(key=lambda x: x[0])
+    for weight, price in band_rows:
+        if bands and abs(bands[-1]['rate_per_kg'] - price) < max(0.01, bands[-1]['rate_per_kg'] * 0.005):
+            bands[-1]['max_kg'] = weight  # extend current band (within 0.5% = same rate, just rounding)
+        else:
+            bands.append({'min_kg': weight, 'max_kg': None, 'rate_per_kg': price})
+
+    for i in range(len(bands) - 1):
+        bands[i]['max_kg'] = bands[i + 1]['min_kg']
+    if bands:
+        bands[-1]['max_kg'] = None  # last band is open-ended
+
+    return tiers, bands
+
+
+def calculate_rate(rate_data, country_key, weight):
+    """
+    Single source of truth for turning (rate_data, country, weight) into a price.
+    Used by both the sales and purchase rate-lookup endpoints so the logic only
+    lives in one place.
+
+    rate_data['countries'][country] is either:
+      - new format: {'tiers': [...], 'bands': [...]}
+      - legacy format: {weight_str: price} (old flat dict from price lists
+        uploaded before this fix; kept working for backward compatibility)
+
+    Returns (rate, weight_used, pricing_type) or (None, None, None) if no match.
+    pricing_type is 'tier' or 'per_kg' so the UI can show how the figure was derived.
+    """
+    entry = rate_data['countries'].get(country_key)
+    if not entry:
+        return None, None, None
+
+    if 'tiers' not in entry and 'bands' not in entry:
+        # Legacy flat dict
+        rate_keys = sorted(float(k) for k in entry.keys())
+        if not rate_keys:
+            return None, None, None
+        closest = rate_keys[-1]
+        for w in rate_keys:
+            if w >= weight:
+                closest = w
+                break
+        rate = entry.get(closest)
+        if rate is None:
+            rate = entry.get(str(closest))
+        return rate, closest, 'tier'
+
+    tiers = entry.get('tiers', [])
+    bands = entry.get('bands', [])
+
+    for band in bands:
+        min_kg, max_kg = band['min_kg'], band['max_kg']
+        if weight >= min_kg and (max_kg is None or weight < max_kg):
+            return round(band['rate_per_kg'] * weight, 2), weight, 'per_kg'
+
+    if bands and weight >= bands[-1]['min_kg']:
+        # Heavier than the last defined band's min -> still use it (open-ended)
+        return round(bands[-1]['rate_per_kg'] * weight, 2), weight, 'per_kg'
+
+    if tiers:
+        tiers_sorted = sorted(tiers, key=lambda t: t['weight'])
+        chosen = tiers_sorted[-1]
+        for t in tiers_sorted:
+            if t['weight'] >= weight:
+                chosen = t
+                break
+        return chosen['price'], chosen['weight'], 'tier'
+
+    return None, None, None
+
+
+def parse_price_list(filepath, courier):
+    """
+    Parse a courier Excel rate card into structured JSON.
+
+    Handles the real-world rate card shapes used in this system:
+      - DPD: COUNTRY column + per-weight columns, some explicitly marked as
+        bands ("8 KG +", "11 KG +", "21 KG +") whose values are per-kg rates.
+      - FEDEX / DHL: WEIGHT column + one column per destination/country-group,
+        where rows below ~10.5kg are full tier prices and rows from ~11kg
+        onward are flat per-kg rates (no explicit '+' marker - detected by
+        the price no longer increasing with weight).
+
+    Output shape (per country):
+      data['countries'][COUNTRY] = {
+          'tiers': [{'weight': 1.0, 'price': 3381.44}, ...],
+          'bands': [{'min_kg': 11.0, 'max_kg': 21.0, 'rate_per_kg': 980}, ...]
+      }
+
+    NOTE: signature changed from parse_price_list(df, courier) to
+    parse_price_list(filepath, courier) because the old caller's
+    pd.read_excel(filepath) with no header row offset produced 'Unnamed: N'
+    columns on every real file in this system (header is row 8/9, not row 0),
+    so format detection always failed silently. This function now reads the
+    file itself after locating the real header row.
+    """
+    import re
+
     data = {
         'courier': courier,
         'format': 'unknown',
         'countries': {},
         'weights': []
     }
-    
+
+    header_row = _find_header_row(filepath)
+    df = pd.read_excel(filepath, engine='openpyxl', header=header_row)
+    df = df.dropna(how='all')
+
     headers = df.columns.tolist()
-    
-    print(f"📊 Parsing {courier} - Columns found: {headers}")
-    
-    # DPD Format: Has COUNTRY column
+    print(f"📊 Parsing {courier} - header_row={header_row} - Columns found: {headers}")
+
+    # ── DPD-style format: has a COUNTRY column ──────────────────────────
     country_col = None
     for h in headers:
-        if 'COUNTRY' in str(h).upper() or 'Country' in str(h):
+        if 'COUNTRY' in str(h).upper():
             country_col = h
             break
-    
+
     if country_col:
         print(f"✅ Found country column: {country_col}")
         data['format'] = 'dpd'
-        
-        # Find all weight columns
-        weight_cols = []
+
+        weight_cols = []  # (col_name, weight_val)
         for h in headers:
-            h_str = str(h).upper()
-            if h == country_col:
+            if h == country_col or not _is_weight_label(h):
                 continue
-            if 'TIME' in h_str or 'DAY' in h_str:
-                continue
-            if 'KG' in h_str:
-                # Extract weight value
-                weight_str = re.sub(r'[^\d.]', '', h_str)
-                try:
-                    weight_val = float(weight_str)
-                    weight_cols.append((h, weight_val))
-                    print(f"   Weight column: {h} -> {weight_val}kg")
-                except:
-                    print(f"   Could not parse weight from: {h}")
-        
+            weight_val = _extract_weight_from_label(h)
+            if weight_val is not None:
+                weight_cols.append((h, weight_val))
+                print(f"   Weight column: {h} -> {weight_val}kg")
+
         weight_cols.sort(key=lambda x: x[1])
         data['weights'] = [w[1] for w in weight_cols]
-        
-        # Parse each row
+
         for idx, row in df.iterrows():
             country = str(row[country_col]).strip().upper()
-            if not country or country == 'NAN' or country == 'NONE' or country == '':
-                continue
-            
-            rates = {}
+            if not country or country in ('NAN', 'NONE', '') or len(country) > 60:
+                continue  # skip blanks and footer/notes rows
+
+            pairs = []
             for col_name, weight_val in weight_cols:
                 try:
                     val = row[col_name]
                     if pd.notna(val) and val != '':
-                        # Store weight as float key
-                        rates[float(weight_val)] = float(val)
+                        pairs.append((float(weight_val), False, float(val)))
                 except Exception as e:
-                    print(f"   Error parsing {col_name}: {e}")
-            
-            if rates:
-                data['countries'][country] = rates
-                print(f"   Added {country}: {list(rates.keys())}")
-        
+                    print(f"   Error parsing {col_name} for {country}: {e}")
+
+            if pairs:
+                tiers, bands = _build_tiers_and_bands(pairs)
+                data['countries'][country] = {'tiers': tiers, 'bands': bands}
+
         print(f"✅ Parsed {len(data['countries'])} countries for {courier}")
-        if data['countries']:
-            sample = list(data['countries'].keys())[0]
-            print(f"   Sample: {sample} -> {data['countries'][sample]}")
-        
         return data
-    
-    # FEDEX Format: Has WEIGHT column
+
+    # ── FEDEX/DHL-style format: WEIGHT/KG column + one column per destination ──
     weight_col = None
     for h in headers:
-        if 'WEIGHT' in str(h).upper() or 'Weight' in str(h):
+        if str(h).strip().upper() in ('WEIGHT', 'KG') or 'WEIGHT' in str(h).upper():
             weight_col = h
             break
-    
+
     if weight_col:
         print(f"✅ Found weight column: {weight_col}")
         data['format'] = 'fedex'
-        
+
         country_cols = [h for h in headers if h != weight_col]
-        
+        raw_by_country = {}  # destination -> [(weight, is_band, price)]
+
         for idx, row in df.iterrows():
-            weight_val = float(row[weight_col]) if pd.notna(row[weight_col]) else 0
-            if weight_val > 0:
-                data['weights'].append(weight_val)
-                for col in country_cols:
-                    country_list = str(col).replace('_', '/').split('/')
-                    for country in country_list:
-                        country = country.strip().upper()
-                        if country and len(country) > 1 and 'TIME' not in country:
-                            if country not in data['countries']:
-                                data['countries'][country] = {}
-                            val = float(row[col]) if pd.notna(row[col]) else 0
-                            # Store weight as float key
-                            data['countries'][country][float(weight_val)] = val
-        
+            wv = row[weight_col]
+            if pd.isna(wv):
+                continue
+
+            # WEIGHT column can be a pure number (FEDEX: 0.5, 1, 1.5 ...) or a
+            # text label (DHL: '1ST 500gms', '1 kg', '21 KG'). Handle both.
+            if isinstance(wv, (int, float)):
+                weight_val = float(wv)
+            else:
+                weight_val = _extract_weight_from_label(wv)
+                if weight_val is None:
+                    continue  # footer/notes row, not a weight row
+
+            if weight_val <= 0:
+                continue
+
+            data['weights'].append(weight_val)
+
+            for col in country_cols:
+                col_label = str(col).replace('/', ' ').replace('_', ' ').replace('&', ' ')
+                col_label = re.sub(r'\s+', ' ', col_label).strip()
+                country_list = _split_country_label(col_label)
+                for country in country_list:
+                    country = country.strip().upper()
+                    if not country or len(country) <= 1 or 'TIME' in country:
+                        continue
+                    val = row[col]
+                    if pd.isna(val):
+                        continue
+                    raw_by_country.setdefault(country, []).append(
+                        (weight_val, False, float(val))
+                    )
+
+        for country, pairs in raw_by_country.items():
+            tiers, bands = _build_tiers_and_bands(pairs)
+            data['countries'][country] = {'tiers': tiers, 'bands': bands}
+
         data['weights'] = sorted(set(data['weights']))
         print(f"✅ Parsed {len(data['countries'])} countries for {courier}")
         return data
-    
+
     print(f"❌ Could not detect format for {courier}. Headers: {headers}")
     return data
 
@@ -1954,23 +2207,17 @@ def upload_price_list():
                 os.makedirs('uploads/price_lists', exist_ok=True)
                 file.save(filepath)
                 
-                # Read the saved file
-                df = pd.read_excel(filepath, engine='openpyxl')
-                
                 print(f"📊 File: {file.filename}")
-                print(f"📊 Columns: {df.columns.tolist()}")
-                print(f"📊 Rows: {len(df)}")
-                
-                if len(df) == 0:
-                    flash("The Excel file is empty", "error")
-                    return redirect(url_for("price_lists"))
-                
-                # Parse rates based on format
-                rate_data = parse_price_list(df, courier)
+
+                # Parse rates based on format. parse_price_list() now finds the
+                # real header row itself (rate cards have several blank/title
+                # rows before the header, which used to break pd.read_excel()
+                # with no header offset and silently produce zero countries).
+                rate_data = parse_price_list(filepath, courier)
                 
                 # Check if we parsed any data
                 if not rate_data['countries']:
-                    flash(f"No countries parsed from {file.filename}. Columns found: {df.columns.tolist()}", "error")
+                    flash(f"No countries parsed from {file.filename}. Detected format: {rate_data.get('format', 'unknown')}. Check that the file has a COUNTRY column (DPD-style) or a WEIGHT/KG column (FEDEX/DHL-style).", "error")
                     return redirect(url_for("price_lists"))
                 
                 # Deactivate old price lists for this courier
@@ -2090,31 +2337,14 @@ def api_rate_lookup():
             print(f"❌ No match found for: {destination}")
             return jsonify({'error': f'No rate found for {destination}. Available countries: {", ".join(list(countries.keys())[:10])}'}), 404
         
-        # Find closest weight
-        # IMPORTANT: Convert rate keys to float for comparison
-        rate_keys = [float(k) for k in matched_rates.keys()]
-        rate_keys.sort()
-        
-        print(f"🔑 Rate keys for {matched_country}: {rate_keys}")
-        
-        closest_weight = rate_keys[0] if rate_keys else weight
-        for w in rate_keys:
-            if w >= weight:
-                closest_weight = w
-                break
-            closest_weight = w
-        
-        # Get the rate - try both float and string key
-        rate = matched_rates.get(closest_weight, 0)
-        
-        # If not found, try string version
-        if rate == 0:
-            rate = matched_rates.get(str(closest_weight), 0)
-        
-        print(f"💰 Rate: {rate} for {closest_weight}kg")
-        
-        if rate <= 0:
-            return jsonify({'error': f'No rate for {closest_weight}kg in {matched_country}. Available weights: {rate_keys}'}), 404
+        # Use calculate_rate() so band (per-kg) pricing above the tier table
+        # is multiplied by weight instead of returned as a raw stored number.
+        rate, weight_used, pricing_type = calculate_rate(rate_data, matched_country, weight)
+
+        print(f"💰 Rate: {rate} for {weight_used}kg ({pricing_type})")
+
+        if not rate or rate <= 0:
+            return jsonify({'error': f'No rate found for {weight}kg in {matched_country}'}), 404
         
         # Log lookup
         try:
@@ -2133,7 +2363,8 @@ def api_rate_lookup():
         return jsonify({
             'success': True,
             'rate': rate,
-            'weight_used': closest_weight,
+            'weight_used': weight_used,
+            'pricing_type': pricing_type,
             'country_matched': matched_country,
             'courier': courier,
             'destination': destination
@@ -2207,23 +2438,16 @@ def api_purchase_rate_lookup():
         if not matched_rates:
             return jsonify({'error': f'No rate found for {destination}'}), 404
 
-        rate_keys     = sorted([float(k) for k in matched_rates.keys()])
-        closest_weight = rate_keys[0]
-        for w in rate_keys:
-            if w >= weight:
-                closest_weight = w
-                break
-            closest_weight = w
+        rate, weight_used, pricing_type = calculate_rate(rate_data, matched_country, weight)
 
-        rate = matched_rates.get(closest_weight) or matched_rates.get(str(closest_weight), 0)
-
-        if rate <= 0:
-            return jsonify({'error': f'No rate for {closest_weight}kg in {matched_country}'}), 404
+        if not rate or rate <= 0:
+            return jsonify({'error': f'No rate found for {weight}kg in {matched_country}'}), 404
 
         return jsonify({
             'success': True,
             'rate': rate,
-            'weight_used': closest_weight,
+            'weight_used': weight_used,
+            'pricing_type': pricing_type,
             'country_matched': matched_country,
             'courier': courier,
             'destination': destination
