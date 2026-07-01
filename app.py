@@ -4022,11 +4022,16 @@ def invoice_new():
         # Process Packages
         pkg_names = request.form.getlist("pkg_name[]")
         pkg_types = request.form.getlist("pkg_type[]")
+        pkg_units = request.form.getlist("pkg_unit[]")
         pkg_qtys = request.form.getlist("pkg_qty[]")
         pkg_l = request.form.getlist("pkg_l[]")
         pkg_w = request.form.getlist("pkg_w[]")
         pkg_h = request.form.getlist("pkg_h[]")
         pkg_wt = request.form.getlist("pkg_wt[]")
+        pkg_division = request.form.getlist("pkg_division[]")
+        pkg_discount = request.form.getlist("pkg_discount[]")
+        pkg_volwt = request.form.getlist("pkg_volwt[]")
+        pkg_chgwt = request.form.getlist("pkg_chgwt[]")
         pkg_rates = request.form.getlist("pkg_rate[]")
         
         packages_data = []
@@ -4035,11 +4040,16 @@ def invoice_new():
                 packages_data.append({
                     "name": pkg_names[i],
                     "type": pkg_types[i] if i < len(pkg_types) else "",
+                    "unit": pkg_units[i] if i < len(pkg_units) else "cm",
                     "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
                     "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
                     "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
                     "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
                     "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                    "division": float(pkg_division[i] or 5000) if i < len(pkg_division) and pkg_division[i] else 5000,
+                    "discount": float(pkg_discount[i] or 0) if i < len(pkg_discount) and pkg_discount[i] else 0,
+                    "vol_weight": float(pkg_volwt[i] or 0) if i < len(pkg_volwt) and pkg_volwt[i] else 0,
+                    "chg_weight": float(pkg_chgwt[i] or 0) if i < len(pkg_chgwt) and pkg_chgwt[i] else 0,
                     "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
                 })
         
@@ -4199,6 +4209,7 @@ def invoice_new():
             "resale_reason": getattr(existing_invoice, 'resale_reason', ''),
             "resale_date": getattr(existing_invoice, 'resale_date', ''),
             "resale_notes": getattr(existing_invoice, 'resale_notes', ''),
+            "vendor": meta.get("vendor", ""),
         }
         # ── Load linked Performa Invoice items ──────────────────────────────
         linked_est = cdb.query(Estimate).filter_by(company_id=company_id).filter(
@@ -4210,6 +4221,8 @@ def invoice_new():
                 form_data["performa_items"] = perf_meta.get("line_items", [])
                 form_data["perf_weight"]    = perf_meta.get("weight", "")
                 form_data["perf_reference"] = perf_meta.get("reference", "")
+                form_data["performa_invoice_no"]   = perf_meta.get("invoice_no", "")
+                form_data["performa_invoice_date"] = perf_meta.get("invoice_date", "")
             except Exception:
                 pass
         # ────────────────────────────────────────────────────────────────────
@@ -4435,11 +4448,16 @@ def invoice_customer_update():
     # ── Process Packages ─────────────────────────────────────────────────────
     pkg_names = request.form.getlist("pkg_name[]")
     pkg_types = request.form.getlist("pkg_type[]")
+    pkg_units = request.form.getlist("pkg_unit[]")
     pkg_qtys = request.form.getlist("pkg_qty[]")
     pkg_l = request.form.getlist("pkg_l[]")
     pkg_w = request.form.getlist("pkg_w[]")
     pkg_h = request.form.getlist("pkg_h[]")
     pkg_wt = request.form.getlist("pkg_wt[]")
+    pkg_division = request.form.getlist("pkg_division[]")
+    pkg_discount = request.form.getlist("pkg_discount[]")
+    pkg_volwt = request.form.getlist("pkg_volwt[]")
+    pkg_chgwt = request.form.getlist("pkg_chgwt[]")
     pkg_rates = request.form.getlist("pkg_rate[]")
     
     packages_data = []
@@ -4448,11 +4466,16 @@ def invoice_customer_update():
             packages_data.append({
                 "name": pkg_names[i],
                 "type": pkg_types[i] if i < len(pkg_types) else "",
+                "unit": pkg_units[i] if i < len(pkg_units) else "cm",
                 "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
                 "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
                 "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
                 "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
                 "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                "division": float(pkg_division[i] or 5000) if i < len(pkg_division) and pkg_division[i] else 5000,
+                "discount": float(pkg_discount[i] or 0) if i < len(pkg_discount) and pkg_discount[i] else 0,
+                "vol_weight": float(pkg_volwt[i] or 0) if i < len(pkg_volwt) and pkg_volwt[i] else 0,
+                "chg_weight": float(pkg_chgwt[i] or 0) if i < len(pkg_chgwt) and pkg_chgwt[i] else 0,
                 "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
             })
     
@@ -4480,6 +4503,7 @@ def invoice_customer_update():
         "receiver_doc_no": request.form.get("receiver_doc_no", ""),
         "destination": request.form.get("destination", ""),
         "shipment_type": request.form.get("shipment_type", ""),
+        "vendor": request.form.get("vendor", ""),
         "mode": request.form.get("mode", ""),
         "carrier": request.form.get("carrier", ""),
         "carrier_ref": request.form.get("carrier_ref", ""),
@@ -4538,11 +4562,17 @@ def invoice_customer_update():
     # ── Save Performa Invoice items (linked Estimate) ───────────────────────────
     # This block was missing here entirely — invoice_customer_save (create) had it,
     # invoice_customer_update (edit) did not, so edits to performa items never persisted.
-    perf_descs  = request.form.getlist("perf_desc[]")
+    perf_descs   = request.form.getlist("perf_desc[]")
+    perf_boxes   = request.form.getlist("perf_box[]")
+    perf_hsns    = request.form.getlist("perf_hsn[]")
+    perf_units   = request.form.getlist("perf_unit[]")
+    perf_witems  = request.form.getlist("perf_weight_item[]")
     perf_qtys   = request.form.getlist("perf_qty[]")
     perf_rates  = request.form.getlist("perf_rate[]")
     perf_weight = request.form.get("perf_weight", "0.00").strip()
     perf_ref    = request.form.get("perf_reference", "").strip()
+    perf_inv_no   = request.form.get("performa_invoice_no", "").strip()
+    perf_inv_date = request.form.get("performa_invoice_date", "").strip()
 
     perf_items = []
     perf_subtotal = 0.0
@@ -4553,7 +4583,15 @@ def invoice_customer_update():
         qty  = float(perf_qtys[i])  if i < len(perf_qtys)  and perf_qtys[i]  else 0.0
         rate = float(perf_rates[i]) if i < len(perf_rates) and perf_rates[i] else 0.0
         perf_subtotal += qty * rate
-        perf_items.append({"description": desc, "qty": qty, "rate": rate})
+        perf_items.append({
+            "description": desc,
+            "box": perf_boxes[i] if i < len(perf_boxes) else "",
+            "hsn": perf_hsns[i] if i < len(perf_hsns) else "",
+            "unit": perf_units[i] if i < len(perf_units) and perf_units[i] else "PCS",
+            "weight": float(perf_witems[i] or 0) if i < len(perf_witems) and perf_witems[i] else 0,
+            "qty": qty,
+            "rate": rate,
+        })
 
     def _fmt_addr_pi(a1, a2, city, state, pin, country):
         return ", ".join(p for p in [a1, a2, city, state, pin, country] if p)
@@ -4591,6 +4629,8 @@ def invoice_customer_update():
         "destination":  request.form.get("destination", ""),
         "weight":       perf_weight,
         "reference":    perf_ref,
+        "invoice_no":   perf_inv_no,
+        "invoice_date": perf_inv_date,
         "line_items":   perf_items,
         "dimensions":   [],
     })
@@ -4769,6 +4809,8 @@ def invoice_view(invoice_id):
         "other_charges_reason": meta.get("other_charges_reason", ""),
         "notes":            inv.email or "",
         "packages":         meta.get("packages", []),
+        "product": meta.get("shipment_type", ""),
+        "vendor": meta.get("vendor", ""),
     }
 
     # ── Load linked Performa Invoice items (was missing — items existed in DB
@@ -4782,6 +4824,8 @@ def invoice_view(invoice_id):
             invoice["performa_items"] = perf_meta.get("line_items", [])
             invoice["perf_weight"]    = perf_meta.get("weight", "")
             invoice["perf_reference"] = perf_meta.get("reference", "")
+            invoice["performa_invoice_no"]   = perf_meta.get("invoice_no", "")
+            invoice["performa_invoice_date"] = perf_meta.get("invoice_date", "")
         except Exception:
             pass
 
@@ -5145,11 +5189,16 @@ def invoice_customer_save():
     # ── Process Packages - ADD TO INVENTORY AND CREATE INVOICE ITEMS ──────────
     pkg_names = request.form.getlist("pkg_name[]")
     pkg_types = request.form.getlist("pkg_type[]")
+    pkg_units = request.form.getlist("pkg_unit[]")
     pkg_qtys  = request.form.getlist("pkg_qty[]")
     pkg_l     = request.form.getlist("pkg_l[]")
     pkg_w     = request.form.getlist("pkg_w[]")
     pkg_h     = request.form.getlist("pkg_h[]")
     pkg_wt    = request.form.getlist("pkg_wt[]")
+    pkg_division = request.form.getlist("pkg_division[]")
+    pkg_discount = request.form.getlist("pkg_discount[]")
+    pkg_volwt    = request.form.getlist("pkg_volwt[]")
+    pkg_chgwt    = request.form.getlist("pkg_chgwt[]")
     pkg_rates = request.form.getlist("pkg_rate[]")
     
     stock_added = []
@@ -5237,11 +5286,16 @@ def invoice_customer_save():
             packages_data.append({
                 "name": pkg_names[i],
                 "type": pkg_types[i] if i < len(pkg_types) else "",
+                "unit": pkg_units[i] if i < len(pkg_units) else "cm",
                 "qty": float(pkg_qtys[i] or 1) if pkg_qtys[i] else 1,
                 "length": float(pkg_l[i] or 0) if i < len(pkg_l) else 0,
                 "width": float(pkg_w[i] or 0) if i < len(pkg_w) else 0,
                 "height": float(pkg_h[i] or 0) if i < len(pkg_h) else 0,
                 "weight": float(pkg_wt[i] or 0) if i < len(pkg_wt) else 0,
+                "division": float(pkg_division[i] or 5000) if i < len(pkg_division) and pkg_division[i] else 5000,
+                "discount": float(pkg_discount[i] or 0) if i < len(pkg_discount) and pkg_discount[i] else 0,
+                "vol_weight": float(pkg_volwt[i] or 0) if i < len(pkg_volwt) and pkg_volwt[i] else 0,
+                "chg_weight": float(pkg_chgwt[i] or 0) if i < len(pkg_chgwt) and pkg_chgwt[i] else 0,
                 "rate": float(pkg_rates[i] or 0) if i < len(pkg_rates) else 0,
             })
     
@@ -5277,6 +5331,7 @@ def invoice_customer_save():
         "departure_time":   request.form.get("departure_time", ""),
         "expected_delivery":request.form.get("expected_delivery", ""),
         "comments":         request.form.get("comments", ""),
+        "vendor":           request.form.get("vendor", ""),
         "payment_mode":     payment_mode,
         "upi_app":          upi_app,
         "upi_ref":          upi_ref,
@@ -5433,11 +5488,17 @@ def invoice_customer_save():
             client.pending = (client.pending or 0) + balance
 
     # ── Save Performa Invoice items (linked Estimate) ──────────────────────────
-    perf_descs  = request.form.getlist("perf_desc[]")
+    perf_descs   = request.form.getlist("perf_desc[]")
+    perf_boxes   = request.form.getlist("perf_box[]")
+    perf_hsns    = request.form.getlist("perf_hsn[]")
+    perf_units   = request.form.getlist("perf_unit[]")
+    perf_witems  = request.form.getlist("perf_weight_item[]")
     perf_qtys   = request.form.getlist("perf_qty[]")
     perf_rates  = request.form.getlist("perf_rate[]")
     perf_weight = request.form.get("perf_weight", "0.00").strip()
     perf_ref    = request.form.get("perf_reference", "").strip()
+    perf_inv_no   = request.form.get("performa_invoice_no", "").strip()
+    perf_inv_date = request.form.get("performa_invoice_date", "").strip()
 
     perf_items = []
     perf_subtotal = 0.0
@@ -5448,7 +5509,15 @@ def invoice_customer_save():
         qty  = float(perf_qtys[i])  if i < len(perf_qtys)  and perf_qtys[i]  else 0.0
         rate = float(perf_rates[i]) if i < len(perf_rates) and perf_rates[i] else 0.0
         perf_subtotal += qty * rate
-        perf_items.append({"description": desc, "qty": qty, "rate": rate})
+        perf_items.append({
+            "description": desc,
+            "box": perf_boxes[i] if i < len(perf_boxes) else "",
+            "hsn": perf_hsns[i] if i < len(perf_hsns) else "",
+            "unit": perf_units[i] if i < len(perf_units) and perf_units[i] else "PCS",
+            "weight": float(perf_witems[i] or 0) if i < len(perf_witems) and perf_witems[i] else 0,
+            "qty": qty,
+            "rate": rate,
+        })
 
     if perf_items:
         def _fmt_addr_pi(a1, a2, city, state, pin, country):
@@ -5487,6 +5556,8 @@ def invoice_customer_save():
             "destination":  request.form.get("destination", ""),
             "weight":       perf_weight,
             "reference":    perf_ref,
+            "invoice_no":   perf_inv_no,
+            "invoice_date": perf_inv_date,
             "line_items":   perf_items,
             "dimensions":   [],   # dimensions come from the packages section
         })

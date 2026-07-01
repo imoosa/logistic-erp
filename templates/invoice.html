@@ -63,6 +63,8 @@
   .perf-collapsed .perf-body-wrap { display:none; }
   .perf-collapsed-summary { display:none; font-size:12px; color:#6B7280; }
   .perf-collapsed .perf-collapsed-summary { display:inline; }
+  .perf-collapsed-summary-bar { display:none; }
+  .perf-collapsed .perf-collapsed-summary-bar { display:block; }
 
   /* Performa Invoice table */
   .performa-table { width:100%; border-collapse:collapse; }
@@ -73,6 +75,25 @@
   .performa-totals-box { background:#EEF2FF; border-radius:10px; padding:14px 20px; min-width:260px; }
   .performa-total-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
   .performa-total-row.grand { font-size:16px; font-weight:800; border-top:2px solid #C7D2FE; margin-top:6px; padding-top:10px; color:#4338CA; }
+
+  /* Performa — manifest-style header (matches reference layout) */
+  .perf-collapsed-bar { background:#D1D5DB; border-radius:6px; padding:10px 16px; font-size:13px; color:#1D4ED8; cursor:pointer; font-weight:500; }
+  .perf-collapsed-bar:hover { background:#C7CBD1; }
+  .manifest-badge { display:inline-block; background:#1E293B; color:#fff; font-size:11px; font-weight:700; letter-spacing:.3px; padding:6px 16px; border-radius:20px; margin-bottom:16px; }
+  .perf-meta-grid { display:grid; grid-template-columns:1fr 1fr auto 1fr; gap:16px; margin-bottom:16px; align-items:end; }
+  .perf-meta-grid.row2 { grid-template-columns:1fr 1fr 1fr 1fr; }
+  .perf-meta-grid label, .perf-entry-grid label { font-size:11px; font-weight:700; color:#374151; display:block; margin-bottom:4px; }
+  .perf-meta-grid select, .perf-meta-grid input { width:100%; padding:8px 10px; border:1.5px solid #D1D5DB; border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .perf-meta-grid input[readonly] { background:#F3F4F6; color:#6B7280; }
+  .yn-toggle { display:flex; border-radius:6px; overflow:hidden; border:1.5px solid #D1D5DB; width:fit-content; }
+  .yn-btn { padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer; background:#fff; color:#6B7280; user-select:none; }
+  .yn-btn.active { background:#16A34A; color:#fff; }
+  .perf-entry-panel { background:#F9FAFB; border:1px solid #E5E7EB; border-radius:10px; padding:14px; margin-bottom:14px; }
+  .perf-entry-grid { display:grid; grid-template-columns:100px 90px 1.6fr 110px 90px 90px 120px 100px 100px auto; gap:10px; align-items:end; }
+  .perf-entry-grid select, .perf-entry-grid input { width:100%; padding:7px 8px; border:1.5px solid #D1D5DB; border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .perf-entry-grid .btn-add-perf { background:#1E293B; color:#fff; border:none; border-radius:6px; padding:8px 16px; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap; height:36px; }
+  .perf-entry-grid .btn-add-perf:hover { background:#334155; }
+  @media(max-width:1100px){ .perf-entry-grid { grid-template-columns:repeat(3,1fr); } .perf-meta-grid, .perf-meta-grid.row2 { grid-template-columns:1fr 1fr; } }
 
   /* Print buttons bar */
   .print-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
@@ -255,7 +276,7 @@
     <div class="grid-2">
       <div class="form-group">
         <label>Customer / Company *</label>
-        <select name="customer_id" id="customerSelect" required onchange="onCustomerChange(this)">
+        <select name="customer_id" id="customerSelect" onchange="onCustomerChange(this)">
           <option value="">— Select Customer —</option>
           {% for c in clients %}
           <option value="{{ c.id }}"
@@ -327,35 +348,35 @@
     <div class="grid-2">
       <div class="form-group">
         <label>Receiver Name *</label>
-        <input type="text" name="receiver_name" value="{{ form_data.receiver_name or '' }}" placeholder="Recipient full name" required>
+        <input type="text" name="receiver_name" id="receiverName" value="{{ form_data.receiver_name or '' }}" placeholder="Recipient full name">
       </div>
       <div class="form-group">
-        <label>Receiver Phone</label>
-        <input type="text" name="receiver_phone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
+        <label>Receiver Phone *</label>
+        <input type="text" name="receiver_phone" id="receiverPhone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
       </div>
     </div>
     
     <!-- Consignee Address Fields -->
     <div class="address-grid">
       <div class="form-group full-width">
-        <label>Address Line 1</label>
-        <input type="text" name="receiver_address1" value="{{ form_data.receiver_address1 or '' }}" placeholder="Street address, building, apartment">
+        <label>Address Line 1 *</label>
+        <input type="text" name="receiver_address1" id="receiverAddress1" value="{{ form_data.receiver_address1 or '' }}" placeholder="Street address, building, apartment">
       </div>
       <div class="form-group full-width">
         <label>Address Line 2</label>
         <input type="text" name="receiver_address2" value="{{ form_data.receiver_address2 or '' }}" placeholder="Landmark, area, locality">
       </div>
       <div class="form-group half-width">
-        <label>City / Town</label>
-        <input type="text" name="receiver_city" value="{{ form_data.receiver_city or '' }}" placeholder="City">
+        <label>City / Town *</label>
+        <input type="text" name="receiver_city" id="receiverCity" value="{{ form_data.receiver_city or '' }}" placeholder="City">
       </div>
       <div class="form-group half-width">
         <label>State</label>
         <input type="text" name="receiver_state" value="{{ form_data.receiver_state or '' }}" placeholder="State">
       </div>
       <div class="form-group half-width">
-        <label>Pincode</label>
-        <input type="text" name="receiver_pincode" value="{{ form_data.receiver_pincode or '' }}" placeholder="Pincode">
+        <label>Pincode *</label>
+        <input type="text" name="receiver_pincode" id="receiverPincode" value="{{ form_data.receiver_pincode or '' }}" placeholder="Pincode">
       </div>
       <div class="form-group half-width">
         <label>Country</label>
@@ -379,18 +400,10 @@
 
   <!-- Shipment Details -->
   <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
-    <div class="section-title">Shipment Details</div>
+    <div class="section-title">Service Details</div>
     <div class="grid-2">
       <div class="form-group">
         <label>Product</label>
-        <input type="text" name="product" value="{{ form_data.product or '' }}" placeholder="e.g. INTL. SPX">
-      </div>
-      <div class="form-group">
-        <label>Vendor</label>
-        <input type="text" name="vendor" value="{{ form_data.vendor or '' }}" placeholder="e.g. Pacific Express">
-      </div>
-      <div class="form-group">
-        <label>Type of Shipment</label>
         <select name="shipment_type">
           {% for t in ['DOX', 'NDOX'] %}
           <option value="{{ t }}" {% if form_data.shipment_type == t %}selected{% endif %}>{{ t }}</option>
@@ -406,8 +419,12 @@
         </select>
       </div>
       <div class="form-group">
+  <label>Vendor</label>
+  <input type="text" name="vendor" value="{{ form_data.vendor or '' }}" placeholder="e.g. Pacific Express">
+</div>
+      <div class="form-group">
         <label>Carrier</label>
-        <select name="carrier">
+        <select name="carrier" id="carrierSelect" onchange="syncRateLookupInputs()">
           <option value="">— Select —</option>
           {% for car in ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'] %}
           <option value="{{ car }}" {% if form_data.carrier == car %}selected{% endif %}>{{ car }}</option>
@@ -420,7 +437,7 @@
       </div>
       <div class="form-group">
         <label>Destination</label>
-        <input type="text" name="destination" value="{{ form_data.destination or '' }}" placeholder="Final destination city/country">
+        <input type="text" name="destination" id="destinationInput" value="{{ form_data.destination or '' }}" placeholder="Final destination city/country" oninput="syncRateLookupInputs()">
       </div>
       <div class="form-group">
         <label>Pickup Date</label>
@@ -444,18 +461,88 @@
   <!-- Packages -->
   <div class="card card-body" style="margin-bottom:16px">
     <div class="section-title">📦 Packages <span style="font-weight:400;font-size:11px;color:#6B7280;margin-left:8px">— These items will be added to your inventory/stock</span></div>
+
+    <!-- Entry panel -->
+    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px;margin-bottom:14px;">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Item Name</label>
+          <input type="text" id="pkgEntryName" placeholder="Item name" value="Box">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Piece Type</label>
+          <select id="pkgEntryType">
+            <option>Box</option><option>Envelope</option><option>Pallet</option>
+            <option>Tube</option><option>Bag</option><option>Crate</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Measurement Unit</label>
+          <select id="pkgEntryUnit" onchange="livePkgCalc()">
+            <option value="cm">Centimeter</option>
+            <option value="in">Inch</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:10px;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Actl Weight/PC (kg)</label>
+          <input type="number" id="pkgEntryWt" step="0.01" min="0" value="0" oninput="livePkgCalc()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>No. Of Pieces</label>
+          <input type="number" id="pkgEntryQty" min="1" value="1" oninput="livePkgCalc()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Length</label>
+          <input type="number" id="pkgEntryL" step="0.1" min="0" value="0" oninput="livePkgCalc()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Width</label>
+          <input type="number" id="pkgEntryW" step="0.1" min="0" value="0" oninput="livePkgCalc()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Height</label>
+          <input type="number" id="pkgEntryH" step="0.1" min="0" value="0" oninput="livePkgCalc()">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Division</label>
+          <input type="number" id="pkgEntryDivision" step="1" min="1" value="5000" oninput="livePkgCalc()">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.3fr 1.3fr 1fr auto;gap:10px;align-items:end;">
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Vol Weight (Discount <span id="pkgDiscLabel">0</span>%)</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <input type="number" id="pkgEntryDiscount" step="1" min="0" max="100" value="0" oninput="livePkgCalc()" style="width:60px" title="Discount %">
+            <input type="text" id="pkgEntryVolWt" value="0.000" readonly style="background:#F3F4F6;color:#374151;font-weight:700;flex:1">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Chrg Weight</label>
+          <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:#EEF2FF;color:#4338CA;font-weight:800;">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Rate (₹)</label>
+          <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
+        </div>
+        <button type="button" class="btn btn-success btn-sm" onclick="addPkgRow()" style="height:38px;white-space:nowrap;">+ Add</button>
+      </div>
+    </div>
+
     <div style="overflow-x:auto">
       <table class="pkg-table">
         <thead>
           <tr>
-            <th>Item Name</th>
-            <th>Piece Type</th>
-            <th>Quantity</th>
-            <th>Length (cm)</th>
-            <th>Width (cm)</th>
-            <th>Height (cm)</th>
-            <th>Weight (kg)</th>
-            <th>Unit Price (₹)</th>
+            <th>Item</th>
+            <th>Actl Wt/PC</th>
+            <th>Pieces</th>
+            <th>Length</th>
+            <th>Breadth</th>
+            <th>Height</th>
+            <th>Volumetric Wt</th>
+            <th>Chrg Weight</th>
+            <th>Rate (₹)</th>
             <th></th>
           </tr>
         </thead>
@@ -463,53 +550,32 @@
           {% if packages and packages|length > 0 %}
             {% for pkg in packages %}
             <tr>
-              <td><input name="pkg_name[]" type="text" placeholder="Item name" style="width:140px" value="{{ pkg.name }}"></td>
               <td>
-                <select name="pkg_type[]" style="width:130px">
-                  <option {% if pkg.type == 'Box' %}selected{% endif %}>Box</option>
-                  <option {% if pkg.type == 'Envelope' %}selected{% endif %}>Envelope</option>
-                  <option {% if pkg.type == 'Pallet' %}selected{% endif %}>Pallet</option>
-                  <option {% if pkg.type == 'Tube' %}selected{% endif %}>Tube</option>
-                  <option {% if pkg.type == 'Bag' %}selected{% endif %}>Bag</option>
-                  <option {% if pkg.type == 'Crate' %}selected{% endif %}>Crate</option>
-                </select>
+                {{ pkg.name }} <span style="color:#9CA3AF;font-size:11px;">({{ pkg.type or 'Box' }})</span>
+                <input type="hidden" name="pkg_name[]" value="{{ pkg.name }}">
+                <input type="hidden" name="pkg_type[]" value="{{ pkg.type or 'Box' }}">
+                <input type="hidden" name="pkg_unit[]" value="{{ pkg.unit or 'cm' }}">
               </td>
-              <td><input name="pkg_qty[]" type="number" value="{{ pkg.qty }}" min="1" oninput="calcPkg()" style="width:70px"></td>
-              <td><input name="pkg_l[]" type="number" step="0.1" value="{{ pkg.length or '' }}" oninput="calcPkg()" style="width:75px" placeholder="L"></td>
-              <td><input name="pkg_w[]" type="number" step="0.1" value="{{ pkg.width or '' }}" oninput="calcPkg()" style="width:75px" placeholder="W"></td>
-              <td><input name="pkg_h[]" type="number" step="0.1" value="{{ pkg.height or '' }}" oninput="calcPkg()" style="width:75px" placeholder="H"></td>
-              <td><input name="pkg_wt[]" type="number" step="0.01" value="{{ pkg.weight or '' }}" oninput="calcPkg()" style="width:75px" placeholder="kg"></td>
-              <td><input name="pkg_rate[]" type="number" step="0.01" value="{{ pkg.rate or '0' }}" placeholder="Rate" style="width:80px"></td>
+              <td>{{ '%.2f'|format(pkg.weight or 0) }}<input type="hidden" name="pkg_wt[]" value="{{ pkg.weight or 0 }}"></td>
+              <td>{{ pkg.qty|int }}<input type="hidden" name="pkg_qty[]" value="{{ pkg.qty }}"></td>
+              <td>{{ pkg.length or 0 }}<input type="hidden" name="pkg_l[]" value="{{ pkg.length or 0 }}"></td>
+              <td>{{ pkg.width or 0 }}<input type="hidden" name="pkg_w[]" value="{{ pkg.width or 0 }}"></td>
+              <td>{{ pkg.height or 0 }}<input type="hidden" name="pkg_h[]" value="{{ pkg.height or 0 }}"><input type="hidden" name="pkg_division[]" value="{{ pkg.division or 5000 }}"><input type="hidden" name="pkg_discount[]" value="{{ pkg.discount or 0 }}"></td>
+              <td>{{ '%.3f'|format(pkg.vol_weight or 0) }}<input type="hidden" name="pkg_volwt[]" value="{{ pkg.vol_weight or 0 }}"></td>
+              <td style="font-weight:700;color:#4338CA;">{{ '%.3f'|format(pkg.chg_weight or 0) }}<input type="hidden" name="pkg_chgwt[]" value="{{ pkg.chg_weight or 0 }}"></td>
+              <td>₹<span class="pkg-rate-display">{{ '%.2f'|format(pkg.rate or 0) }}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="{{ pkg.rate or 0 }}"></td>
               <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>
             </tr>
             {% endfor %}
-          {% else %}
-          <tr>
-            <td><input name="pkg_name[]" type="text" placeholder="Item name" style="width:140px" value="Box"></td>
-            <td>
-              <select name="pkg_type[]" style="width:130px">
-                <option>Box</option><option>Envelope</option><option>Pallet</option>
-                <option>Tube</option><option>Bag</option><option>Crate</option>
-              </select>
-            </td>
-            <td><input name="pkg_qty[]" type="number" value="1" min="1" oninput="calcPkg()" style="width:70px"></td>
-            <td><input name="pkg_l[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="L"></td>
-            <td><input name="pkg_w[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="W"></td>
-            <td><input name="pkg_h[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="H"></td>
-            <td><input name="pkg_wt[]" type="number" step="0.01" oninput="calcPkg()" style="width:75px" placeholder="kg"></td>
-            <td><input name="pkg_rate[]" type="number" step="0.01" value="0" placeholder="Rate" style="width:80px"></td>
-            <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>
-          </tr>
           {% endif %}
         </tbody>
       </table>
     </div>
-    <button type="button" class="btn btn-ghost btn-sm" onclick="addPkgRow()"
-      style="margin-top:12px;border-color:#16A34A;color:#16A34A">+ Add Package Item</button>
     <div class="pkg-totals">
       <div>Total Volumetric Weight: <span id="volWt">0.00</span> kg</div>
       <div>Total Volume: <span id="totalVol">0.0000</span> cu.m</div>
       <div>Total Actual Weight: <span id="actualWt">0.00</span> kg</div>
+      <div>Total Chargeable Weight: <span id="chgWtTotal">0.00</span> kg</div>
     </div>
   </div>
 
@@ -573,7 +639,7 @@
       <div class="form-group">
         <label>Chargeable Weight (kg) *</label>
         <input type="number" name="freight_weight" id="freightWeight" step="0.01" min="0" placeholder="0.00"
-          value="{{ form_data.freight_weight or '0' }}" oninput="calcFreight()">
+          value="{{ form_data.freight_weight or '0' }}" oninput="this.dataset.userEdited='1'; calcFreight(); syncRateLookupInputs()">
       </div>
       <div class="form-group">
         <label>Rate per kg (₹) *</label>
@@ -630,72 +696,148 @@
 
   <!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
   {% set perf_items_initial = form_data.performa_items if form_data and form_data.performa_items else [] %}
-  <div class="card card-body perf-section{{ '' if perf_items_initial else ' perf-collapsed' }}" id="perfSection" style="margin-bottom:16px;border:2px solid #4F46E5;">
-    <div class="perf-header" onclick="togglePerfSection()" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="perf-toggle-icon">▾</span>
+  <div class="perf-section{{ '' if perf_items_initial else ' perf-collapsed' }}" id="perfSection" style="margin-bottom:16px;">
+
+    <!-- Collapsed state: flat gray bar (click to expand) -->
+    <div class="perf-collapsed-bar perf-collapsed-summary-bar" onclick="togglePerfSection()">
+      Click here to enter performa details
+    </div>
+
+    <div class="card card-body perf-body-wrap" style="border:2px solid #E5E7EB;">
+      <span class="manifest-badge" onclick="togglePerfSection()" style="cursor:pointer;">Manifest GST Detail</span>
+
+      <!-- Meta row 1: CSB Type | Term of Invoice | GST Invoice toggle | Invoice No -->
+      <div class="perf-meta-grid">
         <div>
-          <div class="section-title" style="border-bottom:none;margin-bottom:2px;color:#4338CA;">📋 Performa Invoice Items</div>
-          <span style="font-size:11px;color:#6B7280;">Items declared by shipper — used in Performa Invoice &amp; Docket print <span class="perf-collapsed-summary">(click to add items)</span></span>
+          <label>CSB_Type</label>
+          <select name="csb_type" id="csbType" onchange="updateDepartmentNo()">
+            {% for c in ['CSB 1','CSB 3','CSB 4','CSB 5','CSB 7'] %}
+            <option value="{{ c }}" {% if (form_data.csb_type or 'CSB 4') == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Term Of Invoice</label>
+          <select name="term_of_invoice" id="termOfInvoice">
+            {% for t in ['Delivered at Place(DAP)','Free on Board(FOB)','Cost Insurance Freight(CIF)','Ex Works(EXW)','Delivered Duty Paid(DDP)'] %}
+            <option value="{{ t }}" {% if (form_data.term_of_invoice or 'Delivered at Place(DAP)') == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>GST Invoice</label>
+          <div class="yn-toggle">
+            <div class="yn-btn {{ 'active' if form_data.gst_invoice_flag == 'yes' }}" id="gstYnYes" onclick="setGstInvoice('yes')">Yes</div>
+            <div class="yn-btn {{ 'active' if form_data.gst_invoice_flag != 'yes' }}" id="gstYnNo" onclick="setGstInvoice('no')">No</div>
+          </div>
+          <input type="hidden" name="gst_invoice_flag" id="gstInvoiceFlag" value="{{ form_data.gst_invoice_flag or 'no' }}">
+        </div>
+        <div>
+          <label>Invoice No</label>
+          <input type="text" name="performa_invoice_no" id="performaInvoiceNo" value="{{ form_data.performa_invoice_no or docket_no or '' }}" placeholder="Invoice number">
         </div>
       </div>
-      <div>
-        <span style="font-size:12px;font-weight:600;color:#4338CA;">Total: <span id="perfGrandDisplay" style="font-size:15px;font-weight:800;">₹0.00</span></span>
+
+      <!-- Meta row 2: Invoice Date | Department No | Export Reason | Format -->
+      <div class="perf-meta-grid row2">
+        <div>
+          <label>Invoice Date</label>
+          <input type="date" name="performa_invoice_date" id="performaInvoiceDate" value="{{ form_data.performa_invoice_date or invoice_date or today }}" onchange="updateDepartmentNo()">
+        </div>
+        <div>
+          <label>Department No</label>
+          <input type="text" name="department_no" id="departmentNo" value="{{ form_data.department_no or '' }}" readonly title="Auto-generated from CSB Type, GST status &amp; invoice date">
+        </div>
+        <div>
+          <label>Export Reason</label>
+          <select name="export_reason" id="exportReason" onchange="updateDepartmentNo()">
+            <option value="">— Select —</option>
+            {% for r in ['Gift','Sample','Commercial Sale','Return / Repair','Personal Effects','Other'] %}
+            <option value="{{ r }}" {% if form_data.export_reason == r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Format</label>
+          <select name="performa_format" id="performaFormat">
+            {% for f in ['performainv','commercialinv'] %}
+            <option value="{{ f }}" {% if (form_data.performa_format or 'performainv') == f %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
-    </div>
-    <div class="perf-body-wrap">
-    <div style="overflow-x:auto">
-      <table class="performa-table">
-        <thead>
-          <tr>
-            <th width="5%">#</th>
-            <th width="55%">Description of Goods</th>
-            <th width="12%">Quantity</th>
-            <th width="14%">Rate (₹)</th>
-            <th width="14%">Amount (₹)</th>
-            <th width="4%"></th>
-          </tr>
-        </thead>
-        <tbody id="perfBody">
-          {% set perf_items = form_data.performa_items if form_data and form_data.performa_items else [] %}
-          {% if perf_items %}
+
+      <!-- Item entry panel: Box No | Packages | Description | HSN | Qty | Weight | Unit | Rate | Amount | +Add -->
+      <div class="perf-entry-panel">
+        <div class="perf-entry-grid">
+          <div><label>Box No</label><select id="perfEntryBox" class="perf-box-select"><option value="">— Select —</option></select></div>
+          <div><label>Packages</label><input type="number" id="perfEntryPackages" min="1" value="1" title="No. of boxes/envelopes this line covers, starting from Box No"></div>
+          <div><label>Description</label><input type="text" id="perfEntryDesc" placeholder="e.g. Electronic Components, Clothing..."></div>
+          <div><label>HSN Code</label><input type="text" id="perfEntryHsn" placeholder="HSN code"></div>
+          <div><label>Quantity</label><input type="number" id="perfEntryQty" min="0" step="1" value="1" oninput="livePerfEntryAmount()"></div>
+          <div><label>Weight</label><input type="number" id="perfEntryWeight" min="0" step="0.01" placeholder="kg"></div>
+          <div>
+            <label>Unit</label>
+            <select id="perfEntryUnit">
+              {% for u in ['BOTTLE','PCS','SET','PAIR','BOX','KG','METER','UNIT'] %}
+              <option value="{{ u }}">{{ u }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div><label>Rate</label><input type="number" id="perfEntryRate" min="0" step="0.01" value="0" oninput="livePerfEntryAmount()"></div>
+          <div><label>Amount</label><input type="text" id="perfEntryAmount" value="0.00" readonly style="background:#F3F4F6;color:#374151;font-weight:700;"></div>
+          <button type="button" class="btn-add-perf" onclick="addPerfItemRow()">+ Add</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="performa-table">
+          <thead>
+            <tr>
+              <th width="4%">#</th>
+              <th width="10%">Box No.</th>
+              <th width="30%">Description of Goods</th>
+              <th width="10%">HSN Code</th>
+              <th width="8%">Qty</th>
+              <th width="8%">Weight</th>
+              <th width="8%">Unit</th>
+              <th width="8%">Rate (₹)</th>
+              <th width="10%">Amount (₹)</th>
+              <th width="4%"></th>
+            </tr>
+          </thead>
+          <tbody id="perfBody">
+            {% set perf_items = form_data.performa_items if form_data and form_data.performa_items else [] %}
             {% for item in perf_items %}
             <tr class="perf-row">
               <td style="color:#9CA3AF;font-size:12px;text-align:center;">{{ loop.index }}</td>
-              <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value="{{ item.description }}"></td>
-              <td><input type="number" name="perf_qty[]" class="perf-qty" value="{{ item.qty }}" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
-              <td><input type="number" name="perf_rate[]" class="perf-rate" value="{{ item.rate }}" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
-              <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
+              <td><input type="hidden" name="perf_box[]" value="{{ item.box or '' }}">{{ item.box or '—' }}</td>
+              <td><input type="hidden" name="perf_desc[]" value="{{ item.description }}">{{ item.description }}</td>
+              <td><input type="hidden" name="perf_hsn[]" value="{{ item.hsn or '' }}">{{ item.hsn or '—' }}</td>
+              <td style="text-align:center;"><input type="hidden" name="perf_qty[]" value="{{ item.qty }}">{{ item.qty }}</td>
+              <td style="text-align:center;"><input type="hidden" name="perf_weight_item[]" value="{{ item.weight or 0 }}">{{ item.weight or 0 }}</td>
+              <td style="text-align:center;"><input type="hidden" name="perf_unit[]" value="{{ item.unit or 'PCS' }}">{{ item.unit or 'PCS' }}</td>
+              <td style="text-align:right;"><input type="hidden" name="perf_rate[]" value="{{ item.rate }}">{{ '%.2f'|format(item.rate or 0) }}</td>
+              <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;"><input type="hidden" name="perf_amt[]" value="{{ '%.2f'|format((item.qty or 0)|float * (item.rate or 0)|float) }}">0.00</td>
               <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
             </tr>
             {% endfor %}
-          {% else %}
-          <tr class="perf-row">
-            <td style="color:#9CA3AF;font-size:12px;text-align:center;">1</td>
-            <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="e.g. Electronic Components, Clothing..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;" value=""></td>
-            <td><input type="number" name="perf_qty[]" class="perf-qty" value="1" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
-            <td><input type="number" name="perf_rate[]" class="perf-rate" value="0" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
-            <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
-            <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
-          </tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;">
-      <button type="button" onclick="addPerfRow()" class="btn btn-ghost btn-sm" style="border-color:#4F46E5;color:#4F46E5;">+ Add Item</button>
-      <div style="background:#EEF2FF;border-radius:10px;padding:12px 18px;min-width:240px;">
-        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;"><span>Sub-total</span><span id="perfSubtotal">₹0.00</span></div>
-        <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:16px;font-weight:800;color:#4338CA;border-top:2px solid #C7D2FE;margin-top:6px;padding-top:10px;"><span>Total (INR)</span><span id="perfTotal">₹0.00</span></div>
+          </tbody>
+        </table>
       </div>
-    </div>
-    <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;background:#F5F3FF;border-radius:8px;">
-      <span style="font-size:12px;color:#4338CA;font-weight:600;">📦 Chargeable Weight:</span>
-      <input type="number" name="perf_weight" id="perfWeight" step="0.01" min="0"
-             value="{{ form_data.perf_weight or '' }}" placeholder="e.g. 2.50"
-             style="width:100px;padding:5px 10px;border:1.5px solid #C7D2FE;border-radius:6px;font-weight:700;">
-      <span style="font-size:12px;color:#6B7280;">kg</span>
-    </div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;margin-top:12px;">
+        <div style="background:#EEF2FF;border-radius:10px;padding:12px 18px;min-width:240px;">
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;"><span>Sub-total</span><span id="perfSubtotal">₹0.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:16px;font-weight:800;color:#4338CA;border-top:2px solid #C7D2FE;margin-top:6px;padding-top:10px;"><span>Total (INR)</span><span id="perfTotal">₹0.00</span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;background:#F5F3FF;border-radius:8px;">
+        <span style="font-size:12px;color:#4338CA;font-weight:600;">📦 Chargeable Weight:</span>
+        <input type="number" name="perf_weight" id="perfWeight" step="0.01" min="0"
+               value="{{ form_data.perf_weight or '' }}" placeholder="e.g. 2.50"
+               style="width:100px;padding:5px 10px;border:1.5px solid #C7D2FE;border-radius:6px;font-weight:700;">
+        <span style="font-size:12px;color:#6B7280;">kg</span>
+      </div>
     </div><!-- /perf-body-wrap -->
   </div>
     <!-- ─── RETURN / RESALE CHARGES SECTION ─── -->
@@ -869,7 +1011,7 @@
   </div>
 
   <div style="display:flex;justify-content:flex-end;gap:12px">
-    <button type="submit" name="action" value="draft" class="btn btn-ghost">💾 Save Draft</button>
+    <button type="submit" name="action" value="draft" class="btn btn-ghost" formnovalidate>💾 Save Draft</button>
     <button type="submit" name="action" value="final" class="btn btn-success">{{ '✓ Update Invoice' if is_edit else '✓ Generate Customer Invoice' }}</button>
   </div>
 </form>
@@ -1164,24 +1306,108 @@ function togglePerfSection() {
   document.getElementById('perfSection').classList.toggle('perf-collapsed');
 }
 
-function addPerfRow() {
+function setGstInvoice(val) {
+  document.getElementById('gstInvoiceFlag').value = val;
+  document.getElementById('gstYnYes').classList.toggle('active', val === 'yes');
+  document.getElementById('gstYnNo').classList.toggle('active', val === 'no');
+  updateDepartmentNo();
+}
+
+/* Auto-generate Department No from CSB Type + GST flag + invoice date (ddmmyy) */
+function updateDepartmentNo() {
+  const csb = (document.getElementById('csbType')?.value || '').replace(/\s+/g, '');
+  const gst = document.getElementById('gstInvoiceFlag')?.value === 'yes' ? 'GST' : 'NGST';
+  const dateVal = document.getElementById('performaInvoiceDate')?.value;
+  let ddmmyy = '';
+  if (dateVal) {
+    const [y, m, d] = dateVal.split('-');
+    ddmmyy = d + m + y.slice(2);
+  }
+  const companyCode = (document.querySelector('.pi-company-name')?.textContent || 'ASP').trim().slice(0, 3).toUpperCase() || 'ASP';
+  const el = document.getElementById('departmentNo');
+  if (el) el.value = [csb, companyCode, gst, ddmmyy].filter(Boolean).join('/');
+}
+
+/* Box No dropdown: one option PER PIECE, expanded from the Packages section above
+   (e.g. a package row "Box" with Pieces=2 yields Box-1 and Box-2 as separate choices) */
+function refreshPerfBoxOptions() {
+  const counter = {};
+  let options = '<option value="">— Select —</option>';
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const type = tr.querySelector('[name="pkg_type[]"]')?.value || 'Box';
+    const qty = parseInt(tr.querySelector('[name="pkg_qty[]"]')?.value) || 1;
+    for (let i = 0; i < qty; i++) {
+      counter[type] = (counter[type] || 0) + 1;
+      const label = `${type}-${counter[type]}`;
+      options += `<option value="${label}">${label}</option>`;
+    }
+  });
+  document.querySelectorAll('.perf-box-select').forEach(sel => {
+    const cur = sel.value;
+    sel.innerHTML = options;
+    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  });
+}
+
+function livePerfEntryAmount() {
+  const qty = parseFloat(document.getElementById('perfEntryQty')?.value) || 0;
+  const rate = parseFloat(document.getElementById('perfEntryRate')?.value) || 0;
+  const amtEl = document.getElementById('perfEntryAmount');
+  if (amtEl) amtEl.value = (qty * rate).toFixed(2);
+}
+
+/* Adds one row per "Packages" count, auto-incrementing the Box No so a multi-box
+   line (e.g. Packages=2 starting at Box-1) becomes two distinct traceable rows */
+function addPerfItemRow() {
+  const boxSel = document.getElementById('perfEntryBox');
+  const startBox = boxSel.value;
+  const packages = Math.max(1, parseInt(document.getElementById('perfEntryPackages').value) || 1);
+  const desc = document.getElementById('perfEntryDesc').value.trim();
+  const hsn = document.getElementById('perfEntryHsn').value.trim();
+  const qty = parseFloat(document.getElementById('perfEntryQty').value) || 0;
+  const weight = parseFloat(document.getElementById('perfEntryWeight').value) || 0;
+  const unit = document.getElementById('perfEntryUnit').value;
+  const rate = parseFloat(document.getElementById('perfEntryRate').value) || 0;
+
+  if (!desc) { alert('Enter a description of goods.'); document.getElementById('perfEntryDesc').focus(); return; }
+
+  // Work out the box label prefix/number so we can step Box-1 -> Box-2 -> ... when Packages > 1
+  const m = startBox.match(/^(.*?)-(\d+)$/);
+  const prefix = m ? m[1] : (startBox || '');
+  const startNum = m ? parseInt(m[2], 10) : null;
+
   const tbody = document.getElementById('perfBody');
-  const count = tbody.querySelectorAll('.perf-row').length + 1;
-  const tr = document.createElement('tr');
-  tr.className = 'perf-row';
-  tr.innerHTML = `
-    <td style="color:#9CA3AF;font-size:12px;text-align:center;">${count}</td>
-    <td><input type="text" name="perf_desc[]" class="perf-desc" placeholder="Description of goods..." style="width:100%;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;font-size:13px;"></td>
-    <td><input type="number" name="perf_qty[]" class="perf-qty" value="1" min="0" step="0.01" oninput="calcPerforma()" style="width:80px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:center;"></td>
-    <td><input type="number" name="perf_rate[]" class="perf-rate" value="0" min="0" step="0.01" oninput="calcPerforma()" style="width:90px;padding:5px 8px;border:1.5px solid #E5E7EB;border-radius:6px;text-align:right;"></td>
-    <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;">0.00</td>
-    <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>`;
-  tbody.appendChild(tr);
+  for (let i = 0; i < packages; i++) {
+    const boxLabel = (startNum !== null) ? `${prefix}-${startNum + i}` : (packages > 1 ? `${prefix || 'Box'}-${i + 1}` : startBox);
+    const amt = qty * rate;
+    const idx = tbody.querySelectorAll('.perf-row').length + 1;
+    const tr = document.createElement('tr');
+    tr.className = 'perf-row';
+    tr.innerHTML = `
+      <td style="color:#9CA3AF;font-size:12px;text-align:center;">${idx}</td>
+      <td><input type="hidden" name="perf_box[]" value="${boxLabel}">${boxLabel || '—'}</td>
+      <td><input type="hidden" name="perf_desc[]" value="${desc}">${desc}</td>
+      <td><input type="hidden" name="perf_hsn[]" value="${hsn}">${hsn || '—'}</td>
+      <td style="text-align:center;"><input type="hidden" name="perf_qty[]" value="${qty}">${qty}</td>
+      <td style="text-align:center;"><input type="hidden" name="perf_weight_item[]" value="${weight}">${weight}</td>
+      <td style="text-align:center;"><input type="hidden" name="perf_unit[]" value="${unit}">${unit}</td>
+      <td style="text-align:right;"><input type="hidden" name="perf_rate[]" value="${rate}">${rate.toFixed(2)}</td>
+      <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;"><input type="hidden" name="perf_amt[]" value="${amt.toFixed(2)}">${amt.toFixed(2)}</td>
+      <td><button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>`;
+    tbody.appendChild(tr);
+  }
+
+  // Reset entry panel (keep Box No / Packages so the user can quickly add the next line)
+  document.getElementById('perfEntryDesc').value = '';
+  document.getElementById('perfEntryHsn').value = '';
+  document.getElementById('perfEntryQty').value = 1;
+  document.getElementById('perfEntryWeight').value = '';
+  document.getElementById('perfEntryRate').value = 0;
+  livePerfEntryAmount();
+  calcPerforma();
 }
 
 function removePerfRow(btn) {
-  const rows = document.querySelectorAll('#perfBody .perf-row');
-  if (rows.length === 1) { alert('Keep at least one performa item row.'); return; }
   btn.closest('tr').remove();
   calcPerforma();
   // Renumber
@@ -1193,11 +1419,7 @@ function removePerfRow(btn) {
 function calcPerforma() {
   let total = 0;
   document.querySelectorAll('#perfBody .perf-row').forEach(row => {
-    const qty = parseFloat(row.querySelector('.perf-qty')?.value) || 0;
-    const rate = parseFloat(row.querySelector('.perf-rate')?.value) || 0;
-    const amt = qty * rate;
-    const amtCell = row.querySelector('.perf-amt');
-    if (amtCell) amtCell.textContent = amt.toFixed(2);
+    const amt = parseFloat(row.querySelector('td.perf-amt input[type="hidden"]')?.value) || 0;
     total += amt;
   });
   const f = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -1438,12 +1660,16 @@ function triggerPrint(type) {
   if (type === 'performa') {
     let rows = '', subtotal = 0;
     document.querySelectorAll('#perfBody .perf-row').forEach((row, idx) => {
-      const desc = row.querySelector('.perf-desc')?.value || '';
-      const qty  = parseFloat(row.querySelector('.perf-qty')?.value) || 0;
-      const rate = parseFloat(row.querySelector('.perf-rate')?.value) || 0;
+      const box  = row.querySelector('[name="perf_box[]"]')?.value || '';
+      const desc = row.querySelector('[name="perf_desc[]"]')?.value || '';
+      const hsn  = row.querySelector('[name="perf_hsn[]"]')?.value || '';
+      const qty  = parseFloat(row.querySelector('[name="perf_qty[]"]')?.value) || 0;
+      const unit = row.querySelector('[name="perf_unit[]"]')?.value || '';
+      const rate = parseFloat(row.querySelector('[name="perf_rate[]"]')?.value) || 0;
       const amt  = qty * rate;
       subtotal += amt;
-      if (desc) rows += `<tr><td>${idx+1}</td><td>${desc}</td><td style="text-align:center;">${qty}</td><td style="text-align:right;">${rate.toFixed(2)}</td><td style="text-align:right;">${amt.toFixed(2)}</td></tr>`;
+      const descWithMeta = desc + (box ? ` <span style="color:#6B7280;font-size:9px;">(${box}${hsn ? ' · HSN ' + hsn : ''})</span>` : '');
+      if (desc) rows += `<tr><td>${idx+1}</td><td>${descWithMeta}</td><td style="text-align:center;">${qty}${unit ? ' ' + unit : ''}</td><td style="text-align:right;">${rate.toFixed(2)}</td><td style="text-align:right;">${amt.toFixed(2)}</td></tr>`;
     });
     const f = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2});
     ['pfPrintRows'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = rows; });
@@ -1483,45 +1709,118 @@ function triggerPrint(type) {
 }
 
 /* ── Package rows ── */
+/* ── Live calc in entry panel ── */
+function livePkgCalc() {
+  const unit = document.getElementById('pkgEntryUnit').value;
+  const factor = unit === 'in' ? 2.54 : 1; // convert to cm
+  const qty = parseFloat(document.getElementById('pkgEntryQty').value) || 0;
+  const wt  = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
+  const l   = (parseFloat(document.getElementById('pkgEntryL').value) || 0) * factor;
+  const w   = (parseFloat(document.getElementById('pkgEntryW').value) || 0) * factor;
+  const h   = (parseFloat(document.getElementById('pkgEntryH').value) || 0) * factor;
+  const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
+  const discount = parseFloat(document.getElementById('pkgEntryDiscount').value) || 0;
+
+  const volWtRaw = (l * w * h / division) * qty;
+  const volWt = volWtRaw * (1 - discount / 100);
+  const actWt = wt * qty;
+  const chgWt = Math.max(actWt, volWt);
+
+  document.getElementById('pkgDiscLabel').textContent = discount;
+  document.getElementById('pkgEntryVolWt').value = volWt.toFixed(3);
+  document.getElementById('pkgEntryChgWt').value = chgWt.toFixed(3);
+}
+
 function addPkgRow() {
+  const name   = document.getElementById('pkgEntryName').value.trim() || 'Box';
+  const type   = document.getElementById('pkgEntryType').value;
+  const unit   = document.getElementById('pkgEntryUnit').value;
+  const qty    = parseFloat(document.getElementById('pkgEntryQty').value) || 1;
+  const wt     = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
+  const l      = parseFloat(document.getElementById('pkgEntryL').value) || 0;
+  const w      = parseFloat(document.getElementById('pkgEntryW').value) || 0;
+  const h      = parseFloat(document.getElementById('pkgEntryH').value) || 0;
+  const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
+  const discount = parseFloat(document.getElementById('pkgEntryDiscount').value) || 0;
+  const rate   = parseFloat(document.getElementById('pkgEntryRate').value) || 0;
+
+  livePkgCalc();
+  const volWt = parseFloat(document.getElementById('pkgEntryVolWt').value) || 0;
+  const chgWt = parseFloat(document.getElementById('pkgEntryChgWt').value) || 0;
+
   const tr = document.createElement('tr');
   tr.innerHTML = `
-    <td><input name="pkg_name[]" type="text" placeholder="Item name" style="width:140px" value="Box"></td>
-    <td><select name="pkg_type[]" style="width:130px">
-      <option>Box</option><option>Envelope</option><option>Pallet</option>
-      <option>Tube</option><option>Bag</option><option>Crate</option>
-    </select></td>
-    <td><input name="pkg_qty[]" type="number" value="1" min="1" oninput="calcPkg()" style="width:70px"></td>
-    <td><input name="pkg_l[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="L"></td>
-    <td><input name="pkg_w[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="W"></td>
-    <td><input name="pkg_h[]" type="number" step="0.1" oninput="calcPkg()" style="width:75px" placeholder="H"></td>
-    <td><input name="pkg_wt[]" type="number" step="0.01" oninput="calcPkg()" style="width:75px" placeholder="kg"></td>
-    <td><input name="pkg_rate[]" type="number" step="0.01" value="0" placeholder="Rate" style="width:80px"></td>
+    <td>${name} <span style="color:#9CA3AF;font-size:11px;">(${type})</span>
+      <input type="hidden" name="pkg_name[]" value="${name}">
+      <input type="hidden" name="pkg_type[]" value="${type}">
+      <input type="hidden" name="pkg_unit[]" value="${unit}">
+    </td>
+    <td>${wt.toFixed(2)}<input type="hidden" name="pkg_wt[]" value="${wt}"></td>
+    <td>${qty}<input type="hidden" name="pkg_qty[]" value="${qty}"></td>
+    <td>${l}<input type="hidden" name="pkg_l[]" value="${l}"></td>
+    <td>${w}<input type="hidden" name="pkg_w[]" value="${w}"></td>
+    <td>${h}<input type="hidden" name="pkg_h[]" value="${h}">
+      <input type="hidden" name="pkg_division[]" value="${division}">
+      <input type="hidden" name="pkg_discount[]" value="${discount}">
+    </td>
+    <td>${volWt.toFixed(3)}<input type="hidden" name="pkg_volwt[]" value="${volWt}"></td>
+    <td style="font-weight:700;color:#4338CA;">${chgWt.toFixed(3)}<input type="hidden" name="pkg_chgwt[]" value="${chgWt}"></td>
+    <td>₹<span class="pkg-rate-display">${rate.toFixed(2)}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="${rate}"></td>
     <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>`;
   document.getElementById('pkgBody').appendChild(tr);
+
+  // Reset panel for the next piece (keep Unit/Division/Discount — usually shared across pieces)
+  document.getElementById('pkgEntryName').value = 'Box';
+  document.getElementById('pkgEntryQty').value = 1;
+  document.getElementById('pkgEntryWt').value = 0;
+  document.getElementById('pkgEntryL').value = 0;
+  document.getElementById('pkgEntryW').value = 0;
+  document.getElementById('pkgEntryH').value = 0;
+  document.getElementById('pkgEntryRate').value = 0;
+  livePkgCalc();
+
+  calcPkg();
+  refreshPerfBoxOptions();
 }
 
 function removePkgRow(btn) {
-  if (document.querySelectorAll('#pkgBody tr').length === 1) { alert('At least one package row required.'); return; }
-  btn.closest('tr').remove(); calcPkg();
+  btn.closest('tr').remove();
+  calcPkg();
+  refreshPerfBoxOptions();
 }
 
 function calcPkg() {
-  let volWt=0, vol=0, actWt=0;
+  let volWt = 0, vol = 0, actWt = 0, chgWt = 0;
   document.querySelectorAll('#pkgBody tr').forEach(tr => {
-    const qty = parseFloat(tr.querySelector('[name="pkg_qty[]"]')?.value)||0;
-    const l   = parseFloat(tr.querySelector('[name="pkg_l[]"]')?.value)||0;
-    const w   = parseFloat(tr.querySelector('[name="pkg_w[]"]')?.value)||0;
-    const h   = parseFloat(tr.querySelector('[name="pkg_h[]"]')?.value)||0;
-    const wt  = parseFloat(tr.querySelector('[name="pkg_wt[]"]')?.value)||0;
-    const cbm = (l*w*h)/1000000;
-    vol   += cbm*qty;
-    volWt += (cbm*166.67)*qty;
-    actWt += wt*qty;
+    const qty = parseFloat(tr.querySelector('[name="pkg_qty[]"]')?.value) || 0;
+    const l   = parseFloat(tr.querySelector('[name="pkg_l[]"]')?.value) || 0;
+    const w   = parseFloat(tr.querySelector('[name="pkg_w[]"]')?.value) || 0;
+    const h   = parseFloat(tr.querySelector('[name="pkg_h[]"]')?.value) || 0;
+    const wt  = parseFloat(tr.querySelector('[name="pkg_wt[]"]')?.value) || 0;
+    const rowVolWt = parseFloat(tr.querySelector('[name="pkg_volwt[]"]')?.value) || 0;
+    const rowChgWt = parseFloat(tr.querySelector('[name="pkg_chgwt[]"]')?.value) || 0;
+    const cbm = (l * w * h) / 1000000;
+    vol   += cbm;
+    volWt += rowVolWt;
+    actWt += wt * qty;
+    chgWt += rowChgWt;
   });
-  document.getElementById('volWt').textContent    = volWt.toFixed(2);
-  document.getElementById('totalVol').textContent = vol.toFixed(4);
-  document.getElementById('actualWt').textContent = actWt.toFixed(2);
+  document.getElementById('volWt').textContent      = volWt.toFixed(2);
+  document.getElementById('totalVol').textContent   = vol.toFixed(4);
+  document.getElementById('actualWt').textContent   = actWt.toFixed(2);
+  document.getElementById('chgWtTotal').textContent = chgWt.toFixed(2);
+
+  // Auto-fill Chargeable Weight in the Freight section from packages, but only if the
+  // user hasn't already typed their own value (dataset.userEdited) and the field is still
+  // at its default/empty state — this avoids silently overwriting a saved value when
+  // an existing invoice is loaded for editing.
+  const freightWtEl = document.getElementById('freightWeight');
+  const currentFreightWt = parseFloat(freightWtEl?.value) || 0;
+  if (freightWtEl && !freightWtEl.dataset.userEdited && currentFreightWt === 0 && chgWt > 0) {
+    freightWtEl.value = chgWt.toFixed(2);
+    calcFreight();
+    syncRateLookupInputs();
+  }
 }
 
 /* ── Freight per-kg calculator ── */
@@ -1537,6 +1836,39 @@ function calcFreight() {
     bd.textContent = '';
   }
   calcInvoiceTotal();
+}
+
+/* ── Auto-sync Rate Lookup from Consignor Carrier / Destination / Packages ── */
+function syncRateLookupInputs() {
+    const carrierEl = document.getElementById('carrierSelect');
+    const destEl = document.getElementById('destinationInput');
+    const weightEl = document.getElementById('freightWeight');
+    const rateCourierEl = document.getElementById('rateCourier');
+    const rateDestEl = document.getElementById('rateDestination');
+    const rateWeightEl = document.getElementById('rateWeight');
+    if (!carrierEl || !destEl || !weightEl || !rateCourierEl || !rateDestEl || !rateWeightEl) return;
+
+    const carrierVal = (carrierEl.value || '').trim();
+    if (carrierVal) {
+        // Match against rateCourier's actual <option> list (case/whitespace-insensitive) —
+        // the Carrier list and the rate-card courier list aren't guaranteed to use the same spelling.
+        const norm = s => s.trim().toLowerCase().replace(/\s+/g, '');
+        let matched = '';
+        for (const opt of rateCourierEl.options) {
+            if (norm(opt.value) === norm(carrierVal)) { matched = opt.value; break; }
+        }
+        if (matched) rateCourierEl.value = matched;
+        // If no match, leave rateCourier as-is (don't clobber a manual selection with a bad guess).
+    }
+
+    if (destEl.value.trim()) rateDestEl.value = destEl.value.trim();
+
+    const wt = parseFloat(weightEl.value) || 0;
+    if (wt > 0) rateWeightEl.value = wt;
+
+    if (rateCourierEl.value && rateDestEl.value.trim() && parseFloat(rateWeightEl.value) > 0) {
+        lookupRate();
+    }
 }
 
 /* ── Rate Lookup ── */
@@ -1601,6 +1933,17 @@ function applyRateToFreight() {
     document.getElementById('freightRatePerKg').value = ratePerKg.toFixed(2);
     document.getElementById('freightWeight').value = currentWeight;
     document.getElementById('freightAmt').value = currentRate.toFixed(2);
+    
+    // Also push the per-kg rate into every package row's Rate field
+    document.querySelectorAll('#pkgBody tr').forEach(tr => {
+        const display = tr.querySelector('.pkg-rate-display');
+        const input = tr.querySelector('.pkg-rate-input');
+        if (display) display.textContent = ratePerKg.toFixed(2);
+        if (input) input.value = ratePerKg.toFixed(2);
+    });
+    // Also default the entry-panel Rate field so the next added package uses it too
+    const entryRateEl = document.getElementById('pkgEntryRate');
+    if (entryRateEl) entryRateEl.value = ratePerKg.toFixed(2);
     
     // Trigger calculation
     calcFreight();
@@ -1985,14 +2328,39 @@ function validateCustForm(e) {
   const errors=[], banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
   document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
   banner.style.display='none'; errList.innerHTML='';
+
+  // Which button was clicked? Only enforce mandatory (*) fields on Final invoice generation.
+  const submitter = e.submitter || document.activeElement;
+  const actionVal = submitter && submitter.name === 'action' ? submitter.value : 'final';
+  const isFinal = actionVal !== 'draft';
+
   const custSel=document.getElementById('customerSelect');
-  if (!custSel.value){ errors.push('Please select a Customer.'); custSel.classList.add('field-error'); }
-  const recv=document.querySelector('[name="receiver_name"]');
-  if (!recv.value.trim()){ errors.push('Receiver Name is required.'); recv.classList.add('field-error'); }
-  const freight=parseFloat(document.getElementById('freightAmt').value)||0;
-  if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
-  const mode=document.getElementById('paymentModeHidden').value;
-  if (mode==='online' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI / Online payment app.');
+
+  if (isFinal) {
+    // Required (*) fields — only enforced when generating the final invoice, not on Save Draft.
+    if (!custSel.value){ errors.push('Please select a Customer / Company.'); custSel.classList.add('field-error'); }
+    const requiredFields = [
+      { id:'receiverName',     label:'Receiver Name' },
+      { id:'receiverPhone',    label:'Receiver Phone' },
+      { id:'receiverAddress1', label:'Receiver Address Line 1' },
+      { id:'receiverCity',     label:'Receiver City / Town' },
+      { id:'receiverPincode',  label:'Receiver Pincode' },
+    ];
+    requiredFields.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el && !el.value.trim()) {
+        errors.push(f.label + ' is required.');
+        el.classList.add('field-error');
+      }
+    });
+
+    const freight=parseFloat(document.getElementById('freightAmt').value)||0;
+    if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
+
+    const mode=document.getElementById('paymentModeHidden').value;
+    if (mode==='online' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI / Online payment app.');
+  }
+
   if (errors.length){
     errors.forEach(err=>{const li=document.createElement('li');li.textContent=err;errList.appendChild(li);});
     banner.style.display='block'; banner.scrollIntoView({behavior:'smooth',block:'start'});
@@ -2005,7 +2373,12 @@ function validateCustForm(e) {
 document.addEventListener('DOMContentLoaded', () => { 
   calcFreight();   // also calls calcInvoiceTotal internally
   calcPkg();
+  livePkgCalc();
+  syncRateLookupInputs();
   calcPerforma();
+  refreshPerfBoxOptions();
+  livePerfEntryAmount();
+  updateDepartmentNo();
   
   // Set payment mode from hidden value
   const paymentMode = document.getElementById('paymentModeHidden').value;

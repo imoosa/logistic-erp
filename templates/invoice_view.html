@@ -175,31 +175,55 @@
 .awb-terms { padding:6px 8px 2px; font-size:8px; color:#444; line-height:1.5; }
 .awb-track-bottom { text-align:center; font-size:10px; font-weight:700; letter-spacing:1px; padding-top:5px; font-family:'Courier New',monospace; }
 
-/* ── PERFORMA INVOICE PRINT ─────────────────────────────────── */
-.pf-doc { font-family:Arial,sans-serif; font-size:12px; color:#000; padding:10mm 12mm; width:100%; }
-.pf-header { text-align:center; border-bottom:3px double #000; padding-bottom:6px; margin-bottom:10px; }
-.pf-company { font-size:20px; font-weight:900; letter-spacing:1px; }
-.pf-tagline { font-size:10px; color:#444; }
-.pf-title   { font-size:15px; font-weight:700; margin:6px 0; text-transform:uppercase; letter-spacing:2px; }
-.pf-meta    { display:flex; justify-content:space-between; margin-bottom:8px; font-size:11px; }
-.pf-meta-box{ border:1px solid #999; border-radius:3px; padding:4px 8px; }
-.pf-parties { display:grid; grid-template-columns:1fr 1fr; border:1px solid #999; margin-bottom:10px; }
-.pf-party   { padding:8px 10px; font-size:11px; }
-.pf-party:first-child { border-right:1px solid #999; }
-.pf-party strong { display:block; font-size:10px; text-transform:uppercase; color:#555; margin-bottom:3px; letter-spacing:.5px; }
-.pf-table   { width:100%; border-collapse:collapse; margin-bottom:8px; font-size:11px; }
-.pf-table th{ background:#1a1a2e; color:#fff; padding:6px 8px; text-align:left; font-size:10px; text-transform:uppercase; }
-.pf-table td{ padding:5px 8px; border-bottom:1px solid #ddd; }
-.pf-table tfoot td { font-weight:700; border-top:2px solid #999; }
-.pf-summary { display:grid; grid-template-columns:1fr 1fr; gap:0; }
-.pf-totals  { border:1px solid #999; padding:8px 10px; font-size:11px; }
-.pf-totals-row { display:flex; justify-content:space-between; padding:2px 0; }
-.pf-totals-row.grand { font-weight:900; font-size:14px; border-top:2px solid #000; margin-top:4px; padding-top:4px; }
-.pf-sign { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:20px; font-size:11px; border-top:1px solid #ddd; padding-top:10px; }
-.pf-sign-box { text-align:center; }
-.pf-sign-line { border-top:1px solid #000; margin-top:30px; padding-top:4px; }
-.pf-notes { font-size:10px; color:#444; padding:6px 0; border-top:1px solid #ddd; margin-top:8px; }
-.pf-terms { font-size:9px; color:#666; margin-top:10px; border-top:1px solid #ddd; padding-top:6px; }
+/* ── COMMERCIAL / PERFORMA INVOICE PRINT (full-page, matches sample) ── */
+.pf-doc {
+  font-family:Arial,sans-serif; font-size:13px; color:#000;
+  width:100%; box-sizing:border-box;
+  display:flex; flex-direction:column;
+  border:2px solid #000; padding:6mm 8mm;
+}
+@media print {
+  .pf-doc { min-height:287mm; } /* fill the A4 print area (297mm - 2x5mm @page margin) */
+}
+.pf-title-row { text-align:center; padding-bottom:6px; margin-bottom:8px; }
+.pf-title { font-size:22px; font-weight:900; letter-spacing:3px; text-transform:uppercase; color:#1a1a5e; }
+.pf-top-row { display:grid; grid-template-columns:1.3fr 1fr; gap:14px; border:1.5px solid #000; margin-bottom:8px; }
+.pf-top-left { padding:10px; text-align:center; border-right:1.5px solid #000; }
+.pf-top-left svg { height:34px; width:100%; max-width:260px; display:block; margin:0 auto; }
+.pf-awb-label { font-size:12px; font-weight:800; letter-spacing:2px; margin-top:4px; }
+.pf-top-right { padding:8px 12px; font-size:12px; }
+.pf-top-right div { padding:2px 0; }
+.pf-top-right strong { font-weight:800; }
+.pf-parties { display:grid; grid-template-columns:1fr 1fr; border:1.5px solid #000; margin-bottom:0; }
+.pf-party { padding:8px 12px; font-size:12px; line-height:1.55; }
+.pf-party:first-child { border-right:1.5px solid #000; }
+.pf-party .pf-party-tag { font-weight:800; text-transform:uppercase; margin-bottom:3px; color:#1a1a5e; }
+.pf-party .pf-attn { font-weight:800; }
+.pf-table-wrap { flex:1; display:flex; flex-direction:column; }
+.pf-table   { width:100%; border-collapse:collapse; font-size:12px; border:1.5px solid #000; border-top:none; }
+.pf-table th{ background:#fff; color:#000; padding:6px 6px; text-align:left; font-size:11px; font-weight:800; text-transform:uppercase; border:1px solid #000; }
+.pf-table td{ padding:5px 6px; border:1px solid #000; }
+.pf-box-row td { background:#EEF0F5; font-weight:800; text-align:center; letter-spacing:1px; }
+.pf-table tfoot td { font-weight:800; border:1px solid #000; }
+.pf-filler td { border-left:1px solid #000; border-right:1px solid #000; height:100%; }
+.pf-footer-block { margin-top:auto; }
+.pf-origin-row { display:grid; grid-template-columns:1fr 1fr; border:1.5px solid #000; border-top:none; font-size:12px; }
+.pf-origin-row div { padding:6px 12px; }
+.pf-origin-row div:first-child { border-right:1.5px solid #000; }
+.pf-words-row { display:grid; grid-template-columns:1fr .5fr; border:1.5px solid #000; border-top:none; font-size:12px; }
+.pf-words-left { padding:6px 12px; }
+.pf-words-left .pf-words-lbl { font-weight:800; }
+.pf-words-left .pf-terms-line { margin-top:4px; }
+.pf-total-box { border-left:1.5px solid #000; padding:6px 12px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.pf-total-box .pf-total-lbl { font-size:11px; font-weight:800; text-transform:uppercase; }
+.pf-total-box .pf-total-val { font-size:18px; font-weight:900; margin-top:2px; }
+.pf-notes-row { border:1.5px solid #000; border-top:none; display:grid; grid-template-columns:1fr 1fr; font-size:11px; }
+.pf-notes-row div { padding:6px 12px; }
+.pf-notes-row div:first-child { border-right:1.5px solid #000; }
+.pf-sign { display:grid; grid-template-columns:1fr 1fr; border:1.5px solid #000; border-top:none; font-size:12px; }
+.pf-sign-box { padding:20px 12px 8px; text-align:center; }
+.pf-sign-box:first-child { border-right:1.5px solid #000; }
+
 
 /* ── BOX LABEL PRINT (PXC Style — exact match to screenshot 1) ─ */
 .bl-doc { font-family:Arial,sans-serif; font-size:11px; color:#000; padding:6mm; width:100%; }
@@ -441,14 +465,28 @@
   <h4 style="color:#4338CA;">📋 Performa Invoice Items</h4>
   <table class="items-table">
     <thead style="background:#4F46E5;">
-      <tr><th>#</th><th>Description of Goods</th><th style="text-align:right">Qty</th><th style="text-align:right">Rate (₹)</th><th style="text-align:right">Amount (₹)</th></tr>
+      <tr>
+        <th>#</th>
+        <th>Box No.</th>
+        <th>Description of Goods</th>
+        <th>HSN Code</th>
+        <th style="text-align:right">Qty</th>
+        <th style="text-align:right">Weight</th>
+        <th>Unit</th>
+        <th style="text-align:right">Rate (₹)</th>
+        <th style="text-align:right">Amount (₹)</th>
+      </tr>
     </thead>
     <tbody>
       {% for item in invoice.performa_items %}
       <tr>
         <td>{{ loop.index }}</td>
+        <td>{{ item.box or '—' }}</td>
         <td>{{ item.description }}</td>
+        <td>{{ item.hsn or '—' }}</td>
         <td style="text-align:right">{{ item.qty }}</td>
+        <td style="text-align:right">{{ item.weight or '—' }}</td>
+        <td>{{ item.unit or '—' }}</td>
         <td style="text-align:right">{{ "%.2f"|format(item.rate | float) }}</td>
         <td style="text-align:right">{{ "%.2f"|format((item.qty | float) * (item.rate | float)) }}</td>
       </tr>
@@ -456,7 +494,7 @@
     </tbody>
     <tfoot>
       <tr>
-        <td colspan="4" style="text-align:right;padding:10px;">Total (INR)</td>
+        <td colspan="8" style="text-align:right;padding:10px;">Total (INR)</td>
         <td style="text-align:right;padding:10px;color:#4338CA;">
           ₹{% set ns = namespace(total=0) %}{% for item in invoice.performa_items %}{% set ns.total = ns.total + (item.qty|float * item.rate|float) %}{% endfor %}{{ "%.2f"|format(ns.total) }}
         </td>
@@ -605,6 +643,9 @@
       {% endif %}
       {% if invoice.other_charges and invoice.other_charges|float > 0 %}
       <div class="f3-acct-row"><span>Other:</span><strong>₹{{ "{:,.2f}".format(invoice.other_charges|float) }}</strong></div>
+      {% endif %}
+      {% if invoice.tax and invoice.tax|float > 0 %}
+      <div class="f3-acct-row"><span>GST (18%):</span><strong>₹{{ "{:,.2f}".format(invoice.tax|float) }}</strong></div>
       {% endif %}
     </div>
     <div>
@@ -758,7 +799,8 @@
         <span class="awb-lbl">Booking Date</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:700">
-        <span>₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
+        {% set ns = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns.t = ns.t + i.qty|float * i.rate|float %}{% endfor %}
+        <span>₹{{ "{:,.2f}".format(ns.t) }}</span>
         <span>{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</span>
       </div>
       <div class="awb-cheque-fav">
@@ -797,107 +839,133 @@
 {{ awb_copy('SHIPPER COPY') }}
 </div><!-- /awbPrintArea -->
 
-<!-- ② PERFORMA INVOICE PRINT -->
+<!-- ② PERFORMA / COMMERCIAL INVOICE PRINT (matches sample screenshot) -->
 <div id="perfPrintArea">
 <div class="pf-doc">
-  <div class="pf-header">
-    <div class="pf-company">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
-    <div class="pf-tagline">International Courier &amp; Freight Forwarder</div>
-    <div class="pf-title">Proforma Invoice</div>
+  <div class="pf-title-row">
+    <div class="pf-title">Commercial Invoice</div>
   </div>
 
-  <div class="pf-meta">
-    <div>
-      <div><strong>Invoice No:</strong> {{ invoice.id }}</div>
-      <div><strong>AWB / Docket:</strong> {{ invoice.docket_no or '—' }}</div>
+  <div class="pf-top-row">
+    <div class="pf-top-left">
+      <svg viewBox="0 0 300 40" preserveAspectRatio="none">
+        {% for i in range(70) %}
+        <rect x="{{ i * 4.3 }}" y="0" width="{{ 1 if i % 3 == 0 else 2 }}" height="40" fill="#111"></rect>
+        {% endfor %}
+      </svg>
+      <div class="pf-awb-label">AWB NO : {{ invoice.docket_no or '—' }}</div>
     </div>
-    <div class="pf-meta-box">
-      <div><strong>Date:</strong> {{ invoice.date.strftime('%d %b %Y') if invoice.date else '—' }}</div>
-      <div><strong>Destination:</strong> {{ invoice.destination or '—' }}</div>
+    <div class="pf-top-right">
+      <div><strong>Invoice No. :</strong> {{ invoice.performa_invoice_no or invoice.id }}</div>
+      <div><strong>Invoice Date :</strong> {{ invoice.performa_invoice_date or (invoice.date.strftime('%d %b %Y') if invoice.date else '—') }}</div>
+      <div><strong>Total Piece :</strong> {% set ns_pc = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns_pc.t = ns_pc.t + i.qty|float %}{% endfor %}{{ ns_pc.t|round(0, 'common')|int if invoice.performa_items else 0 }}</div>
+      <div><strong>Destination :</strong> {{ invoice.destination or '—' }}</div>
+      {% if invoice.perf_reference %}<div><strong>Other Reference :</strong> {{ invoice.perf_reference }}</div>{% endif %}
     </div>
   </div>
 
   <div class="pf-parties">
     <div class="pf-party">
-      <strong>Shipper / Sender</strong>
-      <div><strong>{{ invoice.shipper_name or invoice.customer_name or '—' }}</strong></div>
-      <div>{{ invoice.shipper_address1 or '' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}</div>
-      {% if invoice.shipper_city %}<div>{{ invoice.shipper_city }}{% if invoice.shipper_state %}, {{ invoice.shipper_state }}{% endif %} {{ invoice.shipper_pincode or '' }}</div>{% endif %}
-      <div>Ph: {{ invoice.customer_phone or '—' }}</div>
-      {% if invoice.shipper_doc_type or invoice.shipper_doc_no %}
-      <div style="margin-top:5px;font-size:10px;color:#4F46E5;font-weight:600;">{{ invoice.shipper_doc_type or '' }}: {{ invoice.shipper_doc_no or '' }}</div>
-      {% endif %}
+      <div class="pf-party-tag">Shipper :</div>
+      <div class="pf-attn">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+      {% if invoice.shipper_doc_type or invoice.shipper_doc_no %}<div>{{ invoice.shipper_doc_type or 'Ref' }} : {{ invoice.shipper_doc_no or '—' }}</div>{% endif %}
+      <div>Address :</div>
+      <div>{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}<br>{{ invoice.shipper_address2 }}{% endif %}</div>
+      {% if invoice.shipper_city %}<div>{{ invoice.shipper_city }}{% if invoice.shipper_state %}, {{ invoice.shipper_state }}{% endif %}</div>{% endif %}
+      {% if invoice.shipper_pincode %}<div>Postal code : {{ invoice.shipper_pincode }}</div>{% endif %}
+      <div>Phone Number : {{ invoice.customer_phone or '—' }}</div>
     </div>
     <div class="pf-party">
-      <strong>Consignee / Receiver</strong>
-      <div><strong>{{ invoice.receiver_name or '—' }}</strong></div>
-      <div>{{ invoice.receiver_address1 or '' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}</div>
-      {% if invoice.receiver_city %}<div>{{ invoice.receiver_city }}{% if invoice.receiver_state %}, {{ invoice.receiver_state }}{% endif %} {{ invoice.receiver_pincode or '' }}</div>{% endif %}
-      <div>Ph: {{ invoice.receiver_phone or '—' }}</div>
-      <div>{{ invoice.destination or '' }}</div>
-      {% if invoice.receiver_doc_type or invoice.receiver_doc_no %}
-      <div style="margin-top:5px;font-size:10px;color:#4F46E5;font-weight:600;">{{ invoice.receiver_doc_type or '' }}: {{ invoice.receiver_doc_no or '' }}</div>
-      {% endif %}
+      <div class="pf-party-tag">Consignee / Receiver :</div>
+      <div class="pf-attn">{{ invoice.receiver_name or '—' }}</div>
+      {% if invoice.receiver_doc_type or invoice.receiver_doc_no %}<div>{{ invoice.receiver_doc_type or 'Ref' }} : {{ invoice.receiver_doc_no or '—' }}</div>{% endif %}
+      <div>Address :</div>
+      <div>{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}<br>{{ invoice.receiver_address2 }}{% endif %}</div>
+      {% if invoice.receiver_city %}<div>{{ invoice.receiver_city }}{% if invoice.receiver_state %}, {{ invoice.receiver_state }}{% endif %}</div>{% endif %}
+      {% if invoice.receiver_pincode %}<div>Postal code : {{ invoice.receiver_pincode }}</div>{% endif %}
+      <div>Phone Number : {{ invoice.receiver_phone or '—' }}</div>
     </div>
   </div>
 
+  <div class="pf-table-wrap">
   {% if invoice.performa_items %}
   <table class="pf-table">
     <thead>
-      <tr><th>#</th><th>Description of Goods</th><th>Qty</th><th style="text-align:right">Rate (₹)</th><th style="text-align:right">Amount (₹)</th></tr>
+      <tr>
+        <th>Sr. No.</th>
+        <th>Description of Goods</th>
+        <th>HS Code</th>
+        <th>Unit Type</th>
+        <th style="text-align:center">Qty</th>
+        <th style="text-align:center">Weight</th>
+        <th style="text-align:right">Unit Rate (₹)</th>
+        <th style="text-align:right">Amount (₹)</th>
+      </tr>
     </thead>
     <tbody>
+      {% set ns_box = namespace(last=none) %}
       {% for item in invoice.performa_items %}
+        {% set this_box = item.box or '—' %}
+        {% if this_box != ns_box.last %}
+        <tr class="pf-box-row"><td colspan="8">BOX NO. : {{ this_box }}</td></tr>
+        {% set ns_box.last = this_box %}
+        {% endif %}
       <tr>
         <td>{{ loop.index }}</td>
         <td>{{ item.description }}</td>
-        <td>{{ item.qty }}</td>
+        <td>{{ item.hsn or '—' }}</td>
+        <td>{{ item.unit or '—' }}</td>
+        <td style="text-align:center">{{ item.qty }}</td>
+        <td style="text-align:center">{{ item.weight or '—' }}</td>
         <td style="text-align:right">{{ "%.2f"|format(item.rate|float) }}</td>
         <td style="text-align:right">{{ "%.2f"|format(item.qty|float * item.rate|float) }}</td>
       </tr>
       {% endfor %}
+      <tr class="pf-filler"><td colspan="8">&nbsp;</td></tr>
     </tbody>
     <tfoot>
       {% set ns = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns.t = ns.t + i.qty|float * i.rate|float %}{% endfor %}
-      <tr><td colspan="4" style="text-align:right">Total Amount (INR)</td><td style="text-align:right">₹{{ "%.2f"|format(ns.t) }}</td></tr>
+      <tr><td colspan="7" style="text-align:right">Total Amount (INR)</td><td style="text-align:right">₹{{ "%.2f"|format(ns.t) }}</td></tr>
     </tfoot>
   </table>
-  <div class="pf-summary">
-    <div>
-      <div><strong>Chargeable Weight:</strong> {{ invoice.perf_weight or invoice.weight or '—' }} kg</div>
-    </div>
-    <div class="pf-totals">
-      {% set ns = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns.t = ns.t + i.qty|float * i.rate|float %}{% endfor %}
-      <div class="pf-totals-row"><span>Sub Total</span><span>₹{{ "%.2f"|format(ns.t) }}</span></div>
-      <div class="pf-totals-row grand"><span>Grand Total</span><span>₹{{ "%.2f"|format(ns.t) }}</span></div>
-    </div>
-  </div>
   {% else %}
-  <div style="padding:20px;text-align:center;color:#6B7280;font-size:12px;">No performa invoice items recorded for this shipment.</div>
+  <div style="padding:20px;text-align:center;color:#6B7280;font-size:12px;border:1.5px solid #000;border-top:none;flex:1;">No performa invoice items recorded for this shipment.</div>
   {% endif %}
-
-  {% if invoice.notes %}
-  <div class="pf-notes"><strong>Notes:</strong> {{ invoice.notes }}</div>
-  {% endif %}
-
-  <div class="pf-sign">
-    <div class="pf-sign-box">
-      <div class="pf-sign-line">Authorised Signatory</div>
-      <div style="font-size:9px;color:#555">For {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</div>
-    </div>
-    <div class="pf-sign-box">
-      <div class="pf-sign-line">Shipper's Signature</div>
-      <div style="font-size:9px;color:#555">Date: ___________</div>
-    </div>
   </div>
 
-  <div class="pf-terms">
-    1. No claims will be entertained for any damage during transit &amp; delay in delivery due to any reason.<br>
-    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 Kgs or the declared value whichever is lower.<br>
-    3. This AWB is for the account holder and it is not transferable.
+  {% if invoice.performa_items %}
+  <div class="pf-footer-block">
+    <div class="pf-origin-row">
+      <div><strong>Country of Origin :</strong> {{ invoice.shipper_country or 'INDIA' }}</div>
+      <div><strong>Country of Destination :</strong> {{ invoice.receiver_country or invoice.destination or '—' }}</div>
+    </div>
+
+    {% set ns = namespace(t=0) %}{% for i in invoice.performa_items %}{% set ns.t = ns.t + i.qty|float * i.rate|float %}{% endfor %}
+    <div class="pf-words-row">
+      <div class="pf-words-left">
+        <div class="pf-words-lbl">Amount in Word : <span class="pf-amount-words" data-amount="{{ '%.2f'|format(ns.t) }}">—</span></div>
+        {% if invoice.perf_reference %}<div class="pf-terms-line"><strong>Invoice Terms :</strong> {{ invoice.perf_reference }}</div>{% endif %}
+      </div>
+      <div class="pf-total-box">
+        <div class="pf-total-lbl">Total (INR)</div>
+        <div class="pf-total-val">{{ "%.2f"|format(ns.t) }}</div>
+      </div>
+    </div>
+
+    <div class="pf-notes-row">
+      <div>{% if invoice.notes %}<strong>Notes :</strong> {{ invoice.notes }}{% else %}&nbsp;{% endif %}</div>
+      <div>UNSOLICITED GIFT - NOT FOR SALE</div>
+    </div>
+
+    <div class="pf-sign">
+      <div class="pf-sign-box">Authorised Signatory<br><span style="font-size:9px;color:#555">For {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</span></div>
+      <div class="pf-sign-box">Shipper's Signature<br><span style="font-size:9px;color:#555">Date :</span></div>
+    </div>
   </div>
+  {% endif %}
 </div>
 </div><!-- /perfPrintArea -->
+
 
 
 <!-- ③ BOX LABEL PRINT (PXC style - matches screenshot 1) -->
@@ -1121,6 +1189,36 @@
 
 
 <script>
+/* Converts a rupee amount to Indian-numbering words for the proforma/commercial invoice */
+function numberToWordsIndian(num) {
+  num = Math.round(parseFloat(num) || 0);
+  if (num === 0) return 'INR ZERO ONLY';
+  const ones = ['','ONE','TWO','THREE','FOUR','FIVE','SIX','SEVEN','EIGHT','NINE','TEN',
+    'ELEVEN','TWELVE','THIRTEEN','FOURTEEN','FIFTEEN','SIXTEEN','SEVENTEEN','EIGHTEEN','NINETEEN'];
+  const tens = ['','','TWENTY','THIRTY','FORTY','FIFTY','SIXTY','SEVENTY','EIGHTY','NINETY'];
+  function twoDigits(n) {
+    if (n < 20) return ones[n];
+    return tens[Math.floor(n / 10)] + (n % 10 ? ' ' + ones[n % 10] : '');
+  }
+  function threeDigits(n) {
+    if (n >= 100) return ones[Math.floor(n / 100)] + ' HUNDRED' + (n % 100 ? ' ' + twoDigits(n % 100) : '');
+    return twoDigits(n);
+  }
+  let crore = Math.floor(num / 10000000); num %= 10000000;
+  let lakh  = Math.floor(num / 100000);    num %= 100000;
+  let thousand = Math.floor(num / 1000);   num %= 1000;
+  let hundred = num;
+  let parts = [];
+  if (crore) parts.push(threeDigits(crore) + ' CRORE');
+  if (lakh) parts.push(threeDigits(lakh) + ' LAKH');
+  if (thousand) parts.push(threeDigits(thousand) + ' THOUSAND');
+  if (hundred) parts.push(threeDigits(hundred));
+  return 'INR ' + parts.join(' ') + ' ONLY';
+}
+document.querySelectorAll('.pf-amount-words').forEach(function(el) {
+  el.textContent = numberToWordsIndian(el.dataset.amount);
+});
+
 let _activePrintId = null;
 
 function triggerPrint(type) {
