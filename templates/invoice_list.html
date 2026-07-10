@@ -96,9 +96,26 @@
   </div>
 </div>
 
+<form method="get" action="/invoice/list" style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+  <input type="hidden" name="status" value="{{ current_status or 'All' }}">
+  <input
+    type="text"
+    name="q"
+    value="{{ request.args.get('q', '') }}"
+    placeholder="🔍 Search by party name or AWB / docket no."
+    style="flex:1; min-width:260px; padding:9px 14px; border:1.5px solid #E5E7EB; border-radius:20px; font-size:13.5px; outline:none;"
+    onfocus="this.style.borderColor='#4F46E5'"
+    onblur="this.style.borderColor='#E5E7EB'"
+  >
+  <button type="submit" class="btn btn-primary" style="border-radius:20px; padding:9px 20px; font-size:13px;">Search</button>
+  {% if request.args.get('q') %}
+  <a href="/invoice/list?status={{ current_status or 'All' }}" class="btn btn-ghost" style="border-radius:20px; padding:9px 16px; font-size:13px;">Clear</a>
+  {% endif %}
+</form>
+
 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">
   {% for s in ['All', 'paid', 'partial', 'pending'] %}
-  <a href="/invoice/list?status={{ s }}"
+  <a href="/invoice/list?status={{ s }}{% if request.args.get('q') %}&q={{ request.args.get('q') }}{% endif %}"
      class="tab {% if current_status == s %}active{% endif %}">
     {% if s == 'All' %}📋 All
     {% elif s == 'paid' %}✅ Paid
@@ -117,7 +134,7 @@
           <th>Customer Name</th>
           <th>Dispatch Date</th>
           <th>Carrier</th>
-          <th>Mode</th>
+          <th>Carrier Ref No.</th>
           <th>Amount</th>
           <th>Status</th>
           <th>Resale</th>
@@ -165,19 +182,10 @@
             {% endif %}
           </td>
 
-          <!-- Mode — compare uppercase so AIR/Air/air all match -->
+          <!-- Carrier Reference No. -->
           <td>
-            {% set m = (inv.mode or '') | upper %}
-            {% if m == 'AIR' %}
-              <span class="mode-badge bm-air">✈️ Air</span>
-            {% elif m == 'SEA' %}
-              <span class="mode-badge bm-sea">🚢 Sea</span>
-            {% elif m == 'ROAD' %}
-              <span class="mode-badge bm-road">🚛 Road</span>
-            {% elif m == 'COURIER' %}
-              <span class="mode-badge bm-courier">📦 Courier</span>
-            {% elif inv.mode %}
-              <span class="mode-badge bm-default">{{ inv.mode }}</span>
+            {% if inv.carrier_ref %}
+              <span class="carrier-pill">🔗 {{ inv.carrier_ref }}</span>
             {% else %}
               <span style="color:#D1D5DB">—</span>
             {% endif %}

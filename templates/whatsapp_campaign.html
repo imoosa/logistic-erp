@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}WhatsApp Campaign{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h3 class="mb-4">WhatsApp Campaign</h3>
+
+  {% if not company.whatsapp_enabled %}
+  <div class="alert alert-warning">
+    WhatsApp isn't configured yet. <a href="{{ url_for('whatsapp_settings') }}">Set it up in Settings</a> first.
+  </div>
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-header"><strong>Send Bulk Message</strong></div>
+    <div class="card-body">
+      <form method="POST">
+        <div class="mb-3">
+          <label class="form-label">Template</label>
+          <select name="template_id" class="form-select" required>
+            <option value="">-- Select approved template --</option>
+            {% for t in templates %}
+            <option value="{{ t.id }}">{{ t.template_key }} ({{ t.template_name }})</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Send to</label>
+          <select name="status_filter" class="form-select">
+            <option value="all">All clients</option>
+            <option value="pending">Clients with pending balance</option>
+            <option value="active">Active clients only</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn btn-primary" onclick="return confirm('Send this campaign now?')">
+          Send Campaign
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><strong>Recent Campaign Sends</strong></div>
+    <div class="card-body">
+      <table class="table table-sm">
+        <thead>
+          <tr><th>Time</th><th>Phone</th><th>Status</th><th>Error</th></tr>
+        </thead>
+        <tbody>
+          {% for log in recent_logs %}
+          <tr>
+            <td>{{ log.created_at.strftime('%d-%b %H:%M') }}</td>
+            <td>{{ log.to_phone }}</td>
+            <td>
+              {% if log.status == 'sent' %}
+                <span class="badge bg-success">Sent</span>
+              {% else %}
+                <span class="badge bg-danger">Failed</span>
+              {% endif %}
+            </td>
+            <td class="text-muted small">{{ log.error_message or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

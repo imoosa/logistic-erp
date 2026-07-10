@@ -54,6 +54,39 @@
   .three-panel-grid input,
   .three-panel-grid select { width:100%; min-width:0; box-sizing:border-box; }
 
+  /* Dark blue input borders + tighter spacing across the invoice form */
+  #custInvForm input[type="text"],
+  #custInvForm input[type="number"],
+  #custInvForm input[type="date"],
+  #custInvForm input[type="email"],
+  #custInvForm select,
+  #custInvForm textarea { border:1.5px solid #0D9488; border-radius:6px; }
+  #custInvForm input[disabled] { border-color:#D1D5DB; }
+  #custInvForm input[type="text"]:focus,
+  #custInvForm input[type="number"]:focus,
+  #custInvForm input[type="date"]:focus,
+  #custInvForm select:focus { border-color:#0D9488; outline:none; box-shadow:0 0 0 2px rgba(13,148,136,.15); }
+  #custInvForm .form-group { margin-bottom:8px; }
+  #custInvForm .grid-2, #custInvForm .grid-3 { gap:8px; }
+  #custInvForm .address-grid { gap:8px; }
+  #custInvForm .card-body { padding-top:14px; padding-bottom:14px; }
+  #custInvForm .section-title { margin-bottom:8px; padding-bottom:6px; }
+
+  /* Compact readonly weight chips shown in Service Details (moved from Packages) */
+  .svc-weight-chip { border:1.5px solid #0D9488; border-radius:6px; padding:6px 10px; font-size:13px; font-weight:700; color:#0D9488; background:#F0FDFA; }
+  .svc-weight-chip .svc-weight-lbl { display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:#4B5563; margin-bottom:2px; letter-spacing:.3px; }
+
+  /* Packages section collapse (mirrors Performa Invoice collapse) */
+  .pkg-collapsed-bar { background:#012926; border-radius:6px; padding:16px 22px; font-size:14.5px; color:#F59E0B; cursor:pointer; font-weight:700; display:none;}
+  .pkg-collapsed-bar:hover { background:#C7CBD1; }
+  .pkg-section.pkg-collapsed .pkg-collapsed-bar { display:block; }
+  .pkg-section.pkg-collapsed .pkg-body-wrap { display:none; }
+  .pkg-entry-grid { display:grid; grid-template-columns:110px 80px 60px 60px 60px 60px 75px 65px 95px 95px 80px auto; gap:8px; align-items:end; }
+  .pkg-entry-grid label { font-size:10.5px; font-weight:700; color:#374151; display:block; margin-bottom:3px; white-space:nowrap; }
+  .pkg-entry-grid input, .pkg-entry-grid select { width:100%; padding:6px 7px; border:1.5px solid #0D9488; border-radius:6px; font-size:12.5px; box-sizing:border-box; }
+  @media(max-width:1200px){ .pkg-entry-grid { grid-template-columns:repeat(4,1fr); } }
+  @media(max-width:700px){ .pkg-entry-grid { grid-template-columns:repeat(2,1fr); } }
+
   /* Performa Invoice collapse */
   .perf-header { cursor:pointer; user-select:none; }
   .perf-header:hover .perf-toggle-icon { color:#4338CA; }
@@ -77,8 +110,17 @@
   .performa-total-row.grand { font-size:16px; font-weight:800; border-top:2px solid #C7D2FE; margin-top:6px; padding-top:10px; color:#4338CA; }
 
   /* Performa — manifest-style header (matches reference layout) */
-  .perf-collapsed-bar { background:#D1D5DB; border-radius:6px; padding:10px 16px; font-size:13px; color:#1D4ED8; cursor:pointer; font-weight:500; }
+  .perf-collapsed-bar { background:#012926; border-radius:6px; padding:16px 22px; font-size:14.5px; color:#F59E0B; cursor:pointer; font-weight:700; }
   .perf-collapsed-bar:hover { background:#C7CBD1; }
+
+  /* Return/Resale section collapse — mirrors Performa Invoice collapse, moved to sit right below it */
+  .resale-collapsed-bar { display:none; background:#012926; border-radius:6px; padding:16px 22px; font-size:14.5px; color:#F59E0B; cursor:pointer; font-weight:700; }
+  .resale-collapsed-bar:hover { background:#C7CBD1; }
+  .resale-section.resale-collapsed .resale-collapsed-bar { display:block; }
+  .resale-section.resale-collapsed .resale-body-wrap { display:none; }
+  .resale-header { cursor:pointer; user-select:none; }
+  .resale-toggle-icon { font-size:13px; color:#92400E; transition:transform .2s ease; display:inline-block; }
+  .resale-section.resale-collapsed .resale-toggle-icon { transform:rotate(-90deg); }
   .manifest-badge { display:inline-block; background:#1E293B; color:#fff; font-size:11px; font-weight:700; letter-spacing:.3px; padding:6px 16px; border-radius:20px; margin-bottom:16px; }
   .perf-meta-grid { display:grid; grid-template-columns:1fr 1fr auto 1fr; gap:16px; margin-bottom:16px; align-items:end; }
   .perf-meta-grid.row2 { grid-template-columns:1fr 1fr 1fr 1fr; }
@@ -316,7 +358,7 @@
       </div>
       <div class="form-group half-width">
         <label>State</label>
-        <input type="text" name="shipper_state" id="shipperState" value="{{ form_data.shipper_state or '' }}" placeholder="State">
+        <input type="text" name="shipper_state" id="shipperState" value="{{ form_data.shipper_state or '' }}" placeholder="State" oninput="calcInvoiceTotal()">
       </div>
       <div class="form-group half-width">
         <label>Pincode</label>
@@ -330,7 +372,7 @@
         <label>Document Type</label>
         <select name="shipper_doc_type">
           <option value="">— Select —</option>
-          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID'] %}
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID', 'GST', 'IC Certificate'] %}
           <option value="{{ d }}" {% if form_data.shipper_doc_type == d %}selected{% endif %}>{{ d }}</option>
           {% endfor %}
         </select>
@@ -345,6 +387,10 @@
   <!-- Receiver / Consignee -->
   <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
     <div class="section-title">📥 Consignee (Receiver) Details</div>
+    <div class="form-group">
+      <label>Destination *</label>
+      <input type="text" name="destination" id="destinationInput" value="{{ form_data.destination or '' }}" placeholder="Final destination city/country" oninput="syncRateLookupInputs()">
+    </div>
     <div class="grid-2">
       <div class="form-group">
         <label>Receiver Name *</label>
@@ -372,7 +418,7 @@
       </div>
       <div class="form-group half-width">
         <label>State</label>
-        <input type="text" name="receiver_state" value="{{ form_data.receiver_state or '' }}" placeholder="State">
+        <input type="text" name="receiver_state" value="{{ form_data.receiver_state or '' }}" placeholder="State" oninput="calcInvoiceTotal()">
       </div>
       <div class="form-group half-width">
         <label>Pincode *</label>
@@ -411,16 +457,8 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Mode</label>
-        <select name="mode">
-          {% for m in ['COURIER','AIR','SEA','ROAD'] %}
-          <option value="{{ m }}" {% if form_data.mode == m %}selected{% endif %}>{{ m }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
   <label>Vendor</label>
-  <input type="text" name="vendor" value="{{ form_data.vendor or '' }}" placeholder="e.g. Pacific Express">
+  <input type="text" name="vendor" value="{{ form_data.vendor or (company.company_name if company else '') }}" placeholder="e.g. Pacific Express">
 </div>
       <div class="form-group">
         <label>Carrier</label>
@@ -436,10 +474,6 @@
         <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="Tracking / AWB number">
       </div>
       <div class="form-group">
-        <label>Destination</label>
-        <input type="text" name="destination" id="destinationInput" value="{{ form_data.destination or '' }}" placeholder="Final destination city/country" oninput="syncRateLookupInputs()">
-      </div>
-      <div class="form-group">
         <label>Pickup Date</label>
         <input type="date" name="pickup_date" value="{{ form_data.pickup_date or '' }}">
       </div>
@@ -447,11 +481,20 @@
         <label>Expected Delivery Date</label>
         <input type="date" name="expected_delivery" value="{{ form_data.expected_delivery or '' }}">
       </div>
-      <div class="form-group" style="grid-column:1 / -1;">
-        <label>Comments</label>
-        <input type="text" name="comments" value="{{ form_data.comments or '' }}" placeholder="Special instructions" style="width:100%;">
+    </div>
+    <!-- Weight summary (auto-computed from Packages) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;">
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Volumetric Weight</span><span id="volWt">0.00</span> kg
+      </div>
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Actual Weight</span><span id="actualWt">0.00</span> kg
+      </div>
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Chargeable Weight</span><span id="chgWtTotal">0.00</span> kg
       </div>
     </div>
+    <span id="totalVol" style="display:none;">0.0000</span>
   </div>
 
   </div><!-- /end 3-col inline grid -->
@@ -459,242 +502,113 @@
 
 
   <!-- Packages -->
-  <div class="card card-body" style="margin-bottom:16px">
-    <div class="section-title">📦 Packages <span style="font-weight:400;font-size:11px;color:#6B7280;margin-left:8px">— These items will be added to your inventory/stock</span></div>
+  {% set pkg_items_initial = packages if packages and packages|length > 0 else [] %}
+  <div class="pkg-section{{ '' if pkg_items_initial else ' pkg-collapsed' }}" id="pkgSection" style="margin-bottom:16px;">
 
-    <!-- Entry panel -->
-    <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:14px;margin-bottom:14px;">
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Item Name</label>
-          <input type="text" id="pkgEntryName" placeholder="Item name" value="Box">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Piece Type</label>
-          <select id="pkgEntryType">
-            <option>Box</option><option>Envelope</option><option>Pallet</option>
-            <option>Tube</option><option>Bag</option><option>Crate</option>
-          </select>
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Measurement Unit</label>
-          <select id="pkgEntryUnit" onchange="livePkgCalc()">
-            <option value="cm">Centimeter</option>
-            <option value="in">Inch</option>
-          </select>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:10px;">
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Actl Weight/PC (kg)</label>
-          <input type="number" id="pkgEntryWt" step="0.01" min="0" value="0" oninput="livePkgCalc()">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>No. Of Pieces</label>
-          <input type="number" id="pkgEntryQty" min="1" value="1" oninput="livePkgCalc()">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Length</label>
-          <input type="number" id="pkgEntryL" step="0.1" min="0" value="0" oninput="livePkgCalc()">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Width</label>
-          <input type="number" id="pkgEntryW" step="0.1" min="0" value="0" oninput="livePkgCalc()">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Height</label>
-          <input type="number" id="pkgEntryH" step="0.1" min="0" value="0" oninput="livePkgCalc()">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Division</label>
-          <input type="number" id="pkgEntryDivision" step="1" min="1" value="5000" oninput="livePkgCalc()">
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1.3fr 1.3fr 1fr auto;gap:10px;align-items:end;">
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Vol Weight (Discount <span id="pkgDiscLabel">0</span>%)</label>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <input type="number" id="pkgEntryDiscount" step="1" min="0" max="100" value="0" oninput="livePkgCalc()" style="width:60px" title="Discount %">
-            <input type="text" id="pkgEntryVolWt" value="0.000" readonly style="background:#F3F4F6;color:#374151;font-weight:700;flex:1">
-          </div>
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Chrg Weight</label>
-          <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:#EEF2FF;color:#4338CA;font-weight:800;">
-        </div>
-        <div class="form-group" style="margin-bottom:0;">
-          <label>Rate (₹)</label>
-          <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
-        </div>
-        <button type="button" class="btn btn-success btn-sm" onclick="addPkgRow()" style="height:38px;white-space:nowrap;">+ Add</button>
-      </div>
+    <!-- Collapsed state: flat gray bar (click to expand) -->
+    <div class="pkg-collapsed-bar" onclick="togglePkgSection()">
+      Click here to enter Package details
     </div>
 
-    <div style="overflow-x:auto">
-      <table class="pkg-table">
-        <thead>
-          <tr>
-            <th>Item</th>
-            <th>Actl Wt/PC</th>
-            <th>Pieces</th>
-            <th>Length</th>
-            <th>Breadth</th>
-            <th>Height</th>
-            <th>Volumetric Wt</th>
-            <th>Chrg Weight</th>
-            <th>Rate (₹)</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="pkgBody">
-          {% if packages and packages|length > 0 %}
-            {% for pkg in packages %}
+    <div class="card card-body pkg-body-wrap">
+      <div class="section-title" style="cursor:pointer;" onclick="togglePkgSection()">📦 Packages <span style="font-weight:400;font-size:11px;color:#6B7280;margin-left:8px">— These items will be added to your inventory/stock</span></div>
+
+      <!-- Entry panel: one line, starting from Measurement Unit -->
+      <div style="background:#F9FAFB;border:1px solid #E5E7EB;border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div class="pkg-entry-grid">
+          <div>
+            <label>Unit</label>
+            <select id="pkgEntryUnit" onchange="livePkgCalc()">
+              <option value="cm">Centimeter</option>
+              <option value="in">Inch</option>
+            </select>
+          </div>
+          <div>
+            <label>Actual Weight</label>
+            <input type="number" id="pkgEntryWt" step="0.01" min="0" value="0" oninput="livePkgCalc()">
+          </div>
+          
+          <div>
+            <label>Pieces</label>
+            <input type="number" id="pkgEntryQty" min="1" value="1" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Length</label>
+            <input type="number" id="pkgEntryL" step="0.1" min="0" value="0" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Width</label>
+            <input type="number" id="pkgEntryW" step="0.1" min="0" value="0" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Height</label>
+            <input type="number" id="pkgEntryH" step="0.1" min="0" value="0" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Division</label>
+            <input type="number" id="pkgEntryDivision" step="1" min="1" value="5000" disabled title="Fixed at 5000" style="background:#F3F4F6;color:#374151;font-weight:700;cursor:not-allowed;">
+          </div>
+          <div>
+            <label>Vol Weight</label>
+            <input type="text" id="pkgEntryVolWt" value="0.000" readonly style="background:#F3F4F6;color:#374151;font-weight:700;">
+          </div>
+          <div>
+            <label>Chrg Weight</label>
+            <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:#EEF2FF;color:#4338CA;font-weight:800;">
+          </div>
+          <div>
+            <label>Rate (₹)</label>
+            <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
+          </div>
+          <button type="button" class="btn btn-success btn-sm" onclick="addPkgRow()" style="height:32px;white-space:nowrap;">+ Add</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="pkg-table">
+          <thead>
             <tr>
-              <td>
-                {{ pkg.name }} <span style="color:#9CA3AF;font-size:11px;">({{ pkg.type or 'Box' }})</span>
-                <input type="hidden" name="pkg_name[]" value="{{ pkg.name }}">
-                <input type="hidden" name="pkg_type[]" value="{{ pkg.type or 'Box' }}">
-                <input type="hidden" name="pkg_unit[]" value="{{ pkg.unit or 'cm' }}">
-              </td>
-              <td>{{ '%.2f'|format(pkg.weight or 0) }}<input type="hidden" name="pkg_wt[]" value="{{ pkg.weight or 0 }}"></td>
-              <td>{{ pkg.qty|int }}<input type="hidden" name="pkg_qty[]" value="{{ pkg.qty }}"></td>
-              <td>{{ pkg.length or 0 }}<input type="hidden" name="pkg_l[]" value="{{ pkg.length or 0 }}"></td>
-              <td>{{ pkg.width or 0 }}<input type="hidden" name="pkg_w[]" value="{{ pkg.width or 0 }}"></td>
-              <td>{{ pkg.height or 0 }}<input type="hidden" name="pkg_h[]" value="{{ pkg.height or 0 }}"><input type="hidden" name="pkg_division[]" value="{{ pkg.division or 5000 }}"><input type="hidden" name="pkg_discount[]" value="{{ pkg.discount or 0 }}"></td>
-              <td>{{ '%.3f'|format(pkg.vol_weight or 0) }}<input type="hidden" name="pkg_volwt[]" value="{{ pkg.vol_weight or 0 }}"></td>
-              <td style="font-weight:700;color:#4338CA;">{{ '%.3f'|format(pkg.chg_weight or 0) }}<input type="hidden" name="pkg_chgwt[]" value="{{ pkg.chg_weight or 0 }}"></td>
-              <td>₹<span class="pkg-rate-display">{{ '%.2f'|format(pkg.rate or 0) }}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="{{ pkg.rate or 0 }}"></td>
-              <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>
+              <th>Item</th>
+              <th>actual Weight</th>
+              <th>Pieces</th>
+              <th>Length</th>
+              <th>Breadth</th>
+              <th>Height</th>
+              <th>Volumetric Wt</th>
+              <th>Chrg Weight</th>
+              <th>Rate (₹)</th>
+              <th></th>
             </tr>
-            {% endfor %}
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
-    <div class="pkg-totals">
-      <div>Total Volumetric Weight: <span id="volWt">0.00</span> kg</div>
-      <div>Total Volume: <span id="totalVol">0.0000</span> cu.m</div>
-      <div>Total Actual Weight: <span id="actualWt">0.00</span> kg</div>
-      <div>Total Chargeable Weight: <span id="chgWtTotal">0.00</span> kg</div>
-    </div>
-  </div>
-
-  <!-- Rate Lookup Section -->
-<div class="card card-body" style="margin-bottom:16px">
-  <div class="section-title">🚀 Rate Lookup</div>
-  
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
-    <div class="form-group" style="margin-bottom:0;">
-      <label>Courier</label>
-      <select id="rateCourier" onchange="lookupRate()" style="width:100%;">
-        <option value="">— Select Courier —</option>
-        {% for pl in price_lists %}
-        <option value="{{ pl.courier }}">{{ pl.courier }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    
-    <div class="form-group" style="margin-bottom:0;">
-      <label>Destination Country</label>
-      <input type="text" id="rateDestination" placeholder="e.g. UK, USA" style="width:100%;" oninput="lookupRate()">
-    </div>
-    
-    <div class="form-group" style="margin-bottom:0;">
-      <label>Weight (kg)</label>
-      <input type="number" id="rateWeight" step="0.1" min="0" placeholder="e.g. 1.5" style="width:100%;" oninput="lookupRate()">
-    </div>
-    
-    <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;">
-      <button type="button" class="btn btn-primary" onclick="lookupRate()">🔍 Lookup</button>
-    </div>
-  </div>
-  
-  <!-- Rate Result -->
-  <div id="rateResult" style="display:none;margin-top:14px;padding:14px 18px;background:#F0FDF4;border-radius:10px;border:1px solid #86EFAC;">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div>
-        <span style="font-size:12px;color:#15803D;font-weight:600;">✅ Rate Found:</span>
-        <span id="rateDisplay" style="font-size:20px;font-weight:800;color:#16A34A;margin-left:10px;">₹0.00</span>
-        <span id="rateDetails" style="font-size:12px;color:#15803D;margin-left:12px;"></span>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-sm btn-success" onclick="applyRateToFreight()">📥 Apply to Freight</button>
-        <button type="button" class="btn btn-sm btn-ghost" onclick="closeRateResult()">✕</button>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Error Result -->
-  <div id="rateError" style="display:none;margin-top:14px;padding:14px 18px;background:#FEF2F2;border-radius:10px;border:1px solid #FCA5A5;">
-    <span style="color:#DC2626;font-size:13px;">❌ <span id="rateErrorMessage">No rate found</span></span>
-  </div>
-</div>
-
-  
-
-  <!-- Freight & Charges -->
-  <div class="card card-body" style="margin-bottom:16px">
-    <div class="section-title">Freight &amp; Charges</div>
-    <div class="grid-3">
-      <div class="form-group">
-        <label>Chargeable Weight (kg) *</label>
-        <input type="number" name="freight_weight" id="freightWeight" step="0.01" min="0" placeholder="0.00"
-          value="{{ form_data.freight_weight or '0' }}" oninput="this.dataset.userEdited='1'; calcFreight(); syncRateLookupInputs()">
-      </div>
-      <div class="form-group">
-        <label>Rate per kg (₹) *</label>
-        <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
-          value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()">
-      </div>
-      <div class="form-group">
-        <label>Total Freight (₹)</label>
-        <div style="display:flex;align-items:center;gap:8px">
-          <input type="number" name="freight_amount" id="freightAmt" step="0.01" min="0" placeholder="0.00"
-            value="{{ form_data.freight or '0' }}" readonly
-            style="background:#F0FDF4;color:#15803D;font-weight:700;cursor:not-allowed">
-        </div>
-        <div id="freightBreakdown" style="font-size:11px;color:#6B7280;margin-top:4px;min-height:16px"></div>
-      </div>
-    </div>
-    <div class="grid-2" style="margin-top:4px">
-      <div class="form-group">
-        <label>Fuel Surcharge (₹)</label>
-        <input type="number" name="fuel_surcharge" id="fuelCharge" step="0.01" value="{{ form_data.fuel or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
-      </div>
-      <div class="form-group">
-        <label>Other Charges (₹)</label>
-        <input type="number" name="other_charges" id="otherCharges" step="0.01" value="{{ form_data.other or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
-        <input type="text" name="other_charges_reason" style="margin-top:6px" value="{{ form_data.other_charges_reason or '' }}" placeholder="Reason (e.g. Remote Area Surcharge)">
-      </div>
-    </div>
-
-    <div class="billing-box">
-      <div class="billing-row"><span>Freight</span><span id="dispFreight">₹0</span></div>
-      <div class="billing-row"><span>Fuel Surcharge</span><span id="dispFuel">₹0</span></div>
-      <div class="billing-row"><span>Other Charges</span><span id="dispOther">₹0</span></div>
-      <div class="billing-row" id="resaleRow" style="display:none"><span>Resale Charges</span><span id="dispResaleTotal">₹0</span></div>
-      
-      {% if is_gst_registered %}
-      <div class="billing-row"><span>GST (18%)</span><span id="dispGST">₹0</span></div>
-      {% endif %}
-      
-      <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
-      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB">
-        <div class="grid-2">
-          <div class="form-group">
-            <label>Amount Paid (₹)</label>
-            <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="{{ form_data.amount_paid or '0' }}" oninput="calcBalance()" min="0">
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;padding-top:20px">
-            <span style="font-weight:700">Balance Due</span>
-            <span id="balanceDue" style="color:#DC2626;font-weight:800;font-size:16px">₹0</span>
-          </div>
-        </div>
+          </thead>
+          <tbody id="pkgBody">
+            {% if packages and packages|length > 0 %}
+              {% for pkg in packages %}
+              <tr>
+                <td>
+                  {{ pkg.name }} <span style="color:#9CA3AF;font-size:11px;">({{ pkg.type or 'Box' }})</span>
+                  <input type="hidden" name="pkg_name[]" value="{{ pkg.name }}">
+                  <input type="hidden" name="pkg_type[]" value="{{ pkg.type or 'Box' }}">
+                  <input type="hidden" name="pkg_unit[]" value="{{ pkg.unit or 'cm' }}">
+                </td>
+                <td>{{ '%.2f'|format(pkg.weight or 0) }}<input type="hidden" name="pkg_wt[]" value="{{ pkg.weight or 0 }}"></td>
+                <td>{{ pkg.qty|int }}<input type="hidden" name="pkg_qty[]" value="{{ pkg.qty }}"></td>
+                <td>{{ pkg.length or 0 }}<input type="hidden" name="pkg_l[]" value="{{ pkg.length or 0 }}"></td>
+                <td>{{ pkg.width or 0 }}<input type="hidden" name="pkg_w[]" value="{{ pkg.width or 0 }}"></td>
+                <td>{{ pkg.height or 0 }}<input type="hidden" name="pkg_h[]" value="{{ pkg.height or 0 }}"><input type="hidden" name="pkg_division[]" value="{{ pkg.division or 5000 }}"><input type="hidden" name="pkg_discount[]" value="{{ pkg.discount or 0 }}"></td>
+                <td>{{ '%.3f'|format(pkg.vol_weight or 0) }}<input type="hidden" name="pkg_volwt[]" value="{{ pkg.vol_weight or 0 }}"></td>
+                <td style="font-weight:700;color:#4338CA;">{{ '%.3f'|format(pkg.chg_weight or 0) }}<input type="hidden" name="pkg_chgwt[]" value="{{ pkg.chg_weight or 0 }}"></td>
+                <td>₹<span class="pkg-rate-display">{{ '%.2f'|format(pkg.rate or 0) }}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="{{ pkg.rate or 0 }}"></td>
+                <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>
+              </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
+<!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
   {% set perf_items_initial = form_data.performa_items if form_data and form_data.performa_items else [] %}
   <div class="perf-section{{ '' if perf_items_initial else ' perf-collapsed' }}" id="perfSection" style="margin-bottom:16px;">
 
@@ -840,102 +754,229 @@
       </div>
     </div><!-- /perf-body-wrap -->
   </div>
-    <!-- ─── RETURN / RESALE CHARGES SECTION ─── -->
-  <div class="card card-body" style="margin-bottom:16px;border:2px solid #F59E0B;background:#FFFBEB;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-      <div class="section-title" style="border-bottom:none;margin-bottom:0;color:#92400E;">🔄 Return / Resale Charges</div>
-      <div style="display:flex;gap:8px;">
-        <button type="button" class="btn btn-sm btn-warning" onclick="toggleResaleSection()">
-          {% if form_data and form_data.has_resale %}✏️ Edit Resale{% else %}➕ Add Resale Charge{% endif %}
-        </button>
-        {% if form_data and form_data.has_resale %}
-        <button type="button" class="btn btn-sm btn-danger" onclick="removeResaleCharge()">🗑️ Remove</button>
+
+  <!-- ─── RETURN / RESALE CHARGES SECTION (collapses the same way as Performa Invoice above) ─── -->
+  {% set resale_active_initial = form_data and form_data.has_resale %}
+  <div class="resale-section{{ '' if resale_active_initial else ' resale-collapsed' }}" id="resaleSection" style="margin-bottom:16px;">
+
+    <!-- Collapsed state: flat bar (click to expand) -->
+    <div class="resale-collapsed-bar" onclick="toggleResaleOuterSection()">
+      Click here to add return / resale charges
+    </div>
+
+    <div class="card card-body resale-body-wrap" style="border:2px solid #F59E0B;background:#FFFBEB;">
+      <div class="resale-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;" onclick="toggleResaleOuterSection()">
+        <div class="section-title" style="border-bottom:none;margin-bottom:0;color:#92400E;">
+          <span class="resale-toggle-icon">▾</span> 🔄 Return / Resale Charges
+        </div>
+        <div style="display:flex;gap:8px;" onclick="event.stopPropagation()">
+          <button type="button" class="btn btn-sm btn-warning" onclick="toggleResaleSection()">
+            {% if form_data and form_data.has_resale %}✏️ Edit Resale{% else %}➕ Add Resale Charge{% endif %}
+          </button>
+          {% if form_data and form_data.has_resale %}
+          <button type="button" class="btn btn-sm btn-danger" onclick="removeResaleCharge()">🗑️ Remove</button>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Resale Summary (visible when resale exists) -->
+      <div id="resaleSummary" style="display:{{ 'block' if form_data and form_data.has_resale and (form_data.resale_charges or 0) > 0 else 'none' }};">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:12px 16px;background:#FEF3C7;border-radius:8px;">
+          <div>
+            <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Charge Amount</span>
+            <div style="font-weight:800;color:#92400E;font-size:15px;">₹{{ "%.2f"|format((form_data.resale_charges if form_data else 0) or 0) }}</div>
+          </div>
+          <div>
+            <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">GST (18%)</span>
+            <div style="font-weight:800;color:#92400E;font-size:15px;">₹{{ "%.2f"|format(((form_data.resale_charges if form_data else 0) or 0) * 0.18) }}</div>
+          </div>
+          <div>
+            <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Total Charge</span>
+            <div style="font-weight:800;color:#DC2626;font-size:15px;">₹{{ "%.2f"|format(((form_data.resale_charges if form_data else 0) or 0) * 1.18) }}</div>
+          </div>
+          <div>
+            <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Reason</span>
+            <div style="font-weight:600;color:#78350F;font-size:12px;">{{ (form_data.resale_reason if form_data else '') or '—' }}</div>
+          </div>
+        </div>
+        {% if form_data and form_data.resale_notes %}
+        <div style="margin-top:8px;font-size:12px;color:#92400E;padding:6px 12px;background:#FFFBEB;border-radius:6px;">
+          📝 {{ form_data.resale_notes }}
+        </div>
         {% endif %}
       </div>
+
+      <!-- Resale Form (hidden by default) -->
+      <div id="resaleForm" style="display:none;margin-top:12px;padding-top:12px;border-top:2px dashed #F59E0B;">
+        <div class="grid-3">
+          <div class="form-group">
+            <label>Resale Charge (₹) *</label>
+            <input type="number" name="resale_charges" id="resaleCharges" step="0.01" min="0" 
+                   value="{{ (form_data.resale_charges if form_data else 0) or '0' }}" 
+                   placeholder="Enter charge amount" oninput="updateResalePreview()">
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" name="resale_date" id="resaleDate" value="{{ (form_data.resale_date if form_data else '') or today }}">
+          </div>
+          <div class="form-group">
+            <label>Reason *</label>
+            <select name="resale_reason" id="resaleReason" onchange="toggleOtherReason()">
+              <option value="">— Select Reason —</option>
+              <option value="Return to Office" {% if form_data and form_data.resale_reason == 'Return to Office' %}selected{% endif %}>Return to Office</option>
+              <option value="Wrong Address" {% if form_data and form_data.resale_reason == 'Wrong Address' %}selected{% endif %}>Wrong Address</option>
+              <option value="No One Available" {% if form_data and form_data.resale_reason == 'No One Available' %}selected{% endif %}>No One Available</option>
+              <option value="Refused by Receiver" {% if form_data and form_data.resale_reason == 'Refused by Receiver' %}selected{% endif %}>Refused by Receiver</option>
+              <option value="Failed Delivery Attempt" {% if form_data and form_data.resale_reason == 'Failed Delivery Attempt' %}selected{% endif %}>Failed Delivery Attempt</option>
+              <option value="Customer Requested Return" {% if form_data and form_data.resale_reason == 'Customer Requested Return' %}selected{% endif %}>Customer Requested Return</option>
+              <option value="Damaged Parcel" {% if form_data and form_data.resale_reason == 'Damaged Parcel' %}selected{% endif %}>Damaged Parcel</option>
+              <option value="Custom Duty Unpaid" {% if form_data and form_data.resale_reason == 'Custom Duty Unpaid' %}selected{% endif %}>Custom Duty Unpaid</option>
+              <option value="Other" {% if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason %}selected{% endif %}>Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" id="otherReasonDiv" style="display:{{ 'block' if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason else 'none' }};">
+          <label>Specify Other Reason</label>
+          <input type="text" name="resale_reason_other" id="resaleReasonOther" 
+                 value="{{ (form_data.resale_reason.replace('Other: ', '') if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason else '') }}"
+                 placeholder="Enter custom reason...">
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea name="resale_notes" id="resaleNotes" rows="2" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #E5E7EB;" 
+                    placeholder="Additional details...">{{ (form_data.resale_notes if form_data else '') or '' }}</textarea>
+        </div>
+
+        <!-- Resale Preview -->
+        <div style="margin-top:12px;padding:10px 16px;background:#F9FAFB;border-radius:8px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
+          <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">Charge</span><div style="font-weight:700;" id="previewCharge">₹0.00</div></div>
+          <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">GST</span><div style="font-weight:700;color:#4F46E5;" id="previewGST2">₹0.00</div></div>
+          <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">Total</span><div style="font-weight:700;color:#DC2626;" id="previewTotal2">₹0.00</div></div>
+          <div>
+            <span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">New Grand Total</span>
+            <div style="font-weight:800;color:#16A34A;" id="previewGrandTotal">₹{{ "%.2f"|format((invoice.grand_total if invoice else 0) or 0) }}</div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button type="button" class="btn btn-success" onclick="saveResaleCharge()">✅ Apply Resale Charge</button>
+          <button type="button" class="btn btn-ghost" onclick="cancelResale()">Cancel</button>
+        </div>
+      </div>
+    </div><!-- /resale-body-wrap -->
+  </div>
+
+
+
+  <!-- Rate Lookup Section -->
+<div class="card card-body" style="margin-bottom:16px">
+  <div class="section-title">🚀 Rate Lookup</div>
+  
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;">
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Courier</label>
+      <select id="rateCourier" onchange="lookupRate()" style="width:100%;">
+        <option value="">— Select Courier —</option>
+        {% for pl in price_lists %}
+        <option value="{{ pl.courier }}">{{ pl.courier }}</option>
+        {% endfor %}
+      </select>
     </div>
     
-    <!-- Resale Summary (visible when resale exists) -->
-    <div id="resaleSummary" style="display:{{ 'block' if form_data and form_data.has_resale and (form_data.resale_charges or 0) > 0 else 'none' }};">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;padding:12px 16px;background:#FEF3C7;border-radius:8px;">
-        <div>
-          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Charge Amount</span>
-          <div style="font-weight:800;color:#92400E;font-size:15px;">₹{{ "%.2f"|format((form_data.resale_charges if form_data else 0) or 0) }}</div>
-        </div>
-        <div>
-          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">GST (18%)</span>
-          <div style="font-weight:800;color:#92400E;font-size:15px;">₹{{ "%.2f"|format(((form_data.resale_charges if form_data else 0) or 0) * 0.18) }}</div>
-        </div>
-        <div>
-          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Total Charge</span>
-          <div style="font-weight:800;color:#DC2626;font-size:15px;">₹{{ "%.2f"|format(((form_data.resale_charges if form_data else 0) or 0) * 1.18) }}</div>
-        </div>
-        <div>
-          <span style="font-size:10px;color:#92400E;text-transform:uppercase;font-weight:700;">Reason</span>
-          <div style="font-weight:600;color:#78350F;font-size:12px;">{{ (form_data.resale_reason if form_data else '') or '—' }}</div>
-        </div>
-      </div>
-      {% if form_data and form_data.resale_notes %}
-      <div style="margin-top:8px;font-size:12px;color:#92400E;padding:6px 12px;background:#FFFBEB;border-radius:6px;">
-        📝 {{ form_data.resale_notes }}
-      </div>
-      {% endif %}
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Destination Country</label>
+      <input type="text" id="rateDestination" placeholder="e.g. UK, USA" style="width:100%;" oninput="lookupRate()">
     </div>
     
-    <!-- Resale Form (hidden by default) -->
-    <div id="resaleForm" style="display:none;margin-top:12px;padding-top:12px;border-top:2px dashed #F59E0B;">
-      <div class="grid-3">
-        <div class="form-group">
-          <label>Resale Charge (₹) *</label>
-          <input type="number" name="resale_charges" id="resaleCharges" step="0.01" min="0" 
-                 value="{{ (form_data.resale_charges if form_data else 0) or '0' }}" 
-                 placeholder="Enter charge amount" oninput="updateResalePreview()">
-        </div>
-        <div class="form-group">
-          <label>Date</label>
-          <input type="date" name="resale_date" id="resaleDate" value="{{ (form_data.resale_date if form_data else '') or today }}">
-        </div>
-        <div class="form-group">
-          <label>Reason *</label>
-          <select name="resale_reason" id="resaleReason" onchange="toggleOtherReason()">
-            <option value="">— Select Reason —</option>
-            <option value="Return to Office" {% if form_data and form_data.resale_reason == 'Return to Office' %}selected{% endif %}>Return to Office</option>
-            <option value="Wrong Address" {% if form_data and form_data.resale_reason == 'Wrong Address' %}selected{% endif %}>Wrong Address</option>
-            <option value="No One Available" {% if form_data and form_data.resale_reason == 'No One Available' %}selected{% endif %}>No One Available</option>
-            <option value="Refused by Receiver" {% if form_data and form_data.resale_reason == 'Refused by Receiver' %}selected{% endif %}>Refused by Receiver</option>
-            <option value="Failed Delivery Attempt" {% if form_data and form_data.resale_reason == 'Failed Delivery Attempt' %}selected{% endif %}>Failed Delivery Attempt</option>
-            <option value="Customer Requested Return" {% if form_data and form_data.resale_reason == 'Customer Requested Return' %}selected{% endif %}>Customer Requested Return</option>
-            <option value="Damaged Parcel" {% if form_data and form_data.resale_reason == 'Damaged Parcel' %}selected{% endif %}>Damaged Parcel</option>
-            <option value="Custom Duty Unpaid" {% if form_data and form_data.resale_reason == 'Custom Duty Unpaid' %}selected{% endif %}>Custom Duty Unpaid</option>
-            <option value="Other" {% if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason %}selected{% endif %}>Other</option>
-          </select>
-        </div>
+    <div class="form-group" style="margin-bottom:0;">
+      <label>Weight (kg)</label>
+      <input type="number" id="rateWeight" step="0.01" min="0" placeholder="e.g. 1.5" style="width:100%;" oninput="lookupRate()">
+    </div>
+    
+    <div style="display:flex;gap:8px;align-items:center;padding-bottom:2px;">
+      <button type="button" class="btn btn-primary" onclick="lookupRate()">🔍 Lookup</button>
+    </div>
+  </div>
+  
+  <!-- Rate Result -->
+  <div id="rateResult" style="display:none;margin-top:14px;padding:14px 18px;background:#F0FDF4;border-radius:10px;border:1px solid #86EFAC;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <span style="font-size:12px;color:#15803D;font-weight:600;">✅ Rate Found:</span>
+        <span id="rateDisplay" style="font-size:20px;font-weight:800;color:#16A34A;margin-left:10px;">₹0.00</span>
+        <span id="rateDetails" style="font-size:12px;color:#15803D;margin-left:12px;"></span>
       </div>
-      <div class="form-group" id="otherReasonDiv" style="display:{{ 'block' if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason else 'none' }};">
-        <label>Specify Other Reason</label>
-        <input type="text" name="resale_reason_other" id="resaleReasonOther" 
-               value="{{ (form_data.resale_reason.replace('Other: ', '') if form_data and form_data.resale_reason and 'Other:' in form_data.resale_reason else '') }}"
-               placeholder="Enter custom reason...">
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="btn btn-sm btn-success" onclick="applyRateToFreight()">📥 Apply to Freight</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="closeRateResult()">✕</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Error Result -->
+  <div id="rateError" style="display:none;margin-top:14px;padding:14px 18px;background:#FEF2F2;border-radius:10px;border:1px solid #FCA5A5;">
+    <span style="color:#DC2626;font-size:13px;">❌ <span id="rateErrorMessage">No rate found</span></span>
+  </div>
+</div>
+
+  
+
+  <!-- Freight & Charges -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Freight &amp; Charges</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Chargeable Weight (kg) *</label>
+        <input type="number" name="freight_weight" id="freightWeight" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_weight or '0' }}" oninput="this.dataset.userEdited='1'; calcFreight(); syncRateLookupInputs()">
       </div>
       <div class="form-group">
-        <label>Notes</label>
-        <textarea name="resale_notes" id="resaleNotes" rows="2" style="width:100%;padding:8px;border-radius:6px;border:1.5px solid #E5E7EB;" 
-                  placeholder="Additional details...">{{ (form_data.resale_notes if form_data else '') or '' }}</textarea>
+        <label>Rate per kg (₹) *</label>
+        <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()">
       </div>
-      
-      <!-- Resale Preview -->
-      <div style="margin-top:12px;padding:10px 16px;background:#F9FAFB;border-radius:8px;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;">
-        <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">Charge</span><div style="font-weight:700;" id="previewCharge">₹0.00</div></div>
-        <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">GST</span><div style="font-weight:700;color:#4F46E5;" id="previewGST2">₹0.00</div></div>
-        <div><span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">Total</span><div style="font-weight:700;color:#DC2626;" id="previewTotal2">₹0.00</div></div>
-        <div>
-          <span style="font-size:10px;color:#6B7280;text-transform:uppercase;font-weight:700;">New Grand Total</span>
-          <div style="font-weight:800;color:#16A34A;" id="previewGrandTotal">₹{{ "%.2f"|format((invoice.grand_total if invoice else 0) or 0) }}</div>
+      <div class="form-group">
+        <label>Total Freight (₹)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" name="freight_amount" id="freightAmt" step="0.01" min="0" placeholder="0.00"
+            value="{{ form_data.freight or '0' }}" readonly
+            style="background:#F0FDF4;color:#15803D;font-weight:700;cursor:not-allowed">
         </div>
+        <div id="freightBreakdown" style="font-size:11px;color:#6B7280;margin-top:4px;min-height:16px"></div>
       </div>
-      
-      <div style="display:flex;gap:10px;margin-top:12px;">
-        <button type="button" class="btn btn-success" onclick="saveResaleCharge()">✅ Apply Resale Charge</button>
-        <button type="button" class="btn btn-ghost" onclick="cancelResale()">Cancel</button>
+    </div>
+    <div class="grid-2" style="margin-top:4px">
+      <div class="form-group">
+        <label>Fuel Surcharge (₹)</label>
+        <input type="number" name="fuel_surcharge" id="fuelCharge" step="0.01" value="{{ form_data.fuel or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Other Charges (₹)</label>
+        <input type="number" name="other_charges" id="otherCharges" step="0.01" value="{{ form_data.other or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+        <input type="text" name="other_charges_reason" style="margin-top:6px" value="{{ form_data.other_charges_reason or '' }}" placeholder="Reason (e.g. Remote Area Surcharge)">
+      </div>
+    </div>
+
+    <div class="billing-box">
+      <div class="billing-row"><span>Freight</span><span id="dispFreight">₹0</span></div>
+      <div class="billing-row"><span>Fuel Surcharge</span><span id="dispFuel">₹0</span></div>
+      <div class="billing-row"><span>Other Charges</span><span id="dispOther">₹0</span></div>
+      <div class="billing-row" id="resaleRow" style="display:none"><span>Resale Charges</span><span id="dispResaleTotal">₹0</span></div>
+
+      {% if is_gst_registered %}
+      <div class="billing-row" id="cgstRow"><span>CGST (9%)</span><span id="dispCGST">₹0</span></div>
+      <div class="billing-row" id="sgstRow"><span>SGST (9%)</span><span id="dispSGST">₹0</span></div>
+      <div class="billing-row" id="igstRow" style="display:none"><span>IGST (18%)</span><span id="dispIGST">₹0</span></div>
+      {% endif %}
+      <div class="billing-row" id="roundOffRow"><span>Round Off</span><span id="dispRoundOff">₹0</span></div>
+
+      <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:700">Balance Due</span>
+          <span id="balanceDue" style="color:#DC2626;font-weight:800;font-size:16px">₹0</span>
+        </div>
+        <div style="font-size:11px;color:#6B7280;margin-top:4px">Amount Paid is recorded in the Payment Mode section below.</div>
       </div>
     </div>
   </div>
@@ -944,6 +985,12 @@
   <!-- Payment Mode -->
   <div class="card card-body" style="margin-bottom:16px">
     <div class="section-title">Payment Mode</div>
+
+    <div class="form-group" style="max-width:260px;margin-bottom:14px;">
+      <label>Amount Paid (₹)</label>
+      <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="{{ form_data.amount_paid or '0' }}" oninput="calcBalance()" min="0">
+    </div>
+
     <div class="pay-tabs">
       <div class="pay-tab {% if form_data.payment_mode == 'cash' or not form_data.payment_mode %}active{% endif %}" id="tab-cash"   onclick="setPayMode('cash')">💵 Cash</div>
       <div class="pay-tab {% if form_data.payment_mode == 'online' %}active{% endif %}" id="tab-online" onclick="setPayMode('online')">📱 Online / UPI</div>
@@ -1038,7 +1085,7 @@
     <div class="pi-page">
       <div class="pi-logo-row">
         <div>
-          <div class="pi-company-name">{{ company.name if company else 'Your Company' }}</div>
+          <div class="pi-company-name">{{ company.company_name if company else 'Your Company' }}</div>
           <div class="pi-sub">Freight &amp; Courier Services</div>
         </div>
         <div>
@@ -1085,13 +1132,29 @@
       <div class="pi-totals">
         <div class="pi-totals-box">
           {% set _base = (form_data.freight|float if form_data.freight else 0) + (form_data.fuel|float if form_data.fuel else 0) + (form_data.other|float if form_data.other else 0) %}
+          {% set _shipper_state = (form_data.shipper_state or '')|lower|trim %}
+          {% set _receiver_state = (form_data.receiver_state or '')|lower|trim %}
+          {% set _interstate = (_shipper_state and _receiver_state and _shipper_state != _receiver_state) %}
+          {% set _gst = (_base * 0.18) if is_gst_registered else 0 %}
+          {% set _cgst = (_gst / 2) if (is_gst_registered and not _interstate) else 0 %}
+          {% set _sgst = (_gst - _cgst) if (is_gst_registered and not _interstate) else 0 %}
+          {% set _igst = _gst if (is_gst_registered and _interstate) else 0 %}
+          {% set _pre_round = _base + _gst %}
+          {% set _grand = _pre_round|round(0, 'common') %}
+          {% set _round_off = _grand - _pre_round %}
           {% if is_gst_registered %}
           <div class="pi-total-row"><span>Sub-total</span><span>₹{{ "%.2f"|format(_base) }}</span></div>
-          <div class="pi-total-row"><span>GST (18%)</span><span>₹{{ "%.2f"|format(_base * 0.18) }}</span></div>
+          {% if _interstate %}
+          <div class="pi-total-row"><span>IGST (18%)</span><span>₹{{ "%.2f"|format(_igst) }}</span></div>
+          {% else %}
+          <div class="pi-total-row"><span>CGST (9%)</span><span>₹{{ "%.2f"|format(_cgst) }}</span></div>
+          <div class="pi-total-row"><span>SGST (9%)</span><span>₹{{ "%.2f"|format(_sgst) }}</span></div>
           {% endif %}
-          <div class="pi-grand"><span>GRAND TOTAL</span><span>₹{{ "%.2f"|format(_base * 1.18 if is_gst_registered else _base) }}</span></div>
+          <div class="pi-total-row"><span>Round Off</span><span>{{ '+' if _round_off >= 0 else '' }}₹{{ "%.2f"|format(_round_off) }}</span></div>
+          {% endif %}
+          <div class="pi-grand"><span>GRAND TOTAL</span><span>₹{{ "%.2f"|format(_grand if is_gst_registered else _base) }}</span></div>
           <div class="pi-total-row" style="margin-top:8px;"><span>Amount Paid</span><span>₹{{ "%.2f"|format(form_data.amount_paid|float if form_data.amount_paid else 0) }}</span></div>
-          <div class="pi-total-row" style="color:#DC2626;font-weight:700;"><span>Balance Due</span><span>₹{{ "%.2f"|format((_base * 1.18 if is_gst_registered else _base) - (form_data.amount_paid|float if form_data.amount_paid else 0)) }}</span></div>
+          <div class="pi-total-row" style="color:#DC2626;font-weight:700;"><span>Balance Due</span><span>₹{{ "%.2f"|format((_grand if is_gst_registered else _base) - (form_data.amount_paid|float if form_data.amount_paid else 0)) }}</span></div>
         </div>
       </div>
       {% if form_data.notes %}<div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:11px;border-left:3px solid #16A34A;"><strong>Notes:</strong> {{ form_data.notes }}</div>{% endif %}
@@ -1107,7 +1170,7 @@
     <div class="pf-page">
       <div class="pf-header">
         <div>
-          <div class="pf-company">{{ company.name if company else 'Your Company' }}</div>
+          <div class="pf-company">{{ company.company_name if company else 'Your Company' }}</div>
           <div style="font-size:11px;opacity:0.8;margin-top:3px;">AWB: {{ form_data.docket_no or docket_no or '' }}</div>
         </div>
         <div class="pf-type-label">PERFORMA INVOICE</div>
@@ -1157,7 +1220,7 @@
     <div class="dk-page">
       <div class="dk-header">
         <div>
-          <div class="dk-co">{{ company.name if company else 'NEXA LOGISTICS' }}</div>
+          <div class="dk-co">{{ company.company_name if company else 'NEXA LOGISTICS' }}</div>
           <div style="font-size:10px;opacity:0.65;margin-top:3px;">AIR WAYBILL / DOCKET</div>
         </div>
         <div class="dk-awb-big">{{ form_data.docket_no or docket_no or 'AWB#' }}</div>
@@ -1304,6 +1367,16 @@ function handleFormEnter(e) {
 /* ── Performa Invoice ── */
 function togglePerfSection() {
   document.getElementById('perfSection').classList.toggle('perf-collapsed');
+}
+
+/* ── Return / Resale (outer collapse, mirrors Performa) ── */
+function toggleResaleOuterSection() {
+  document.getElementById('resaleSection').classList.toggle('resale-collapsed');
+}
+
+/* ── Packages ── */
+function togglePkgSection() {
+  document.getElementById('pkgSection').classList.toggle('pkg-collapsed');
 }
 
 function setGstInvoice(val) {
@@ -1719,21 +1792,19 @@ function livePkgCalc() {
   const w   = (parseFloat(document.getElementById('pkgEntryW').value) || 0) * factor;
   const h   = (parseFloat(document.getElementById('pkgEntryH').value) || 0) * factor;
   const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
-  const discount = parseFloat(document.getElementById('pkgEntryDiscount').value) || 0;
 
   const volWtRaw = (l * w * h / division) * qty;
-  const volWt = volWtRaw * (1 - discount / 100);
+  const volWt = volWtRaw;
   const actWt = wt * qty;
   const chgWt = Math.max(actWt, volWt);
 
-  document.getElementById('pkgDiscLabel').textContent = discount;
   document.getElementById('pkgEntryVolWt').value = volWt.toFixed(3);
   document.getElementById('pkgEntryChgWt').value = chgWt.toFixed(3);
 }
 
 function addPkgRow() {
-  const name   = document.getElementById('pkgEntryName').value.trim() || 'Box';
-  const type   = document.getElementById('pkgEntryType').value;
+  const name   = 'Box';
+  const type   = 'Box';
   const unit   = document.getElementById('pkgEntryUnit').value;
   const qty    = parseFloat(document.getElementById('pkgEntryQty').value) || 1;
   const wt     = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
@@ -1741,7 +1812,7 @@ function addPkgRow() {
   const w      = parseFloat(document.getElementById('pkgEntryW').value) || 0;
   const h      = parseFloat(document.getElementById('pkgEntryH').value) || 0;
   const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
-  const discount = parseFloat(document.getElementById('pkgEntryDiscount').value) || 0;
+  const discount = 0; // Disc% removed from UI; kept as 0 so existing pkg_discount[] field/backend stays compatible
   const rate   = parseFloat(document.getElementById('pkgEntryRate').value) || 0;
 
   livePkgCalc();
@@ -1769,8 +1840,7 @@ function addPkgRow() {
     <td><button type="button" class="del-btn" onclick="removePkgRow(this)">×</button></td>`;
   document.getElementById('pkgBody').appendChild(tr);
 
-  // Reset panel for the next piece (keep Unit/Division/Discount — usually shared across pieces)
-  document.getElementById('pkgEntryName').value = 'Box';
+  // Reset panel for the next piece (keep Unit/Division — usually shared across pieces)
   document.getElementById('pkgEntryQty').value = 1;
   document.getElementById('pkgEntryWt').value = 0;
   document.getElementById('pkgEntryL').value = 0;
@@ -1819,8 +1889,12 @@ function calcPkg() {
   if (freightWtEl && !freightWtEl.dataset.userEdited && currentFreightWt === 0 && chgWt > 0) {
     freightWtEl.value = chgWt.toFixed(2);
     calcFreight();
-    syncRateLookupInputs();
   }
+
+  // Rate Lookup should always track the live package chargeable weight, independent of
+  // whether Freight Weight has already been auto-filled/overridden above — otherwise
+  // adding/editing packages after the first one never updates the rate lookup weight.
+  syncRateLookupInputs();
 }
 
 /* ── Freight per-kg calculator ── */
@@ -1863,7 +1937,12 @@ function syncRateLookupInputs() {
 
     if (destEl.value.trim()) rateDestEl.value = destEl.value.trim();
 
-    const wt = parseFloat(weightEl.value) || 0;
+    // Prefer the live chargeable weight from Packages (chgWtTotal); it reflects every
+    // add/edit/remove immediately. Fall back to Freight Weight only when there are no
+    // packages yet (chgWtTotal is 0), e.g. a freight-only line with no package rows.
+    const pkgChgWt = parseFloat(document.getElementById('chgWtTotal')?.textContent) || 0;
+    const freightWt = parseFloat(weightEl.value) || 0;
+    const wt = pkgChgWt > 0 ? pkgChgWt : freightWt;
     if (wt > 0) rateWeightEl.value = wt;
 
     if (rateCourierEl.value && rateDestEl.value.trim() && parseFloat(rateWeightEl.value) > 0) {
@@ -2248,22 +2327,38 @@ function calcInvoiceTotal() {
   const fuel    = parseFloat(document.getElementById('fuelCharge').value)||0;
   const other   = parseFloat(document.getElementById('otherCharges').value)||0;
   const base = freight + fuel + other;
-  
-  // Only calculate GST if company is GST registered
-  const gst = IS_GST_REGISTERED ? (base * 0.18) : 0;
-  
+
   // ── Get resale charges ────────────────────────────────────────────────────
   const resaleAmount = parseFloat(document.getElementById('resaleCharges').value) || 0;
-  const resaleGst = IS_GST_REGISTERED ? (resaleAmount * 0.18) : 0;
-  const resaleTotal = resaleAmount + resaleGst;
-  
-  // ── Grand total includes resale ──────────────────────────────────────────
-  const grand = base + gst + resaleTotal;
-  
+
+  // Taxable value is freight+fuel+other+resale, taxed together (mirrors the server).
+  const taxable = base + resaleAmount;
+  const gstTotal = IS_GST_REGISTERED ? (taxable * 0.18) : 0;
+
+  // CGST+SGST for intrastate (same shipper/receiver state), IGST for interstate -
+  // this is how GST actually works, a flat "18% GST" line item is not correct.
+  const shipperState  = (document.querySelector('[name="shipper_state"]')?.value || '').trim().toLowerCase();
+  const receiverState = (document.querySelector('[name="receiver_state"]')?.value || '').trim().toLowerCase();
+  const isInterstate = !!(shipperState && receiverState && shipperState !== receiverState);
+
+  let cgst = 0, sgst = 0, igst = 0;
+  if (IS_GST_REGISTERED) {
+    if (isInterstate) {
+      igst = gstTotal;
+    } else {
+      cgst = Math.round((gstTotal / 2) * 100) / 100;
+      sgst = Math.round((gstTotal - cgst) * 100) / 100;
+    }
+  }
+
+  const preRound = taxable + gstTotal;
+  const grand = Math.round(preRound); // round to nearest whole rupee
+  const roundOff = Math.round((grand - preRound) * 100) / 100;
+
   document.getElementById('dispFreight').textContent = fmt(freight);
   document.getElementById('dispFuel').textContent    = fmt(fuel);
   document.getElementById('dispOther').textContent   = fmt(other);
-  
+
   // Show/hide resale row
   const resaleRow = document.getElementById('resaleRow');
   if (resaleRow) {
@@ -2274,19 +2369,37 @@ function calcInvoiceTotal() {
       resaleRow.style.display = 'none';
     }
   }
-  
-  // Only update GST display if the element exists (for GST registered companies)
-  const gstElement = document.getElementById('dispGST');
-  if (gstElement) {
-    gstElement.textContent = fmt(gst + resaleGst);
+
+  // Only update GST display if the elements exist (for GST-registered companies)
+  const cgstRow = document.getElementById('cgstRow');
+  const sgstRow = document.getElementById('sgstRow');
+  const igstRow = document.getElementById('igstRow');
+  if (cgstRow && sgstRow && igstRow) {
+    if (isInterstate) {
+      cgstRow.style.display = 'none';
+      sgstRow.style.display = 'none';
+      igstRow.style.display = 'flex';
+      document.getElementById('dispIGST').textContent = fmt(igst);
+    } else {
+      cgstRow.style.display = 'flex';
+      sgstRow.style.display = 'flex';
+      igstRow.style.display = 'none';
+      document.getElementById('dispCGST').textContent = fmt(cgst);
+      document.getElementById('dispSGST').textContent = fmt(sgst);
+    }
   }
-  
+
+  const roundOffRow = document.getElementById('roundOffRow');
+  if (roundOffRow) {
+    document.getElementById('dispRoundOff').textContent = (roundOff >= 0 ? '+' : '') + fmt(roundOff);
+  }
+
   document.getElementById('dispGrand').textContent = fmt(grand);
   calcBalance();
 }
 function calcBalance() {
   const grand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,''))||0;
-  const paid  = parseFloat(document.getElementById('amountPaid').value)||0;
+  const paid  = parseFloat(document.getElementById('amountPaid')?.value)||0;
   document.getElementById('balanceDue').textContent = fmt(grand-paid);
 }
 

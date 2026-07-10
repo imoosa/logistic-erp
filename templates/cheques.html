@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+{% block title %}Cheques{% endblock %}
+{% block page_title %}Cheques{% endblock %}
+{% set active = 'cheques' %}
+
+{% block extra_style %}
+<style>
+  .rp-header { background: linear-gradient(135deg, #B45309, #92400E);
+    border-radius: 16px; padding: 24px 32px; margin-bottom: 28px; color: #fff; }
+  .rp-header h2 { font-size: 22px; margin-bottom: 4px; }
+  .rp-header p  { font-size: 13px; opacity: .9; }
+
+  .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr));
+    gap: 14px; margin-bottom: 24px; }
+  .summary-card { background: #fff; border: 1px solid var(--gray-100); border-radius: 12px; padding: 16px 18px; }
+  .summary-card .sc-label { font-size: 12px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+  .summary-card .sc-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
+
+  .direction-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+  .dir-tab { flex: 1; text-align: center; padding: 12px; border: 2px solid var(--gray-100); border-radius: 10px;
+    cursor: pointer; font-weight: 700; font-size: 14px; color: var(--gray-500); }
+  .dir-tab.active-received { border-color: #16A34A; background: #DCFCE7; color: #16A34A; }
+  .dir-tab.active-paid { border-color: #B45309; background: #FEF3C7; color: #B45309; }
+
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap: 16px; }
+  .form-grid label { display: block; font-size: 12px; font-weight: 700; color: var(--gray-600);
+    text-transform: uppercase; letter-spacing: .03em; margin-bottom: 6px; }
+  .form-grid input, .form-grid select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--gray-200);
+    border-radius: 8px; font-size: 14px; }
+  .form-grid input:focus, .form-grid select:focus { outline: none; border-color: #B45309; }
+
+  .date-filter-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 14px; padding: 12px 14px; background: var(--gray-50); border-radius: 8px; }
+  .date-filter-bar label { font-size: 13px; color: var(--gray-600); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .date-filter-bar input, .date-filter-bar select { padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px; }
+
+  .reg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .reg-table thead th { background: var(--gray-50); padding: 10px 14px; text-align: left;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--gray-500); }
+  .reg-table tbody tr { border-bottom: 1px solid var(--gray-100); }
+  .reg-table tbody tr:hover { background: #FFFBEB; }
+  .reg-table tbody td { padding: 12px 14px; vertical-align: middle; }
+
+  .dir-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .dir-received { background: #DCFCE7; color: #16A34A; }
+  .dir-paid { background: #FEF3C7; color: #B45309; }
+
+  .status-badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .status-Pending  { background: #FEF9C3; color: #A16207; }
+  .status-Cleared  { background: #DCFCE7; color: #16A34A; }
+  .status-Bounced  { background: #FEE2E2; color: #DC2626; }
+  .status-Cancelled{ background: var(--gray-100); color: var(--gray-500); }
+
+  .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .row-actions button { border: none; border-radius: 6px; padding: 5px 10px; font-size: 11px;
+    font-weight: 700; cursor: pointer; }
+  .btn-clear   { background: #16A34A; color: #fff; }
+  .btn-bounce  { background: #DC2626; color: #fff; }
+  .btn-cancel  { background: var(--gray-200); color: var(--gray-600); }
+
+  .no-history { text-align: center; padding: 48px; color: var(--gray-400); }
+  .no-history-icon { font-size: 36px; margin-bottom: 10px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="rp-header">
+  <h2>📋 Cheque Register</h2>
+  <p>Record cheques received from clients and issued to suppliers, and track them through to clearing.</p>
+</div>
+
+<div class="summary-cards">
+  <div class="summary-card">
+    <div class="sc-label">Pending — Received</div>
+    <div class="sc-value" style="color:#16A34A;">₹{{ "{:,.2f}".format(pending_received) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="sc-label">Pending — Paid</div>
+    <div class="sc-value" style="color:#B45309;">₹{{ "{:,.2f}".format(pending_paid) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="sc-label">Cleared — Received</div>
+    <div class="sc-value">₹{{ "{:,.2f}".format(cleared_received) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="sc-label">Cleared — Paid</div>
+    <div class="sc-value">₹{{ "{:,.2f}".format(cleared_paid) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="sc-label">Bounced</div>
+    <div class="sc-value" style="color:#DC2626;">{{ bounced_count }}</div>
+  </div>
+</div>
+
+<!-- ── Record New Cheque ── -->
+<div class="card">
+  <div class="card-body">
+    <form method="POST" action="/cheques/save" id="chequeForm">
+      <div class="direction-tabs">
+        <label class="dir-tab active-received" id="tabReceived">
+          <input type="radio" name="direction" value="received" checked onchange="onDirChange()" style="display:none;">
+          ⬇️ Cheque Received (from Client)
+        </label>
+        <label class="dir-tab" id="tabPaid">
+          <input type="radio" name="direction" value="paid" onchange="onDirChange()" style="display:none;">
+          ⬆️ Cheque Paid (to Supplier)
+        </label>
+      </div>
+
+      <div class="form-grid" style="margin-bottom:16px;">
+        <div id="partyWrap">
+          <label id="partyLabel">Client *</label>
+          <select id="partySelect" onchange="onPartyChange()">
+            <option value="">— Select —</option>
+          </select>
+        </div>
+        <div>
+          <label>Cheque No. *</label>
+          <input type="text" name="cheque_no" required placeholder="e.g. 004521">
+        </div>
+        <div>
+          <label>Cheque Date *</label>
+          <input type="date" name="cheque_date" value="{{ today }}" required>
+        </div>
+        <div>
+          <label>Amount (₹) *</label>
+          <input type="number" name="amount" step="0.01" min="0.01" required placeholder="0.00">
+        </div>
+        <div>
+          <label>Issuing / Drawee Bank</label>
+          <input type="text" name="bank_name" placeholder="e.g. HDFC Bank">
+        </div>
+        <div>
+          <label>Deposit / Draw Account (for when it clears)</label>
+          <select name="bank_account_id">
+            <option value="">— Select bank account —</option>
+            {% for b in bank_accounts %}
+            <option value="{{ b.id }}">{{ b.bank_name }} – {{ b.account_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div style="grid-column: 1 / -1;">
+          <label>Narration</label>
+          <input type="text" name="narration" placeholder="e.g. against invoice INV-1023, note…">
+        </div>
+      </div>
+
+      <input type="hidden" name="party_type" id="partyTypeInput" value="client">
+      <input type="hidden" name="party_id" id="partyIdInput">
+      <input type="hidden" name="party_name" id="partyNameInput">
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button type="submit" class="btn btn-primary" style="background:#B45309;">✅ Save Cheque</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Cheque Register ── -->
+<div class="card history-section" style="margin-top:24px;">
+  <div class="card-body">
+    <div class="history-header">
+      <div class="history-title">🗂️ Register</div>
+      <span class="history-count">{{ cheques|length }} records</span>
+    </div>
+
+    <form method="GET" action="/cheques" class="date-filter-bar">
+      <label>Direction
+        <select name="direction">
+          <option value="" {{ 'selected' if not direction }}>All</option>
+          <option value="received" {{ 'selected' if direction == 'received' }}>Received</option>
+          <option value="paid" {{ 'selected' if direction == 'paid' }}>Paid</option>
+        </select>
+      </label>
+      <label>Status
+        <select name="status">
+          <option value="" {{ 'selected' if not status }}>All</option>
+          <option value="Pending" {{ 'selected' if status == 'Pending' }}>Pending</option>
+          <option value="Cleared" {{ 'selected' if status == 'Cleared' }}>Cleared</option>
+          <option value="Bounced" {{ 'selected' if status == 'Bounced' }}>Bounced</option>
+          <option value="Cancelled" {{ 'selected' if status == 'Cancelled' }}>Cancelled</option>
+        </select>
+      </label>
+      <label>From <input type="date" name="date_from" value="{{ date_from }}"></label>
+      <label>To <input type="date" name="date_to" value="{{ date_to }}"></label>
+      <button type="submit" class="btn btn-ghost" style="padding:6px 14px; font-size:13px;">Filter</button>
+      {% if direction or status or date_from or date_to %}
+      <a href="/cheques" class="btn btn-ghost" style="padding:6px 14px; font-size:13px;">Clear</a>
+      {% endif %}
+    </form>
+
+    {% if cheques %}
+    <div style="overflow-x:auto;">
+      <table class="reg-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Cheque Date</th>
+            <th>Direction</th>
+            <th>Party</th>
+            <th>Cheque No.</th>
+            <th>Bank</th>
+            <th style="text-align:right;">Amount</th>
+            <th>Status</th>
+            <th>Cleared On</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in cheques %}
+          <tr>
+            <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
+            <td style="white-space:nowrap;">{{ c.cheque_date }}</td>
+            <td><span class="dir-badge dir-{{ c.direction }}">{{ 'Received' if c.direction == 'received' else 'Paid' }}</span></td>
+            <td>{{ c.party_name }}</td>
+            <td>{{ c.cheque_no }}</td>
+            <td style="font-size:12px; color:var(--gray-600);">{{ c.bank_name }}</td>
+            <td style="text-align:right; font-weight:700;">₹{{ "{:,.2f}".format(c.amount) }}</td>
+            <td><span class="status-badge status-{{ c.status }}">{{ c.status }}</span></td>
+            <td style="font-size:12px; color:var(--gray-600);">{{ c.cleared_date or '—' }}</td>
+            <td>
+              {% if c.status == 'Pending' %}
+              <div class="row-actions">
+                <form method="POST" action="/cheques/{{ c.id }}/clear" onsubmit="return confirm('Mark this cheque as cleared? This will update the bank balance.');">
+                  <button type="submit" class="btn-clear">Clear</button>
+                </form>
+                <form method="POST" action="/cheques/{{ c.id }}/bounce" onsubmit="return confirm('Mark this cheque as bounced?');">
+                  <button type="submit" class="btn-bounce">Bounce</button>
+                </form>
+                <form method="POST" action="/cheques/{{ c.id }}/cancel" onsubmit="return confirm('Cancel this cheque entry?');">
+                  <button type="submit" class="btn-cancel">Cancel</button>
+                </form>
+              </div>
+              {% else %}
+              <span style="color:var(--gray-300); font-size:12px;">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="no-history">
+      <div class="no-history-icon">📭</div>
+      <div style="font-weight:600; color:var(--gray-600); margin-bottom:4px;">No cheques recorded yet</div>
+      <div style="font-size:13px;">Cheques you save above will appear here.</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  const CLIENTS = [
+    {% for c in clients %}{ id: {{ c.id }}, name: {{ c.name|tojson }} }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+  const SUPPLIERS = [
+    {% for s in suppliers %}{ id: {{ s.id }}, name: {{ s.name|tojson }} }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  function populateParty(list, label) {
+    document.getElementById('partyLabel').textContent = label;
+    const sel = document.getElementById('partySelect');
+    sel.innerHTML = '<option value="">— Select —</option>';
+    list.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  function onDirChange() {
+    const dir = document.querySelector('input[name="direction"]:checked').value;
+    document.getElementById('tabReceived').classList.toggle('active-received', dir === 'received');
+    document.getElementById('tabPaid').classList.toggle('active-paid', dir === 'paid');
+    document.getElementById('partyTypeInput').value = dir === 'received' ? 'client' : 'supplier';
+    populateParty(dir === 'received' ? CLIENTS : SUPPLIERS, dir === 'received' ? 'Client *' : 'Supplier *');
+    onPartyChange();
+  }
+
+  function onPartyChange() {
+    const sel = document.getElementById('partySelect');
+    const opt = sel.options[sel.selectedIndex];
+    document.getElementById('partyIdInput').value = sel.value;
+    document.getElementById('partyNameInput').value = sel.value ? opt.textContent : '';
+  }
+
+  document.getElementById('chequeForm').addEventListener('submit', function(e) {
+    if (!document.getElementById('partyIdInput').value) {
+      e.preventDefault();
+      alert('Please select a client or supplier.');
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', onDirChange);
+</script>
+{% endblock %}

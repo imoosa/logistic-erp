@@ -1,0 +1,207 @@
+<!-- admin_users.html -->
+<div id="usersTab" class="tab-pane" style="display: none;">
+    <div class="companies-section" style="margin-top:0;">
+        <div class="section-header">
+            <h3><i class="fas fa-users"></i> All Registered Users</h3>
+            <div>
+                <span class="badge-plan">Total: {{ total_users }} users</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>User ID</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Plan</th>
+                        <th>Companies</th>
+                        <th>Payment Status</th>
+                        <th>Registered</th>
+                        <th style="width:100px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for data in users_data %}
+                    {% set user = data.user %}
+                    {% set company_count = data.company_count %}
+                    <tr>
+                        <td><code style="font-size:0.75rem;">{{ user.user_id }}</code></td>
+                        <td><strong>{{ user.full_name }}</strong></td>
+                        <td>{{ user.email }}</td>
+                        <td>{{ user.phone or '—' }}</td>
+                        <td><span class="badge-plan">{{ user.subscription_plan|upper if user.subscription_plan else '—' }}</span></td>
+                        <td>
+                            {% if company_count > 0 %}
+                                <span class="status-active">{{ company_count }} company{% if company_count > 1 %}s{% endif %}</span>
+                                <br>
+                                <small style="color:#7a8e9e;">
+                                    {% for company in data.companies %}
+                                        {{ company.company_name }}{% if not loop.last %}, {% endif %}
+                                    {% endfor %}
+                                </small>
+                            {% else %}
+                                <span class="status-inactive">No companies</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if user.payment_status == 'paid' %}
+                                <span class="status-active">Paid</span>
+                            {% elif user.payment_status == 'partial' %}
+                                <span class="badge-plan">₹{{ user.amount_paid }}/{{ user.amount_total }}</span>
+                            {% else %}
+                                <span class="status-inactive">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.created_at.strftime('%d %b %Y') if user.created_at else '—' }}</td>
+                        <td>
+                            {% if user.email != 'admin@nexa.com' %}
+                                <button class="action-btn delete-user-btn" 
+                                        data-user-id="{{ user.user_id }}"
+                                        data-user-name="{{ user.full_name }}"
+                                        data-user-email="{{ user.email }}"
+                                        data-company-count="{{ company_count }}"
+                                        data-companies="{{ data.companies|map(attribute='company_name')|join(', ') }}"
+                                        title="Delete user">
+                                    <i class="fas fa-trash" style="color:#dc3545;"></i>
+                                </button>
+                            {% else %}
+                                <span style="color:#94a3b8; font-size:0.7rem;">Protected</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" style="text-align:center; color:#94a3b8; padding:40px;">
+                            <i class="fas fa-users" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                            No users registered yet.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Add this CSS for user management -->
+<style>
+    .delete-user-btn {
+        color: #dc3545 !important;
+        transition: 0.2s;
+    }
+    .delete-user-btn:hover {
+        background: #fee2e2 !important;
+    }
+    .delete-user-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+    code {
+        background: #f1f4f9;
+        padding: 2px 8px;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        color: #4a6580;
+    }
+</style>
+
+<script>
+// Add this to your existing script section
+
+// ------------- Delete User from Users Tab -------------
+document.querySelectorAll('.delete-user-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        
+        const userId = this.getAttribute('data-user-id');
+        const userName = this.getAttribute('data-user-name');
+        const userEmail = this.getAttribute('data-user-email');
+        const companyCount = parseInt(this.getAttribute('data-company-count')) || 0;
+        const companies = this.getAttribute('data-companies') || 'None';
+        
+        // Build confirmation message
+        let message = `Are you sure you want to delete "${userName}" (${userEmail})?<br><br>`;
+        
+        if (companyCount > 0) {
+            message += `<strong>This user owns ${companyCount} company(ies):</strong><br>`;
+            message += `<span style="color:#5b6e8c;">${companies}</span><br><br>`;
+            message += `<strong style="color:#dc3545;">Deleting this user will also delete ALL their companies and all associated data!</strong><br><br>`;
+        } else {
+            message += `<span style="color:#e67e22;">This user has not created any company yet.</span><br><br>`;
+        }
+        
+        message += `<strong style="color:#dc3545;">This action cannot be undone!</strong>`;
+        
+        // Show custom confirmation dialog
+        const confirmed = await showConfirmDialog(
+            'Delete User Account',
+            message,
+            'Delete Permanently',
+            '#dc3545'
+        );
+        
+        if (!confirmed) return;
+        
+        // Disable the button to prevent double-click
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        try {
+            const response = await fetch(`/admin/user/${userId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            const data = await response.json().catch(() => ({}));
+            
+            if (response.ok && data.success) {
+                showNotification(data.message || `User "${userName}" deleted successfully!`, 'success');
+                // Remove the row from the table
+                this.closest('tr').remove();
+                // Update the total count
+                const totalBadge = document.querySelector('.section-header .badge-plan');
+                if (totalBadge) {
+                    const currentCount = parseInt(totalBadge.textContent.match(/\d+/)?.[0]) || 0;
+                    totalBadge.textContent = `Total: ${currentCount - 1} users`;
+                }
+                // Update stats on overview tab
+                updateStats();
+            } else {
+                showNotification(data.error || 'Failed to delete user', 'error');
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-trash" style="color:#dc3545;"></i>';
+            }
+        } catch (err) {
+            console.error('Delete user error:', err);
+            showNotification('Network error. Please try again.', 'error');
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-trash" style="color:#dc3545;"></i>';
+        }
+    });
+});
+
+// Update stats helper function
+function updateStats() {
+    // Update total users count
+    const totalUsersRow = document.querySelector('#usersTab tbody tr:not(.no-users)');
+    if (totalUsersRow) {
+        const allRows = document.querySelectorAll('#usersTab tbody tr');
+        const visibleRows = allRows.length - (document.querySelector('#usersTab tbody tr td[colspan]') ? 1 : 0);
+        const totalBadge = document.querySelector('#usersTab .section-header .badge-plan');
+        if (totalBadge) {
+            totalBadge.textContent = `Total: ${visibleRows} users`;
+        }
+    }
+    
+    // Update pending setup count on overview
+    const pendingRows = document.querySelectorAll('#overviewTab table tbody tr');
+    const pendingBadge = document.querySelector('.stat-card:last-child .stat-value');
+    if (pendingBadge) {
+        pendingBadge.textContent = pendingRows.length;
+    }
+}
+</script>

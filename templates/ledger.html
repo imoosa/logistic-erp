@@ -169,6 +169,10 @@
     color: var(--gray-400);
     font-size: 13px;
   }
+  .table-wrap th {
+    background: #012926;
+    color: #F59E0B;
+  }
 
   /* ── Responsive ── */
   @media (max-width: 900px) {
@@ -178,6 +182,43 @@
   }
   @media (max-width: 600px) {
     .filter-row { grid-template-columns: 1fr; }
+  }
+
+  /* ── Print header (hidden on screen, shown only when printing) ── */
+  .print-only-header { display: none; }
+
+  /* ── Print mode ──
+     Only #printSection is shown; everything else (sidebar, filter card,
+     buttons, KPI strip) is hidden regardless of the base layout markup. */
+  @media print {
+    @page {
+      size: A4 landscape;
+      margin: 12mm 10mm;
+    }
+    body * { visibility: hidden; }
+    #printSection, #printSection * { visibility: visible; }
+    #printSection {
+      position: absolute; left: 0; top: 0; width: 100%;
+      margin: 0; padding: 0; box-shadow: none; border: none;
+    }
+    .print-only-header {
+      display: block;
+      margin-bottom: 16px;
+    }
+    .print-only-header h2 { font-size: 18px; font-weight: 800; margin: 0 0 4px 0; }
+    .print-only-header .print-range { font-size: 12px; color: #555; }
+    .gl-card-header { display: none; }
+    .gl-table tbody tr:hover { background: none; }
+    .gl-table { width: 100%; font-size: 11px; }
+    .gl-table thead th { font-size: 9.5px; padding: 6px 8px; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .gl-table tbody td { padding: 5px 8px; }
+    .gl-table tfoot td { padding: 6px 8px; font-size: 11px; background: #f0f0f0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .vbadge { padding: 1px 6px; font-size: 9.5px; }
+    .gl-card { border: none; }
+    tr { page-break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    a[href]:after { content: ""; }
   }
 </style>
 {% endblock %}
@@ -193,6 +234,7 @@
     </h2>
     <div class="gl-sub">Double-entry record of all financial transactions</div>
   </div>
+  <button type="button" class="btn btn-primary" onclick="window.print()">🖨️ Print Ledger</button>
 </div>
 
 <!-- Filter -->
@@ -248,16 +290,38 @@
   </div>
 </div>
 
-<!-- Ledger Table -->
+<!-- Ledger Table (this section, and only this section, is what gets printed) -->
+<div id="printSection">
+  <div class="print-only-header">
+    <h2>General Ledger</h2>
+    <div class="print-range">
+      {% if filter_applied %}
+        {% if from_date and to_date %}
+          Period: {{ from_date.strftime('%d %b %Y') }} → {{ to_date.strftime('%d %b %Y') }}
+        {% elif from_date %}
+          From: {{ from_date.strftime('%d %b %Y') }} onward
+        {% elif to_date %}
+          Up to: {{ to_date.strftime('%d %b %Y') }}
+        {% endif %}
+        {% if account_type != 'all' %} • {{ account_type|capitalize }} only{% endif %}
+      {% else %}
+        Full Ledger — All Transactions
+      {% endif %}
+    </div>
+  </div>
 <div class="gl-card">
   <div class="gl-card-header">
     <strong>Ledger Entries</strong>
     <span class="date-range">
-      📅 {{ from_date.strftime('%d %b %Y') if from_date else '—' }} → {{ to_date.strftime('%d %b %Y') if to_date else '—' }}
+      {% if from_date or to_date %}
+        📅 {{ from_date.strftime('%d %b %Y') if from_date else 'Start' }} → {{ to_date.strftime('%d %b %Y') if to_date else 'Today' }}
+      {% else %}
+        📅 Full Ledger (All Dates)
+      {% endif %}
     </span>
   </div>
   <div class="table-wrap">
-    <table class="gl-table">
+    <table>
       <thead>
         <tr>
           <th>Date</th>
@@ -329,6 +393,7 @@
       </tfoot>
     </table>
   </div>
+</div>
 </div>
 
 {% endblock %}

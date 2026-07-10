@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>NexaERP · Login</title>
+  <title>Magnustic ERP · Login</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-bgless.png') }}">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    body { font-family: 'Poppins', sans-serif; background: linear-gradient(135deg, #0F766E 0%, #134E4A 100%); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
     
     .login-container { display: flex; max-width: 1200px; width: 100%; background: #fff; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
     
-    .login-left { flex: 1; background: linear-gradient(135deg, #4F46E5, #7C3AED); padding: 48px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
+    .login-left { flex: 1; background: linear-gradient(135deg, #0D9488, #115E59); padding: 48px; color: #fff; display: flex; flex-direction: column; justify-content: center; }
     .login-left h1 { font-size: 36px; font-weight: 800; margin-bottom: 16px; }
     .login-left p { font-size: 14px; opacity: 0.85; line-height: 1.6; margin-bottom: 32px; }
     .feature-list { list-style: none; }
     .feature-list li { margin-bottom: 16px; display: flex; align-items: center; gap: 12px; font-size: 14px; }
-    .feature-list li::before { content: "✓"; width: 24px; height: 24px; background: rgba(255,255,255,0.2); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+    .feature-list li::before { content: "✓"; width: 24px; height: 24px; background: rgba(251,191,36,0.25); color: #FBBF24; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
     
     .login-right { flex: 0 0 440px; padding: 48px; }
     .login-right h2 { font-size: 28px; font-weight: 700; color: #111827; margin-bottom: 8px; }
@@ -25,13 +26,13 @@
     .form-group { margin-bottom: 20px; }
     label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
     input { width: 100%; padding: 12px 14px; border: 1.5px solid #E5E7EB; border-radius: 10px; font-family: 'Poppins', sans-serif; font-size: 14px; transition: all 0.15s; }
-    input:focus { outline: none; border-color: #4F46E5; box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+    input:focus { outline: none; border-color: #0D9488; box-shadow: 0 0 0 3px rgba(13,148,136,0.15); }
     
-    .btn-login { width: 100%; padding: 12px; background: #4F46E5; color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.15s; margin-top: 8px; }
-    .btn-login:hover { background: #4338CA; }
+    .btn-login { width: 100%; padding: 12px; background: #F59E0B; color: #1F2937; border: none; border-radius: 10px; font-size: 15px; font-weight: 700; cursor: pointer; transition: background 0.15s; margin-top: 8px; }
+    .btn-login:hover { background: #D97706; color: #fff; }
     
     .register-link { text-align: center; margin-top: 24px; font-size: 13px; color: #6B7280; }
-    .register-link a { color: #4F46E5; text-decoration: none; font-weight: 600; }
+    .register-link a { color: #0D9488; text-decoration: none; font-weight: 600; }
     .register-link a:hover { text-decoration: underline; }
     
     .flash-message { background: #FEE2E2; color: #DC2626; padding: 12px 16px; border-radius: 10px; font-size: 13px; margin-bottom: 20px; }
@@ -39,17 +40,42 @@
     .demo-credentials { background: #F3F4F6; border-radius: 10px; padding: 12px; margin-top: 24px; font-size: 11px; color: #6B7280; }
     .demo-credentials p { margin-bottom: 6px; }
     .demo-credentials code { background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
+
+    .password-wrap { position: relative; }
+    .password-wrap input { padding-right: 42px; }
+    .toggle-password {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; padding: 4px;
+      display: flex; align-items: center; justify-content: center; color: #9CA3AF;
+    }
+    .toggle-password:hover { color: #0D9488; }
+    .toggle-password svg { width: 18px; height: 18px; }
     
     @media (max-width: 768px) {
       .login-left { display: none; }
       .login-right { flex: 1; }
     }
+    .login-left h1.brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+}
+.brand-logo-img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 5px;
+}
   </style>
 </head>
 <body>
   <div class="login-container">
     <div class="login-left">
-      <h1>⚡ NexaERP</h1>
+     <h1 class="brand-logo">
+  <img src="{{ url_for('static', filename='logo.png') }}" alt="Magnustic ERP" class="brand-logo-img">
+  Magnustic ERP
+</h1>
       <p>Enterprise Resource Planning made simple. Manage your business, track orders, and grow with powerful analytics.</p>
       <ul class="feature-list">
         <li>Multi-company Support</li>
@@ -73,28 +99,45 @@
       <form method="POST">
         <div class="form-group">
           <label>Email Address</label>
-          <input type="email" name="email" placeholder="you@company.com" required autofocus>
+          <input type="text" name="email" placeholder="you@company.com" required autofocus
+                 pattern="admin|[^\s@]+@[^\s@]+\.[^\s@]+"
+                 title="Enter your email address">
         </div>
         
         <div class="form-group">
           <label>Password</label>
-          <input type="password" name="password" placeholder="••••••••" required>
+          <div class="password-wrap">
+            <input type="password" name="password" id="loginPassword" placeholder="••••••••" required>
+            <button type="button" class="toggle-password" data-target="loginPassword" aria-label="Show password">
+              <svg class="icon-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg class="icon-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            </button>
+          </div>
         </div>
         
         <button type="submit" class="btn-login">Sign In →</button>
       </form>
       
-      <div class="register-link">
-        Don't have an account? <a href="/register">Create your company →</a>
-      </div>
+
       
       <div class="demo-credentials">
         <p><strong>🔐 Demo Credentials:</strong></p>
-        <p>Company Owner: <code>rahul@techsolutions.com</code> / <code>Tech@123</code></p>
-        <p>Employee: <code>priya.mehta@techsolutions.com</code> / <code>Priya@123</code></p>
-        <p>Super Admin: <code>admin@nexa.com</code> / <code>Admin@123</code></p>
+        <p><code>demo@demo.com</code> / <code>Demo@123</code></p>
       </div>
     </div>
   </div>
+
+  <script>
+    document.querySelectorAll('.toggle-password').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var input = document.getElementById(btn.getAttribute('data-target'));
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.querySelector('.icon-eye').style.display = showing ? 'block' : 'none';
+        btn.querySelector('.icon-eye-off').style.display = showing ? 'none' : 'block';
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      });
+    });
+  </script>
 </body>
 </html>

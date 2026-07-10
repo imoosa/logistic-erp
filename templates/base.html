@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LogisticERP · {% block title %}{% endblock %}</title>
+  <title>Magnustic ERP Solution · {% block title %}{% endblock %}</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-bgless.png') }}">
   <style>
     @media print {
     .sidebar  { display: none !important; }
@@ -14,12 +15,12 @@
 }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --primary: #2563EB; --primary-light: #EFF6FF; --primary-dark: #1D4ED8;
-      --primary-glow: rgba(37,99,235,0.12);
+      --primary: #F59E0B; --primary-light: #FEF3C7; --primary-dark: #D97706;
+      --primary-glow: rgba(245,158,11,0.12);
       --success: #059669; --success-light: #D1FAE5;
       --danger: #DC2626; --danger-light: #FEE2E2;
       --warning: #D97706; --warning-light: #FEF3C7;
-      --accent: #7C3AED; --accent-light: #EDE9FE;
+      --accent: #F59E0B; --accent-light: #FEF3C7;
       --gray-50: #F8FAFC; --gray-100: #F1F5F9; --gray-200: #E2E8F0;
       --gray-400: #94A3B8; --gray-500: #64748B; --gray-600: #475569;
       --gray-700: #334155; --gray-800: #1E293B; --gray-900: #0F172A;
@@ -66,7 +67,7 @@
   transform: translateY(-50%);
   width: 28px;
   height: 60px;
-  background: linear-gradient(180deg, #2563EB, #7C3AED);
+  background: #16A34A;
   border: none;
   border-radius: 0 10px 10px 0;
   cursor: pointer;
@@ -77,13 +78,13 @@
   color: #fff;
   z-index: 102;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.2);
+  box-shadow: 2px 0 12px rgba(245,158,11,0.2);
   padding: 0;
 }
 .sidebar-toggle-btn:hover {
   width: 34px;
-  box-shadow: 3px 0 20px rgba(37, 99, 235, 0.35);
-  background: linear-gradient(180deg, #1D4ED8, #6D28D9);
+  box-shadow: 3px 0 20px rgba(245,158,11,0.35);
+  background: #15803D;
 }
 .sidebar-toggle-btn:active {
   transform: translateY(-50%) scale(0.95);
@@ -112,7 +113,7 @@
 .sidebar.collapsed .sidebar-toggle-btn {
   left: 60px;
   border-radius: 0 10px 10px 0;
-  box-shadow: 2px 0 12px rgba(37, 99, 235, 0.15);
+  box-shadow: 2px 0 12px rgba(245,158,11,0.15);
 }
 
 /* Arrow rotation */
@@ -127,7 +128,7 @@
     /* ── SIDEBAR ── */
     .sidebar {
       width: var(--sidebar-w);
-      background: var(--gray-900);
+      background: #012926;
       position: fixed; top: 0; left: 0; height: 100vh;
       display: flex; flex-direction: column;
       z-index: 100; overflow-y: auto; overflow-x: hidden;
@@ -145,9 +146,7 @@
     }
     .sidebar-logo-icon {
       width: 36px; height: 36px; border-radius: 10px;
-      background: linear-gradient(135deg, #2563EB, #7C3AED);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
+      object-fit: cover; flex-shrink: 0; display: block;
     }
     .sidebar-logo-text { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
     .sidebar-logo-sub  { font-size: 10px; color: var(--gray-400); margin-top: 1px; }
@@ -160,7 +159,7 @@
     .company-pill-name { font-size: 12px; font-weight: 700; color: #e2e8f0; }
     .company-pill-plan {
       display: inline-block; margin-top: 5px;
-      background: linear-gradient(90deg, #2563EB, #7C3AED);
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
       color: #fff; font-size: 9px; font-weight: 700;
       padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
     }
@@ -170,19 +169,19 @@
     .nav-section { margin-bottom: 6px; }
     .nav-section-title {
       font-size: 9.5px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 1px; color: #475569;
+      letter-spacing: 1px; color: rgba(255,255,255,0.85);
       padding: 10px 10px 5px;
     }
     .nav-item {
       display: flex; align-items: center; gap: 10px;
       padding: 9px 12px; border-radius: 9px;
-      font-size: 13px; font-weight: 500; color: #94a3b8;
+      font-size: 13px; font-weight: 500; color: #ffffff;
       text-decoration: none; margin-bottom: 1px;
       transition: all .15s;
     }
     .nav-item:hover  { background: rgba(255,255,255,0.06); color: #e2e8f0; }
-    .nav-item.active { background: rgba(37,99,235,0.2); color: #60a5fa; font-weight: 600; }
-    .nav-item.active .nav-icon { color: #60a5fa; }
+    .nav-item.active { background: rgba(245,158,11,0.2); color: #F59E0B; font-weight: 600; }
+    .nav-item.active .nav-icon { color: #F59E0B; }
     .nav-icon { font-size: 15px; flex-shrink: 0; }
 
     /* Sidebar footer with logout */
@@ -214,13 +213,13 @@
     /* Welcome greeting in topbar */
     .topbar-welcome {
       display: flex; align-items: center; gap: 12px;
-      background: linear-gradient(135deg, #EFF6FF 0%, #EDE9FE 100%);
+      background: linear-gradient(135deg, #F0FDFA 0%, #FEF3C7 100%);
       border: 1px solid #DBEAFE;
       border-radius: 40px; padding: 8px 18px 8px 12px;
     }
     .topbar-welcome-avatar {
       width: 34px; height: 34px; border-radius: 50%;
-      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      background: linear-gradient(135deg, #0D9488, #F59E0B);
       color: #fff; display: flex; align-items: center;
       justify-content: center; font-size: 13px; font-weight: 800;
       flex-shrink: 0;
@@ -253,13 +252,13 @@
     .user-dropdown-header {
       padding: 16px 18px 12px;
       border-bottom: 1px solid var(--gray-100);
-      background: linear-gradient(135deg, #EFF6FF 0%, #EDE9FE 100%);
+      background: linear-gradient(135deg, #F0FDFA 0%, #FEF3C7 100%);
     }
     .user-dropdown-name { font-size: 14px; font-weight: 700; color: var(--gray-900); }
     .user-dropdown-email { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
     .user-dropdown-role {
       display: inline-block; margin-top: 6px;
-      background: linear-gradient(90deg, #2563EB, #7C3AED);
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
       color: #fff; font-size: 9px; font-weight: 700;
       padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
     }
@@ -287,6 +286,7 @@
     .btn-ghost:hover { background: var(--gray-100); }
     .btn-danger { background: var(--danger); color: #fff; }
     .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .hamburger-btn { display: none; } /* shown only under the 768px media query below */
 
     .card { background: #fff; border-radius: var(--radius); border: 1px solid var(--gray-100); box-shadow: 0 1px 3px rgba(0,0,0,.05); margin-bottom: 20px; }
     .card-body { padding: 20px; }
@@ -343,133 +343,252 @@
     }
 
     @media(max-width:768px) {
-      .sidebar { display: none; }
-      .main { margin-left: 0; }
-      .grid-2 { grid-template-columns: 1fr; }
-      .topbar-welcome { display: none; }
+      /* Sidebar becomes an off-canvas drawer instead of vanishing outright */
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        width: min(280px, 82vw);
+        z-index: 200;
+      }
+      .sidebar.mobile-open { transform: translateX(0); }
+      .sidebar.collapsed { width: min(280px, 82vw); } /* desktop collapse state is irrelevant on mobile */
+      .sidebar.collapsed .sidebar-logo-text,
+      .sidebar.collapsed .sidebar-logo-sub,
+      .sidebar.collapsed .company-pill,
+      .sidebar.collapsed .nav-section-title,
+      .sidebar.collapsed .nav-item span:last-child,
+      .sidebar.collapsed .sidebar-foot a span:last-child { display: revert; }
+      .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 9px 12px; }
+      .sidebar-toggle-btn { display: none; } /* desktop collapse arrow — replaced by hamburger below */
+
+      .mobile-backdrop {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(15,23,42,.5);
+        z-index: 150;
+      }
+      .mobile-backdrop.open { display: block; }
+
+      .main, .main.collapsed { margin-left: 0; }
+
+      .hamburger-btn {
+        display: flex; align-items: center; justify-content: center;
+        width: 38px; height: 38px; border-radius: 9px;
+        border: 1.5px solid var(--gray-200); background: #fff;
+        font-size: 18px; cursor: pointer; flex-shrink: 0;
+      }
+
+      .topbar { padding: 0 14px; gap: 10px; }
+      .topbar-company-name { font-size: 14px; }
+      .topbar-company-logo { height: 24px; width: 24px; }
+
+      /* Keep the avatar (dropdown trigger) visible — hiding it locked mobile users out of logout */
+      .topbar-welcome { padding: 6px; gap: 0; background: none; border: none; }
+      .topbar-welcome-text, .topbar-welcome-caret { display: none; }
+      .user-dropdown { right: -10px; min-width: 210px; }
+
+      .content { padding: 16px; }
+      .grid-2, .grid-3 { grid-template-columns: 1fr; }
+      .page-header h2 { font-size: 20px; }
+
+      table { font-size: 12.5px; }
+      th, td { padding: 9px 10px; }
     }
+
+    @media(max-width:420px) {
+      .topbar-company-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+
+    /* ── THEMED ALERT / CONFIRM MODAL (replaces native browser popups) ── */
+    .app-modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.55);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; opacity: 0; visibility: hidden;
+      transition: opacity .18s ease, visibility .18s ease;
+      padding: 16px;
+    }
+    .app-modal-overlay.open { opacity: 1; visibility: visible; }
+    .app-modal {
+      background: #fff; border-radius: var(--radius);
+      width: 100%; max-width: 380px;
+      box-shadow: 0 20px 50px rgba(15,23,42,0.25);
+      transform: translateY(-12px) scale(.97); opacity: 0;
+      transition: transform .18s ease, opacity .18s ease;
+      overflow: hidden;
+    }
+    .app-modal-overlay.open .app-modal { transform: translateY(0) scale(1); opacity: 1; }
+    .app-modal-icon {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; margin: 22px auto 0;
+    }
+    .app-modal[data-type="info"]    .app-modal-icon { background: var(--primary-light); color: var(--primary-dark); }
+    .app-modal[data-type="success"] .app-modal-icon { background: var(--success-light); color: var(--success); }
+    .app-modal[data-type="danger"]  .app-modal-icon { background: var(--danger-light); color: var(--danger); }
+    .app-modal[data-type="warning"] .app-modal-icon { background: var(--warning-light); color: var(--warning); }
+    .app-modal-body { padding: 14px 24px 24px; text-align: center; }
+    .app-modal-message { font-size: 14px; color: var(--gray-700); line-height: 1.5; word-break: break-word; }
+    .app-modal-actions { display: flex; gap: 10px; padding: 0 20px 20px; }
+    .app-modal-btn {
+      flex: 1; padding: 10px 14px; border-radius: 10px; border: none;
+      font-family: var(--font); font-size: 13.5px; font-weight: 700;
+      cursor: pointer; transition: filter .15s;
+    }
+    .app-modal-btn:hover { filter: brightness(0.94); }
+    .app-modal-btn.confirm { background: var(--primary); color: #fff; }
+    .app-modal[data-type="danger"] .app-modal-btn.confirm { background: var(--danger); }
+    .app-modal-btn.cancel { background: var(--gray-100); color: var(--gray-700); }
   </style>
   {% block extra_style %}{% endblock %}
 </head>
 <body>
 <div class="wrapper">
+  <div class="mobile-backdrop" id="mobileBackdrop"></div>
 
   <!-- ── SIDEBAR ── -->
   <aside class="sidebar" id="sidebar">
     <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">◀</button>
     <div class="sidebar-header">
       <div class="sidebar-logo">
-        <div class="sidebar-logo-icon">🚚</div>
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="Magnustic ERP Solution" class="sidebar-logo-icon">
         <div>
-          <div class="sidebar-logo-text">LogisticERP</div>
-          <div class="sidebar-logo-sub">Enterprise Suite</div>
+          <div class="sidebar-logo-text">Magnustic</div>
+          <div class="sidebar-logo-sub">ERP Solution</div>
         </div>
       </div>
-      {% if company %}
-      <div class="company-pill">
-        <div class="company-pill-name">{{ company.company_name }}</div>
-        <span class="company-pill-plan">{{ company.subscription_plan|upper if company.subscription_plan else 'FREE' }} Plan</span>
-      </div>
-      {% endif %}
     </div>
 
     <nav class="sidebar-nav">
-      <!-- Main Dashboard --
-      <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
-        <span class="nav-icon">📊</span>
-        <span>Dashboard</span>
-      </a>-->
-      
+      <!-- Main Dashboard -->
+      {% if can('dashboard', 'view') %}
    <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
     <span class="nav-icon">📊</span>
     <span>Dashboard</span>
 </a>
+{% endif %}
 
 <!-- Reports Dashboard -->
+{% if can('analytics', 'view') %}
 <a href="{{ url_for('reports_dashboard') }}" class="nav-item {% if active == 'reports_dashboard' %}active{% endif %}">
     <span class="nav-icon">📈</span>
     <span>Analytics</span>
 </a>
+{% endif %}
 
 
       <!-- Sales Section -->
       <div class="nav-section">
         <div class="nav-section-title">Sales</div>
+        {% if can('invoices', 'view') %}
         <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
           <span class="nav-icon">📄</span><span>Booking</span>
         </a>
+        {% endif %}
+        {% if can('estimates', 'view') %}
         <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
           <span class="nav-icon">📝</span><span>Performa invoices</span>
         </a>
+        {% endif %}
         <!--<a href="{{ url_for('order_list') }}" class="nav-item {% if active == 'orders' %}active{% endif %}">
           <span class="nav-icon">📦</span><span>Orders</span>
         </a>-->
+        {% if can('clients', 'view') %}
         <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
           <span class="nav-icon">👥</span><span>Clients</span>
         </a>
+        {% endif %}
+        {% if can('suppliers', 'view') %}
          <a href="{{ url_for('supplier_list') }}" class="nav-item {% if active == 'suppliers' %}active{% endif %}">
     <span class="nav-icon">🏭</span><span>Suppliers</span>
   </a>
+  {% endif %}
       </div>
 
       <!-- Purchases Section -->
       <div class="nav-section">
         <div class="nav-section-title">Purchases</div>
+        {% if can('purchase', 'view') %}
         <a href="{{ url_for('purchase_invoice_list') }}" class="nav-item {% if active == 'purchases' %}active{% endif %}">
           <span class="nav-icon">🛒</span><span>Purchase Invoices</span>
         </a>
+        {% endif %}
+        {% if can('stock', 'view') %}
         <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
           <span class="nav-icon">📦</span><span>Stock / Inventory</span>
         </a>
+        {% endif %}
+        {% if can('pricelist', 'view') %}
         <a href="{{ url_for('price_lists') }}" class="nav-item {% if active == 'price_lists' %}active{% endif %}">
     <span class="nav-icon">📊</span><span>Price Lists</span>
   </a>
+  {% endif %}
+        {% if can('manifest', 'view') %}
         <a href="{{ url_for('manifest_list') }}" class="nav-item {% if active == 'manifest' %}active{% endif %}">
   <span class="nav-icon">📋</span><span>Manifest</span>
 </a>
+{% endif %}
       </div>
 
       <!-- Banking & Finance -->
       <div class="nav-section">
         <div class="nav-section-title">Banking & Finance</div>
+        {% if can('bank', 'view') %}
         <a href="{{ url_for('bank_accounts') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
           <span class="nav-icon">🏦</span><span>Bank Accounts</span>
         </a>
+        {% endif %}
+        {% if can('cash', 'view') %}
         <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
           <span class="nav-icon">💵</span><span>Cash In Hand</span>
         </a>
+        {% endif %}
+        {% if can('cheques', 'view') %}
         <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
           <span class="nav-icon">📝</span><span>Cheques</span>
         </a>
+        {% endif %}
+        {% if can('loans', 'view') %}
         <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
           <span class="nav-icon">🏦</span><span>Loan Accounts</span>
         </a>
+        {% endif %}
+        {% if can('expenses', 'view') %}
         <a href="{{ url_for('expenses') }}" class="nav-item {% if active == 'expenses' %}active{% endif %}">
           <span class="nav-icon">💸</span><span>Expenses</span>
         </a>
+        {% endif %}
       </div>
 
       <!-- Accounting -->
       <div class="nav-section">
         <div class="nav-section-title">Accounting</div>
+        {% if can('clients', 'view') %}
         <a href="{{ url_for('debtors_list') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
           <span class="nav-icon">💰</span><span>Debtors (Customers)</span>
         </a>
+        {% endif %}
+        {% if can('suppliers', 'view') %}
         <a href="{{ url_for('creditors_list') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
           <span class="nav-icon">💳</span><span>Creditors (Suppliers)</span>
         </a>
+        {% endif %}
+        {% if can('receipts_payments', 'view') %}
         <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
           <span class="nav-icon">📥</span><span>Receipts</span>
         </a>
         <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
           <span class="nav-icon">📤</span><span>Payments</span>
         </a>
+        {% endif %}
+        {% if can('analytics', 'view') %}
         <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
           <span class="nav-icon">📒</span><span>General Ledger</span>
         </a>
         <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
           <span class="nav-icon">⚖️</span><span>Trial Balance</span>
         </a>
+        {% endif %}
+        
       </div>
 
      
@@ -477,31 +596,31 @@
 
       <!-- Sync & Backup -->
       <div class="nav-section">
-        <div class="nav-section-title">Sync & Backup</div>
-        <a href="{{ url_for('sync_data') }}" class="nav-item {% if active == 'sync' %}active{% endif %}">
-          <span class="nav-icon">🔄</span><span>Sync Data</span>
-        </a>
+        <div class="nav-section-title">Export & Backup</div>
+        {% if can('backup', 'view') %}
         <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
           <span class="nav-icon">💾</span><span>Backup</span>
         </a>
-        <a href="{{ url_for('share_data') }}" class="nav-item {% if active == 'share' %}active{% endif %}">
-          <span class="nav-icon">📤</span><span>Share Data</span>
+        {% endif %}
+        {% if can('analytics', 'view') %}
+        <a href="{{ url_for('export_reports_excel') }}" class="nav-item">
+          <span class="nav-icon">📤</span><span>Export to Excel</span>
         </a>
+        {% endif %}
       </div>
 
       <!-- Settings -->
+      {% if user.role in ['owner', 'super_admin'] %}
       <div class="nav-section">
         <div class="nav-section-title">Settings</div>
         <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
           <span class="nav-icon">⚙️</span><span>Company Settings</span>
         </a>
-        <a href="{{ url_for('employee_list') }}" class="nav-item {% if active == 'employees' %}active{% endif %}">
-          <span class="nav-icon">👥</span><span>Employees</span>
-        </a>
-        <a href="{{ url_for('profile') }}" class="nav-item {% if active == 'profile' %}active{% endif %}">
-          <span class="nav-icon">👤</span><span>My Profile</span>
+        <a href="{{ url_for('whatsapp_settings') }}" class="nav-item {% if active == 'whatsapp_settings' %}active{% endif %}">
+          <span class="nav-icon">📱</span><span>WhatsApp Connect</span>
         </a>
       </div>
+      {% endif %}
     </nav>
 
   </aside>
@@ -510,9 +629,25 @@
   <div class="main">
     <!-- Topbar with Welcome + Logout -->
     <div class="topbar">
-      <span class="topbar-title">{% block page_title %}{% endblock %}</span>
-      <div class="topbar-right">
-        {% if session.user %}
+  <style>
+    .topbar-company-logo { height:28px; width:28px; object-fit:contain; border-radius:6px; vertical-align:middle; margin-right:8px; }
+  </style>
+  <button class="hamburger-btn" id="hamburgerBtn" title="Menu">☰</button>
+  {% if company %}
+  {% if company_logo_url %}
+  <img src="{{ company_logo_url }}" alt="{{ company.company_name }}" class="topbar-company-logo">
+  {% endif %}
+  <strong><span class="topbar-company-name">{{ company.company_name }}</span></Strong>
+  {% else %}
+  <span class="topbar-company-name">Magnustic ERP</span>
+  {% endif %}
+  
+  <div class="topbar-right">
+    {% if session.user %}
+    <div class="topbar-company-pill">
+      
+    </div>
+        
         <div class="topbar-user-wrap" id="userWrap">
           <div class="topbar-welcome" id="userTrigger">
             <div class="topbar-welcome-avatar">{{ session.user.full_name[0]|upper if session.user.full_name else 'U' }}</div>
@@ -525,15 +660,16 @@
           <div class="user-dropdown" id="userDropdown">
             <div class="user-dropdown-header">
               <div class="user-dropdown-name">{{ session.user.full_name or 'User' }}</div>
+              <div class="topbar-company-plan">PLAN : {{ company.subscription_plan|upper if company.subscription_plan else 'FREE' }}</div>
               <div class="user-dropdown-email">{{ session.user.email or '' }}</div>
               <span class="user-dropdown-role">{{ session.user.role|replace('_',' ')|title }}</span>
             </div>
             <div class="user-dropdown-body">
-              {% if session.user.role in ['owner', 'super_admin'] %}
+              
               <a href="{{ url_for('select_company') }}" class="user-dropdown-item switch-item">
                 🏢 Switch Company
               </a>
-              {% endif %}
+             
               <a href="{{ url_for('logout') }}" class="user-dropdown-item logout-item">
                 🚪 Logout
               </a>
@@ -545,6 +681,18 @@
     </div>
 
     <div class="content">
+      {% if company and company.subscription_end %}
+        {% set days_left = (company.subscription_end - today).days %}
+        {% if days_left < 0 %}
+          <div class="flash" style="background:#fee2e2; color:#b91c1c;">
+            ⚠️ Your {{ company.subscription_plan|upper }} plan expired on {{ company.subscription_end.strftime('%d %b %Y') }}. Contact us to renew and avoid service interruption.
+          </div>
+        {% elif days_left <= 14 %}
+          <div class="flash" style="background:#fef3c7; color:#92400e;">
+            ⏳ Your {{ company.subscription_plan|upper }} plan expires in {{ days_left }} day{{ 's' if days_left != 1 else '' }} ({{ company.subscription_end.strftime('%d %b %Y') }}). <a href="{{ url_for('company_settings') }}" style="color:#92400e; text-decoration:underline;">Renew now</a>.
+          </div>
+        {% endif %}
+      {% endif %}
       {% with messages = get_flashed_messages() %}
         {% if messages %}
           {% for msg in messages %}
@@ -593,6 +741,104 @@
       localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
       apply(collapsed);
     });
+  })();
+
+  // Mobile drawer: hamburger opens the sidebar as an overlay, backdrop/nav click closes it
+  (function(){
+    var sidebar = document.getElementById('sidebar');
+    var hamburger = document.getElementById('hamburgerBtn');
+    var backdrop = document.getElementById('mobileBackdrop');
+    if (!sidebar || !hamburger || !backdrop) return;
+
+    function openDrawer() {
+      sidebar.classList.add('mobile-open');
+      backdrop.classList.add('open');
+    }
+    function closeDrawer() {
+      sidebar.classList.remove('mobile-open');
+      backdrop.classList.remove('open');
+    }
+    hamburger.addEventListener('click', function(e){
+      e.stopPropagation();
+      openDrawer();
+    });
+    backdrop.addEventListener('click', closeDrawer);
+    sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function(link){
+      link.addEventListener('click', closeDrawer);
+    });
+    window.addEventListener('resize', function(){
+      if (window.innerWidth > 768) closeDrawer();
+    });
+  })();
+
+  // ── Themed alert/confirm modal ──
+  (function(){
+    var overlay, box, iconEl, msgEl, actionsEl;
+
+    function build(){
+      overlay = document.createElement('div');
+      overlay.className = 'app-modal-overlay';
+      overlay.innerHTML =
+        '<div class="app-modal" data-type="info">' +
+          '<div class="app-modal-icon">i</div>' +
+          '<div class="app-modal-body"><div class="app-modal-message"></div></div>' +
+          '<div class="app-modal-actions"></div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      box = overlay.querySelector('.app-modal');
+      iconEl = overlay.querySelector('.app-modal-icon');
+      msgEl = overlay.querySelector('.app-modal-message');
+      actionsEl = overlay.querySelector('.app-modal-actions');
+      overlay.addEventListener('click', function(e){ if (e.target === overlay) close(false); });
+    }
+
+    var ICONS = { info: 'ℹ️', success: '✅', danger: '⛔', warning: '⚠️' };
+    var resolver = null;
+
+    function open(message, type, buttons){
+      if (!overlay) build();
+      box.setAttribute('data-type', type);
+      iconEl.textContent = ICONS[type] || ICONS.info;
+      msgEl.textContent = message;
+      actionsEl.innerHTML = '';
+      buttons.forEach(function(b){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'app-modal-btn ' + b.cls;
+        btn.textContent = b.label;
+        btn.addEventListener('click', function(){ close(b.value); });
+        actionsEl.appendChild(btn);
+      });
+      requestAnimationFrame(function(){ overlay.classList.add('open'); });
+    }
+
+    function close(value){
+      overlay.classList.remove('open');
+      if (resolver) { var r = resolver; resolver = null; r(value); }
+    }
+
+    // Drop-in replacement for window.alert (non-blocking)
+    window.alert = function(message, type){
+      open(String(message), type || 'info', [{ label: 'OK', cls: 'confirm', value: true }]);
+      return new Promise(function(res){ resolver = res; });
+    };
+
+    // Async replacement for window.confirm.
+    // NOTE: native confirm() is synchronous ("if (confirm(...))" style);
+    // this one returns a Promise, so call sites must be updated to:
+    //   const ok = await appConfirm('Delete this record?');
+    //   if (ok) { ... }
+    // or: appConfirm('Delete this record?').then(ok => { if (ok) { ... } });
+    window.appConfirm = function(message, opts){
+      opts = opts || {};
+      return new Promise(function(res){
+        resolver = res;
+        open(String(message), opts.type || 'warning', [
+          { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: false },
+          { label: opts.okLabel || 'Confirm', cls: 'confirm', value: true }
+        ]);
+      });
+    };
   })();
 </script>
 </body>

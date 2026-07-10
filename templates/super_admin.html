@@ -7,6 +7,7 @@
     <!-- Google Fonts & Font Awesome -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-bgless.png') }}">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
@@ -217,6 +218,13 @@
             border-bottom: 1px solid #edf2f7;
             color: #2c3e4e;
         }
+        code {
+            background: #f1f4f9;
+            padding: 2px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            color: #4a6580;
+        }
         .badge-plan {
             background: #e2f0f5;
             padding: 4px 12px;
@@ -245,6 +253,17 @@
             font-size: 0.75rem;
             font-weight: 600;
             display: inline-block;
+        }
+        .delete-user-btn {
+            color: #dc3545 !important;
+            transition: 0.2s;
+        }
+        .delete-user-btn:hover {
+            background: #fee2e2 !important;
+        }
+        .delete-user-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
         .status-inactive {
             background: #ffe6e5;
@@ -505,6 +524,9 @@
             <div class="nav-item" data-tab="companies">
                 <i class="fas fa-building"></i> <span>Companies</span>
             </div>
+            <div class="nav-item" data-tab="users">
+        <i class="fas fa-users"></i> <span>Users</span>  <!-- NEW -->
+    </div>
             <div class="nav-item" data-tab="plans">
                 <i class="fas fa-crown"></i> <span>Plans & Billing</span>
             </div>
@@ -523,9 +545,14 @@
                 <h1>Super Admin Dashboard</h1>
                 <p>Manage companies, subscriptions, and platform insights</p>
             </div>
-            <div class="admin-badge">
-                <i class="fas fa-shield-alt" style="color:#2c7da0;"></i> 
-                <span>{{ user.full_name if user else 'System Admin' }}</span>
+            <div style="display:flex; align-items:center; gap:14px;">
+                <a href="{{ url_for('register_client') }}" class="action-btn" style="text-decoration:none; background:#2c7da0; color:#fff;">
+                    <i class="fas fa-user-plus"></i> Register New Client
+                </a>
+                <div class="admin-badge">
+                    <i class="fas fa-shield-alt" style="color:#2c7da0;"></i>
+                    <span>{{ user.full_name if user else 'System Admin' }}</span>
+                </div>
             </div>
         </div>
 
@@ -561,7 +588,65 @@
                     <div class="stat-value">₹{{ stats.monthly_revenue | round(0) }}</div>
                     <div class="stat-label">Monthly Revenue (est)</div>
                 </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-user-clock"></i></div>
+                    <div class="stat-value">{{ stats.pending_setup }}</div>
+                    <div class="stat-label">Clients Awaiting Company Setup</div>
+                </div>
             </div>
+
+            <!-- Pending Clients Section - Add delete button -->
+{% if pending_clients %}
+<div class="companies-section">
+    <div class="section-header">
+        <h3><i class="fas fa-user-clock"></i> Pending Setup — Registered, No Company Yet</h3>
+    </div>
+    <div class="table-responsive">
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Email / Login</th>
+                    <th>Phone</th>
+                    <th>Plan</th>
+                    <th>Payment</th>
+                    <th>Registered</th>
+                    <th>Actions</th>  <!-- NEW COLUMN -->
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in pending_clients %}
+                <tr>
+                    <td><strong>{{ client.full_name }}</strong></td>
+                    <td>{{ client.email }}</td>
+                    <td>{{ client.phone or '—' }}</td>
+                    <td><span class="badge-plan">{{ client.subscription_plan|upper if client.subscription_plan else '—' }}</span></td>
+                    <td>
+                        {% if client.payment_status == 'paid' %}
+                            <span class="status-active">Paid</span>
+                        {% elif client.payment_status == 'partial' %}
+                            <span class="badge-plan">₹{{ client.amount_paid }} / ₹{{ client.amount_total }}</span>
+                        {% else %}
+                            <span class="status-inactive">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ client.registered_at.strftime('%Y-%m-%d') if client.registered_at else '—' }}</td>
+                    <td>
+                        <button class="action-btn delete-user" 
+                                data-user-id="{{ client.user_id }}"
+                                data-user-name="{{ client.full_name }}"
+                                data-user-email="{{ client.email }}"
+                                title="Delete user">
+                            <i class="fas fa-user-times" style="color:#dc3545;"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 
             <div class="dashboard-row">
                 <div class="chart-box">
@@ -623,10 +708,11 @@
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            <tr><th>ID</th><th>Company</th><th>Owner</th><th>GST</th><th>Plan</th><th>Max Users</th><th>Status</th><th style="width:100px">Actions</th></tr>
+                            <tr><th>ID</th><th>Company</th><th>Owner</th><th>GST</th><th>Plan</th><th>Max Users</th><th>Expiry</th><th>Payment</th><th>Status</th><th style="width:130px">Actions</th></tr>
                         </thead>
                         <tbody>
                             {% for company in companies %}
+                            {% set days_left = (company.subscription_end - today).days if company.subscription_end else None %}
                             <tr>
                                 <td>{{ company.company_id }}</td>
                                 <td><strong>{{ company.company_name }}</strong></td>
@@ -634,10 +720,130 @@
                                 <td>{{ company.gst_number or '—' }}</td>
                                 <td><span class="badge-plan">{{ company.subscription_plan|upper }}</span></td>
                                 <td>{{ company.max_users_per_company }}</td>
+                                <td>
+                                    {% if company.subscription_end %}
+                                        {{ company.subscription_end.strftime('%d %b %Y') }}
+                                        {% if days_left is not none and days_left < 0 %}
+                                            <br><span class="status-inactive">Expired</span>
+                                        {% elif days_left is not none and days_left <= 14 %}
+                                            <br><span class="status-inactive">{{ days_left }}d left</span>
+                                        {% endif %}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if company.owner and company.owner.payment_status == 'paid' %}
+                                        <span class="status-active">Paid</span>
+                                    {% elif company.owner and company.owner.payment_status == 'partial' %}
+                                        <span class="badge-plan">₹{{ company.owner.amount_paid }}/{{ company.owner.amount_total }}</span>
+                                    {% else %}
+                                        <span class="status-inactive">Pending</span>
+                                    {% endif %}
+                                </td>
                                 <td>{% if company.is_active %}<span class="status-active">Active</span>{% else %}<span class="status-inactive">Inactive</span>{% endif %}</td>
                                 <td>
-                                    <button class="action-btn view-company" data-company-id="{{ company.company_id }}"><i class="fas fa-cog"></i></button>
-                                    <button class="action-btn toggle-status" data-company-id="{{ company.company_id }}" data-status="{{ company.is_active }}"><i class="fas fa-power-off"></i></button>
+                                    <button class="action-btn view-company" data-company-id="{{ company.company_id }}" title="Manage plan"><i class="fas fa-cog"></i></button>
+                                    <button class="action-btn edit-company"
+                                            data-company-id="{{ company.company_id }}"
+                                            data-company-name="{{ company.company_name }}"
+                                            data-phone="{{ company.phone or '' }}"
+                                            data-address="{{ company.address or '' }}"
+                                            data-gst="{{ company.gst_number or '' }}"
+                                            data-max-users="{{ company.max_users_per_company or '' }}"
+                                            data-max-companies="{{ company.max_companies_allowed or '' }}"
+                                            data-plan="{{ company.subscription_plan or '' }}"
+                                            title="Edit company"><i class="fas fa-pen"></i></button>
+                                    <button class="action-btn renew-company" data-company-id="{{ company.company_id }}" data-company-name="{{ company.company_name }}" title="Renew 1 year"><i class="fas fa-rotate"></i></button>
+                                    <button class="action-btn toggle-status" data-company-id="{{ company.company_id }}" data-status="{{ company.is_active }}" title="Activate/Suspend"><i class="fas fa-power-off"></i></button>
+                                    <button class="action-btn delete-company" data-company-id="{{ company.company_id }}" data-company-name="{{ company.company_name }}" title="Delete company"><i class="fas fa-trash"></i></button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- USERS TAB -->
+        <div id="usersTab" class="tab-pane" style="display: none;">
+            <div class="companies-section" style="margin-top:0;">
+                <div class="section-header">
+                    <h3><i class="fas fa-users"></i> All Registered Users</h3>
+                    <div>
+                        <span class="badge-plan">Total: {{ total_users }} users</span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Phone</th>
+                                <th>Plan</th>
+                                <th>Companies</th>
+                                <th>Payment Status</th>
+                                <th>Registered</th>
+                                <th style="width:100px">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for data in users_data %}
+                            {% set user = data.user %}
+                            {% set company_count = data.company_count %}
+                            <tr>
+                                <td><code style="font-size:0.75rem;">{{ user.user_id }}</code></td>
+                                <td><strong>{{ user.full_name }}</strong></td>
+                                <td>{{ user.email }}</td>
+                                <td>{{ user.phone or '—' }}</td>
+                                <td><span class="badge-plan">{{ user.subscription_plan|upper if user.subscription_plan else '—' }}</span></td>
+                                <td>
+                                    {% if company_count > 0 %}
+                                        <span class="status-active">{{ company_count }} company{% if company_count > 1 %}s{% endif %}</span>
+                                        <br>
+                                        <small style="color:#7a8e9e;">
+                                            {% for company in data.companies %}
+                                                {{ company.company_name }}{% if not loop.last %}, {% endif %}
+                                            {% endfor %}
+                                        </small>
+                                    {% else %}
+                                        <span class="status-inactive">No companies</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.payment_status == 'paid' %}
+                                        <span class="status-active">Paid</span>
+                                    {% elif user.payment_status == 'partial' %}
+                                        <span class="badge-plan">₹{{ user.amount_paid }}/{{ user.amount_total }}</span>
+                                    {% else %}
+                                        <span class="status-inactive">Pending</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ user.created_at.strftime('%d %b %Y') if user.created_at else '—' }}</td>
+                                <td>
+                                    {% if user.email != 'admin@nexa.com' %}
+                                        <button class="action-btn delete-user-btn" 
+                                                data-user-id="{{ user.user_id }}"
+                                                data-user-name="{{ user.full_name }}"
+                                                data-user-email="{{ user.email }}"
+                                                data-company-count="{{ company_count }}"
+                                                data-companies="{{ data.companies|map(attribute='company_name')|join(', ') }}"
+                                                title="Delete user">
+                                            <i class="fas fa-trash" style="color:#dc3545;"></i>
+                                        </button>
+                                    {% else %}
+                                        <span style="color:#94a3b8; font-size:0.7rem;">Protected</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" style="text-align:center; color:#94a3b8; padding:40px;">
+                                    <i class="fas fa-users" style="font-size:2rem; display:block; margin-bottom:10px;"></i>
+                                    No users registered yet.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -793,12 +999,44 @@
         </div>
     </div>
 
+    <div id="editCompanyModal" class="modal">
+        <div class="modal-content">
+            <h3>Edit Company</h3>
+            <form id="editCompanyForm">
+                <input type="hidden" id="editCompanyId">
+                <label>Company Name</label>
+                <input type="text" id="editCompanyName" name="company_name">
+                <label>Phone</label>
+                <input type="text" id="editPhone" name="phone">
+                <label>Address</label>
+                <input type="text" id="editAddress" name="address">
+                <label>GST Number</label>
+                <input type="text" id="editGst" name="gst_number">
+                <div id="customPlanFields" style="display:none;">
+                    <p style="font-size:0.8rem; color:#527a9b; margin:8px 0 4px;">This company is on the <strong>Custom</strong> plan — set its limits directly.</p>
+                    <label>Max Users</label>
+                    <input type="text" id="editMaxUsers" name="max_users_per_company" placeholder="e.g. 50">
+                    <label>Max Companies</label>
+                    <input type="text" id="editMaxCompanies" name="max_companies_allowed" placeholder="e.g. 20">
+                </div>
+                <div id="lockedPlanFields" style="display:none; font-size:0.8rem; color:#527a9b; margin:8px 0;">
+                    Max users / max companies are set by the subscription plan. Switch this company to the Custom plan to override them here.
+                </div>
+                <div class="modal-actions">
+                    <button type="button" id="closeEditModalBtn" class="secondary">Cancel</button>
+                    <button type="submit" id="saveEditBtn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // ---------- Tab handling ----------
         const tabs = document.querySelectorAll('.nav-item[data-tab]');
         const panes = {
             overview:   document.getElementById('overviewTab'),
             companies:  document.getElementById('companiesTab'),
+            users:      document.getElementById('usersTab'),
             plans:      document.getElementById('plansTab'),
             migrations: document.getElementById('migrationsTab')
         };
@@ -883,22 +1121,326 @@
             });
         });
 
-        document.querySelectorAll('.toggle-status').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const companyId = btn.getAttribute('data-company-id');
-                const currentlyActive = btn.getAttribute('data-status') === 'True';
-                if(confirm(`Toggle company status to ${currentlyActive ? 'INACTIVE' : 'ACTIVE'}?`)) {
-                    const formData = new FormData();
-                    // use route: /admin/company/<company_id>/toggle-status
-                    const response = await fetch(`/admin/company/${companyId}/toggle-status`, {
-                        method: 'POST',
-                        body: formData
-                    });
-                    if(response.ok) location.reload();
-                    else alert('Error updating status');
-                }
+        // Replace the existing toggle-status event listener with this:
+// Complete replacement for toggle-status with custom theme popup
+document.querySelectorAll('.toggle-status').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+        const companyId = btn.getAttribute('data-company-id');
+        const currentlyActive = btn.getAttribute('data-status') === 'True';
+        const companyName = btn.closest('tr').querySelector('td strong')?.textContent || 'Company';
+        
+        // Show custom confirmation dialog (replaces default confirm)
+        const confirmed = await showConfirmDialog(
+            currentlyActive ? 'Deactivate Company' : 'Activate Company',
+            `Are you sure you want to ${currentlyActive ? 'deactivate' : 'activate'} "${companyName}"?`,
+            currentlyActive ? 'Deactivate' : 'Activate',
+            currentlyActive ? '#dc3545' : '#2c7da0'
+        );
+        
+        if (!confirmed) return;
+        
+        try {
+            const response = await fetch(`/admin/company/${companyId}/toggle-status`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
             });
+            
+            const data = await response.json().catch(() => ({}));
+            
+            if (response.ok && data.success !== false) {
+                // Update UI
+                const statusSpan = btn.closest('tr').querySelector('.status-active, .status-inactive');
+                
+                if (currentlyActive) {
+                    if (statusSpan) {
+                        statusSpan.className = 'status-inactive';
+                        statusSpan.textContent = 'Inactive';
+                    }
+                    btn.setAttribute('data-status', 'False');
+                    btn.innerHTML = '<i class="fas fa-power-off"></i>';
+                    btn.title = 'Activate';
+                    updateCompanyStatusInOverview(companyId, false);
+                } else {
+                    if (statusSpan) {
+                        statusSpan.className = 'status-active';
+                        statusSpan.textContent = 'Active';
+                    }
+                    btn.setAttribute('data-status', 'True');
+                    btn.innerHTML = '<i class="fas fa-power-off"></i>';
+                    btn.title = 'Suspend';
+                    updateCompanyStatusInOverview(companyId, true);
+                }
+                
+                showNotification(
+                    `"${companyName}" has been ${currentlyActive ? 'deactivated' : 'activated'} successfully!`,
+                    'success'
+                );
+            } else {
+                showNotification(
+                    data.error || `Failed to ${currentlyActive ? 'deactivate' : 'activate'} company.`,
+                    'error'
+                );
+                location.reload();
+            }
+        } catch (err) {
+            console.error('Toggle status error:', err);
+            showNotification('Network error. Please try again.', 'error');
+            location.reload();
+        }
+    });
+});
+
+// ============================================
+// CUSTOM CONFIRM DIALOG - Theme based popup
+// ============================================
+function showConfirmDialog(title, message, confirmText = 'Confirm', confirmColor = '#2c7da0') {
+    return new Promise((resolve) => {
+        // Remove any existing dialog
+        const existing = document.querySelector('.custom-confirm-overlay');
+        if (existing) existing.remove();
+        
+        // Create overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'custom-confirm-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            animation: fadeIn 0.25s ease-out;
+            font-family: 'Inter', sans-serif;
+        `;
+        
+        // Create dialog box
+        overlay.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 24px;
+                padding: 32px 36px;
+                max-width: 420px;
+                width: 90%;
+                box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
+                animation: scaleIn 0.25s ease-out;
+            ">
+                <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 16px;">
+                    <div style="
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 50%;
+                        background: ${title.includes('Deactivate') ? '#fee2e2' : '#e2f0f5'};
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-shrink: 0;
+                    ">
+                        <i class="fas ${title.includes('Deactivate') ? 'fa-exclamation-triangle' : 'fa-question-circle'}" 
+                           style="color: ${title.includes('Deactivate') ? '#dc3545' : '#2c7da0'}; font-size: 1.3rem;"></i>
+                    </div>
+                    <h3 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: #1e2a3a;">${title}</h3>
+                </div>
+                
+                <p style="color: #5b6e8c; font-size: 0.95rem; line-height: 1.6; margin: 0 0 24px 0; padding-left: 4px;">
+                    ${message}
+                </p>
+                
+                <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                    <button class="confirm-cancel-btn" style="
+                        background: #eef2f6;
+                        border: none;
+                        padding: 10px 28px;
+                        border-radius: 40px;
+                        color: #1e2f3e;
+                        font-weight: 600;
+                        font-size: 0.9rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        font-family: 'Inter', sans-serif;
+                    " onmouseover="this.style.background='#dce2ea'" onmouseout="this.style.background='#eef2f6'">
+                        Cancel
+                    </button>
+                    <button class="confirm-ok-btn" style="
+                        background: ${confirmColor};
+                        border: none;
+                        padding: 10px 28px;
+                        border-radius: 40px;
+                        color: white;
+                        font-weight: 600;
+                        font-size: 0.9rem;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        font-family: 'Inter', sans-serif;
+                    " onmouseover="this.style.background='${confirmColor === '#dc3545' ? '#c82333' : '#1f6392'}'" 
+                       onmouseout="this.style.background='${confirmColor}'">
+                        ${confirmText}
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add animation styles if not present
+        if (!document.getElementById('confirm-styles')) {
+            const styleEl = document.createElement('style');
+            styleEl.id = 'confirm-styles';
+            styleEl.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes scaleIn {
+                    from { opacity: 0; transform: scale(0.92) translateY(12px); }
+                    to { opacity: 1; transform: scale(1) translateY(0); }
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+        
+        document.body.appendChild(overlay);
+        
+        // Handle button clicks
+        const cancelBtn = overlay.querySelector('.confirm-cancel-btn');
+        const okBtn = overlay.querySelector('.confirm-ok-btn');
+        
+        cancelBtn.addEventListener('click', () => {
+            overlay.remove();
+            resolve(false);
         });
+        
+        okBtn.addEventListener('click', () => {
+            overlay.remove();
+            resolve(true);
+        });
+        
+        // Click outside to cancel
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove();
+                resolve(false);
+            }
+        });
+        
+        // ESC key to cancel
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', escHandler);
+                resolve(false);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    });
+}
+
+// ============================================
+// NOTIFICATION SYSTEM
+// ============================================
+function showNotification(message, type = 'info') {
+    const colors = {
+        success: { bg: '#e0f3e5', border: '#2b7e3a', text: '#1a5c28', icon: 'fa-check-circle' },
+        error: { bg: '#fee2e2', border: '#991b1b', text: '#7f1d1d', icon: 'fa-exclamation-circle' },
+        warning: { bg: '#fef9c3', border: '#854d0e', text: '#713f12', icon: 'fa-exclamation-triangle' },
+        info: { bg: '#e2f0f5', border: '#2c7da0', text: '#1a527a', icon: 'fa-info-circle' }
+    };
+    
+    const style = colors[type] || colors.info;
+    
+    const existing = document.querySelector('.custom-notification');
+    if (existing) existing.remove();
+    
+    const notification = document.createElement('div');
+    notification.className = 'custom-notification';
+    notification.style.cssText = `
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        z-index: 100000;
+        animation: slideDown 0.35s ease-out;
+    `;
+    
+    notification.innerHTML = `
+        <div style="
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 22px;
+            border-radius: 14px;
+            background: ${style.bg};
+            border-left: 5px solid ${style.border};
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            max-width: 480px;
+            min-width: 300px;
+            font-family: 'Inter', sans-serif;
+        ">
+            <i class="fas ${style.icon}" style="color: ${style.border}; font-size: 1.2rem; flex-shrink: 0;"></i>
+            <span style="color: ${style.text}; font-size: 0.9rem; font-weight: 500; flex: 1; line-height: 1.4;">${message}</span>
+            <button onclick="this.closest('.custom-notification').remove()" style="
+                background: none;
+                border: none;
+                color: ${style.border};
+                cursor: pointer;
+                font-size: 1rem;
+                padding: 4px 4px 4px 12px;
+                opacity: 0.5;
+                transition: opacity 0.2s;
+                flex-shrink: 0;
+            " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    
+    if (!document.getElementById('notification-styles')) {
+        const styleEl = document.createElement('style');
+        styleEl.id = 'notification-styles';
+        styleEl.textContent = `
+            @keyframes slideDown {
+                from { opacity: 0; transform: translateY(-20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        `;
+        document.head.appendChild(styleEl);
+    }
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => notification.remove(), 300);
+        }
+    }, 4500);
+}
+
+// ============================================
+// HELPER: Update status in overview tab
+// ============================================
+function updateCompanyStatusInOverview(companyId, isActive) {
+    const overviewRows = document.querySelectorAll('#overviewTab table tbody tr');
+    overviewRows.forEach(row => {
+        const viewBtn = row.querySelector(`.view-company[data-company-id="${companyId}"]`);
+        if (viewBtn) {
+            const statusSpan = row.querySelector('.status-active, .status-inactive');
+            if (statusSpan) {
+                if (isActive) {
+                    statusSpan.className = 'status-active';
+                    statusSpan.textContent = 'Active';
+                } else {
+                    statusSpan.className = 'status-inactive';
+                    statusSpan.textContent = 'Suspended';
+                }
+            }
+        }
+    });
+}
 
         // Update plan submission
         submitPlanBtn.addEventListener('click', async (e) => {
@@ -929,6 +1471,100 @@
 
         closeModalBtn.addEventListener('click', () => modal.style.display = 'none');
         window.addEventListener('click', (e) => { if(e.target === modal) modal.style.display = 'none'; });
+
+        // ------------- Edit company -------------
+        const editModal = document.getElementById('editCompanyModal');
+        const editCompanyId = document.getElementById('editCompanyId');
+        const editCompanyForm = document.getElementById('editCompanyForm');
+        const closeEditModalBtn = document.getElementById('closeEditModalBtn');
+
+        document.querySelectorAll('.edit-company').forEach(btn => {
+            btn.addEventListener('click', () => {
+                editCompanyId.value = btn.getAttribute('data-company-id');
+                document.getElementById('editCompanyName').value = btn.getAttribute('data-company-name') || '';
+                document.getElementById('editPhone').value = btn.getAttribute('data-phone') || '';
+                document.getElementById('editAddress').value = btn.getAttribute('data-address') || '';
+                document.getElementById('editGst').value = btn.getAttribute('data-gst') || '';
+                document.getElementById('editMaxUsers').value = btn.getAttribute('data-max-users') || '';
+
+                const isCustom = btn.getAttribute('data-plan') === 'custom';
+                document.getElementById('customPlanFields').style.display = isCustom ? 'block' : 'none';
+                document.getElementById('lockedPlanFields').style.display = isCustom ? 'none' : 'block';
+                if (isCustom) {
+                    document.getElementById('editMaxCompanies').value = btn.getAttribute('data-max-companies') || '';
+                }
+                editModal.style.display = 'flex';
+            });
+        });
+
+        closeEditModalBtn.addEventListener('click', () => editModal.style.display = 'none');
+        window.addEventListener('click', (e) => { if(e.target === editModal) editModal.style.display = 'none'; });
+
+        editCompanyForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const companyId = editCompanyId.value;
+            const formData = new FormData(editCompanyForm);
+            try {
+                const response = await fetch(`/admin/company/${companyId}/edit`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json().catch(() => ({}));
+                if (response.ok && data.success) {
+                    location.reload();
+                } else {
+                    alert('Failed to update company' + (data.error ? `: ${data.error}` : ''));
+                }
+            } catch (err) {
+                alert('Failed to update company: ' + err.message);
+            }
+        });
+
+        // ------------- Renew company (extend subscription 1 year) -------------
+        document.querySelectorAll('.renew-company').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const companyId = btn.getAttribute('data-company-id');
+                const companyName = btn.getAttribute('data-company-name');
+                const confirmed = await showConfirmDialog(
+                    'Renew Subscription',
+                    `Renew "${companyName}" for another year? If their plan hasn't expired yet, the extra year is added on top of the current expiry.`,
+                    'Renew',
+                    '#2c7da0'
+                );
+                if (!confirmed) return;
+                try {
+                    const response = await fetch(`/admin/company/${companyId}/renew`, { method: 'POST' });
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        alert('Failed to renew company');
+                    }
+                } catch (err) {
+                    alert('Failed to renew company: ' + err.message);
+                }
+            });
+        });
+
+        // ------------- Delete company -------------
+        document.querySelectorAll('.delete-company').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const companyId = btn.getAttribute('data-company-id');
+                const companyName = btn.getAttribute('data-company-name');
+                if (!confirm(`Delete "${companyName}"? This removes the company from the platform panel permanently. This cannot be undone.`)) return;
+
+                try {
+                    const response = await fetch(`/admin/company/${companyId}/delete`, { method: 'POST' });
+                    const data = await response.json().catch(() => ({}));
+                    if (response.ok && data.success) {
+                        location.reload();
+                    } else {
+                        alert('Failed to delete company' + (data.error ? `: ${data.error}` : ''));
+                    }
+                } catch (err) {
+                    alert('Failed to delete company: ' + err.message);
+                }
+            });
+        });
 
         // Logout redirection
         document.getElementById('logoutBtn')?.addEventListener('click', () => {
@@ -1050,6 +1686,130 @@
             if (!str) return '';
             return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         }
+
+        // ------------- Delete User -------------
+document.querySelectorAll('.delete-user').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const userId = btn.getAttribute('data-user-id');
+        const userName = btn.getAttribute('data-user-name');
+        const userEmail = btn.getAttribute('data-user-email');
+        
+        // Show custom confirmation dialog
+        const confirmed = await showConfirmDialog(
+            'Delete User Account',
+            `Are you sure you want to delete "${userName}" (${userEmail})?<br><br><strong>This will permanently delete:</strong><br>• The user account<br>• All companies owned by this user<br>• All associated data<br><br>This action cannot be undone!`,
+            'Delete Permanently',
+            '#dc3545'
+        );
+        
+        if (!confirmed) return;
+        
+        try {
+            const response = await fetch(`/admin/user/${userId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+            
+            const data = await response.json().catch(() => ({}));
+            
+            if (response.ok && data.success) {
+                showNotification(data.message || `User "${userName}" deleted successfully!`, 'success');
+                // Remove the row from the table
+                btn.closest('tr').remove();
+                // Update the stats
+                updateStats();
+            } else {
+                showNotification(data.error || 'Failed to delete user', 'error');
+            }
+        } catch (err) {
+            console.error('Delete user error:', err);
+            showNotification('Network error. Please try again.', 'error');
+        }
+    });
+});
+
+// ------------- Delete User from Users Tab -------------
+document.querySelectorAll('.delete-user-btn').forEach(btn => {
+    btn.addEventListener('click', async function(e) {
+        e.preventDefault();
+
+        const userId = this.getAttribute('data-user-id');
+        const userName = this.getAttribute('data-user-name');
+        const userEmail = this.getAttribute('data-user-email');
+        const companyCount = parseInt(this.getAttribute('data-company-count')) || 0;
+        const companies = this.getAttribute('data-companies') || 'None';
+
+        let message = `Are you sure you want to delete "${userName}" (${userEmail})?<br><br>`;
+
+        if (companyCount > 0) {
+            message += `<strong>This user owns ${companyCount} company(ies):</strong><br>`;
+            message += `<span style="color:#5b6e8c;">${companies}</span><br><br>`;
+            message += `<strong style="color:#dc3545;">Deleting this user will also delete ALL their companies and all associated data!</strong><br><br>`;
+        } else {
+            message += `<span style="color:#e67e22;">This user has not created any company yet.</span><br><br>`;
+        }
+
+        message += `<strong style="color:#dc3545;">This action cannot be undone!</strong>`;
+
+        const confirmed = await showConfirmDialog(
+            'Delete User Account',
+            message,
+            'Delete Permanently',
+            '#dc3545'
+        );
+
+        if (!confirmed) return;
+
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+            const response = await fetch(`/admin/user/${userId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            const data = await response.json().catch(() => ({}));
+
+            if (response.ok && data.success) {
+                showNotification(data.message || `User "${userName}" deleted successfully!`, 'success');
+                this.closest('tr').remove();
+                updateStats();
+            } else {
+                showNotification(data.error || 'Failed to delete user', 'error');
+                this.disabled = false;
+                this.innerHTML = '<i class="fas fa-trash" style="color:#dc3545;"></i>';
+            }
+        } catch (err) {
+            console.error('Delete user error:', err);
+            showNotification('Network error. Please try again.', 'error');
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-trash" style="color:#dc3545;"></i>';
+        }
+    });
+});
+
+// Helper function to update stats after any user deletion (overview pending list or users tab)
+function updateStats() {
+    // Update the pending setup count on the overview tab
+    const pendingBadge = document.querySelector('.stat-card:last-child .stat-value');
+    const pendingRows = document.querySelectorAll('#overviewTab table tbody tr');
+    if (pendingBadge) {
+        pendingBadge.textContent = pendingRows.length;
+    }
+
+    // Update the total users badge on the Users tab
+    const usersTotalBadge = document.querySelector('#usersTab .section-header .badge-plan');
+    if (usersTotalBadge) {
+        const visibleRows = document.querySelectorAll('#usersTab tbody tr').length -
+            (document.querySelector('#usersTab tbody tr td[colspan]') ? 1 : 0);
+        usersTotalBadge.textContent = `Total: ${visibleRows} users`;
+    }
+}
     </script>
 </body>
 </html>

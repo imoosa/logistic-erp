@@ -57,9 +57,33 @@ class CompanyUser(customer_db.Model):
     phone         = customer_db.Column(customer_db.String(20),  nullable=True)
     is_active     = customer_db.Column(customer_db.Boolean,     nullable=False, default=True)
     created_at    = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    # Per-user permission overrides on top of the role default, e.g.
+    # {"purchase": {"view": true, "create": true, "edit": false}}
+    # A key present here always wins over the role's default for that
+    # module/action. Absent keys fall back to the role default.
+    permission_overrides = customer_db.Column(customer_db.Text, nullable=True)
 
     def __repr__(self):
         return f"<CompanyUser {self.user_id}>"
+
+
+# ── 4b. Company Role Permissions ──────────────────────────────────────────────
+# One row per (company_id, role). Lets an owner customize what "employee"
+# (sales) and "accountant" can view/create/edit in *this* company, on top of
+# the built-in defaults in permissions.py. No delete action is stored here —
+# deletion is not part of this system.
+class CompanyRolePermission(customer_db.Model):
+    __tablename__ = "company_role_permissions"
+
+    id               = customer_db.Column(customer_db.Integer,    primary_key=True, autoincrement=True)
+    company_id       = customer_db.Column(customer_db.String(20), nullable=False)
+    role             = customer_db.Column(customer_db.String(50), nullable=False)  # 'employee' | 'accountant'
+    # JSON: {"clients": {"view": true, "create": false, "edit": false}, ...}
+    permissions_json = customer_db.Column(customer_db.Text, nullable=True)
+    updated_at       = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<CompanyRolePermission {self.company_id}:{self.role}>"
 
 
 # ── 5. Clients (buyers, suppliers, debtors, creditors) ───────────────────────
@@ -552,6 +576,35 @@ class LoanRepayment(customer_db.Model):
     loan = customer_db.relationship("Loan", back_populates="repayments")
 
 
+# ── 15b. Cheques ───────────────────────────────────────────────────────────────
+# Register of cheques received from clients or issued to suppliers.
+# A cheque sits in "Pending" status until it actually clears the bank; only
+# clearing creates the real BankTransaction that moves the bank balance.
+class Cheque(customer_db.Model):
+    __tablename__ = "cheques"
+
+    id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20),  nullable=False)
+    direction       = customer_db.Column(customer_db.String(10),  nullable=False)   # 'received' | 'paid'
+    party_type      = customer_db.Column(customer_db.String(10),  nullable=True)    # 'client' | 'supplier'
+    party_id        = customer_db.Column(customer_db.Integer,     nullable=True)
+    party_name      = customer_db.Column(customer_db.String(200), nullable=False)
+    cheque_no       = customer_db.Column(customer_db.String(30),  nullable=False)
+    cheque_date     = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    bank_name       = customer_db.Column(customer_db.String(200), nullable=True)
+    bank_account_id = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("bank_accounts.id"), nullable=True)
+    amount          = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    narration       = customer_db.Column(customer_db.String(300), nullable=True)
+    status          = customer_db.Column(customer_db.String(20),  nullable=False, default="Pending")  # Pending | Cleared | Bounced | Cancelled
+    cleared_date    = customer_db.Column(customer_db.Date,        nullable=True)
+    bank_txn_id     = customer_db.Column(customer_db.Integer,     customer_db.ForeignKey("bank_transactions.id"), nullable=True)
+    notes           = customer_db.Column(customer_db.Text,        nullable=True)
+    created_at      = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    created_by      = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    bank_account = customer_db.relationship("BankAccount")
+
+
 # ── 16. Company Manifest ──────────────────────────────────────────────────────
 # Tracks boxes received from a shipper client and how they are distributed
 # to different courier companies. Saving a manifest DEDUCTS stock from StockItem.
@@ -621,3 +674,30 @@ class Expense(customer_db.Model):
 
     def __repr__(self):
         return f"<Expense {self.id} {self.category} ₹{self.amount}>"
+
+
+# ── 19. WhatsApp Send Log ──────────────────────────────────────────────────────
+# One row per attempted send — transactional (invoice_id set) or campaign
+# (campaign_id set). Lives in the customer DB because volume scales with the
+# tenant's own message traffic, same tier as Expense/CashTransaction.
+class WhatsAppLog(customer_db.Model):
+    __tablename__ = "whatsapp_logs"
+
+    id             = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
+    template_key   = customer_db.Column(customer_db.String(50),  nullable=True)
+    to_phone       = customer_db.Column(customer_db.String(20),  nullable=False)
+    invoice_id     = customer_db.Column(customer_db.String(30),  nullable=True)  # set for transactional sends
+    manifest_id    = customer_db.Column(customer_db.String(30),  nullable=True)  # set for manifest/AWB sends
+    campaign_id    = customer_db.Column(customer_db.String(50),  nullable=True)  # set for bulk campaign sends
+    status         = customer_db.Column(customer_db.String(20),  nullable=False, default="pending")  # pending|sent|failed|manual_pending
+    provider       = customer_db.Column(customer_db.String(20),  nullable=True)
+    provider_msg_id= customer_db.Column(customer_db.String(100), nullable=True)
+    error_message  = customer_db.Column(customer_db.Text,        nullable=True)
+    attempt_count  = customer_db.Column(customer_db.Integer,     nullable=False, default=0)
+    manual_link    = customer_db.Column(customer_db.Text,        nullable=True)  # wa.me link when no API / send failed
+    created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+    sent_at        = customer_db.Column(customer_db.DateTime,    nullable=True)
+
+    def __repr__(self):
+        return f"<WhatsAppLog {self.id} {self.to_phone} {self.status}>"

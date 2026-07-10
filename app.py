@@ -5,6 +5,7 @@ import random
 import hashlib
 import secrets
 from functools import wraps
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 import os
 import json
 import re
@@ -21,12 +22,207 @@ from customer_models import (
     PurchaseInvoice, PurchaseInvoiceItem, StockPurchaseHistory,
     CashTransaction, Loan, LoanRepayment,
     BankAccount, BankTransaction, CompanyManifest, ManifestEntry, Expense, Supplier, SupplierBrand,
-    PriceList, RateLookup)
+    PriceList, RateLookup, Cheque, CompanyRolePermission)
 from db_router import get_customer_session, init_customer_db_for_company
 from backup_utils import BACKUP_DESTINATIONS
+import permissions as perms_module
+from flask_mail import Mail, Message
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "nexa-erp-2024-super-secret-key-change-in-production"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("FLASK_SECRET_KEY not set in environment")
+
+app.config['MAIL_SERVER'] = 'smtp.hostinger.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_USERNAME'] = os.getenv("MAIL_USERNAME")
+app.config['MAIL_PASSWORD'] = os.getenv("MAIL_PASSWORD")
+app.config['MAIL_DEFAULT_SENDER'] = 'support@magnustic.com'
+app.config['SESSION_COOKIE_MAX_SIZE'] = 4000
+
+
+mail = Mail(app)
+
+from flask import url_for
+import base64
+import os
+
+def send_otp_email(to_email, otp_code):
+    # Get company logo path (for the current company)
+    company_id = get_current_company()
+    company = Company.query.filter_by(company_id=company_id).first()
+    
+    # Try to get logo from company settings first
+    logo_base64 = None
+    if company and company.logo_filename:
+        logo_path = os.path.join('static', 'company_logos', company.logo_filename)
+        if os.path.exists(logo_path):
+            with open(logo_path, 'rb') as f:
+                logo_base64 = base64.b64encode(f.read()).decode('utf-8')
+    
+    # Fallback to default Magnustic logo
+    if not logo_base64:
+        default_logo_path = os.path.join('static', 'logo.png')
+        if os.path.exists(default_logo_path):
+            with open(default_logo_path, 'rb') as f:
+                logo_base64 = base64.b64encode(f.read()).decode('utf-8')
+    
+    # If no logo found, use a text placeholder
+    logo_html = f'''
+    <div style="background: #1a237e; color: white; padding: 12px 24px; border-radius: 6px; display: inline-block; font-weight: bold; font-size: 20px; letter-spacing: 1px;">
+        MAGNUSTIC ERP
+    </div>
+    ''' if not logo_base64 else f'''
+    <img src="data:image/png;base64,{logo_base64}" alt="Magnustic Logo" style="max-width: 180px; height: auto;">
+    '''
+    
+    # Get company name for personalization
+    company_name = company.company_name if company else "Magnustic ERP"
+    
+    msg = Message(
+        subject=f"Verify your email — {company_name}",
+        recipients=[to_email],
+        sender=app.config['MAIL_DEFAULT_SENDER']
+    )
+    
+    msg.html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="font-family: Arial, Helvetica, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9fafb; color: #333;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); padding: 40px 30px;">
+            <tr>
+                <td style="text-align: center; padding-bottom: 20px;">
+                    {logo_html}
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 0;">
+                    <h2 style="color: #1a237e; font-size: 22px; margin: 0 0 8px 0;">Verification Code</h2>
+                    <p style="color: #666; font-size: 14px; margin: 0;">Use this code to complete your login</p>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 20px 0;">
+                    <p style="font-size: 15px; color: #444; margin: 0 0 10px 0;">Dear Valued User,</p>
+                    <p style="font-size: 15px; color: #444; margin: 0 0 20px 0;">Your verification code for {company_name} is:</p>
+                    
+                    <div style="background: #f5f7fa; padding: 18px; text-align: center; border-radius: 8px; border: 2px dashed #1a237e; margin: 10px 0 20px 0;">
+                        <span style="font-size: 32px; font-weight: 700; color: #1a237e; letter-spacing: 6px; font-family: 'Courier New', monospace;">
+                            {otp_code}
+                        </span>
+                    </div>
+                    
+                    <p style="font-size: 14px; color: #666; margin: 0 0 5px 0;">
+                        <strong>⏱️ This code expires in 10 minutes</strong>
+                    </p>
+                    <p style="font-size: 13px; color: #888; margin: 0 0 20px 0;">
+                        For security, please do not share this code with anyone.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 15px 0; border-top: 1px solid #e5e7eb;">
+                    <p style="font-size: 14px; color: #555; margin: 0 0 4px 0;">
+                        Thank you for choosing <strong style="color: #1a237e;">{company_name}</strong>.
+                    </p>
+                    <p style="font-size: 14px; color: #555; margin: 0 0 4px 0;">
+                        We appreciate your trust in us.
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 10px 0 0 0; border-top: 1px solid #e5e7eb;">
+                    <p style="font-size: 14px; color: #555; margin: 10px 0 0 0;">
+                        Best regards,<br>
+                        <strong style="color: #1a237e; font-size: 15px;">Team Magnustic</strong>
+                    </p>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding: 20px 0 0 0; text-align: center; border-top: 1px solid #e5e7eb;">
+                    <p style="font-size: 12px; color: #999; margin: 0;">
+                        © 2026 {company_name}. All rights reserved.
+                    </p>
+                    <p style="font-size: 12px; color: #999; margin: 4px 0 0 0;">
+                        <a href="https://www.magnustic.com" style="color: #1a237e; text-decoration: none;">www.magnustic.com</a>
+                    </p>
+                    <p style="font-size: 11px; color: #bbb; margin: 8px 0 0 0;">
+                        This is an automated message, please do not reply to this email.
+                    </p>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    """
+    
+    # Plain text fallback
+    msg.body = f"""
+    {company_name} - Verification Code
+    
+    Dear Valued User,
+    
+    Your verification code is: {otp_code}
+    This code expires in 10 minutes.
+    
+    For security, please do not share this code with anyone.
+    
+    Thank you for choosing {company_name}.
+    
+    Best regards,
+    Team Magnustic
+    www.magnustic.com
+    """
+    
+    mail.send(msg)
+   
+
+def _generate_and_send_otp(email):
+    try:
+        otp = f"{secrets.randbelow(1000000):06d}"
+        session["otp_email"]   = email
+        session["otp_hash"]    = hashlib.sha256(otp.encode()).hexdigest()
+        session["otp_expires"] = (datetime.utcnow() + timedelta(minutes=10)).isoformat()
+        
+        # Try to send email with error handling
+        try:
+            send_otp_email(email, otp)
+            print(f"✅ OTP sent to {email}: {otp}")  # Debug - remove in production
+        except Exception as e:
+            print(f"❌ Failed to send OTP email: {e}")
+            # For testing, we can still allow login with a fallback
+            # Store the OTP in session anyway so user can see it in logs
+            flash(f"Email sending failed. For testing, your OTP is: {otp}", "warning")
+    except Exception as e:
+        print(f"❌ Error in _generate_and_send_otp: {e}")
+        flash("Error sending verification code. Please try again.", "error")
+
+def _finish_owner_login(reg_user):
+    companies = get_owner_companies(reg_user.email)
+    if len(companies) == 0:
+        session["user"] = {"user_id": reg_user.user_id, "email": reg_user.email,
+                            "full_name": reg_user.full_name, "role": reg_user.role,
+                            "company_id": None}
+        return redirect(url_for("onboard_company"))
+    elif len(companies) == 1:
+        c = companies[0]
+        session["user"] = {"user_id": reg_user.user_id, "email": reg_user.email,
+                            "full_name": reg_user.full_name, "role": reg_user.role,
+                            "company_id": c.company_id}
+        session["active_company_id"] = c.company_id
+        session.pop("pending_login_type", None)
+        return redirect(url_for("dashboard"))
+    else:
+        session["pending_login_email"] = reg_user.email
+        return redirect(url_for("select_company"))
 
 @app.template_filter('from_json')
 def from_json_filter(value):
@@ -50,24 +246,9 @@ def json_loads_filter(value, default=None):
         return default or {}
 
 # ── Database Configuration ────────────────────────────────────────────────────
-def _resolve_data_dir() -> str:
-    """Try DATA_DIR first, fall back to /tmp/erp_data if not writable yet."""
-    for candidate in (os.environ.get("DATA_DIR", "/data"), "/tmp/erp_data"):
-        try:
-            os.makedirs(candidate, exist_ok=True)
-            test = os.path.join(candidate, ".write_test")
-            open(test, "w").close()
-            os.remove(test)
-            return candidate
-        except OSError:
-            continue
-    raise RuntimeError("No writable data directory. Set DATA_DIR env var on Render.")
-
-_DATA_DIR = _resolve_data_dir()
-
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    f"sqlite:///{os.path.join(_DATA_DIR, 'platform.db')}"
+    "mysql+pymysql://root@localhost/logistic_erp"   # ← change this default
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}          # customer DBs are managed by db_router, not binds
@@ -115,6 +296,14 @@ app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10MB
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# ── Company logo uploads (served from /static so no extra route is needed) ──
+LOGO_UPLOAD_FOLDER = os.path.join('static', 'company_logos')
+ALLOWED_LOGO_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+os.makedirs(LOGO_UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_logo_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_LOGO_EXTENSIONS
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -124,6 +313,20 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     return hash_password(password) == hashed
+
+def generate_next_user_id():
+    """Next USRxxx id, derived from the highest existing numeric suffix —
+    NOT from RegisteredUser.query.count(). Count-based generation breaks the
+    moment any user is deleted: count() drops, but the highest issued id
+    doesn't, so count()+1 collides with an id that still exists."""
+    max_num = 0
+    for (uid,) in RegisteredUser.query.with_entities(RegisteredUser.user_id).all():
+        if uid and uid.startswith("USR"):
+            try:
+                max_num = max(max_num, int(uid[3:]))
+            except ValueError:
+                continue
+    return f"USR{max_num + 1:03d}"
 
 def get_current_user():
     return session.get("user", {})
@@ -138,11 +341,15 @@ def inject_user():
 def inject_company_settings():
     company_id = get_current_company()
     is_gst = True  # default safe
+    co = None
     if company_id:
         co = Company.query.filter_by(company_id=company_id).first()
         if co and hasattr(co, 'is_gst_registered'):
             is_gst = bool(co.is_gst_registered)
-    return {'is_gst_registered': is_gst}
+    logo_url = None
+    if co and getattr(co, 'logo_filename', None):
+        logo_url = url_for('static', filename=f'company_logos/{co.logo_filename}')
+    return {'is_gst_registered': is_gst, 'company': co, 'company_logo_url': logo_url}
 
 def get_current_company():
     return session.get("active_company_id") or session.get("user", {}).get("company_id")
@@ -156,13 +363,27 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def generate_pdf_token(company_id, invoice_id):
+    """Signed, time-limited token so WhatsApp's servers can fetch an invoice
+    PDF without a login session/cookie."""
+    s = URLSafeTimedSerializer(app.secret_key, salt="invoice-pdf")
+    return s.dumps({"company_id": company_id, "invoice_id": invoice_id})
+
+def verify_pdf_token(token, max_age=7 * 24 * 3600):
+    s = URLSafeTimedSerializer(app.secret_key, salt="invoice-pdf")
+    try:
+        data = s.loads(token, max_age=max_age)
+        return data.get("company_id"), data.get("invoice_id")
+    except (BadSignature, SignatureExpired):
+        return None, None
+
 def owner_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         user = get_current_user()
         if user.get("role") not in ["owner", "super_admin"]:
             flash("Only company owner can access this page")
-            return redirect(url_for("dashboard"))
+            return safe_redirect_after_denial()
         return f(*args, **kwargs)
     return decorated
 
@@ -172,9 +393,113 @@ def super_admin_required(f):
         user = get_current_user()
         if user.get("role") != "super_admin":
             flash("Super admin access required")
-            return redirect(url_for("dashboard"))
+            return safe_redirect_after_denial()
         return f(*args, **kwargs)
     return decorated
+
+
+MODULE_LANDING_ENDPOINT = {
+    "dashboard":         "dashboard",
+    "analytics":         "reports_dashboard",
+    "clients":           "client_list",
+    "suppliers":         "supplier_list",
+    "estimates":         "estimate_list",
+    "stock":             "inventory_list",
+    "pricelist":         "price_lists",
+    "manifest":          "manifest_list",
+    "invoices":          "invoice_list",
+    "purchase":          "purchase_invoice_list",
+    "orders":            "order_list",
+    "expenses":          "expenses",
+    "cash":              "cash_in_hand",
+    "bank":              "bank_accounts",
+    "cheques":           "cheques",
+    "loans":             "loan_accounts",
+    "receipts_payments": "receipt_new",
+    "backup":            "backup",
+}
+
+
+# Preferred "home" module per role — tried before the generic scan below.
+ROLE_HOME_MODULE = {
+    "employee": "invoices",   # sales lands on their booking invoices, not clients
+}
+
+
+def safe_redirect_after_denial():
+    """Where to send someone after an access check fails. NEVER redirects
+    back to 'dashboard' blindly — if the person can't see the dashboard
+    either, that would just loop forever. Tries the role's preferred home
+    module first, then the first module they can view at all, then a
+    permission-free 'no access' page."""
+    role = get_current_user().get("role")
+    home_module = ROLE_HOME_MODULE.get(role)
+    if home_module and has_permission(home_module, "view"):
+        return redirect(url_for(MODULE_LANDING_ENDPOINT[home_module]))
+    for module, endpoint in MODULE_LANDING_ENDPOINT.items():
+        if has_permission(module, "view"):
+            return redirect(url_for(endpoint))
+    return redirect(url_for("no_access"))
+
+
+@app.route("/no-access")
+@login_required
+def no_access():
+    return render_template("no_access.html")
+
+
+# ── Module permissions (view/create/edit only — no delete) ───────────────────
+def get_effective_permissions(user=None):
+    """Full view/create/edit matrix for the current (or given) user.
+    Owners and super_admin get None back, which callers should treat as
+    'everything allowed' — they never go through the matrix."""
+    user = user or get_current_user()
+    role = user.get("role")
+    if role in ("owner", "super_admin"):
+        return None
+    company_id = get_current_company()
+    if not company_id:
+        return perms_module.default_permissions_for(role)
+    cdb = get_customer_session(company_id)
+    return perms_module.get_effective_permissions(
+        role, company_id, user.get("user_id"), cdb,
+        CompanyRolePermission, CompanyUser,
+    )
+
+
+def has_permission(module, action="view"):
+    user = get_current_user()
+    if user.get("role") in ("owner", "super_admin"):
+        return True
+    perms = get_effective_permissions(user)
+    return bool(perms.get(module, {}).get(action, False))
+
+
+def require_permission(module, action="view", method_actions=None):
+    """Gate a route on a (module, action) pair. Pass method_actions={'POST': 'create'}
+    etc. when a single route handles both showing a form (view) and submitting it
+    (create/edit) so each HTTP method is checked against the right action."""
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            act = action
+            if method_actions and request.method in method_actions:
+                act = method_actions[request.method]
+            if not has_permission(module, act):
+                flash("You don't have permission to access this.")
+                return safe_redirect_after_denial()
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
+
+
+@app.context_processor
+def inject_permission_helper():
+    return {"can": has_permission}
+
+@app.context_processor
+def inject_today():
+    return {"today": date.today()}
 
 def _get_awb(invoice):
     """Extract docket_no from invoice.terms JSON. Returns '' if absent."""
@@ -188,33 +513,103 @@ def _get_awb(invoice):
 
 # ── Seed Data ─────────────────────────────────────────────────────────────────
 SUBSCRIPTION_PLANS_DATA = {
-    "basic": {
-        "name": "Basic Plan",
-        "price": "999",
-        "max_companies": "2",
-        "max_users": "5",
-        "features": "Basic Analytics,Order Management,Client Management,Email Support",
+    "starter": {
+        "name": "Starter Plan",
+        "price": "7999",
+        "billing_period": "yearly",
+        "max_companies": "2",          
+        "max_users": "5",             
+        "ai_queries_monthly": "100",
+        "features": (
+            "Android Driver App (ePOD),"
+            "Live Logistics Dashboard,"
+            "Client & Vendor Profiles,"
+            "Docket & Consignment Booking,"
+            "Freight Quotations,"
+            "Freight Invoicing & Bills,"
+            "Expense Tracking,"
+            "Basic Hub Inventory,"
+            "AI Address Parser,"
+            "Email Support"
+        ),
     },
-    "premium": {
-        "name": "Premium Plan",
-        "price": "2499",
-        "max_companies": "5",
-        "max_users": "15",
-        "features": "Advanced Analytics,Inventory Management,Invoice & Estimates,Priority Support,API Access",
+
+    "business": {
+        "name": "Business Plan",
+        "price": "14999",
+        "billing_period": "yearly",
+        "max_companies": "4",          
+        "max_users": "15",            
+        "ai_queries_monthly": "500",
+        "features": (
+            "All Starter Features,"
+            "Multi-Hub Inventory,"
+            "Purchase & Fleet Maintenance,"
+            "Supplier & Fuel Vendor Management,"
+            "Dynamic Freight Price Lists,"
+            "Bank & Cash Flow Management,"
+            "Cheque & Outstanding Management,"
+            "Driver/Staff Loan Management,"
+            "WhatsApp Tracking & Invoice Sharing,"
+            "Automated Cloud Backups,"
+            "Advanced Manifest Reports,"
+            "Priority Support"
+        ),
     },
-    "gold": {
-        "name": "Gold Plan",
-        "price": "4999",
-        "max_companies": "10",
+
+    "professional": {
+        "name": "Professional Plan",
+        "price": "29999",
+        "billing_period": "yearly",
+        "max_companies": "7",          
         "max_users": "35",
-        "features": "All Premium Features,Custom Reports,Dedicated Account Manager,24/7 Support,White-label Option",
+        "ai_queries_monthly": "2000",
+        "features": (
+            "All Business Features,"
+            "Advanced Route Analytics,"
+            "AI Fleet/Profit Insights,"
+            "Custom Manifest Layouts,"
+            "Webhook & API Access,"
+            "Advanced Branch Permissions,"
+            "Priority Support"
+        ),
     },
+
+    "enterprise": {
+        "name": "Enterprise Plan",
+        "price": "59999",
+        "billing_period": "yearly",
+        "max_companies": "15",
+        "max_users": "100",
+        "ai_queries_monthly": "10000",
+        "features": (
+            "All Professional Features,"
+            "High-Volume API Limits,"
+            "Advanced AI Manifest Assistant,"
+            "E-commerce API Integrations (Shopify, etc.),"
+            "Onboarding & Implementation Support,"
+            "Dedicated Account Manager,"
+            "SLA Options"
+        ),
+    },
+
     "custom": {
-        "name": "Custom Plan",
+        "name": "Custom Enterprise",
         "price": "Contact Sales",
+        "billing_period": "custom",
         "max_companies": "Unlimited",
         "max_users": "Unlimited",
-        "features": "Fully Customizable,On-premise Deployment,Training Included,Custom Development",
+        "ai_queries_monthly": "Custom",
+        "features": (
+            "Private Cloud Deployment,"
+            "On-premise Deployment,"
+            "White-label Android Driver App (Your Branding),"
+            "Custom AI Document Parsing Setup,"
+            "Tally / Legacy ERP Integration,"
+            "Bulk Data Migration,"
+            "Custom Feature Development,"
+            "On-site Staff Training"
+        ),
     },
 }
 
@@ -237,52 +632,48 @@ def seed_database():
 
     # ── Registered Users (Platform DB) ──────────────────────────────────────
     if RegisteredUser.query.count() == 0:
-        admin = RegisteredUser(
+        demo = RegisteredUser(
             user_id="USR001",
-            email="admin@nexa.com",
-            password_hash=hash_password("Admin@123"),
-            full_name="System Admin",
+            email="demo@demo.com",
+            password_hash=hash_password("Demo@123"),
+            full_name="Demo User",
             phone="9999999999",
-            role="super_admin",
-            subscription_plan=None,
+            role="owner",
+            subscription_plan="business",
             created_at=date(2024, 1, 1),
             is_active=True,
+            email_verified=True,
+            must_change_password=False,
         )
-        rahul = RegisteredUser(
-            user_id="USR002",
-            email="rahul@techsolutions.com",
-            password_hash=hash_password("Tech@123"),
-            full_name="Rahul Sharma",
-            phone="9876543210",
-            role="owner",
-            subscription_plan="premium",
-            created_at=date(2024, 1, 1),
-            is_active=True,
-        )
-        priya_reg = RegisteredUser(
-            user_id="USR003",
-            email="priya@globaltraders.com",
-            password_hash=hash_password("Global@123"),
-            full_name="Priya Singh",
-            phone="9876543211",
-            role="owner",
-            subscription_plan="basic",
-            created_at=date(2024, 1, 15),
-            is_active=True,
-        )
-        db.session.add_all([admin, rahul, priya_reg])
+        db.session.add(demo)
         db.session.commit()
-        print("✔  Registered users seeded.")
+        print("✔  Demo user seeded.")
+
+     # ── Super Admin (Platform DB) ────────────────────────────────────────────
+    if RegisteredUser.query.filter_by(role="super_admin").count() == 0:
+        admin = RegisteredUser(
+            user_id="ADMIN001",
+            email="admin",
+            password_hash=hash_password("Ibrahim@moosa53"),
+            full_name="Super Admin",
+            role="super_admin",
+            is_active=True,
+            email_verified=True,
+            must_change_password=False,
+        )
+        db.session.add(admin)
+        db.session.commit()
+        print("✔  Super admin seeded.")
 
     # ── Companies (Platform DB) ─────────────────────────────────────────────
     if Company.query.count() == 0:
         comp1 = Company(
-            company_id="COMP001",
-            company_name="Tech Solutions India",
-            owner_email="rahul@techsolutions.com",
-            subscription_plan="premium",
+            company_id="DEMO001",
+            company_name="Demo Company",
+            owner_email="demo@demo.com",
+            subscription_plan="business",
             subscription_start=date(2024, 1, 1),
-            subscription_end=date(2025, 1, 1),
+            subscription_end=date(2030, 1, 1),
             max_companies_allowed="5",
             max_users_per_company="15",
             gst_number="27AAABC1234F1Z",
@@ -290,41 +681,10 @@ def seed_database():
             phone="9876543210",
             created_at=date(2024, 1, 1),
             is_active=True,
-
         )
-        comp2 = Company(
-            company_id="COMP002",
-            company_name="Global Traders Ltd",
-            owner_email="priya@globaltraders.com",
-            subscription_plan="basic",
-            subscription_start=date(2024, 1, 15),
-            subscription_end=date(2024, 7, 15),
-            max_companies_allowed="2",
-            max_users_per_company="5",
-            gst_number="29AABCB5678F1Z",
-            address="Delhi, India",
-            phone="9876543211",
-            created_at=date(2024, 1, 15),
-            is_active=True,
-        )
-        comp3 = Company(
-            company_id="COMP003",
-            company_name="Rahul Exports Pvt Ltd",
-            owner_email="rahul@techsolutions.com",
-            subscription_plan="premium",
-            subscription_start=date(2024, 3, 1),
-            subscription_end=date(2025, 3, 1),
-            max_companies_allowed="5",
-            max_users_per_company="15",
-            gst_number="27AAABC9999F1Z",
-            address="Pune, Maharashtra",
-            phone="9876543299",
-            created_at=date(2024, 3, 1),
-            is_active=True,
-        )
-        db.session.add_all([comp1, comp2, comp3])
+        db.session.add(comp1)
         db.session.commit()
-        print("✔  Companies seeded.")
+        print("✔  Demo company seeded.")
     
     print("✅ Platform database seeding complete.")
 
@@ -345,8 +705,8 @@ def seed_customer_database(company_id):
                 user_id="EMP001",
                 company_id=company_id,
                 email=company.owner_email,
-                password_hash=hash_password("Tech@123"),  # Use appropriate default
-                full_name=owner_reg.full_name if owner_reg else "Owner",
+                password_hash=hash_password("Demo@123"),
+                full_name=owner_reg.full_name if owner_reg else "Demo User",
                 role="owner",
                 department="Management",
                 phone=company.phone,
@@ -354,42 +714,13 @@ def seed_customer_database(company_id):
                 created_at=date.today()
             ),
         ]
-        
-        # Add sample users for COMP001 only
-        if company_id == "COMP001":
-            users.extend([
-                CompanyUser(
-                    user_id="EMP002",
-                    company_id=company_id,
-                    email="priya.mehta@techsolutions.com",
-                    password_hash=hash_password("Priya@123"),
-                    full_name="Priya Mehta",
-                    role="sales_manager",
-                    department="Sales",
-                    phone="9876543202",
-                    is_active=True,
-                    created_at=date(2024, 1, 1)
-                ),
-                CompanyUser(
-                    user_id="EMP003",
-                    company_id=company_id,
-                    email="arjun.nair@techsolutions.com",
-                    password_hash=hash_password("Arjun@123"),
-                    full_name="Arjun Nair",
-                    role="accountant",
-                    department="Accounts",
-                    phone="9876543203",
-                    is_active=True,
-                    created_at=date(2024, 1, 2)
-                ),
-            ])
-        
+
         cdb.add_all(users)
         cdb.commit()
         print(f"✔  Company users seeded for {company_id}")
 
     # ── Clients ─────────────────────────────────────────────────────────────
-    if cdb.query(Client).count() == 0 and company_id == "COMP001":
+    if cdb.query(Client).count() == 0 and company_id == "DEMO001":
         clients = [
             Client(company_id=company_id, name="ABC Electronics", client_type="Customer",
                    phone="9876543220", status="Active", created_at=date.today()),
@@ -407,21 +738,9 @@ def seed_customer_database(company_id):
         cdb.add_all(clients)
         cdb.commit()
         print(f"✔  Clients seeded for {company_id}")
-    elif cdb.query(Client).count() == 0 and company_id == "COMP002":
-        clients = [
-            Client(company_id=company_id, name="MNO Enterprises", client_type="Customer",
-                   phone="9876543223", status="Active", created_at=date.today()),
-            Client(company_id=company_id, name="HDFC Bank", phone="9876543217",
-                   pending=156000, last_payment=date(2024, 1, 1), status="Pending"),
-            Client(company_id=company_id, name="ICICI Bank", phone="9876543218",
-                   pending=0, last_payment=date(2024, 1, 21), status="Paid"),
-        ]
-        cdb.add_all(clients)
-        cdb.commit()
-        print(f"✔  Clients seeded for {company_id}")
 
     # ── Stock Items ─────────────────────────────────────────────────────────
-    if cdb.query(StockItem).count() == 0 and company_id == "COMP001":
+    if cdb.query(StockItem).count() == 0 and company_id == "DEMO001":
         items = [
             StockItem(company_id=company_id, code="PROD001", name="LED TV 43 inch",
                       category="Electronics", quantity=25, unit="pcs", unit_price=35000,
@@ -435,7 +754,7 @@ def seed_customer_database(company_id):
         print(f"✔  Stock items seeded for {company_id}")
 
     # ── Orders ──────────────────────────────────────────────────────────────
-    if cdb.query(Order).count() == 0 and company_id == "COMP001":
+    if cdb.query(Order).count() == 0 and company_id == "DEMO001":
         # Get client IDs from the clients we just added
         clients_dict = {c.name: c.id for c in cdb.query(Client).all()}
         
@@ -446,7 +765,7 @@ def seed_customer_database(company_id):
                   amount=245000, received=245000, status="Delivered"),
             Order(order_id="ORD-2024-002", company_id=company_id,
                   client_id=clients_dict.get("Tata Consultancy"),
-                  employee_id="EMP002", date=date(2024, 1, 17),
+                  employee_id="EMP001", date=date(2024, 1, 17),
                   amount=89500, received=0, status="Pending"),
             Order(order_id="ORD-2024-003", company_id=company_id,
                   client_id=clients_dict.get("Infosys Ltd"),
@@ -486,19 +805,42 @@ def get_company_by_id(company_id):
 def get_owner_companies(owner_email):
     return Company.query.filter_by(owner_email=owner_email, is_active=True).all()
 
+def get_owner_user_stats(owner_email):
+    """
+    Distinct active users across ALL companies owned by this owner.
+    CompanyUser rows live in each company's own separate database, so this
+    opens every one of the owner's company DBs and dedupes by email.
+    Returns (current_count, max_users, existing_emails_set).
+    """
+    companies = get_owner_companies(owner_email)
+    emails = set()
+    for c in companies:
+        try:
+            _cdb = get_customer_session(c.company_id)
+            rows = _cdb.query(CompanyUser).filter_by(is_active=True).all()
+            for r in rows:
+                if r.email:
+                    emails.add(r.email.strip().lower())
+        except Exception as e:
+            print(f"⚠  Could not read users for {c.company_id}: {e}")
+
+    plan = get_plan(companies[0].subscription_plan) if companies else {}
+    max_u = plan.get("max_users_per_company", "Unlimited")
+    return len(emails), max_u, emails
+
 def check_company_limit(company_id, user_type="user"):
     company = get_company_by_id(company_id)
     if not company:
         return False, "Company not found"
     plan = get_plan(company.subscription_plan)
     if user_type == "user":
-        _cdb = get_customer_session(company_id)
-        current = _cdb.query(CompanyUser).filter_by(company_id=company_id, is_active=True).count()
-        max_u = plan.get("max_users_per_company", 5)
+        # Seat cap is owner-wide (across all of the owner's companies),
+        # not per company.
+        current, max_u, _ = get_owner_user_stats(company.owner_email)
         try:
             max_u = int(max_u)
             if current >= max_u:
-                return False, f"Maximum {max_u} users allowed in your {plan['name']}. Please upgrade."
+                return False, f"Maximum {max_u} users allowed across all your companies under your {plan['name']}. Please upgrade."
         except (ValueError, TypeError):
             pass  # "Unlimited"
     return True, "OK"
@@ -596,20 +938,6 @@ def _find_header_row(filepath, max_scan_rows=20):
 
 
 def _extract_weight_from_label(label):
-    """
-    Parses weight-bearing column/row labels into a weight value.
-    Handles: '1.5 KG', '1.5KG', '8 KG +', '11 KG +', '1ST 500gms', '0.5'
-
-    NOTE: the '+' in a label (e.g. DPD's '8 KG +', '11 KG +', '21 KG +') does
-    NOT reliably mean "this column is a per-kg rate" - DPD uses '+' simply to
-    mean "this tier covers weights up to and including N kg", and the VALUE
-    in that column can still be a normal increasing tier total (e.g. '8 KG +'
-    sits right after '6 KG' in the sheet with a normal ~21% step up, not a
-    per-kg rate). Only the price itself - whether it represents a sane total
-    or a per-kg-sized number - reveals whether a column is a tier or a band.
-    That detection happens later in _build_tiers_and_bands(), not here.
-    Returns the weight value, or None if no weight can be parsed.
-    """
     import re
     s = str(label).strip().upper()
 
@@ -623,6 +951,23 @@ def _extract_weight_from_label(label):
 
     return float(num_match.group(1))
 
+def get_employee_companies(email):
+    results = []
+    active_company_id = session.get("active_company_id")
+    for comp in Company.query.filter_by(is_active=True).all():
+        if getattr(comp, "hidden_on_mobile", False):
+            continue
+        try:
+            _cdb = get_customer_session(comp.company_id)
+            emp = _cdb.query(CompanyUser).filter_by(email=email, is_active=True).first()
+            if emp:
+                comp.emp_role = emp.role
+                comp.emp_user_id = emp.user_id
+                comp.is_active_selection = (comp.company_id == active_company_id)
+                results.append(comp)
+        except Exception:
+            continue
+    return results
 
 def _is_weight_label(label):
     """True if a column header looks like a weight tier (not TIME/DAY/COUNTRY/etc)."""
@@ -635,25 +980,6 @@ def _is_weight_label(label):
 
 
 def _build_tiers_and_bands(weight_value_pairs):
-    """
-    Given a list of (weight, is_band_flag, price) for one country/destination,
-    split into:
-      - tiers: [{weight, price}]  where price is the TOTAL price for that weight
-      - bands: [{min_kg, max_kg, rate_per_kg}] where price is PER-KG to be
-        multiplied by the actual shipment weight
-
-    A row/column enters a band in one of two ways:
-      1. Explicitly marked (DPD's "8 KG +", "11 KG +", "21 KG +" headers)
-      2. Detected: price drops SHARPLY relative to the previous tier (DHL/FEDEX
-         style, where the value silently switches from "total price at this
-         weight" to "rate per kg" around 10.5-11kg). A genuine band transition
-         drops the number by an order of magnitude (e.g. ~10,700 -> ~980),
-         not just a small rounding wobble between adjacent tiers (real rate
-         cards have noisy, sometimes flat or slightly-decreasing consecutive
-         tiers, e.g. DHL 6.5kg=8597.69 -> 7kg=8597.68). A small dip must NOT
-         be misread as a band, or weights just below the real breakpoint get
-         priced as if they were already per-kg, producing wildly wrong rates.
-    """
     weight_value_pairs = sorted(weight_value_pairs, key=lambda x: x[0])
 
     band_rows = []
@@ -747,15 +1073,124 @@ def calculate_rate(rate_data, country_key, weight):
 
     if tiers:
         tiers_sorted = sorted(tiers, key=lambda t: t['weight'])
-        chosen = tiers_sorted[-1]
+
+        # Exact match (or effectively exact, floating point) - use the tier price as-is.
         for t in tiers_sorted:
-            if t['weight'] >= weight:
-                chosen = t
+            if abs(t['weight'] - weight) < 1e-9:
+                return t['price'], t['weight'], 'tier'
+
+        if weight <= tiers_sorted[0]['weight']:
+            return tiers_sorted[0]['price'], tiers_sorted[0]['weight'], 'tier'
+
+        if weight >= tiers_sorted[-1]['weight']:
+            # Heavier than the last defined tier: extend using the per-kg rate implied
+            # by the last two tiers instead of just returning the last tier's flat price.
+            last = tiers_sorted[-1]
+            if len(tiers_sorted) >= 2:
+                prev = tiers_sorted[-2]
+                per_kg = (last['price'] - prev['price']) / (last['weight'] - prev['weight']) if last['weight'] != prev['weight'] else 0
+                price = round(last['price'] + per_kg * (weight - last['weight']), 2)
+                return price, weight, 'per_kg'
+            return last['price'], last['weight'], 'tier'
+
+        # Weight falls between two tiers - interpolate linearly instead of rounding up
+        # to the next whole-kg tier, so fractional (decimal) weights are billed fairly.
+        lower = tiers_sorted[0]
+        upper = tiers_sorted[-1]
+        for i in range(len(tiers_sorted) - 1):
+            if tiers_sorted[i]['weight'] <= weight <= tiers_sorted[i + 1]['weight']:
+                lower = tiers_sorted[i]
+                upper = tiers_sorted[i + 1]
                 break
-        return chosen['price'], chosen['weight'], 'tier'
+        if upper['weight'] == lower['weight']:
+            return lower['price'], lower['weight'], 'tier'
+        fraction = (weight - lower['weight']) / (upper['weight'] - lower['weight'])
+        price = round(lower['price'] + fraction * (upper['price'] - lower['price']), 2)
+        return price, weight, 'per_kg'
 
     return None, None, None
 
+
+def compute_invoice_gst(taxable_amount, apply_gst, shipper_state, receiver_state):
+    """
+    Single source of truth for customer-invoice GST, mirroring how the purchase
+    invoice flow already splits CGST/SGST vs IGST (see purchase_invoice_new).
+
+    - CGST+SGST (9%+9%) when shipper and receiver are in the same state (intra-state).
+    - IGST (18%) when they're in different states (inter-state) - this is how GST
+      actually works in India; a flat "18% GST" line was never technically correct.
+    - Grand total is rounded to the nearest whole rupee, with the rounding
+      difference broken out as a separate "Round Off" line, matching standard
+      Indian tax-invoice practice (Rule 3, GST invoicing rounding conventions).
+
+    Returns a dict: taxable, cgst, sgst, igst, gst_total, pre_round_total,
+    round_off, grand_total, is_interstate.
+    """
+    taxable = round(taxable_amount, 2)
+    s1 = (shipper_state or "").strip().lower()
+    s2 = (receiver_state or "").strip().lower()
+    # If either state is missing we can't determine interstate vs intrastate, so
+    # fall back to intrastate (CGST+SGST) rather than guessing - this matches the
+    # system's prior default behavior for incomplete address data.
+    is_interstate = bool(s1 and s2 and s1 != s2)
+
+    gst_total = round(taxable * 0.18, 2) if apply_gst else 0.0
+    if apply_gst and is_interstate:
+        cgst, sgst, igst = 0.0, 0.0, gst_total
+    elif apply_gst:
+        cgst = round(gst_total / 2, 2)
+        sgst = round(gst_total - cgst, 2)
+        igst = 0.0
+    else:
+        cgst = sgst = igst = 0.0
+
+    pre_round_total = round(taxable + gst_total, 2)
+    grand_total = round(pre_round_total)  # nearest whole rupee, per standard invoice rounding
+    round_off = round(grand_total - pre_round_total, 2)
+
+    return {
+        "taxable": taxable,
+        "cgst": cgst,
+        "sgst": sgst,
+        "igst": igst,
+        "gst_total": gst_total,
+        "pre_round_total": pre_round_total,
+        "round_off": round_off,
+        "grand_total": grand_total,
+        "is_interstate": is_interstate,
+    }
+
+# Add this helper function near other company helpers (around line 200)
+# ── Add this helper function near other company helpers ──
+def is_gst_number_taken(gst_number, exclude_company_id=None):
+    """
+    Check if a GST number is already used by ANY company (global uniqueness).
+    Only checks ACTIVE companies.
+    """
+    if not gst_number or not gst_number.strip():
+        return False
+    
+    query = Company.query.filter(
+        func.lower(Company.gst_number) == func.lower(gst_number.strip()),
+        Company.is_active == True
+    )
+    if exclude_company_id:
+        query = query.filter(Company.company_id != exclude_company_id)
+    return query.first() is not None
+
+def is_company_name_taken(owner_email, company_name, exclude_company_id=None):
+    """
+    Check if a company name is already taken by the SAME owner.
+    Only checks ACTIVE companies.
+    """
+    query = Company.query.filter(
+        Company.owner_email == owner_email,
+        func.lower(Company.company_name) == func.lower(company_name.strip()),
+        Company.is_active == True
+    )
+    if exclude_company_id:
+        query = query.filter(Company.company_id != exclude_company_id)
+    return query.first() is not None
 
 def parse_price_list(filepath, courier):
     """
@@ -928,44 +1363,166 @@ def login():
                 }
                 return redirect(url_for("admin_dashboard"))
 
-            # Owner: may have multiple companies
-            companies = get_owner_companies(email)
-            if len(companies) == 1:
-                c = companies[0]
-                session["user"] = {
-                    "user_id": reg_user.user_id, "email": reg_user.email,
-                    "full_name": reg_user.full_name, "role": reg_user.role,
-                    "company_id": c.company_id,
-                }
-                session["active_company_id"] = c.company_id
-                return redirect(url_for("dashboard"))
-            elif len(companies) > 1:
-                session["pending_login_email"] = email
-                return redirect(url_for("select_company"))
+            # Owner: may have zero (not yet onboarded), one, or multiple companies
+            if not reg_user.email_verified and reg_user.must_change_password:
+                _generate_and_send_otp(reg_user.email)
+                session["pending_password_change_email"] = reg_user.email
+                return redirect(url_for("account_setup"))
+            elif not reg_user.email_verified:
+                _generate_and_send_otp(reg_user.email)
+                return redirect(url_for("verify_otp"))
+            elif reg_user.must_change_password:
+                session["pending_password_change_email"] = reg_user.email
+                return redirect(url_for("force_change_password"))
+            return _finish_owner_login(reg_user)
 
         # Company employee login — search each company's DB
-        emp = None
+        emp_matches = []  # list of (company_id, CompanyUser row)
         for comp in Company.query.filter_by(is_active=True).all():
             try:
                 _cdb = get_customer_session(comp.company_id)
                 _emp = _cdb.query(CompanyUser).filter_by(email=email, is_active=True).first()
-                if _emp:
-                    emp = _emp
-                    break
+                if _emp and verify_password(password, _emp.password_hash):
+                    emp_matches.append((comp.company_id, _emp))
             except Exception:
                 continue
-        if emp and verify_password(password, emp.password_hash):
-            session["user"] = {
-                "user_id": emp.user_id, "email": emp.email,
-                "full_name": emp.full_name, "role": emp.role,
-                "company_id": emp.company_id,
-            }
-            session["active_company_id"] = emp.company_id
-            return redirect(url_for("dashboard"))
+
+        if emp_matches:
+            if len(emp_matches) == 1:
+                comp_id, emp = emp_matches[0]
+                session["user"] = {
+                    "user_id": emp.user_id, "email": emp.email,
+                    "full_name": emp.full_name, "role": emp.role,
+                    "company_id": comp_id,
+                }
+                session["active_company_id"] = comp_id
+                session.pop("pending_login_type", None)
+                return redirect(url_for("dashboard"))
+            else:
+                # multiple companies — send to the picker instead of guessing
+                session["pending_login_email"] = email
+                session["pending_login_type"] = "employee"
+                return redirect(url_for("select_company"))
 
         flash("Invalid email or password")
     return render_template("login.html")
 
+@app.route("/verify-otp", methods=["GET", "POST"])
+def verify_otp():
+    email = session.get("otp_email")
+    if not email:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        entered = request.form.get("otp", "").strip()
+        expires = session.get("otp_expires")
+        if not expires or datetime.utcnow() > datetime.fromisoformat(expires):
+            flash("Code expired. Request a new one.", "error")
+            return redirect(url_for("verify_otp"))
+        if hashlib.sha256(entered.encode()).hexdigest() != session.get("otp_hash"):
+            flash("Incorrect code.", "error")
+            return redirect(url_for("verify_otp"))
+
+        reg_user = RegisteredUser.query.filter_by(email=email).first()
+        reg_user.email_verified = True
+        db.session.commit()
+        session.pop("otp_email", None)
+        session.pop("otp_hash", None)
+        session.pop("otp_expires", None)
+
+        if reg_user.must_change_password:
+            session["pending_password_change_email"] = email
+            return redirect(url_for("force_change_password"))
+        return _finish_owner_login(reg_user)
+
+    return render_template("verify_otp.html", email=email)
+
+
+@app.route("/verify-otp/resend")
+def resend_otp():
+    email = session.get("otp_email")
+    if email:
+        _generate_and_send_otp(email)
+        flash("A new code has been sent.", "success")
+    return redirect(url_for("verify_otp"))
+
+
+@app.route("/force-change-password", methods=["GET", "POST"])
+def force_change_password():
+    email = session.get("pending_password_change_email")
+    if not email:
+        return redirect(url_for("login"))
+    reg_user = RegisteredUser.query.filter_by(email=email).first()
+    if not reg_user:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        password = request.form.get("password", "")
+        confirm  = request.form.get("confirm_password", "")
+        if len(password) < 8:
+            flash("Password must be at least 8 characters", "error")
+            return redirect(url_for("force_change_password"))
+        if password != confirm:
+            flash("Passwords don't match", "error")
+            return redirect(url_for("force_change_password"))
+
+        reg_user.password_hash = hash_password(password)
+        reg_user.must_change_password = False
+        db.session.commit()
+        session.pop("pending_password_change_email", None)
+        return _finish_owner_login(reg_user)
+
+    return render_template("force_change_password.html", email=email)
+
+@app.route("/account-setup", methods=["GET", "POST"])
+def account_setup():
+    email = session.get("otp_email") or session.get("pending_password_change_email")
+    if not email:
+        return redirect(url_for("login"))
+    reg_user = RegisteredUser.query.filter_by(email=email).first()
+    if not reg_user:
+        return redirect(url_for("login"))
+
+    if request.method == "POST":
+        entered  = request.form.get("otp", "").strip()
+        password = request.form.get("password", "")
+        confirm  = request.form.get("confirm_password", "")
+
+        expires = session.get("otp_expires")
+        if not expires or datetime.utcnow() > datetime.fromisoformat(expires):
+            flash("Code expired. Request a new one.", "error")
+            return redirect(url_for("account_setup"))
+        if hashlib.sha256(entered.encode()).hexdigest() != session.get("otp_hash"):
+            flash("Incorrect code.", "error")
+            return redirect(url_for("account_setup"))
+        if len(password) < 8:
+            flash("Password must be at least 8 characters", "error")
+            return redirect(url_for("account_setup"))
+        if password != confirm:
+            flash("Passwords don't match", "error")
+            return redirect(url_for("account_setup"))
+
+        reg_user.email_verified = True
+        reg_user.password_hash = hash_password(password)
+        reg_user.must_change_password = False
+        db.session.commit()
+
+        session.pop("otp_email", None)
+        session.pop("otp_hash", None)
+        session.pop("otp_expires", None)
+        session.pop("pending_password_change_email", None)
+        return _finish_owner_login(reg_user)
+
+    return render_template("account_setup.html", email=email)
+
+
+@app.route("/account-setup/resend")
+def resend_account_setup_otp():
+    email = session.get("otp_email") or session.get("pending_password_change_email")
+    if email:
+        _generate_and_send_otp(email)
+        flash("A new code has been sent.", "success")
+    return redirect(url_for("account_setup"))
 
 @app.route("/company/add", methods=["GET", "POST"])
 @login_required
@@ -985,6 +1542,15 @@ def add_new_company():
             flash("Company name is required")
             return redirect(url_for("add_new_company"))
         
+        if is_company_name_taken(user.get("email"), company_name):
+            flash(f"A company named '{company_name}' already exists. Please choose a different name.", "error")
+            return redirect(url_for("add_new_company"))
+        
+        # ── Check if GST number is already used by ANY company ──
+        if gst_number and is_gst_number_taken(gst_number):
+            flash(f"GST number '{gst_number}' is already registered to another active company. Please check and try again.", "error")
+            return redirect(url_for("add_new_company"))
+
         # Check if user can add more companies based on their plan
         can_add, message = check_new_company_limit(user.get("email"))
         if not can_add:
@@ -997,8 +1563,8 @@ def add_new_company():
         
         # Get user's plan
         reg_user = RegisteredUser.query.filter_by(email=user.get("email")).first()
-        plan = reg_user.subscription_plan if reg_user else "basic"
-        plan_obj = SubscriptionPlan.query.get(plan) or SubscriptionPlan.query.get("basic")
+        plan = reg_user.subscription_plan if reg_user else None
+        plan_obj = SubscriptionPlan.query.get(plan) or SubscriptionPlan.query.order_by(SubscriptionPlan.id).first()
 
         is_gst = request.form.get('is_gst_registered', '1') == '1'
         gst_number = request.form.get('gst_number', '').strip() if is_gst else ''
@@ -1052,8 +1618,8 @@ def add_new_company():
     # GET request - show the form with user's plan information
     user = get_current_user()
     reg_user = RegisteredUser.query.filter_by(email=user.get("email")).first()
-    plan_key = reg_user.subscription_plan if reg_user else "basic"
-    plan_obj = SubscriptionPlan.query.get(plan_key) or SubscriptionPlan.query.get("basic")
+    plan_key = reg_user.subscription_plan if reg_user else None
+    plan_obj = SubscriptionPlan.query.get(plan_key) or SubscriptionPlan.query.order_by(SubscriptionPlan.id).first()
     
     # Get current companies count for this owner
     companies_count = Company.query.filter_by(owner_email=user.get("email")).count()
@@ -1093,32 +1659,110 @@ def add_new_company():
 
 @app.route("/select-company", methods=["GET", "POST"])
 def select_company():
-    owner_email = session.get("pending_login_email") or session.get("user", {}).get("email")
-    if not owner_email:
+    if "user" in session:
+        current_role = session["user"].get("role")
+        login_type = "owner" if current_role in ("owner", "super_admin") else "employee"
+        pending_email = session["user"].get("email")
+    else:
+        login_type = session.get("pending_login_type", "owner")
+        pending_email = session.get("pending_login_email")
+    
+    if not pending_email:
         return redirect(url_for("login"))
 
     if request.method == "POST":
         company_id = request.form.get("company_id")
-        company = get_company_by_id(company_id)
-        if company and company.owner_email == owner_email:
-            reg_user = RegisteredUser.query.filter_by(email=owner_email).first()
-            session["user"] = {
-                "email":     reg_user.email,
-                "full_name": reg_user.full_name,
-                "role":      reg_user.role,
-                "user_id":   reg_user.user_id,
-            }
-            session["active_company_id"] = company_id
-            session.pop("pending_login_email", None)
-            return redirect(url_for("dashboard"))
-        flash("Invalid company selection.")
 
-    companies = get_owner_companies(owner_email)
-    user = get_current_user()
-    if not user:
-        reg_user = RegisteredUser.query.filter_by(email=owner_email).first()
-        user = {"full_name": reg_user.full_name, "email": reg_user.email} if reg_user else {"full_name": owner_email, "email": owner_email}
-    return render_template("select_company.html", companies=companies, user=user)
+        if login_type == "employee":
+            comp = get_company_by_id(company_id)
+            emp = None
+            if comp:
+                _cdb = get_customer_session(company_id)
+                emp = _cdb.query(CompanyUser).filter_by(
+                    email=pending_email, company_id=company_id, is_active=True
+                ).first()
+            if emp:
+                session["user"] = {
+                    "user_id": emp.user_id, "email": emp.email,
+                    "full_name": emp.full_name, "role": emp.role,
+                    "company_id": company_id,
+                }
+                session["active_company_id"] = company_id
+                session.pop("pending_login_email", None)
+                session.pop("pending_login_type", None)
+                return redirect(url_for("dashboard"))
+            flash("Invalid company selection.")
+
+        else:  # owner (existing logic, unchanged)
+            company = get_company_by_id(company_id)
+            if company and company.owner_email == pending_email:
+                reg_user = RegisteredUser.query.filter_by(email=pending_email).first()
+                session["user"] = {
+                    "email": reg_user.email, "full_name": reg_user.full_name,
+                    "role": reg_user.role, "user_id": reg_user.user_id,
+                }
+                session["active_company_id"] = company_id
+                session.pop("pending_login_email", None)
+                session.pop("pending_login_type", None)
+                return redirect(url_for("dashboard"))
+            flash("Invalid company selection.")
+
+    # GET — build the list to render
+    if login_type == "employee":
+        companies = get_employee_companies(pending_email)
+        first_emp = None
+        if companies:
+            _cdb = get_customer_session(companies[0].company_id)
+            first_emp = _cdb.query(CompanyUser).filter_by(email=pending_email, is_active=True).first()
+        user = {
+            "full_name": first_emp.full_name if first_emp else pending_email,
+            "email": pending_email,
+            "role": first_emp.role if first_emp else "employee",
+        }
+        owner_user_count = owner_max_users = None
+    else:
+        companies = get_owner_companies(pending_email)
+        user = get_current_user() or {"full_name": pending_email, "email": pending_email, "role": "owner"}
+        owner_user_count, owner_max_users, _ = get_owner_user_stats(pending_email)
+
+    return render_template("select_company.html", companies=companies, user=user,
+                           owner_user_count=owner_user_count, owner_max_users=owner_max_users)
+
+
+@app.route("/company/toggle-mobile-visibility/<company_id>", methods=["POST"])
+def toggle_company_mobile_visibility(company_id):
+    """Owner-only: show/hide one of their companies everywhere (desktop AND
+    mobile) on the Select Company screen.
+
+    No @login_required/@owner_required here on purpose: an owner picking
+    between multiple companies reaches this page via session["pending_login_email"]
+    BEFORE session["user"] is ever set, so those decorators would 404/redirect
+    every single time this button is clicked. Auth is handled manually below,
+    mirroring select_company()'s own two-path logic.
+    """
+    if "user" in session:
+        user = get_current_user()
+        if user.get("role") not in ("owner", "super_admin"):
+            flash("Only company owner can access this page")
+            return safe_redirect_after_denial()
+        owner_email = user.get("email", "")
+    else:
+        if session.get("pending_login_type", "owner") != "owner":
+            flash("Please login to continue")
+            return redirect(url_for("login"))
+        owner_email = session.get("pending_login_email") or ""
+        if not owner_email:
+            flash("Please login to continue")
+            return redirect(url_for("login"))
+
+    company = Company.query.filter_by(company_id=company_id, owner_email=owner_email).first()
+    if not company:
+        flash("Company not found.")
+        return redirect(url_for("select_company"))
+    company.hidden_on_mobile = not company.hidden_on_mobile
+    db.session.commit()
+    flash(f"{company.company_name} is now {'hidden' if company.hidden_on_mobile else 'visible'}.")
+    return redirect(url_for("select_company"))
 
 
 @app.route("/switch-company/<company_id>")
@@ -1126,10 +1770,145 @@ def select_company():
 def switch_company(company_id):
     user = get_current_user()
     company = get_company_by_id(company_id)
-    if company and company.owner_email == user.get("email"):
+    if not company:
+        flash("Company not found.")
+        return redirect(url_for("dashboard"))
+
+    if user.get("role") in ("owner", "super_admin") and company.owner_email == user.get("email"):
         session["active_company_id"] = company_id
+        session["user"]["company_id"] = company_id
         flash(f"Switched to {company.company_name}")
+        return redirect(url_for("dashboard"))
+
+    # Non-owner: must have an active CompanyUser row in the target company
+    cdb = get_customer_session(company_id)
+    emp = cdb.query(CompanyUser).filter_by(
+        email=user.get("email"), company_id=company_id, is_active=True
+    ).first()
+    if emp:
+        session["active_company_id"] = company_id
+        session["user"]["company_id"] = company_id
+        session["user"]["role"] = emp.role
+        session["user"]["user_id"] = emp.user_id
+        flash(f"Switched to {company.company_name}")
+    else:
+        flash("You don't have access to that company.")
     return redirect(url_for("dashboard"))
+
+@app.route("/onboarding/create-company", methods=["GET", "POST"])
+@login_required
+def onboard_company():
+    """
+    First-login step for accounts created by the super admin (register_client).
+    The RegisteredUser already exists with no Company yet — this is where the
+    client sets up their own company profile (GST, AWB numbering, etc).
+    """
+    user = get_current_user()
+    email = user.get("email")
+
+    reg_user = RegisteredUser.query.filter_by(email=email).first()
+    if not reg_user:
+        return redirect(url_for("login"))
+
+    # If they already have a company, this step is done — don't let them repeat it
+    existing = get_owner_companies(email)
+    if existing:
+        session["active_company_id"] = existing[0].company_id
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        company_name = request.form.get("company_name", "").strip()
+        if not company_name:
+            flash("Company name is required", "error")
+            return redirect(url_for("onboard_company"))
+        
+        is_gst     = request.form.get("is_gst_registered", "1") == "1"
+        gst_number = request.form.get("gst_number", "").strip() if is_gst else ""
+        
+        if is_company_name_taken(email, company_name):
+            flash(f"A company named '{company_name}' already exists. Please choose a different name.", "error")
+            return redirect(url_for("onboard_company"))
+
+        if gst_number and is_gst_number_taken(gst_number):
+            flash(f"GST number '{gst_number}' is already registered to another active company. Please check and try again.", "error")
+            return redirect(url_for("onboard_company"))
+        
+        is_gst     = request.form.get("is_gst_registered", "1") == "1"
+        gst_number = request.form.get("gst_number", "").strip() if is_gst else ""
+        address    = request.form.get("address", "").strip()
+        phone      = request.form.get("phone", reg_user.phone or "").strip()
+        awb_prefix = (request.form.get("awb_prefix", "AHL") or "AHL").strip().upper()
+        awb_start  = int(request.form.get("awb_start", 81000) or 81000)
+
+        plan_obj = SubscriptionPlan.query.get(reg_user.subscription_plan) or SubscriptionPlan.query.order_by(SubscriptionPlan.id).first()
+        end_days = 730 if plan_obj.id == "custom" else 365
+
+        comp_count = Company.query.count()
+        new_company_id = f"COMP{comp_count + 1:03d}"
+
+        # ── NEW: Use custom plan values if available ───────────────────────
+        max_companies = plan_obj.max_companies
+        max_users = plan_obj.max_users
+        
+        # Override with custom values if this user has them
+        if plan_obj.id == "custom":
+            if reg_user.custom_max_companies:
+                max_companies = str(reg_user.custom_max_companies)
+            if reg_user.custom_max_users:
+                max_users = str(reg_user.custom_max_users)
+
+        new_company = Company(
+            company_id=new_company_id,
+            company_name=company_name,
+            owner_email=email,
+            subscription_plan=plan_obj.id,
+            subscription_start=date.today(),
+            subscription_end=date.today() + timedelta(days=end_days),
+            max_companies_allowed=max_companies,
+            max_users_per_company=max_users,
+            gst_number=gst_number,
+            address=address,
+            phone=phone,
+            created_at=date.today(),
+            is_active=True,
+            is_gst_registered=is_gst,
+            storage_type="cloud",
+            awb_prefix=awb_prefix,
+            awb_start=awb_start,
+        )
+        db.session.add(new_company)
+        db.session.commit()
+
+        init_customer_db_for_company(new_company)
+
+        # Owner becomes the first CompanyUser — reuse their existing password,
+        # don't ask for a second one.
+        try:
+            cdb = get_customer_session(new_company_id)
+            new_emp = CompanyUser(
+                user_id="EMP001",
+                company_id=new_company_id,
+                email=email,
+                password_hash=reg_user.password_hash,
+                full_name=reg_user.full_name,
+                role="owner",
+                department="Management",
+                phone=phone,
+                is_active=True,
+                created_at=date.today(),
+            )
+            cdb.add(new_emp)
+            cdb.commit()
+        except Exception as e:
+            print(f"⚠  Could not create CompanyUser for {new_company_id}: {e}")
+
+        session["active_company_id"] = new_company_id
+        session["user"]["company_id"] = new_company_id
+        flash(f"Company '{company_name}' created. Welcome to Nexa ERP!", "success")
+        return redirect(url_for("dashboard"))
+
+    return render_template("onboard_company.html", user=reg_user, awb_prefix="AHL", awb_start=81000)
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -1140,7 +1919,7 @@ def register():
         confirm_password = request.form.get("confirm_password", "")
         full_name        = request.form.get("full_name", "").strip()
         phone            = request.form.get("phone", "").strip()
-        plan_key         = request.form.get("subscription_plan", "basic")
+        plan_key         = request.form.get("subscription_plan", "starter")
         awb_prefix = request.form.get("awb_prefix", "AHL").strip().upper() or "AHL"
         awb_start  = int(request.form.get("awb_start", 81000) or 81000)
         # ── Pull primary company fields ───────────────────────────────────────
@@ -1181,7 +1960,10 @@ def register():
             return redirect(url_for("register"))
 
         # ── Plan lookup ───────────────────────────────────────────────────────
-        plan_obj = SubscriptionPlan.query.get(plan_key) or SubscriptionPlan.query.get("basic")
+        plan_obj = SubscriptionPlan.query.get(plan_key) or SubscriptionPlan.query.order_by(SubscriptionPlan.id).first()
+        if not plan_obj:
+            flash("No subscription plans are configured. Contact support.", "error")
+            return redirect(url_for("register"))
         end_days = 730 if plan_obj.id == "custom" else 365
 
         # ── Check extra companies don't exceed plan limit ─────────────────────
@@ -1201,8 +1983,7 @@ def register():
             pass  # "Unlimited" — no cap
 
         # ── Create RegisteredUser (platform DB) ───────────────────────────────
-        reg_count = RegisteredUser.query.count()
-        user_id   = f"USR{reg_count + 1:03d}"
+        user_id = generate_next_user_id()
 
         new_user = RegisteredUser(
             user_id=user_id,
@@ -1220,6 +2001,13 @@ def register():
 
         # ── Helper: create one Company record + its customer DB ───────────────
         def _create_company(c_name, c_address, c_phone, c_gst_registered, c_gst_number, c_awb_prefix="AHL", c_awb_start=81000):
+            if is_company_name_taken(email, c_name):
+                # Can't flash inside nested function, so we raise an exception
+                raise ValueError(f"Company name '{c_name}' is already taken. Please choose a different name.")
+            
+            # ── Check if GST number is already used by ANY company ──
+            if c_gst_number and is_gst_number_taken(c_gst_number):
+                raise ValueError(f"GST number '{c_gst_number}' is already registered to another active company. Please check and try again.")
             comp_count = Company.query.count()
             c_id       = f"COMP{comp_count + 1:03d}"
 
@@ -1248,10 +2036,14 @@ def register():
             return c_id
 
         # ── Create primary company ─────────────────────────────────────────────
-        primary_company_id = _create_company(
-            company_name, address, company_phone, is_gst, gst_number,
-            awb_prefix, awb_start
-        )
+        try:
+            primary_company_id = _create_company(
+                company_name, address, company_phone, is_gst, gst_number,
+                awb_prefix, awb_start
+            )
+        except ValueError as e:
+            flash(str(e), "error")
+            return redirect(url_for("register"))
 
         # ── Create extra companies ────────────────────────────────────────────
         extra_company_ids = []
@@ -1259,16 +2051,20 @@ def register():
             ec_name = ec.get("name", "").strip()
             if not ec_name:
                 continue
-            ec_id = _create_company(
-                ec_name,
-                ec.get("address", ""),
-                ec.get("phone", ""),
-                bool(ec.get("is_gst_registered", True)),
-                ec.get("gst_number", ""),
-                (ec.get("awb_prefix", "") or "AHL").strip().upper() or "AHL",
-                int(ec.get("awb_start", 81000) or 81000),
-            )
-            extra_company_ids.append(ec_id)
+            try:
+                ec_id = _create_company(
+                    ec_name,
+                    ec.get("address", ""),
+                    ec.get("phone", ""),
+                    bool(ec.get("is_gst_registered", True)),
+                    ec.get("gst_number", ""),
+                    (ec.get("awb_prefix", "") or "AHL").strip().upper() or "AHL",
+                    int(ec.get("awb_start", 81000) or 81000),
+                )
+                extra_company_ids.append(ec_id)
+            except ValueError as e:
+                flash(str(e), "error")
+                return redirect(url_for("register"))
 
         # ── Commit all platform records at once ───────────────────────────────
         db.session.commit()
@@ -1350,8 +2146,202 @@ def logout():
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 # ─────────────────────────────────────────────────────────────────────────────
 
+@app.route("/reports/export-excel")
+@login_required
+@require_permission("analytics", "view")
+def export_reports_excel():
+    """
+    Export Sales, Purchase, and Pending (receivables + payables) to a single
+    multi-sheet Excel file. Pending is computed from Invoice.balance /
+    PurchaseInvoice.balance directly rather than the cached Client.pending /
+    Supplier.payable fields, so the export always matches what the individual
+    invoices actually say — no risk of it drifting from a stale cache field.
+
+    Optional query params: ?from=YYYY-MM-DD&to=YYYY-MM-DD
+    With no params, exports all-time data.
+    """
+    company_id = get_current_company()
+    company = get_company_by_id(company_id)
+    if not company:
+        flash("Company not found")
+        return redirect(url_for("logout"))
+
+    cdb = get_cdb()
+    if not cdb:
+        flash("Could not connect to company database")
+        return redirect(url_for("logout"))
+
+    from_str = request.args.get("from", "").strip()
+    to_str   = request.args.get("to", "").strip()
+    try:
+        from_date = datetime.strptime(from_str, "%Y-%m-%d").date() if from_str else None
+    except ValueError:
+        from_date = None
+    try:
+        to_date = datetime.strptime(to_str, "%Y-%m-%d").date() if to_str else None
+    except ValueError:
+        to_date = None
+
+    # ── Sales ────────────────────────────────────────────────────────────────
+    sales_q = cdb.query(Invoice).filter(Invoice.company_id == company_id)
+    if from_date:
+        sales_q = sales_q.filter(Invoice.date >= from_date)
+    if to_date:
+        sales_q = sales_q.filter(Invoice.date <= to_date)
+    sales_invoices = sales_q.order_by(Invoice.date.asc()).all()
+
+    clients_by_id = {c.id: c for c in cdb.query(Client).filter_by(company_id=company_id).all()}
+
+    sales_rows = []
+    for inv in sales_invoices:
+        client = clients_by_id.get(inv.client_id)
+        sales_rows.append({
+            "Invoice No":   inv.invoice_id,
+            "Date":         inv.date.strftime("%Y-%m-%d") if inv.date else "",
+            "Due Date":     inv.due_date.strftime("%Y-%m-%d") if inv.due_date else "",
+            "Client":       client.name if client else (inv.contact_person or "—"),
+            "Phone":        client.phone if client else (inv.phone or ""),
+            "Subtotal":     round(float(inv.subtotal or 0), 2),
+            "Tax":          round(float(inv.tax_amount or 0), 2),
+            "Grand Total":  round(float(inv.grand_total or 0), 2),
+            "Paid":         round(float(inv.paid_amount or 0), 2),
+            "Balance":      round(float(inv.balance or 0), 2),
+            "Status":       inv.status,
+        })
+    sales_df = pd.DataFrame(sales_rows, columns=[
+        "Invoice No", "Date", "Due Date", "Client", "Phone",
+        "Subtotal", "Tax", "Grand Total", "Paid", "Balance", "Status",
+    ])
+
+    # ── Purchase ─────────────────────────────────────────────────────────────
+    purchase_q = cdb.query(PurchaseInvoice).filter(PurchaseInvoice.company_id == company_id)
+    if from_date:
+        purchase_q = purchase_q.filter(PurchaseInvoice.date >= from_date)
+    if to_date:
+        purchase_q = purchase_q.filter(PurchaseInvoice.date <= to_date)
+    purchase_invoices = purchase_q.order_by(PurchaseInvoice.date.asc()).all()
+
+    suppliers_by_id = {s.id: s for s in cdb.query(Supplier).filter_by(company_id=company_id).all()}
+
+    purchase_rows = []
+    for pur in purchase_invoices:
+        supplier = suppliers_by_id.get(pur.supplier_id)
+        purchase_rows.append({
+            "Invoice No":       pur.invoice_id,
+            "Supplier Invoice #": pur.invoice_number or "",
+            "Date":             pur.date.strftime("%Y-%m-%d") if pur.date else "",
+            "Due Date":         pur.due_date.strftime("%Y-%m-%d") if pur.due_date else "",
+            "Supplier":         supplier.name if supplier else (pur.supplier_name or "—"),
+            "Phone":            supplier.phone if supplier else "",
+            "Subtotal":         round(float(pur.subtotal or 0), 2),
+            "Tax":              round(float(pur.tax_amount or 0), 2),
+            "Grand Total":      round(float(pur.grand_total or 0), 2),
+            "Paid":             round(float(pur.paid_amount or 0), 2),
+            "Balance":          round(float(pur.balance or 0), 2),
+            "Status":           pur.status,
+        })
+    purchase_df = pd.DataFrame(purchase_rows, columns=[
+        "Invoice No", "Supplier Invoice #", "Date", "Due Date", "Supplier", "Phone",
+        "Subtotal", "Tax", "Grand Total", "Paid", "Balance", "Status",
+    ])
+
+    # ── Pending: Receivables (unpaid/partial sales) ─────────────────────────
+    # NOTE: date filter is intentionally NOT applied here — an invoice raised
+    # last year with a balance still outstanding is still money owed to you
+    # today. Pending is always "as of now", regardless of the report period.
+    all_sales = cdb.query(Invoice).filter_by(company_id=company_id).all()
+    receivable_rows = []
+    for inv in all_sales:
+        bal = round(float(inv.balance or 0), 2)
+        if bal > 0:
+            client = clients_by_id.get(inv.client_id)
+            receivable_rows.append({
+                "Invoice No":  inv.invoice_id,
+                "Date":        inv.date.strftime("%Y-%m-%d") if inv.date else "",
+                "Client":      client.name if client else (inv.contact_person or "—"),
+                "Phone":       client.phone if client else (inv.phone or ""),
+                "Grand Total": round(float(inv.grand_total or 0), 2),
+                "Paid":        round(float(inv.paid_amount or 0), 2),
+                "Balance Due": bal,
+            })
+    receivable_df = pd.DataFrame(receivable_rows, columns=[
+        "Invoice No", "Date", "Client", "Phone", "Grand Total", "Paid", "Balance Due",
+    ])
+    total_receivable = round(sum(r["Balance Due"] for r in receivable_rows), 2)
+
+    # ── Pending: Payables (unpaid/partial purchases) ────────────────────────
+    all_purchases = cdb.query(PurchaseInvoice).filter_by(company_id=company_id).all()
+    payable_rows = []
+    for pur in all_purchases:
+        bal = round(float(pur.balance or 0), 2)
+        if bal > 0:
+            supplier = suppliers_by_id.get(pur.supplier_id)
+            payable_rows.append({
+                "Invoice No":  pur.invoice_id,
+                "Date":        pur.date.strftime("%Y-%m-%d") if pur.date else "",
+                "Supplier":    supplier.name if supplier else (pur.supplier_name or "—"),
+                "Phone":       supplier.phone if supplier else "",
+                "Grand Total": round(float(pur.grand_total or 0), 2),
+                "Paid":        round(float(pur.paid_amount or 0), 2),
+                "Balance Due": bal,
+            })
+    payable_df = pd.DataFrame(payable_rows, columns=[
+        "Invoice No", "Date", "Supplier", "Phone", "Grand Total", "Paid", "Balance Due",
+    ])
+    total_payable = round(sum(p["Balance Due"] for p in payable_rows), 2)
+
+    # ── Write workbook ───────────────────────────────────────────────────────
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        sales_df.to_excel(writer, sheet_name="Sales", index=False)
+        purchase_df.to_excel(writer, sheet_name="Purchase", index=False)
+        receivable_df.to_excel(writer, sheet_name="Pending - Receivable", index=False, startrow=0)
+        payable_df.to_excel(writer, sheet_name="Pending - Payable", index=False, startrow=0)
+
+        from openpyxl.styles import Font, PatternFill
+
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+
+        for sheet_name, df in [
+            ("Sales", sales_df), ("Purchase", purchase_df),
+            ("Pending - Receivable", receivable_df), ("Pending - Payable", payable_df),
+        ]:
+            ws = writer.sheets[sheet_name]
+            for col_idx, col_name in enumerate(df.columns, start=1):
+                cell = ws.cell(row=1, column=col_idx)
+                cell.font = header_font
+                cell.fill = header_fill
+                max_len = max([len(str(col_name))] + [len(str(v)) for v in df[col_name].astype(str)]) if len(df) else len(str(col_name))
+                ws.column_dimensions[cell.column_letter].width = min(max(max_len + 3, 12), 40)
+            ws.freeze_panes = "A2"
+
+        # Totals row under each pending sheet
+        rec_ws = writer.sheets["Pending - Receivable"]
+        rec_total_row = len(receivable_df) + 3
+        rec_ws.cell(row=rec_total_row, column=6, value="Total Receivable:").font = Font(bold=True)
+        rec_ws.cell(row=rec_total_row, column=7, value=total_receivable).font = Font(bold=True)
+
+        pay_ws = writer.sheets["Pending - Payable"]
+        pay_total_row = len(payable_df) + 3
+        pay_ws.cell(row=pay_total_row, column=6, value="Total Payable:").font = Font(bold=True)
+        pay_ws.cell(row=pay_total_row, column=7, value=total_payable).font = Font(bold=True)
+
+    buf.seek(0)
+    filename_range = f"_{from_str}_to_{to_str}" if (from_str or to_str) else "_all_time"
+    filename = f"{company.company_name.replace(' ', '_')}_Sales_Purchase_Pending{filename_range}.xlsx"
+
+    return send_file(
+        buf,
+        as_attachment=True,
+        download_name=filename,
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
 @app.route("/reports-dashboard")
 @login_required
+@require_permission("analytics", "view")
 def reports_dashboard():
     
     company_id = get_current_company()
@@ -1592,6 +2582,7 @@ def reports_dashboard():
 
 @app.route("/dashboard")
 @login_required
+@require_permission("dashboard", "view")
 def dashboard():
     """Main business dashboard"""
     company_id = get_current_company()
@@ -1892,6 +2883,7 @@ def dashboard():
 
 @app.route("/api/dashboard-data")
 @login_required
+@require_permission("dashboard", "view")
 def api_dashboard_data():
     """API endpoint for dashboard data with date filters"""
     cdb = get_cdb()
@@ -2097,6 +3089,7 @@ def api_dashboard_data():
 
 @app.route("/price-lists")
 @login_required
+@require_permission("pricelist", "view")
 def price_lists():
     """Manage price lists"""
     cdb = get_cdb()
@@ -2140,6 +3133,40 @@ def debug_price_lists_data():
         'lists': result
     })
 
+@app.route("/price-lists/delete/<int:price_list_id>", methods=["POST"])
+@login_required
+@owner_required
+def delete_price_list(price_list_id):
+    """Delete a price list"""
+    cdb = get_cdb()
+    company_id = get_current_company()
+    
+    # Find the price list
+    price_list = cdb.query(PriceList).filter_by(
+        id=price_list_id, 
+        company_id=company_id
+    ).first()
+    
+    if not price_list:
+        flash("Price list not found", "error")
+        return redirect(url_for("price_lists"))
+    
+    try:
+        # Delete the file if it exists
+        if price_list.file_path and os.path.exists(price_list.file_path):
+            os.remove(price_list.file_path)
+        
+        # Delete the database record
+        cdb.delete(price_list)
+        cdb.commit()
+        
+        flash(f"Price list for {price_list.courier} deleted successfully!", "success")
+    except Exception as e:
+        cdb.rollback()
+        flash(f"Error deleting price list: {str(e)}", "error")
+    
+    return redirect(url_for("price_lists"))
+
 @app.route("/debug/excel-columns", methods=["POST"])
 @login_required
 def debug_excel_columns():
@@ -2163,6 +3190,7 @@ def debug_excel_columns():
 
 @app.route("/price-lists/upload", methods=["GET", "POST"])
 @login_required
+@require_permission("pricelist", "view", method_actions={'POST': 'create'})
 def upload_price_list():
     """Upload a price list Excel file"""
     cdb = get_cdb()
@@ -2254,6 +3282,7 @@ def upload_price_list():
 
 @app.route("/api/rate-lookup")
 @login_required
+@require_permission("pricelist", "view")
 def api_rate_lookup():
     """API endpoint to lookup shipping rate"""
     cdb = get_cdb()
@@ -2273,18 +3302,29 @@ def api_rate_lookup():
     if not courier or not destination or weight <= 0:
         return jsonify({'error': 'Missing parameters'}), 400
     
-    # Get active price list for this courier
+    # Get active price list for this courier - SALES only
     price_list = cdb.query(PriceList).filter_by(
         company_id=company_id,
         courier=courier,
         is_active=True,
-        list_type='sales'
+        list_type='sales'  # ← Make sure this is explicitly 'sales'
     ).first()
     
     print(f"📋 Price list found: {price_list is not None}")
+    if price_list:
+        print(f"   List type: {price_list.list_type}")
     
     if not price_list:
-        return jsonify({'error': f'No active price list found for {courier}'}), 404
+        # Check if there's a purchase list as fallback (for debugging)
+        purchase_list = cdb.query(PriceList).filter_by(
+            company_id=company_id,
+            courier=courier,
+            is_active=True,
+            list_type='purchase'
+        ).first()
+        if purchase_list:
+            print(f"⚠️ Found PURCHASE list for {courier}, but sales lookup only uses SALES lists")
+        return jsonify({'error': f'No active sales price list found for {courier}'}), 404
     
     try:
         rate_data = json.loads(price_list.rate_data)
@@ -2367,7 +3407,8 @@ def api_rate_lookup():
             'pricing_type': pricing_type,
             'country_matched': matched_country,
             'courier': courier,
-            'destination': destination
+            'destination': destination,
+            'list_type': 'sales'  # ← Add this for debugging
         })
         
     except Exception as e:
@@ -2378,6 +3419,7 @@ def api_rate_lookup():
 
 @app.route("/api/purchase-rate-lookup")
 @login_required
+@require_permission("pricelist", "view")
 def api_purchase_rate_lookup():
     """Purchase rate lookup — uses purchase price lists only"""
     cdb = get_cdb()
@@ -2459,6 +3501,7 @@ def api_purchase_rate_lookup():
 
 @app.route("/api/price-lists/list")
 @login_required
+@require_permission("pricelist", "view")
 def api_price_lists_list():
     """Return list of available couriers with price lists"""
     cdb = get_cdb()
@@ -2478,6 +3521,7 @@ def api_price_lists_list():
 # ─────────────────────────────────────────────────────────────────────────────
 @app.route("/orders")
 @login_required
+@require_permission("orders", "view")
 def order_list():
     cdb = get_cdb()
     company_id    = get_current_company()
@@ -2496,6 +3540,7 @@ def order_list():
 
 @app.route("/orders/add", methods=["GET", "POST"])
 @login_required
+@require_permission("orders", "view", method_actions={'POST': 'create'})
 def order_add():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2529,6 +3574,7 @@ def order_add():
 
 @app.route("/orders/edit/<int:order_pk>", methods=["GET", "POST"])
 @login_required
+@require_permission("orders", "edit")
 def order_edit(order_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2552,6 +3598,7 @@ def order_edit(order_pk):
 
 @app.route("/orders/delete/<int:order_pk>", methods=["POST"])
 @login_required
+@owner_required
 def order_delete(order_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2605,6 +3652,7 @@ def _normalize_client(c):
 
 @app.route("/clients")
 @login_required
+@require_permission("clients", "view")
 def client_list():
     cdb = get_cdb()
     company_id    = get_current_company()
@@ -2624,6 +3672,7 @@ def client_list():
 # /clients/new  ── template links here for new client
 @app.route("/clients/new", methods=["GET", "POST"])
 @login_required
+@require_permission("clients", "view", method_actions={'POST': 'create'})
 def client_new():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2676,6 +3725,7 @@ def client_new():
 # Keep /clients/add as an alias so old links still work
 @app.route("/clients/add", methods=["GET", "POST"])
 @login_required
+@require_permission("clients", "create")
 def client_add():
     return client_new()
 
@@ -2683,6 +3733,7 @@ def client_add():
 # /clients/<id>  ── view detail (template links here with 👁️)
 @app.route("/clients/<int:client_pk>")
 @login_required
+@require_permission("clients", "view")
 def client_view(client_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2696,6 +3747,7 @@ def client_view(client_pk):
 # /clients/<id>/edit
 @app.route("/clients/<int:client_pk>/edit", methods=["GET", "POST"])
 @login_required
+@require_permission("clients", "view", method_actions={'POST': 'edit'})
 def client_edit(client_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2745,6 +3797,7 @@ def client_edit(client_pk):
 # /clients/<id>/delete  ── template uses GET link with confirm dialog
 @app.route("/clients/<int:client_pk>/delete", methods=["GET", "POST"])
 @login_required
+@owner_required
 def client_delete(client_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -2873,6 +3926,7 @@ def inventory_list():
 
 @app.route("/inventory")
 @login_required
+@require_permission("stock", "view")
 def inventory_list():
     
     cdb = get_cdb()
@@ -2981,6 +4035,7 @@ def inventory_list():
 
 @app.route("/inventory")
 @login_required
+@require_permission("stock", "view")
 def inventory_list():
     cdb = get_customer_session(get_current_company())
     company_id = get_current_company()
@@ -3039,6 +4094,7 @@ def inventory_list():
 # ── Stock JSON API (used by inventory.html JS modals) ────────────────────────
 @app.route("/stock/item/<code>")
 @login_required
+@require_permission("stock", "view")
 def stock_item_get(code):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3056,6 +4112,7 @@ def stock_item_get(code):
 
 @app.route("/api/stock/items")
 @login_required
+@require_permission("stock", "view")
 def api_stock_items():
     cdb = get_cdb()
     
@@ -3077,6 +4134,7 @@ def api_stock_items():
 
 @app.route("/stock/save", methods=["POST"])
 @login_required
+@require_permission("stock", "view", method_actions={'POST': 'create'})
 def stock_save():
     """Create or update a stock item via JSON (called from the modal form)."""
     cdb = get_cdb()
@@ -3120,6 +4178,7 @@ def stock_save():
 
 @app.route("/stock/adjust", methods=["POST"])
 @login_required
+@require_permission("stock", "edit")
 def stock_adjust():
     """Quick quantity adjustment from the Adj button in the table."""
     cdb = get_cdb()
@@ -3135,6 +4194,7 @@ def stock_adjust():
 
 @app.route("/stock/movements/<code>")
 @login_required
+@require_permission("stock", "view")
 def stock_movements(code):
     """Return full movement history for a stock item (purchases IN, invoices OUT)."""
     cdb = get_cdb()
@@ -3216,6 +4276,7 @@ def inventory_add():
 
 @app.route("/inventory/edit/<int:item_pk>", methods=["GET", "POST"])
 @login_required
+@require_permission("stock", "edit")
 def inventory_edit(item_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3237,6 +4298,7 @@ def inventory_edit(item_pk):
 
 @app.route("/inventory/delete/<int:item_pk>", methods=["POST"])
 @login_required
+@owner_required
 def inventory_delete(item_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3250,6 +4312,7 @@ def inventory_delete(item_pk):
 
 @app.route("/purchase/list")
 @login_required
+@require_permission("purchase", "view")
 def purchase_invoice_list():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3275,6 +4338,7 @@ ITEM_TYPE_OPTIONS = ["Box", "Envelope", "Crate", "Pouch", "Carton"]
 
 @app.route("/purchase/delete/<invoice_id>", methods=["POST"])
 @login_required
+@owner_required
 def purchase_invoice_delete(invoice_id):
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -3317,6 +4381,7 @@ def purchase_invoice_delete(invoice_id):
 
 @app.route("/purchase/new", methods=["GET", "POST"])
 @login_required
+@require_permission("purchase", "view", method_actions={'POST': 'create'})
 def purchase_invoice_new():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3594,6 +4659,7 @@ def purchase_invoice_new():
 
 @app.route("/purchase/edit/<invoice_id>", methods=["GET", "POST"])
 @login_required
+@require_permission("purchase", "view", method_actions={'POST': 'edit'})
 def purchase_invoice_edit(invoice_id):
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -3694,6 +4760,7 @@ def purchase_invoice_edit(invoice_id):
 
 @app.route("/purchase/view/<invoice_id>")
 @login_required
+@require_permission("purchase", "view")
 def purchase_invoice_view(invoice_id):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3731,6 +4798,7 @@ def purchase_make_payment(pk):
     return redirect(url_for("purchase_invoice_view", invoice_id=invoice.invoice_id))"""
 @app.route("/purchase/pay/<int:pk>", methods=["POST"])
 @login_required
+@require_permission("purchase", "edit")
 def purchase_make_payment(pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3864,6 +4932,7 @@ def invoice_list():
 
 @app.route("/invoice/list")
 @login_required
+@require_permission("invoices", "view")
 def invoice_list():
     cdb = get_cdb()
     company_id    = get_current_company()
@@ -3882,7 +4951,7 @@ def invoice_list():
         if db_status:
             query = query.filter_by(status=db_status)
 
-    raw_invoices = query.order_by(Invoice.date.desc()).all()
+    raw_invoices = query.order_by(Invoice.created_at.desc()).all()
 
     invoices = []
     for inv in raw_invoices:
@@ -3940,6 +5009,7 @@ def invoice_list():
             "receiver_name":  meta.get("receiver_name", ""),
             "destination":    meta.get("destination", ""),
             "carrier":        meta.get("carrier", ""),
+            "carrier_ref": meta.get("carrier_ref", ""),
             "shipment_type":  meta.get("shipment_type", ""),
             "mode":           meta.get("mode", ""),
             "is_shipment":    is_shipment,
@@ -3951,6 +5021,15 @@ def invoice_list():
             "resale_total":   resale_total,  # ← NEW: total including GST
         })
 
+    search_q = request.args.get("q", "").strip()
+    if search_q:
+        needle = search_q.lower()
+        invoices = [
+            inv for inv in invoices
+            if needle in (inv["customer_name"] or "").lower()
+            or needle in (inv["docket_no"] or "").lower()
+        ]
+
     return render_template("invoice_list.html",
                            invoices=invoices,
                            current_status=filter_status)
@@ -3958,6 +5037,7 @@ def invoice_list():
 
 @app.route("/invoice/new", methods=["GET", "POST"])
 @login_required
+@require_permission("invoices", "view", method_actions={'POST': 'create'})
 def invoice_new():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -3968,7 +5048,8 @@ def invoice_new():
 
     price_lists = cdb.query(PriceList).filter_by(
         company_id=company_id, 
-        is_active=True
+        is_active=True,
+        list_type='sales'
     ).all()
 
     # Check if we're editing an existing invoice
@@ -4133,7 +5214,15 @@ def invoice_new():
             )
             cdb.add(inv)
             cdb.commit()
-            
+
+            # Fire-and-forget WhatsApp notification — never blocks the response,
+            # never fails the invoice if WhatsApp isn't configured or the API errors.
+            try:
+                from tasks import send_invoice_generate_notification_async
+                send_invoice_generate_notification_async(company_id=company_id, invoice_id=invoice_id)
+            except Exception as e:
+                print(f"[whatsapp] could not queue generate-notification for {invoice_id}: {e}")
+
             flash(f"Customer invoice {invoice_id} created successfully!")
             return redirect(url_for("invoice_list"))
 
@@ -4259,6 +5348,7 @@ def invoice_new():
 
 @app.route("/invoice/edit/<invoice_id>", methods=["GET", "POST"])
 @login_required
+@require_permission("invoices", "view", method_actions={'POST': 'edit'})
 def invoice_edit(invoice_id):
     """GET: render the edit form. POST: save updated line-item invoice."""
     cdb = get_cdb()
@@ -4274,7 +5364,8 @@ def invoice_edit(invoice_id):
 
     price_lists = cdb.query(PriceList).filter_by(
         company_id=company_id, 
-        is_active=True
+        is_active=True,
+        list_type='sales'
     ).all()
 
     if request.method == "POST":
@@ -4331,6 +5422,13 @@ def invoice_edit(invoice_id):
         invoice.balance     = round(grand_total - (invoice.paid_amount or 0), 2)
 
         cdb.commit()
+
+        try:
+            from tasks import send_invoice_update_notification_async
+            send_invoice_update_notification_async(company_id=company_id, invoice_id=invoice_id)
+        except Exception as e:
+            print(f"[whatsapp] could not queue update-notification for {invoice_id}: {e}")
+
         flash(f"Invoice {invoice_id} updated successfully!", "success")
         return redirect(url_for("invoice_list"))
 
@@ -4349,6 +5447,7 @@ def invoice_edit(invoice_id):
 
 @app.route("/invoice/customer/update", methods=["POST"])
 @login_required
+@require_permission("invoices", "edit")
 def invoice_customer_update():
     """Update an existing customer invoice"""
     cdb = get_cdb()
@@ -4388,41 +5487,32 @@ def invoice_customer_update():
     base = freight + fuel + other
     co = Company.query.filter_by(company_id=company_id).first()
     apply_gst = co.is_gst_registered if (co and hasattr(co, 'is_gst_registered')) else True
-    gst = round(base * 0.18, 2) if apply_gst else 0.0
-    grand_total = round(base + gst, 2)
-    amount_paid = float(request.form.get("amount_paid", 0) or 0)
-    balance = round(grand_total - amount_paid, 2)
+    shipper_state  = request.form.get("shipper_state", "")
+    receiver_state = request.form.get("receiver_state", "")
 
-     # ── Resale Charges ──────────────────────────────────────────────────────────
-     # ── Resale Charges ──────────────────────────────────────────────────────────
+    # ── Resale Charges ──────────────────────────────────────────────────────────
     has_resale = request.form.get("resale_active") == "true"
     resale_amount = float(request.form.get("resale_amount", 0) or 0)
     resale_reason = request.form.get("resale_reason", "").strip()
     resale_date_str = request.form.get("resale_date")
     resale_notes = request.form.get("resale_notes", "").strip()
-    
-    # Apply GST to resale charges
+
     if has_resale and resale_amount > 0:
-        co = Company.query.filter_by(company_id=company_id).first()
-        apply_gst = co.is_gst_registered if (co and hasattr(co, 'is_gst_registered')) else True
-        resale_gst = round(resale_amount * 0.18, 2) if apply_gst else 0.0
-        
-        # Add resale to totals
-        base_with_resale = base + resale_amount
-        gst_total = round(base_with_resale * 0.18, 2) if apply_gst else 0.0
-        grand_total = round(base_with_resale + gst_total, 2)
-        
         resale_date = date.fromisoformat(resale_date_str) if resale_date_str else date.today()
     else:
         resale_amount = 0
-        resale_gst = 0
         resale_date = None
         resale_reason = None
         resale_notes = None
-        base_with_resale = base
-        gst_total = gst
-        grand_total = round(base + gst, 2)
 
+    # ── GST: proper CGST/SGST vs IGST split (based on shipper/receiver state)
+    # plus round-off to the nearest rupee, instead of a flat 18% figure. ──────
+    taxable_base = base + resale_amount
+    gst_calc = compute_invoice_gst(taxable_base, apply_gst, shipper_state, receiver_state)
+    gst = gst_calc["gst_total"]
+    resale_gst = 0  # resale GST is now folded into the single gst_calc split above
+    grand_total = gst_calc["grand_total"]
+    amount_paid = float(request.form.get("amount_paid", 0) or 0)
     balance = round(grand_total - amount_paid, 2)
 
     # ── Payment info ─────────────────────────────────────────────────────────
@@ -4525,6 +5615,11 @@ def invoice_customer_update():
         "other": other,
         "other_charges_reason": request.form.get("other_charges_reason", ""),
         "gst": gst,
+        "cgst": gst_calc["cgst"],
+        "sgst": gst_calc["sgst"],
+        "igst": gst_calc["igst"],
+        "is_interstate": gst_calc["is_interstate"],
+        "round_off": gst_calc["round_off"],
         "amount_paid": amount_paid,
         "packages": packages_data,
         "resale": {
@@ -4537,6 +5632,9 @@ def invoice_customer_update():
         } if has_resale and resale_amount > 0 else None
     })
     
+    old_carrier_ref = (old_meta.get("carrier_ref") or "").strip()
+    new_carrier_ref = (request.form.get("carrier_ref") or "").strip()
+    carrier_ref_changed = new_carrier_ref and new_carrier_ref != old_carrier_ref
 
     # Update invoice fields
     invoice.client_id = client_id
@@ -4558,6 +5656,18 @@ def invoice_customer_update():
     invoice.resale_notes = resale_notes
 
     cdb.commit()
+
+    if carrier_ref_changed:
+        try:
+            from tasks import send_carrier_update_notification_async
+            send_carrier_update_notification_async(
+                company_id=company_id,
+                invoice_id=invoice.invoice_id,
+                carrier=request.form.get("carrier", ""),
+                carrier_ref=new_carrier_ref,
+            )
+        except Exception as e:
+            print(f"[whatsapp] could not queue carrier-update notification for {invoice.invoice_id}: {e}")
 
     # ── Save Performa Invoice items (linked Estimate) ───────────────────────────
     # This block was missing here entirely — invoice_customer_save (create) had it,
@@ -4699,6 +5809,7 @@ def invoice_customer_update():
 
 @app.route("/invoice/view/<invoice_id>")
 @login_required
+@require_permission("invoices", "view")
 def invoice_view(invoice_id):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -4830,13 +5941,188 @@ def invoice_view(invoice_id):
             pass
 
     # Derive pieces and total chargeable weight from the saved package rows
-    # (falls back to freight_weight if no per-package rows exist)
+    # (chargeable weight = max(actual weight, volumetric weight) per package,
+    #  standard courier convention — falls back to freight_weight if no rows)
     pkg_list = invoice["packages"] or []
     invoice["pieces"] = sum((p.get("qty") or 1) for p in pkg_list) if pkg_list else 1
-    pkg_weight_total = sum((p.get("weight") or 0) * (p.get("qty") or 1) for p in pkg_list)
+    pkg_weight_total = sum(
+        max(p.get("weight") or 0, p.get("vol_weight") or 0) * (p.get("qty") or 1)
+        for p in pkg_list
+    )
     invoice["weight"] = pkg_weight_total if pkg_weight_total > 0 else invoice.get("freight_weight", 0)
 
     return render_template("invoice_view.html", invoice=invoice)
+
+@app.route("/invoice/pdf/<invoice_id>")
+def invoice_pdf(invoice_id):
+    """
+    Customer Invoice PDF — renders the SAME invoice_pdf.html template used
+    for the on-screen print view, converted to PDF with xhtml2pdf, so the
+    PDF matches exactly what you see when you print the Customer Invoice.
+
+    Accessible two ways:
+      1. Normal logged-in session (browser "Download PDF" button).
+      2. A signed ?token=... (no session needed) — this is what lets
+         WhatsApp's servers fetch the file directly, since they don't send
+         your login cookie. Without this, WhatsApp was getting the HTML
+         login-redirect page instead of a PDF.
+    """
+    from xhtml2pdf import pisa
+    import io
+
+    token = request.args.get("token")
+    if token:
+        token_company_id, token_invoice_id = verify_pdf_token(token)
+        if not token_company_id or token_invoice_id != invoice_id:
+            abort(404)
+        company_id = token_company_id
+        cdb = get_customer_session(company_id, db_session=db.session)
+    else:
+        if "user" not in session:
+            flash("Please login to continue")
+            return redirect(url_for("login"))
+        company_id = get_current_company()
+        cdb = get_cdb()
+
+    # Get invoice data
+    inv = _first_or_404(cdb.query(Invoice).filter_by(invoice_id=invoice_id, company_id=company_id).first())
+
+    # ─── Build invoice dict (same shape as the invoice_view print page) ─────
+    if inv.client_obj:
+        customer_name = inv.client_obj.name
+        customer_phone = inv.client_obj.phone or inv.phone or ""
+    else:
+        customer_name = inv.contact_person or "—"
+        customer_phone = inv.phone or ""
+
+    total = inv.grand_total or 0.0
+    subtotal = inv.subtotal or 0.0
+    tax = inv.tax_amount or 0.0
+
+    items = []
+    for li in inv.items:
+        qty = li.qty or 0.0
+        rate = li.rate or 0.0
+        discount = li.discount or 0.0
+        items.append({
+            "code": li.code or "",
+            "desc": li.description or "",
+            "qty": qty,
+            "rate": rate,
+            "discount": discount,
+            "amount": qty * rate * (1 - discount / 100),
+        })
+
+    meta = {}
+    if inv.terms:
+        try:
+            meta = json.loads(inv.terms)
+        except (ValueError, TypeError):
+            meta = {}
+
+    invoice = {
+        "id": inv.invoice_id,
+        "date": inv.date,
+        "due_date": inv.due_date,
+        "status": inv.status or "Pending",
+        "customer_name": customer_name,
+        "customer_phone": customer_phone,
+        "subtotal": subtotal,
+        "tax": tax,
+        "total": total,
+        "paid": inv.paid_amount or 0,
+        "balance": inv.balance or 0,
+        "items": items,
+        "docket_no": meta.get("docket_no", inv.invoice_id),
+        "shipper_name": meta.get("shipper_name", inv.contact_person or ""),
+        "shipper_address1": meta.get("shipper_address1", ""),
+        "shipper_address2": meta.get("shipper_address2", ""),
+        "shipper_city": meta.get("shipper_city", ""),
+        "shipper_state": meta.get("shipper_state", ""),
+        "shipper_pincode": meta.get("shipper_pincode", ""),
+        "shipper_country": meta.get("shipper_country", "India"),
+        "receiver_name": meta.get("receiver_name", ""),
+        "receiver_phone": meta.get("receiver_phone", ""),
+        "receiver_address1": meta.get("receiver_address1", ""),
+        "receiver_address2": meta.get("receiver_address2", ""),
+        "receiver_city": meta.get("receiver_city", ""),
+        "receiver_state": meta.get("receiver_state", ""),
+        "receiver_pincode": meta.get("receiver_pincode", ""),
+        "receiver_country": meta.get("receiver_country", "India"),
+        "destination": meta.get("destination", ""),
+        "origin": meta.get("origin", "India"),
+        "shipment_type": meta.get("shipment_type", ""),
+        "mode": meta.get("mode", ""),
+        "carrier": meta.get("carrier", ""),
+        "carrier_ref": meta.get("carrier_ref", ""),
+        "payment_mode": meta.get("payment_mode", "credit"),
+        "upi_app": meta.get("upi_app", ""),
+        "transaction_id": meta.get("upi_ref", ""),
+        "cheque_no": meta.get("cheque_no", ""),
+        "cheque_bank": meta.get("cheque_bank", ""),
+        "freight": meta.get("freight", subtotal),
+        "freight_weight": meta.get("freight_weight", 0),
+        "freight_rate_per_kg": meta.get("freight_rate_per_kg", 0),
+        "fuel_charge": meta.get("fuel", 0),
+        "other_charges": meta.get("other", 0),
+        "other_charges_reason": meta.get("other_charges_reason", ""),
+        "notes": inv.email or "",
+        "packages": meta.get("packages", []),
+        "pieces": sum((p.get("qty") or 1) for p in meta.get("packages", [])) if meta.get("packages") else 1,
+        "weight": sum(
+            max(p.get("weight") or 0, p.get("vol_weight") or 0) * (p.get("qty") or 1)
+            for p in meta.get("packages", [])
+        ),
+        "vendor": meta.get("vendor", ""),
+        "product": meta.get("shipment_type", ""),
+        
+    }
+
+    # Get linked performa items if any
+    linked_est = cdb.query(Estimate).filter_by(company_id=company_id).filter(
+        Estimate.terms.like(f'%"linked_invoice_id": "{inv.invoice_id}"%')
+    ).first()
+    if linked_est and linked_est.terms:
+        try:
+            perf_meta = json.loads(linked_est.terms)
+            invoice["performa_items"] = perf_meta.get("line_items", [])
+            invoice["perf_weight"] = perf_meta.get("weight", "")
+            invoice["perf_reference"] = perf_meta.get("reference", "")
+            invoice["performa_invoice_no"] = perf_meta.get("invoice_no", "")
+            invoice["performa_invoice_date"] = perf_meta.get("invoice_date", "")
+        except Exception:
+            pass
+
+    company = Company.query.filter_by(company_id=company_id).first()
+
+    # ─── Render the SAME HTML used for the on-screen Customer Invoice print ──
+    html_content = render_template(
+        "invoice_pdf.html",
+        invoice=invoice,
+        company=company,
+        is_gst_registered=company.is_gst_registered if company else True,
+        company_logo_url=url_for('static', filename=f'company_logos/{company.logo_filename}', _external=True) if company and company.logo_filename else None,
+        today=date.today().strftime("%d %b %Y"),
+    )
+
+    # ─── Convert to PDF ───────────────────────────────────────────────────
+    pdf_file = io.BytesIO()
+    pisa_status = pisa.CreatePDF(html_content, dest=pdf_file, encoding='UTF-8')
+
+    if pisa_status.err:
+        if token:
+            abort(500)
+        flash(f"PDF generation error: {pisa_status.err}")
+        return redirect(url_for("invoice_view", invoice_id=invoice_id))
+
+    pdf_file.seek(0)
+
+    return send_file(
+        pdf_file,
+        as_attachment=True,
+        download_name=f"Invoice_{invoice_id}.pdf",
+        mimetype="application/pdf"
+    )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ── Resale / Return Charges Routes ──────────────────────────────────────────
@@ -4844,6 +6130,7 @@ def invoice_view(invoice_id):
 
 @app.route("/invoice/<invoice_id>/resale-charges", methods=["GET", "POST"])
 @login_required
+@require_permission("invoices", "view", method_actions={'POST': 'edit'})
 def invoice_resale_charges(invoice_id):
     """Add return/resale charges to an existing invoice"""
     cdb = get_cdb()
@@ -5060,6 +6347,7 @@ def _next_awb_number(company_id):
 
 @app.route("/invoice/customer")
 @login_required
+@require_permission("invoices", "view")
 def invoice_customer_new():
     """Show the blank customer / shipment invoice form."""
     cdb = get_cdb()
@@ -5071,7 +6359,8 @@ def invoice_customer_new():
 
     price_lists = cdb.query(PriceList).filter_by(
         company_id=company_id, 
-        is_active=True
+        is_active=True,
+        list_type='sales'
     ).all()
 
     # Auto-generate invoice ID
@@ -5103,6 +6392,7 @@ def invoice_customer_new():
 
 @app.route("/invoice/customer/save", methods=["POST"])
 @login_required
+@require_permission("invoices", "create")
 def invoice_customer_save():
     """Save a customer / shipment invoice submitted from invoice.html."""
     cdb = get_cdb()
@@ -5124,10 +6414,9 @@ def invoice_customer_save():
     base           = freight + fuel + other
     co             = Company.query.filter_by(company_id=company_id).first()
     apply_gst      = co.is_gst_registered if (co and hasattr(co, 'is_gst_registered')) else True
-    gst            = round(base * 0.18, 2) if apply_gst else 0.0
-    grand_total    = round(base + gst, 2)
+    shipper_state  = request.form.get("shipper_state", "")
+    receiver_state = request.form.get("receiver_state", "")
     amount_paid    = float(request.form.get("amount_paid", 0) or 0)
-    balance        = round(grand_total - amount_paid, 2)
 
     # ── Payment info ─────────────────────────────────────────────────────────
     payment_mode   = request.form.get("payment_mode", "cash")
@@ -5143,26 +6432,23 @@ def invoice_customer_save():
     resale_reason = request.form.get("resale_reason", "").strip()
     resale_date_str = request.form.get("resale_date")
     resale_notes = request.form.get("resale_notes", "").strip()
-    
-    # Apply GST to resale charges
+
     if has_resale and resale_amount > 0:
-        co = Company.query.filter_by(company_id=company_id).first()
-        apply_gst = co.is_gst_registered if (co and hasattr(co, 'is_gst_registered')) else True
-        resale_gst = round(resale_amount * 0.18, 2) if apply_gst else 0.0
-        
-        # Add resale to totals - UPDATE the existing totals
-        base = freight + fuel + other + resale_amount
-        gst = round(base * 0.18, 2) if apply_gst else 0.0
-        grand_total = round(base + gst, 2)
-        balance = round(grand_total - amount_paid, 2)
-        
         resale_date = date.fromisoformat(resale_date_str) if resale_date_str else date.today()
     else:
         resale_amount = 0
-        resale_gst = 0
         resale_date = None
         resale_reason = None
         resale_notes = None
+
+    # ── GST: proper CGST/SGST vs IGST split (based on shipper/receiver state)
+    # plus round-off to the nearest rupee, instead of a flat 18% figure. ──────
+    taxable_base = base + resale_amount
+    gst_calc = compute_invoice_gst(taxable_base, apply_gst, shipper_state, receiver_state)
+    gst = gst_calc["gst_total"]
+    resale_gst = 0  # resale GST is now folded into the single gst_calc split above
+    grand_total = gst_calc["grand_total"]
+    balance = round(grand_total - amount_paid, 2)
 
     # ── Status ────────────────────────────────────────────────────────────────
     if action == "draft":
@@ -5344,6 +6630,11 @@ def invoice_customer_save():
         "fuel":             fuel,
         "other":            other,
         "gst":              gst,
+        "cgst":             gst_calc["cgst"],
+        "sgst":             gst_calc["sgst"],
+        "igst":             gst_calc["igst"],
+        "is_interstate":    gst_calc["is_interstate"],
+        "round_off":        gst_calc["round_off"],
         "amount_paid":      amount_paid,
         "packages":         packages_data,
         "resale": {
@@ -5617,7 +6908,12 @@ def invoice_customer_save():
 
 
     cdb.commit()
-
+    try:
+        from tasks import send_invoice_generate_notification_async
+        send_invoice_generate_notification_async(company_id=company_id, invoice_id=invoice_id)
+        print(f"[WhatsApp] Notification queued for invoice {invoice_id}")
+    except Exception as e:
+        print(f"[WhatsApp] Could not queue notification for {invoice_id}: {e}")
     # ── Build flash message ───────────────────────────────────────────────────
     msg = f"Customer invoice {invoice_id} (AWB: {docket_no}) saved successfully!"
     if stock_added:
@@ -5632,6 +6928,7 @@ def invoice_customer_save():
 
 @app.route("/api/suppliers/list")
 @login_required
+@require_permission("suppliers", "view")
 def api_suppliers_list():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -5690,6 +6987,7 @@ def _normalize_supplier(s):
 
 @app.route("/suppliers")
 @login_required
+@require_permission("suppliers", "view")
 def supplier_list():
     cdb           = get_cdb()
     company_id    = get_current_company()
@@ -5705,6 +7003,7 @@ def supplier_list():
 
 @app.route("/suppliers/new", methods=["GET", "POST"])
 @login_required
+@require_permission("suppliers", "view", method_actions={'POST': 'create'})
 def supplier_new():
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -5774,6 +7073,7 @@ def debug_suppliers():
 
 @app.route("/suppliers/<int:supplier_pk>")
 @login_required
+@require_permission("suppliers", "view")
 def supplier_view(supplier_pk):
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -5785,6 +7085,7 @@ def supplier_view(supplier_pk):
 
 @app.route("/suppliers/<int:supplier_pk>/edit", methods=["GET", "POST"])
 @login_required
+@require_permission("suppliers", "view", method_actions={'POST': 'edit'})
 def supplier_edit(supplier_pk):
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -5855,6 +7156,7 @@ def supplier_edit(supplier_pk):
 
 @app.route("/suppliers/<int:supplier_pk>/delete", methods=["GET", "POST"])
 @login_required
+@owner_required
 def supplier_delete(supplier_pk):
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -5866,6 +7168,7 @@ def supplier_delete(supplier_pk):
 
 @app.route("/api/supplier/<int:supplier_pk>/brands")
 @login_required
+@require_permission("suppliers", "view")
 def api_supplier_brands(supplier_pk):
     """Return this supplier's registered brand/courier names for the purchase form's
     dependent courier dropdown. Empty list means 'no brands registered' — the
@@ -5881,6 +7184,7 @@ def api_supplier_brands(supplier_pk):
 
 @app.route("/api/customers/list")
 @login_required
+@require_permission("clients", "view")
 def api_customers_list():
     """Return list of customers (non-supplier clients) for the purchase form dropdown."""
     cdb = get_cdb()
@@ -5902,6 +7206,7 @@ def api_customers_list():
 
 @app.route("/api/stock/items/by-client/<int:client_id>")
 @login_required
+@require_permission("stock", "view")
 def api_stock_items_by_client(client_id):
     """Return stock items that have been previously invoiced to a specific client.
     If no history found, returns ALL stock items."""
@@ -6027,6 +7332,7 @@ def _get_available_dockets(company_id, exclude_estimate_id=None):
 
 @app.route("/api/docket-info/<docket_no>")
 @login_required
+@require_permission("manifest", "view")
 def api_docket_info(docket_no):
     """Return sender/receiver details for a given AWB/docket number."""
     cdb = get_cdb()
@@ -6102,6 +7408,7 @@ def api_docket_info(docket_no):
 
 @app.route("/api/purchase/awb-list")
 @login_required
+@require_permission("purchase", "view")
 def api_purchase_awb_list():
     """All AWB numbers for this company, for the Purchase Bill AWB dropdown."""
     cdb = get_cdb()
@@ -6130,6 +7437,7 @@ def api_purchase_awb_list():
 
 @app.route("/api/purchase/awb-info/<docket_no>")
 @login_required
+@require_permission("purchase", "view")
 def api_purchase_awb_info(docket_no):
     """
     Given an AWB/docket number, return the party (client) name, destination,
@@ -6250,6 +7558,7 @@ def api_purchase_awb_info(docket_no):
 @login_required
 @app.route("/estimate/list")
 @login_required
+@require_permission("estimates", "view")
 def estimate_list():
     cdb = get_cdb()
     company_id    = get_current_company()
@@ -6390,6 +7699,7 @@ def estimate_new():
 
 @app.route("/estimate/new", methods=["GET", "POST"])
 @login_required
+@require_permission("estimates", "view", method_actions={'POST': 'create'})
 def estimate_new():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -6668,12 +7978,14 @@ def estimate_new():
 
 @app.route("/estimate/edit/<estimate_id>")
 @login_required
+@require_permission("estimates", "edit")
 def estimate_edit(estimate_id):
     """Edit a Shipper Invoice"""
     return redirect(url_for("estimate_new", edit=estimate_id))
 
 @app.route("/estimate/view/<estimate_id>")
 @login_required
+@require_permission("estimates", "view")
 def estimate_view(estimate_id):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -6754,6 +8066,7 @@ def estimate_view(estimate_id):
 
 @app.route("/estimate/save", methods=["POST"])
 @login_required
+@require_permission("estimates", "create")
 def estimate_save():
     """Save a Shipper Invoice"""
     cdb = get_cdb()
@@ -6908,6 +8221,7 @@ def estimate_save():
 # ── Manifest List ─────────────────────────────────────────────────────────────
 @app.route('/manifest/list')
 @login_required
+@require_permission("manifest", "view")
 def manifest_list():
     company_id = get_current_company()
     if not company_id:
@@ -7009,6 +8323,7 @@ def manifest_list():
 # ── Manifest Create Form ───────────────────────────────────────────────────────
 @app.route('/manifest/create')
 @login_required
+@require_permission("manifest", "view")
 def manifest_create():
     company_id = get_current_company()
     if not company_id:
@@ -7035,6 +8350,7 @@ def manifest_create():
 
 @app.route('/manifest/shipper-dockets/<int:client_id>')
 @login_required
+@require_permission("manifest", "view")
 def shipper_last_dockets(client_id):
     company_id = get_current_company()
     if not company_id:
@@ -7154,6 +8470,7 @@ def shipper_last_dockets(client_id):
     
 @app.route('/manifest/invoice-packages/<int:client_id>/<docket_no>')
 @login_required
+@require_permission("manifest", "view")
 def invoice_packages(client_id, docket_no):
     company_id = get_current_company()
     if not company_id:
@@ -7194,6 +8511,7 @@ EXPENSE_CATEGORIES = [
 
 @app.route("/expenses")
 @login_required
+@require_permission("expenses", "view")
 def expenses():
     company_id = get_current_company()
     if not company_id:
@@ -7244,6 +8562,7 @@ def expenses():
 
 @app.route("/expenses/add", methods=["GET", "POST"])
 @login_required
+@require_permission("expenses", "view", method_actions={'POST': 'create'})
 def add_expense():
     company_id = get_current_company()
     if not company_id:
@@ -7277,6 +8596,7 @@ def add_expense():
 
 @app.route("/expenses/delete/<int:expense_id>", methods=["POST"])
 @login_required
+@owner_required
 def delete_expense(expense_id):
     company_id = get_current_company()
     if not company_id:
@@ -7294,6 +8614,7 @@ def delete_expense(expense_id):
 
 @app.route("/api/expenses-summary")
 @login_required
+@require_permission("expenses", "view")
 def api_expenses_summary():
     company_id = get_current_company()
     if not company_id:
@@ -7330,6 +8651,7 @@ def api_expenses_summary():
 # ── Manifest Save (POST) ───────────────────────────────────────────────────────
 @app.route('/manifest/save', methods=['POST'])
 @login_required
+@require_permission("manifest", "create")
 def manifest_save():
     company_id = get_current_company()
     if not company_id:
@@ -7421,6 +8743,15 @@ def manifest_save():
         cdb.add(entry)
 
     cdb.commit()
+
+    # Notify the shipper (sender) that their AWB/docket numbers are booked —
+    # fire-and-forget, same pattern as the invoice notification.
+    try:
+        from tasks import send_manifest_notification_async
+        send_manifest_notification_async(company_id=company_id, manifest_db_id=manifest.id)
+    except Exception as e:
+        print(f"[whatsapp] could not queue manifest notification for {manifest_id}: {e}")
+
     flash(f'Manifest {manifest_id} saved.', 'success')
     return redirect(url_for('manifest_list'))
 
@@ -7428,6 +8759,7 @@ def manifest_save():
 # ── Manifest View ──────────────────────────────────────────────────────────────
 @app.route('/manifest/view/<int:manifest_db_id>')
 @login_required
+@require_permission("manifest", "view")
 def manifest_view(manifest_db_id):
     company_id = get_current_company()
     if not company_id:
@@ -7447,6 +8779,7 @@ def manifest_view(manifest_db_id):
 # ── Manifest Edit Form ─────────────────────────────────────────────────────────
 @app.route('/manifest/edit/<int:manifest_db_id>')
 @login_required
+@require_permission("manifest", "edit")
 def manifest_edit(manifest_db_id):
     company_id = get_current_company()
     if not company_id:
@@ -7477,6 +8810,7 @@ def manifest_edit(manifest_db_id):
 # ── Manifest Update (POST) ─────────────────────────────────────────────────────
 @app.route('/manifest/update/<int:manifest_db_id>', methods=['POST'])
 @login_required
+@require_permission("manifest", "edit")
 def manifest_update(manifest_db_id):
     company_id = get_current_company()
     if not company_id:
@@ -7547,6 +8881,7 @@ def manifest_update(manifest_db_id):
 # ── Manifest Delete ────────────────────────────────────────────────────────────
 @app.route('/manifest/delete/<int:manifest_db_id>')
 @login_required
+@owner_required
 def manifest_delete(manifest_db_id):
     company_id = get_current_company()
     if not company_id:
@@ -7903,11 +9238,33 @@ def admin_dashboard():
     for c in companies:
         plan_distribution[c.subscription_plan] = plan_distribution.get(c.subscription_plan, 0) + 1
 
+    # Clients registered by super admin who haven't created their company yet
+    all_owners = RegisteredUser.query.filter_by(role="owner").all()
+    pending_clients = [u for u in all_owners if not u.has_company]
+
+    stats["pending_setup"] = len(pending_clients)
+    stats["total_clients"] = len(all_owners)
+
+    # Users tab: every registered user + how many companies they own
+    all_users = RegisteredUser.query.order_by(RegisteredUser.created_at.desc()).all()
+    users_data = []
+    for u in all_users:
+        user_companies = [c for c in companies if c.owner_email == u.email]
+        users_data.append({
+            'user': u,
+            'company_count': len(user_companies),
+            'companies': user_companies
+        })
+
     return render_template("super_admin.html",
                            stats=stats,
                            companies=companies,
+                           pending_clients=pending_clients,
+                           users_data=users_data,
+                           total_users=len(all_users),
                            plans=get_all_plans(),
-                           plan_distribution=plan_distribution)
+                           plan_distribution=plan_distribution,
+                           today=date.today())
 
 
 @app.route("/admin/companies")
@@ -7939,8 +9296,28 @@ def admin_update_company_plan(company_id):
         company.subscription_plan     = plan.id
         company.max_companies_allowed = plan.max_companies
         company.max_users_per_company = plan.max_users
-        cdb.commit()
+        db.session.commit()
         flash(f"Company plan updated to {plan.name}")
+    return redirect(url_for("admin_company_detail", company_id=company_id))
+
+
+@app.route("/admin/company/<company_id>/renew", methods=["POST"])
+@login_required
+@super_admin_required
+def admin_renew_company(company_id):
+    company = get_company_by_id(company_id)
+    if not company:
+        flash("Company not found")
+        return redirect(url_for("super_admin_dashboard"))
+
+    # Renew from today, or from the current expiry if it's still in the future
+    # (renewing early shouldn't cost the company days they already paid for).
+    start_from = company.subscription_end if (company.subscription_end and company.subscription_end > date.today()) else date.today()
+    company.subscription_start = company.subscription_start or date.today()
+    company.subscription_end = start_from + timedelta(days=365)
+    company.is_active = True
+    db.session.commit()
+    flash(f"{company.company_name} renewed until {company.subscription_end.strftime('%d %b %Y')}")
     return redirect(url_for("admin_company_detail", company_id=company_id))
 
 
@@ -7951,10 +9328,272 @@ def admin_toggle_company_status(company_id):
     company = get_company_by_id(company_id)
     if company:
         company.is_active = not company.is_active
-        cdb.commit()
+        db.session.commit()
         status = "activated" if company.is_active else "suspended"
         flash(f"Company {status}")
     return redirect(url_for("admin_company_detail", company_id=company_id))
+
+
+@app.route("/admin/company/<company_id>/edit", methods=["POST"])
+@login_required
+@super_admin_required
+def admin_edit_company(company_id):
+    company = get_company_by_id(company_id)
+    if not company:
+        return jsonify({"error": "Company not found"}), 404
+    
+    try:
+        new_name = request.form.get("company_name", company.company_name).strip()
+        new_gst = request.form.get("gst_number", company.gst_number).strip().upper()
+        
+        # Check if another active company has this name (same owner)
+        if new_name != company.company_name:
+            existing = Company.query.filter(
+                func.lower(Company.company_name) == func.lower(new_name),
+                Company.owner_email == company.owner_email,
+                Company.is_active == True,
+                Company.company_id != company_id
+            ).first()
+            if existing:
+                return jsonify({"error": f"Company name '{new_name}' is already taken by another active company."}), 400
+        
+        # ── Check if another active company has this GST number ──
+        if new_gst and new_gst != company.gst_number:
+            existing_gst = Company.query.filter(
+                func.lower(Company.gst_number) == func.lower(new_gst),
+                Company.is_active == True,
+                Company.company_id != company_id
+            ).first()
+            if existing_gst:
+                return jsonify({"error": f"GST number '{new_gst}' is already registered to another active company."}), 400
+        
+        company.company_name = new_name
+        company.phone = request.form.get("phone", company.phone)
+        company.address = request.form.get("address", company.address)
+        company.gst_number = new_gst
+
+        # Max users / max companies are only hand-editable for companies on the
+        # "custom" plan — every other plan's limits come from admin_update_company_plan()
+        # and get overwritten there, so letting them drift here would just cause
+        # the table value and the plan value to silently disagree.
+        if company.subscription_plan == "custom":
+            max_users = request.form.get("max_users_per_company", "").strip()
+            if max_users:
+                if not max_users.isdigit():
+                    return jsonify({"error": "Max users must be a whole number."}), 400
+                company.max_users_per_company = max_users
+
+            max_companies = request.form.get("max_companies_allowed", "").strip()
+            if max_companies:
+                if not max_companies.isdigit():
+                    return jsonify({"error": "Max companies must be a whole number."}), 400
+                company.max_companies_allowed = max_companies
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
+    return jsonify({"success": True})
+
+@app.route("/admin/user/<user_id>/delete", methods=["POST"])
+@login_required
+@super_admin_required
+def admin_delete_user(user_id):
+    """
+    Delete a registered user (owner account) from the platform.
+    This removes the user and ALL their companies.
+    WARNING: This is permanent and cannot be undone.
+    """
+    user = RegisteredUser.query.filter_by(user_id=user_id).first()
+    if not user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Prevent super admin from deleting themselves
+    current_user = get_current_user()
+    if user.email == current_user.get("email"):
+        return jsonify({"error": "You cannot delete your own account"}), 400
+    
+    try:
+        from platform_models import CompanyWhatsAppConfig, BackupRecord, BackupSchedule
+        
+        # Get all companies owned by this user
+        companies = Company.query.filter_by(owner_email=user.email).all()
+        company_names = [c.company_name for c in companies]
+        
+        # Delete each company's related data
+        for company in companies:
+            # Delete WhatsApp configs
+            CompanyWhatsAppConfig.query.filter_by(company_id=company.company_id).delete()
+            # Delete backup records
+            BackupRecord.query.filter_by(company_id=company.company_id).delete()
+            # Delete backup schedules
+            BackupSchedule.query.filter_by(company_id=company.company_id).delete()
+            # Delete the company
+            db.session.delete(company)
+        
+        # Delete the user
+        db.session.delete(user)
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": f"User '{user.full_name}' and their {len(companies)} company(ies) have been deleted.",
+            "deleted_companies": company_names
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/admin/users")
+@login_required
+@super_admin_required
+def admin_users():
+    """Users are now a tab inside /admin/dashboard (usersTab) rather than a
+    standalone page — kept as a redirect so any old links/bookmarks still work."""
+    return redirect(url_for('admin_dashboard'))
+
+@app.route("/admin/company/<company_id>/delete", methods=["POST"])
+@login_required
+@super_admin_required
+def admin_delete_company(company_id):
+    """
+    Delete a company at the platform level. Removes the Company row and its
+    platform-side dependents (WhatsApp config, backup records/schedules).
+    Does NOT drop the company's own customer database — left in place so it
+    can be recovered or archived manually if needed.
+    """
+    company = get_company_by_id(company_id)
+    if not company:
+        return jsonify({"error": "Company not found"}), 404
+
+    try:
+        from platform_models import BackupRecord, BackupSchedule, CompanyWhatsAppConfig
+
+        CompanyWhatsAppConfig.query.filter_by(company_id=company_id).delete()
+        BackupRecord.query.filter_by(company_id=company_id).delete()
+        BackupSchedule.query.filter_by(company_id=company_id).delete()
+
+        db.session.delete(company)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify({"success": True})
+
+
+@app.route("/admin/register-client", methods=["GET", "POST"])
+@login_required
+@super_admin_required
+def register_client():
+    """
+    Super admin creates a client account directly: full name, address, phone,
+    email/login, password, plan, and payment status. No Company is created
+    here — the client sets that up themselves on first login
+    (see onboard_company).
+    """
+    if request.method == "POST":
+        full_name = request.form.get("full_name", "").strip()
+        address   = request.form.get("address", "").strip()
+        phone     = request.form.get("phone", "").strip()
+        email     = request.form.get("email", "").strip().lower()
+        password  = request.form.get("password", "")
+        plan_key  = request.form.get("subscription_plan", "starter")
+
+        payment_status = request.form.get("payment_status", "pending")
+        amount_total   = request.form.get("amount_total", "").strip()
+        amount_paid    = request.form.get("amount_paid", "0").strip()
+
+        if not full_name or not email or not password:
+            flash("Full name, email and password are required", "error")
+            return redirect(url_for("register_client"))
+
+        if RegisteredUser.query.filter_by(email=email).first():
+            flash("An account with this email already exists", "error")
+            return redirect(url_for("register_client"))
+
+        if len(password) < 8:
+            flash("Password must be at least 8 characters", "error")
+            return redirect(url_for("register_client"))
+
+        plan_obj = SubscriptionPlan.query.get(plan_key) or SubscriptionPlan.query.order_by(SubscriptionPlan.id).first()
+        if not plan_obj:
+            flash("No subscription plans are configured. Add a plan before registering clients.", "error")
+            return redirect(url_for("register_client"))
+
+        try:
+            amount_total_val = float(amount_total) if amount_total else None
+        except ValueError:
+            amount_total_val = None
+        try:
+            amount_paid_val = float(amount_paid) if amount_paid else 0.0
+        except ValueError:
+            amount_paid_val = 0.0
+
+        # Keep status consistent with the amounts actually entered
+        if amount_total_val and amount_paid_val >= amount_total_val:
+            payment_status = "paid"
+        elif amount_paid_val > 0:
+            payment_status = "partial"
+        else:
+            payment_status = "pending"
+
+        user_id = generate_next_user_id()
+
+        # ── NEW: Handle custom plan fields ──────────────────────────────────
+        custom_max_companies = None
+        custom_max_users = None
+        
+        if plan_key == "custom":
+            custom_max_companies = request.form.get("custom_max_companies", "").strip()
+            custom_max_users = request.form.get("custom_max_users", "").strip()
+            
+            # Validate custom fields
+            if not custom_max_companies or not custom_max_users:
+                flash("Please enter custom Max Companies and Max Users for the Custom plan.", "error")
+                return redirect(url_for("register_client"))
+            
+            try:
+                custom_max_companies = int(custom_max_companies)
+                custom_max_users = int(custom_max_users)
+                if custom_max_companies < 1 or custom_max_users < 1:
+                    flash("Max Companies and Max Users must be at least 1.", "error")
+                    return redirect(url_for("register_client"))
+            except ValueError:
+                flash("Max Companies and Max Users must be valid numbers.", "error")
+                return redirect(url_for("register_client"))
+
+        new_user = RegisteredUser(
+            user_id=user_id,
+            email=email,
+            password_hash=hash_password(password),
+            full_name=full_name,
+            phone=phone,
+            address=address,
+            role="owner",
+            subscription_plan=plan_obj.id,
+            created_at=date.today(),
+            is_active=True,
+            payment_status=payment_status,
+            amount_total=amount_total_val,
+            amount_paid=amount_paid_val,
+            registered_by=get_current_user().get("email"),
+            registered_at=datetime.utcnow(),
+            custom_max_companies=custom_max_companies,
+            custom_max_users=custom_max_users,
+        )
+        db.session.add(new_user)
+        db.session.commit()
+
+        flash(
+            f"Client '{full_name}' registered. They can log in with {email} — "
+            f"they'll be asked to set up their company profile on first login.",
+            "success"
+        )
+        return redirect(url_for("admin_dashboard"))
+
+    return render_template("register_client.html", plans=get_all_plans())
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -8020,6 +9659,7 @@ def employee_toggle(user_id):
 # ─────────────────────────────────────────────────────────────────────────────
 @app.route("/api/product/<code>")
 @login_required
+@require_permission("stock", "view")
 def api_product_lookup(code):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -8043,6 +9683,7 @@ def api_product_lookup(code):
 
 @app.route("/api/products/search")
 @login_required
+@require_permission("stock", "view")
 def api_products_search():
     cdb = get_cdb()
     company_id = get_current_company()
@@ -8069,6 +9710,7 @@ def api_products_search():
 
 @app.route("/cash-in-hand")
 @login_required
+@require_permission("cash", "view")
 def cash_in_hand():
     """Cash in hand tracking"""
     cdb = get_cdb()
@@ -8151,6 +9793,7 @@ def cash_in_hand():
 
 @app.route("/api/cash-transaction/save", methods=["POST"])
 @login_required
+@require_permission("cash", "create")
 def save_cash_transaction():
     """Save a cash transaction"""
     company_id = get_current_company()
@@ -8179,6 +9822,7 @@ def save_cash_transaction():
 
 @app.route("/api/cash-transaction/delete/<int:txn_id>", methods=["DELETE"])
 @login_required
+@owner_required
 def delete_cash_transaction(txn_id):
     """Delete a cash transaction"""
     cdb = get_cdb()
@@ -8202,6 +9846,7 @@ def delete_cash_transaction(txn_id):
 
 @app.route("/bank-accounts")
 @login_required
+@require_permission("bank", "view")
 def bank_accounts():
     """Bank Accounts management page"""
     cdb = get_cdb()
@@ -8219,6 +9864,7 @@ def bank_accounts():
 
 @app.route("/bank-accounts/add", methods=["POST"])
 @login_required
+@require_permission("bank", "create")
 def add_bank_account():
     """Add a new bank account"""
     cdb = get_cdb()
@@ -8278,6 +9924,7 @@ def add_bank_account():
 
 @app.route("/bank-accounts/<int:account_id>/transactions")
 @login_required
+@require_permission("bank", "view")
 def bank_transactions(account_id):
     """View transactions for a specific bank account"""
     cdb = get_cdb()
@@ -8330,6 +9977,7 @@ def bank_transactions(account_id):
 
 @app.route("/bank-accounts/<int:account_id>/add-transaction", methods=["POST"])
 @login_required
+@require_permission("bank", "create")
 def add_bank_transaction(account_id):
     """Add a transaction to a bank account"""
     cdb = get_cdb()
@@ -8378,6 +10026,7 @@ def add_bank_transaction(account_id):
 
 @app.route("/bank-accounts/<int:account_id>/delete", methods=["GET", "POST"])
 @login_required
+@owner_required
 def delete_bank_account(account_id):
     """Delete a bank account (soft delete by setting status to Inactive)"""
     cdb = get_cdb()
@@ -8394,6 +10043,7 @@ def delete_bank_account(account_id):
 
 @app.route("/bank-accounts/<int:account_id>/transfer", methods=["POST"])
 @login_required
+@require_permission("bank", "edit")
 def bank_transfer(account_id):
     """Transfer money between bank accounts"""
     cdb = get_cdb()
@@ -8463,10 +10113,215 @@ def bank_transfer(account_id):
 
 @app.route("/cheques")
 @login_required
+@require_permission("cheques", "view")
 def cheques():
-    """Cheque management"""
+    """Cheque register — record and track cheques received/paid"""
+    cdb        = get_cdb()
     company_id = get_current_company()
-    return render_template("cheques.html", active='cheques')
+
+    all_clients   = cdb.query(Client).filter_by(company_id=company_id).order_by(Client.name).all()
+    all_suppliers = cdb.query(Supplier).filter_by(company_id=company_id).order_by(Supplier.name).all()
+    bank_accounts = cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').all()
+
+    direction   = request.args.get("direction", "")     # '', 'received', 'paid'
+    status      = request.args.get("status", "")        # '', 'Pending', 'Cleared', 'Bounced', 'Cancelled'
+    date_from_s = request.args.get("date_from", "")
+    date_to_s   = request.args.get("date_to", "")
+    date_from   = date.fromisoformat(date_from_s) if date_from_s else None
+    date_to     = date.fromisoformat(date_to_s) if date_to_s else None
+
+    q = cdb.query(Cheque).filter_by(company_id=company_id)
+    if direction:
+        q = q.filter(Cheque.direction == direction)
+    if status:
+        q = q.filter(Cheque.status == status)
+    if date_from:
+        q = q.filter(Cheque.cheque_date >= date_from)
+    if date_to:
+        q = q.filter(Cheque.cheque_date <= date_to)
+    cheque_rows = q.order_by(Cheque.cheque_date.desc(), Cheque.id.desc()).all()
+
+    cheque_list = [{
+        "id":           c.id,
+        "direction":    c.direction,
+        "party_name":   c.party_name,
+        "cheque_no":    c.cheque_no,
+        "cheque_date":  c.cheque_date.strftime("%d %b %Y") if c.cheque_date else "",
+        "bank_name":    c.bank_name or "—",
+        "amount":       c.amount,
+        "narration":    c.narration or "",
+        "status":       c.status,
+        "cleared_date": c.cleared_date.strftime("%d %b %Y") if c.cleared_date else "",
+    } for c in cheque_rows]
+
+    pending_received = sum(c.amount for c in cheque_rows if c.direction == "received" and c.status == "Pending")
+    pending_paid     = sum(c.amount for c in cheque_rows if c.direction == "paid" and c.status == "Pending")
+    cleared_received = sum(c.amount for c in cheque_rows if c.direction == "received" and c.status == "Cleared")
+    cleared_paid     = sum(c.amount for c in cheque_rows if c.direction == "paid" and c.status == "Cleared")
+    bounced_count    = sum(1 for c in cheque_rows if c.status == "Bounced")
+
+    return render_template(
+        "cheques.html",
+        active='cheques',
+        clients=all_clients,
+        suppliers=all_suppliers,
+        bank_accounts=bank_accounts,
+        cheques=cheque_list,
+        direction=direction,
+        status=status,
+        date_from=date_from_s,
+        date_to=date_to_s,
+        pending_received=pending_received,
+        pending_paid=pending_paid,
+        cleared_received=cleared_received,
+        cleared_paid=cleared_paid,
+        bounced_count=bounced_count,
+        today=str(date.today()),
+    )
+
+
+@app.route("/cheques/save", methods=["POST"])
+@login_required
+@require_permission("cheques", "create")
+def cheque_save():
+    """Record a new cheque (received or paid) — starts life as Pending"""
+    cdb        = get_cdb()
+    company_id = get_current_company()
+
+    direction   = request.form.get("direction", "received")
+    party_type  = request.form.get("party_type", "")
+    party_id    = request.form.get("party_id", type=int)
+    party_name  = request.form.get("party_name", "").strip()
+    cheque_no   = request.form.get("cheque_no", "").strip()
+    cheque_date_s = request.form.get("cheque_date")
+    bank_name   = request.form.get("bank_name", "").strip()
+    bank_account_id = request.form.get("bank_account_id", type=int)
+    amount      = request.form.get("amount", type=float, default=0)
+    narration   = request.form.get("narration", "")
+
+    if not party_name or not cheque_no or amount <= 0 or not cheque_date_s:
+        flash("Please fill in party, cheque number, date, and a valid amount.", "error")
+        return redirect(url_for("cheques"))
+
+    cheque = Cheque(
+        company_id=company_id,
+        direction=direction,
+        party_type=party_type or None,
+        party_id=party_id,
+        party_name=party_name,
+        cheque_no=cheque_no,
+        cheque_date=date.fromisoformat(cheque_date_s),
+        bank_name=bank_name or None,
+        bank_account_id=bank_account_id,
+        amount=amount,
+        narration=narration,
+        status="Pending",
+        created_by=get_current_user().get('email'),
+    )
+    cdb.add(cheque)
+    cdb.commit()
+
+    flash(f"Cheque {cheque_no} ({'received from' if direction == 'received' else 'issued to'} {party_name}) recorded as Pending.", "success")
+    return redirect(url_for("cheques"))
+
+
+@app.route("/cheques/<int:cheque_id>/clear", methods=["POST"])
+@login_required
+@require_permission("cheques", "edit")
+def cheque_clear(cheque_id):
+    """Mark a cheque as Cleared — this is what actually moves the bank balance"""
+    cdb        = get_cdb()
+    company_id = get_current_company()
+
+    cheque = cdb.query(Cheque).filter_by(id=cheque_id, company_id=company_id).first()
+    if not cheque:
+        flash("Cheque not found.", "error")
+        return redirect(url_for("cheques"))
+    if cheque.status != "Pending":
+        flash(f"Only pending cheques can be cleared (this one is {cheque.status}).", "error")
+        return redirect(url_for("cheques"))
+    if not cheque.bank_account_id:
+        flash("Select a bank account for this cheque before clearing it.", "error")
+        return redirect(url_for("cheques"))
+
+    bank_account = cdb.query(BankAccount).filter_by(
+        id=cheque.bank_account_id, company_id=company_id, status='Active'
+    ).first()
+    if not bank_account:
+        flash("Linked bank account not found or inactive.", "error")
+        return redirect(url_for("cheques"))
+
+    cleared_date_s = request.form.get("cleared_date")
+    cleared_date   = date.fromisoformat(cleared_date_s) if cleared_date_s else date.today()
+
+    is_received = cheque.direction == "received"
+    bank_txn = BankTransaction(
+        bank_account_id=bank_account.id,
+        company_id=company_id,
+        type="credit" if is_received else "debit",
+        date=cleared_date,
+        description=f"Cheque {'received from' if is_received else 'paid to'} {cheque.party_name}",
+        amount=cheque.amount,
+        reference=cheque.cheque_no,
+        transaction_mode="Cheque",
+        notes=cheque.narration,
+        created_by=get_current_user().get('email'),
+    )
+    cdb.add(bank_txn)
+    bank_account.balance += cheque.amount if is_received else -cheque.amount
+
+    cheque.status       = "Cleared"
+    cheque.cleared_date = cleared_date
+    cdb.flush()
+    cheque.bank_txn_id  = bank_txn.id
+    cdb.commit()
+
+    flash(f"Cheque {cheque.cheque_no} cleared — ₹{cheque.amount:,.2f} {'credited to' if is_received else 'debited from'} {bank_account.bank_name}.", "success")
+    return redirect(url_for("cheques"))
+
+
+@app.route("/cheques/<int:cheque_id>/bounce", methods=["POST"])
+@login_required
+@require_permission("cheques", "edit")
+def cheque_bounce(cheque_id):
+    """Mark a pending cheque as Bounced"""
+    cdb        = get_cdb()
+    company_id = get_current_company()
+
+    cheque = cdb.query(Cheque).filter_by(id=cheque_id, company_id=company_id).first()
+    if not cheque:
+        flash("Cheque not found.", "error")
+        return redirect(url_for("cheques"))
+    if cheque.status != "Pending":
+        flash(f"Only pending cheques can be marked as bounced (this one is {cheque.status}).", "error")
+        return redirect(url_for("cheques"))
+
+    cheque.status = "Bounced"
+    cdb.commit()
+    flash(f"Cheque {cheque.cheque_no} marked as Bounced.", "success")
+    return redirect(url_for("cheques"))
+
+
+@app.route("/cheques/<int:cheque_id>/cancel", methods=["POST"])
+@login_required
+@require_permission("cheques", "edit")
+def cheque_cancel(cheque_id):
+    """Cancel a pending cheque (e.g. entered by mistake)"""
+    cdb        = get_cdb()
+    company_id = get_current_company()
+
+    cheque = cdb.query(Cheque).filter_by(id=cheque_id, company_id=company_id).first()
+    if not cheque:
+        flash("Cheque not found.", "error")
+        return redirect(url_for("cheques"))
+    if cheque.status != "Pending":
+        flash(f"Only pending cheques can be cancelled (this one is {cheque.status}).", "error")
+        return redirect(url_for("cheques"))
+
+    cheque.status = "Cancelled"
+    cdb.commit()
+    flash(f"Cheque {cheque.cheque_no} cancelled.", "success")
+    return redirect(url_for("cheques"))
 
 # ============================================
 # LOAN ACCOUNTS ROUTES
@@ -8474,6 +10329,7 @@ def cheques():
 
 @app.route("/loan-accounts")
 @login_required
+@require_permission("loans", "view")
 def loan_accounts():
     """Loan accounts management"""
     cdb = get_cdb()
@@ -8538,6 +10394,7 @@ def loan_accounts():
 
 @app.route("/api/loan/save", methods=["POST"])
 @login_required
+@require_permission("loans", "create")
 def save_loan():
     """Save a new loan"""
     company_id = get_current_company()
@@ -8569,6 +10426,7 @@ def save_loan():
 
 @app.route("/api/loan/repayment/save", methods=["POST"])
 @login_required
+@require_permission("loans", "create")
 def save_loan_repayment():
     """Save a loan repayment"""
     cdb = get_cdb()
@@ -8609,6 +10467,7 @@ def save_loan_repayment():
 
 @app.route("/ledger")
 @login_required
+@require_permission("analytics", "view")
 def ledger():
     """General Ledger - shows all transactions with filters"""
     cdb = get_cdb()
@@ -8618,25 +10477,28 @@ def ledger():
     from_date_str = request.args.get('from_date', '')
     to_date_str = request.args.get('to_date', '')
     account_type = request.args.get('account_type', 'all')
-    
-    # Set default dates (last 30 days)
-    if not from_date_str:
-        from_date = date.today() - timedelta(days=30)
-    else:
-        from_date = date.fromisoformat(from_date_str)
-    
-    if not to_date_str:
-        to_date = date.today()
-    else:
-        to_date = date.fromisoformat(to_date_str)
-    
+
+    # A filter is only "applied" if the user actually submitted one.
+    # Bare page load / no query args => full ledger, no date bound.
+    filter_applied = bool(from_date_str or to_date_str or (account_type != 'all'))
+
+    from_date = date.fromisoformat(from_date_str) if from_date_str else None
+    to_date = date.fromisoformat(to_date_str) if to_date_str else None
+
     ledger_entries = []
-    
+
+    def _date_filters(date_col):
+        conds = []
+        if from_date:
+            conds.append(date_col >= from_date)
+        if to_date:
+            conds.append(date_col <= to_date)
+        return conds
+
     # 1. Sales Invoices
     invoices = cdb.query(Invoice).filter(
         Invoice.company_id == company_id,
-        Invoice.date >= from_date,
-        Invoice.date <= to_date
+        *_date_filters(Invoice.date)
     ).order_by(Invoice.date.asc()).all()
     
     for inv in invoices:
@@ -8674,8 +10536,7 @@ def ledger():
     # 2. Purchase Invoices
     purchases = cdb.query(PurchaseInvoice).filter(
         PurchaseInvoice.company_id == company_id,
-        PurchaseInvoice.date >= from_date,
-        PurchaseInvoice.date <= to_date
+        *_date_filters(PurchaseInvoice.date)
     ).order_by(PurchaseInvoice.date.asc()).all()
     
     for pur in purchases:
@@ -8730,6 +10591,7 @@ def ledger():
                          from_date=from_date,
                          to_date=to_date,
                          account_type=account_type,
+                         filter_applied=filter_applied,
                          total_debits=total_debits,
                          total_credits=total_credits,
                          closing_balance=closing_balance,
@@ -8738,6 +10600,7 @@ def ledger():
 
 @app.route("/trial-balance")
 @login_required
+@require_permission("analytics", "view")
 def trial_balance():
     """Trial Balance - shows all account balances"""
     cdb = get_cdb()
@@ -8854,6 +10717,7 @@ def trial_balance():
 
 @app.route("/api/reports/sales-data")
 @login_required
+@require_permission("analytics", "view")
 def api_sales_report_data():
     """API endpoint for sales report data"""
     cdb = get_cdb()
@@ -8974,6 +10838,7 @@ def api_sales_report_data():
 
 @app.route("/api/reports/purchase-data")
 @login_required
+@require_permission("analytics", "view")
 def api_purchase_report_data():
     """API endpoint for purchase report data"""
     cdb = get_cdb()
@@ -9081,6 +10946,7 @@ def api_purchase_report_data():
 
 @app.route("/api/reports/stock-data")
 @login_required
+@require_permission("analytics", "view")
 def api_stock_report_data():
     """API endpoint for stock report data - reads directly from StockItem table"""
     cdb = get_cdb()
@@ -9164,6 +11030,7 @@ def api_stock_report_data():
 
 @app.route("/api/reports/tax-data")
 @login_required
+@require_permission("analytics", "view")
 def api_tax_report_data():
     cdb = get_cdb()
     if not cdb:
@@ -9245,6 +11112,7 @@ def api_tax_report_data():
 
 @app.route("/api/reports/financial-data")
 @login_required
+@require_permission("analytics", "view")
 def api_financial_report_data():
     """API endpoint for financial report data"""
     cdb = get_cdb()
@@ -9431,6 +11299,7 @@ def api_financial_report_data():
 
 @app.route("/reports/profit-loss")
 @login_required
+@require_permission("analytics", "view")
 def profit_loss():
     """Profit & Loss Statement"""
     cdb = get_cdb()
@@ -9662,15 +11531,41 @@ def profile():
 def company_settings():
     company_id = get_current_company()
     company = get_company_by_id(company_id)
-    
-    # Use customer database session to query CompanyUser
+    owner_email = get_current_user().get("email", "").strip().lower()
+
+    # Use customer database session to query CompanyUser (this company only, for the users table)
     cdb = get_cdb()
     if not cdb:
         flash("Could not connect to company database")
         return redirect(url_for("dashboard"))
-    
+
     users = cdb.query(CompanyUser).filter_by(company_id=company_id).all()
-    
+
+    # All companies this owner has, for the "grant access to" checkbox list
+    owner_companies = get_owner_companies(owner_email)
+
+    # Owner-wide seat usage (across ALL of the owner's companies, not just this one)
+    owner_user_count, owner_max_users, owner_user_emails = get_owner_user_stats(owner_email)
+
+    # For each distinct user email under this owner, which companies + role do they have?
+    # { email: {"full_name":..., "companies": [{"company_id":, "company_name":, "role":}, ...]} }
+    user_access_map = {}
+    for c in owner_companies:
+        try:
+            _cdb = get_customer_session(c.company_id)
+            for u in _cdb.query(CompanyUser).filter_by(is_active=True).all():
+                key = (u.email or "").strip().lower()
+                if not key:
+                    continue
+                entry = user_access_map.setdefault(key, {"full_name": u.full_name, "companies": []})
+                entry["companies"].append({
+                    "company_id": c.company_id,
+                    "company_name": c.company_name,
+                    "role": u.role,
+                })
+        except Exception as e:
+            print(f"⚠  Could not read users for {c.company_id}: {e}")
+
     # Fix: Convert plans to a dictionary with proper structure
     plans = {}
     for p in SubscriptionPlan.query.all():
@@ -9681,13 +11576,239 @@ def company_settings():
             "max_users":     p.max_users,
             "features":      p.features.split(",") if p.features else [],
         }
-    
+
     current_plan = plans.get(company.subscription_plan) if company else None
+
+    # ── Permission matrix data for the "Access" tab ──────────────────────────
+    role_permissions = {
+        role: perms_module.get_effective_permissions(
+            role, company_id, None, cdb, CompanyRolePermission, CompanyUser
+        )
+        for role in ("employee", "accountant", "manager")
+    }
+    # Per-user overrides: only non-owner users get a row here
+    user_permissions = {}
+    for u in users:
+        if u.role in ("owner", "super_admin"):
+            continue
+        user_permissions[u.user_id] = perms_module.get_effective_permissions(
+            u.role, company_id, u.user_id, cdb, CompanyRolePermission, CompanyUser
+        )
+
     return render_template("company_settings.html",
                            company=company,
                            users=users,
                            plans=plans,
-                           current_plan=current_plan)
+                           current_plan=current_plan,
+                           owner_companies=owner_companies,
+                           owner_user_count=owner_user_count,
+                           owner_max_users=owner_max_users,
+                           user_access_map=user_access_map,
+                           allowed_roles=ALLOWED_COMPANY_ROLES,
+                           perm_modules=perms_module.MODULES,
+                           perm_actions=perms_module.ACTIONS,
+                           perm_labels=perms_module.MODULE_LABELS,
+                           role_permissions=role_permissions,
+                           user_permissions=user_permissions)
+
+
+def _read_permission_matrix_from_form():
+    matrix = {}
+    for module in perms_module.MODULES:
+        matrix[module] = {
+            action: (request.form.get(f"perm__{module}__{action}") == "on")
+            for action in perms_module.ACTIONS
+        }
+    return matrix
+
+
+@app.route("/company/permissions/role/<role>", methods=["POST"])
+@login_required
+@owner_required
+def save_role_permissions(role):
+    if role not in ("employee", "accountant", "manager"):
+        flash("Invalid role")
+        return redirect(url_for("company_settings"))
+    company_id = get_current_company()
+    cdb = get_customer_session(company_id)
+    row = cdb.query(CompanyRolePermission).filter_by(company_id=company_id, role=role).first()
+    if not row:
+        row = CompanyRolePermission(company_id=company_id, role=role)
+        cdb.add(row)
+    row.permissions_json = json.dumps(_read_permission_matrix_from_form())
+    row.updated_at = datetime.utcnow()
+    cdb.commit()
+    flash(f"{role.title()} access updated")
+    return redirect(url_for("company_settings"))
+
+
+@app.route("/company/permissions/user/<user_id>", methods=["POST"])
+@login_required
+@owner_required
+def save_user_permissions(user_id):
+    company_id = get_current_company()
+    cdb = get_customer_session(company_id)
+    cu = cdb.query(CompanyUser).filter_by(user_id=user_id, company_id=company_id).first()
+    if not cu:
+        flash("User not found")
+        return redirect(url_for("company_settings"))
+    if cu.role in ("owner", "super_admin"):
+        flash("Owner access can't be limited this way")
+        return redirect(url_for("company_settings"))
+    cu.permission_overrides = json.dumps(_read_permission_matrix_from_form())
+    cdb.commit()
+    flash(f"Access updated for {cu.full_name}")
+    return redirect(url_for("company_settings"))
+
+"""@app.route("/settings/whatsapp", methods=["GET", "POST"])
+@login_required
+@owner_required
+def whatsapp_settings():
+    from whatsapp_service import encrypt_secret
+
+    company_id = get_current_company()
+    company = get_company_by_id(company_id)
+    if not company:
+        flash("Company not found")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        raw_key = request.form.get("whatsapp_api_key", "").strip()
+        if raw_key:
+            company.whatsapp_api_key = encrypt_secret(raw_key)
+
+        company.whatsapp_template_generate = request.form.get("whatsapp_template_generate", "").strip() or None
+        company.whatsapp_template_update = request.form.get("whatsapp_template_update", "").strip() or None
+
+        db.session.commit()
+        flash("WhatsApp Connect settings saved.")
+        return redirect(url_for("whatsapp_settings"))
+
+    return render_template(
+        "settings_whatsapp.html",
+        company=company,
+        has_key=bool(company.whatsapp_api_key),
+        active="whatsapp_settings",
+    )"""
+# Add to app.py
+
+@app.route("/settings/whatsapp", methods=["GET", "POST"])
+@login_required
+@owner_required
+def whatsapp_settings():
+    from whatsapp_service import encrypt_secret
+
+    company_id = get_current_company()
+    company = get_company_by_id(company_id)
+    if not company:
+        flash("Company not found")
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        raw_key = request.form.get("whatsapp_api_key", "").strip()
+        provider = request.form.get("whatsapp_provider", "").strip()
+        base_url = request.form.get("whatsapp_base_url", "").strip()
+        
+        # Save API Key (encrypted)
+        if raw_key:
+            company.whatsapp_api_key = encrypt_secret(raw_key)
+            company.whatsapp_enabled = True
+        elif not company.whatsapp_api_key:
+            company.whatsapp_enabled = False
+        
+        # Save provider
+        if provider:
+            company.whatsapp_provider = provider
+        
+        # Save Base URL (NEW!)
+        if base_url:
+            company.whatsapp_base_url = base_url
+        elif not base_url and company.whatsapp_provider == 'mobicomm':
+            # Set default for MobiCOMM
+            company.whatsapp_base_url = 'https://api.dovesoft.io/REST/directApi/message'
+        
+        # Save Business Number
+        business_no = request.form.get("whatsapp_business_no", "").strip()
+        if business_no:
+            company.whatsapp_business_no = business_no
+        
+        # Save Templates
+        company.whatsapp_template_generate = request.form.get("whatsapp_template_generate", "").strip() or None
+        company.whatsapp_template_carrier_update = request.form.get("whatsapp_template_carrier_update", "").strip() or None
+        company.whatsapp_template_delivery = request.form.get("whatsapp_template_delivery", "").strip() or None
+        
+        db.session.commit()
+        flash("WhatsApp Connect settings saved.")
+        return redirect(url_for("whatsapp_settings"))
+
+    return render_template(
+        "settings_whatsapp.html",
+        company=company,
+        has_key=bool(company.whatsapp_api_key),
+        active="whatsapp_settings",
+    )
+
+
+@app.route("/settings/whatsapp/disconnect", methods=["POST"])
+@login_required
+@owner_required
+def whatsapp_disconnect():
+    company_id = get_current_company()
+    company = get_company_by_id(company_id)
+    if company:
+        company.whatsapp_api_key = None
+        company.whatsapp_enabled = False
+        company.whatsapp_provider = None
+        company.whatsapp_base_url = None
+        db.session.commit()
+        flash("WhatsApp disconnected.")
+    return redirect(url_for("whatsapp_settings"))
+
+
+@app.route("/settings/whatsapp/test", methods=["POST"])
+@login_required
+@owner_required
+def whatsapp_test():
+    from whatsapp_service import send_whatsapp_template, decrypt_secret
+    from datetime import datetime
+
+    company_id = get_current_company()
+    company = get_company_by_id(company_id)
+    
+    if not company or not company.whatsapp_enabled:
+        flash("WhatsApp is not configured.")
+        return redirect(url_for("whatsapp_settings"))
+
+    test_phone = request.form.get("test_phone", "").strip()
+    if not test_phone:
+        flash("Please enter a phone number.")
+        return redirect(url_for("whatsapp_settings"))
+
+    # Format phone
+    test_phone = ''.join(filter(str.isdigit, test_phone))
+    if len(test_phone) == 10:
+        test_phone = "91" + test_phone
+
+    # Send test using configured template
+    template_name = company.whatsapp_template_generate or "alhamamd1001"
+    
+    result = send_whatsapp_template(
+        company=company,
+        to_number=test_phone,
+        template_name=template_name,
+        params=[
+            "TEST123",  # docket
+            datetime.now().strftime("%d-%b-%Y"),  # date
+            company.phone or "9876543210",  # phone
+        ]
+    )
+    
+    if result.get('success'):
+        flash(f"✅ Test message sent successfully to {test_phone}!")
+    else:
+        flash(f"❌ Test failed: {result.get('error')}")
+    
+    return redirect(url_for("whatsapp_settings"))
 
 @app.route("/company/update-info", methods=["POST"])
 @login_required
@@ -9699,8 +11820,35 @@ def update_company_info():
         company.company_name = request.form.get("company_name", company.company_name).strip()
         company.address      = request.form.get("address",      company.address)
         company.phone        = request.form.get("phone",        company.phone)
-        company.gst_number   = request.form.get("gst_number",   company.gst_number)
-        cdb.commit()
+
+        # ── Logo upload ──
+        logo_file = request.files.get("logo")
+        if logo_file and logo_file.filename:
+            if allowed_logo_file(logo_file.filename):
+                ext = logo_file.filename.rsplit('.', 1)[1].lower()
+                new_filename = f"{company.company_id}.{ext}"
+                # Remove any old logo with a different extension so stale files don't pile up
+                if getattr(company, 'logo_filename', None) and company.logo_filename != new_filename:
+                    old_path = os.path.join(LOGO_UPLOAD_FOLDER, company.logo_filename)
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+                logo_file.save(os.path.join(LOGO_UPLOAD_FOLDER, new_filename))
+                company.logo_filename = new_filename
+            else:
+                flash("Logo must be a PNG, JPG, or WEBP file.")
+
+        is_gst = request.form.get("is_gst_registered", "1") == "1"
+        company.is_gst_registered = is_gst
+        company.gst_number   = request.form.get("gst_number", "").strip() if is_gst else ""
+
+        awb_prefix = request.form.get("awb_prefix", company.awb_prefix).strip().upper()
+        company.awb_prefix = awb_prefix or company.awb_prefix
+        try:
+            company.awb_start = int(request.form.get("awb_start", company.awb_start))
+        except (ValueError, TypeError):
+            pass
+
+        db.session.commit()
         # Keep session in sync
         if "user" in session:
             session["user"]["company_name"] = company.company_name
@@ -9711,41 +11859,159 @@ def update_company_info():
     return redirect(url_for("company_settings"))
 
 
+@app.route("/company/change-password", methods=["POST"])
+@login_required
+@owner_required
+def change_company_password():
+    current_password = request.form.get("current_password", "")
+    new_password      = request.form.get("new_password", "")
+    confirm_password  = request.form.get("confirm_password", "")
+
+    if new_password != confirm_password:
+        flash("New password and confirmation do not match.", "error")
+        return redirect(url_for("company_settings"))
+    if len(new_password) < 8:
+        flash("New password must be at least 8 characters.", "error")
+        return redirect(url_for("company_settings"))
+
+    email = get_current_user().get("email", "").strip().lower()
+    reg_user = RegisteredUser.query.filter_by(email=email, is_active=True).first()
+
+    if reg_user:
+        if not verify_password(current_password, reg_user.password_hash):
+            flash("Current password is incorrect.", "error")
+            return redirect(url_for("company_settings"))
+        reg_user.password_hash = hash_password(new_password)
+        db.session.commit()
+
+        # Keep the matching CompanyUser record(s) in sync across all of this
+        # owner's companies, since employee login checks CompanyUser.password_hash.
+        for comp in get_owner_companies(email):
+            try:
+                _cdb = get_customer_session(comp.company_id)
+                emp = _cdb.query(CompanyUser).filter_by(email=email).first()
+                if emp:
+                    emp.password_hash = hash_password(new_password)
+                    _cdb.commit()
+            except Exception as e:
+                print(f"⚠  Could not sync password for {comp.company_id}: {e}")
+    else:
+        # Fallback: user only exists as a CompanyUser (shouldn't normally reach
+        # this owner-only page, but handled defensively).
+        cdb = get_cdb()
+        company_id = get_current_company()
+        emp = cdb.query(CompanyUser).filter_by(company_id=company_id, email=email).first()
+        if not emp or not verify_password(current_password, emp.password_hash):
+            flash("Current password is incorrect.", "error")
+            return redirect(url_for("company_settings"))
+        emp.password_hash = hash_password(new_password)
+        cdb.commit()
+
+    flash("Password changed successfully.")
+    return redirect(url_for("company_settings"))
+
+
+ALLOWED_COMPANY_ROLES = ["manager", "employee", "accountant"]  # "owner" is reserved, assigned only at company creation
+
 @app.route("/company/add-user", methods=["POST"])
 @login_required
 @owner_required
 def add_company_user():
-    cdb = get_cdb()
-    company_id = get_current_company()
+    owner_email = get_current_user().get("email", "").strip().lower()
 
-    can_add, message = check_company_limit(company_id, "user")
-    if not can_add:
-        flash(message)
+    email      = request.form.get("email",     "").strip().lower()
+    password   = request.form.get("password",  "")
+    full_name  = request.form.get("full_name", "").strip()
+    department = request.form.get("department","")
+    phone      = request.form.get("phone",     "")
+
+    if not email or not full_name:
+        flash("Email and full name are required.")
         return redirect(url_for("company_settings"))
 
-    email     = request.form.get("email",     "").strip().lower()
-    password  = request.form.get("password",  "")
-    full_name = request.form.get("full_name", "").strip()
-    role      = request.form.get("role",      "employee")
-    department= request.form.get("department","")
-    phone     = request.form.get("phone",     "")
+    # Which of the owner's companies should this user get access to?
+    # Form sends company_ids[] (checkboxes) and role_<company_id> (per-row select)
+    owner_companies = {c.company_id: c for c in get_owner_companies(owner_email)}
+    selected_company_ids = [cid for cid in request.form.getlist("company_ids") if cid in owner_companies]
 
-    if cdb.query(CompanyUser).filter_by(company_id=company_id, email=email).first():
-        flash("A user with this email already exists in your company.")
+    if not selected_company_ids:
+        flash("Select at least one company to grant access to.")
         return redirect(url_for("company_settings"))
 
-    emp_count = cdb.query(CompanyUser).count()
-    emp_id    = f"EMP{emp_count + 1:03d}"
-    new_user  = CompanyUser(
-        user_id=emp_id, company_id=company_id,
-        email=email, password_hash=hash_password(password),
-        full_name=full_name, role=role,
-        department=department, phone=phone,
-        is_active=True, created_at=date.today()
-    )
-    cdb.add(new_user)
-    cdb.commit()
-    flash(f"User '{full_name}' added successfully.")
+    # Seat cap is owner-wide: only a brand-new email consumes a seat.
+    # Granting an EXISTING user access to another company doesn't cost a seat.
+    current_count, max_u, existing_emails = get_owner_user_stats(owner_email)
+    is_new_user = email not in existing_emails
+    if is_new_user and max_u != "Unlimited":
+        try:
+            max_u_int = int(max_u)
+            if current_count >= max_u_int:
+                flash(f"Maximum {max_u_int} users allowed across all your companies under your plan. Please upgrade.")
+                return redirect(url_for("company_settings"))
+        except (ValueError, TypeError):
+            pass  # "Unlimited"
+
+    if is_new_user and not password:
+        flash("Password is required to create a new user.")
+        return redirect(url_for("company_settings"))
+
+    pw_hash = hash_password(password) if password else None
+    granted_to = []
+
+    for cid in selected_company_ids:
+        role = request.form.get(f"role_{cid}", "employee")
+        if role not in ALLOWED_COMPANY_ROLES:
+            role = "employee"
+
+        _cdb = get_customer_session(cid)
+        existing = _cdb.query(CompanyUser).filter_by(company_id=cid, email=email).first()
+
+        if existing:
+            # Already has access to this company — update role / reactivate / reset password if given
+            existing.role = role
+            existing.is_active = True
+            existing.full_name = full_name or existing.full_name
+            if pw_hash:
+                existing.password_hash = pw_hash
+            _cdb.commit()
+        else:
+            emp_count = _cdb.query(CompanyUser).count()
+            emp_id = f"EMP{emp_count + 1:03d}"
+            new_user = CompanyUser(
+                user_id=emp_id, company_id=cid,
+                email=email, password_hash=pw_hash,
+                full_name=full_name, role=role,
+                department=department, phone=phone,
+                is_active=True, created_at=date.today()
+            )
+            _cdb.add(new_user)
+            _cdb.commit()
+
+        granted_to.append(owner_companies[cid].company_name)
+
+    flash(f"'{full_name}' now has access to: {', '.join(granted_to)}.")
+    return redirect(url_for("company_settings"))
+
+
+@app.route("/company/revoke-user/<email>/<company_id>")
+@login_required
+@owner_required
+def revoke_company_user(email, company_id):
+    """Remove a user's access to ONE specific company (not all of their companies)."""
+    owner_email = get_current_user().get("email", "").strip().lower()
+    owner_companies = {c.company_id: c for c in get_owner_companies(owner_email)}
+    if company_id not in owner_companies:
+        flash("Invalid company.")
+        return redirect(url_for("company_settings"))
+
+    _cdb = get_customer_session(company_id)
+    user = _cdb.query(CompanyUser).filter_by(company_id=company_id, email=email.strip().lower()).first()
+    if user and user.role != "owner":
+        user.is_active = False
+        _cdb.commit()
+        flash(f"Access to {owner_companies[company_id].company_name} revoked.")
+    else:
+        flash("Cannot revoke this user.")
     return redirect(url_for("company_settings"))
 
 
@@ -9766,6 +12032,109 @@ def remove_company_user(user_id):
     return redirect(url_for("company_settings"))
 
 
+@app.route("/company/delete-user/<email>")
+@login_required
+@owner_required
+def delete_company_user(email):
+    """Remove a person's access to ALL of the owner's companies in one go
+    (a full 'delete this person' action). Soft-delete only — sets
+    is_active=False everywhere, same as revoke_company_user, so we never
+    orphan the invoices/orders/etc. that still reference their user_id.
+    """
+    owner_email = get_current_user().get("email", "").strip().lower()
+    owner_companies = get_owner_companies(owner_email)
+    email = email.strip().lower()
+
+    removed_from = []
+    for c in owner_companies:
+        _cdb = get_customer_session(c.company_id)
+        user = _cdb.query(CompanyUser).filter_by(company_id=c.company_id, email=email).first()
+        if user and user.role != "owner" and user.is_active:
+            user.is_active = False
+            _cdb.commit()
+            removed_from.append(c.company_name)
+
+    if removed_from:
+        flash(f"User removed from: {', '.join(removed_from)}.")
+    else:
+        flash("Cannot remove this user.")
+    return redirect(url_for("company_settings"))
+
+
+@app.route("/company/edit-user-access/<email>", methods=["POST"])
+@login_required
+@owner_required
+def edit_user_access(email):
+    """Update a person's company access + role in one submit: check a
+    company to grant/keep access (with the chosen role), uncheck one to
+    revoke it. Mirrors add_company_user's creation logic for any newly
+    checked company, and revoke_company_user's is_active=False for any
+    unchecked one that currently has access.
+    """
+    owner_email = get_current_user().get("email", "").strip().lower()
+    owner_companies = {c.company_id: c for c in get_owner_companies(owner_email)}
+    email = email.strip().lower()
+
+    selected_company_ids = set(cid for cid in request.form.getlist("company_ids") if cid in owner_companies)
+
+    # Find an existing row for this email to copy password_hash/full_name/etc.
+    # onto any brand-new company rows we create below.
+    template_user = None
+    for cid in owner_companies:
+        _cdb = get_customer_session(cid)
+        u = _cdb.query(CompanyUser).filter_by(company_id=cid, email=email).first()
+        if u:
+            template_user = u
+            break
+    if not template_user:
+        flash("User not found.")
+        return redirect(url_for("company_settings"))
+    if template_user.role == "owner":
+        flash("Owner access can't be edited this way.")
+        return redirect(url_for("company_settings"))
+
+    granted, revoked = [], []
+    for cid, c in owner_companies.items():
+        _cdb = get_customer_session(cid)
+        existing = _cdb.query(CompanyUser).filter_by(company_id=cid, email=email).first()
+
+        if cid in selected_company_ids:
+            role = request.form.get(f"role_{cid}", "employee")
+            if role not in ALLOWED_COMPANY_ROLES:
+                role = "employee"
+            if existing:
+                if existing.role != "owner":
+                    existing.role = role
+                    existing.is_active = True
+                    _cdb.commit()
+            else:
+                emp_count = _cdb.query(CompanyUser).count()
+                emp_id = f"EMP{emp_count + 1:03d}"
+                new_user = CompanyUser(
+                    user_id=emp_id, company_id=cid,
+                    email=email, password_hash=template_user.password_hash,
+                    full_name=template_user.full_name, role=role,
+                    department=template_user.department, phone=template_user.phone,
+                    is_active=True, created_at=date.today()
+                )
+                _cdb.add(new_user)
+                _cdb.commit()
+            granted.append(c.company_name)
+        else:
+            if existing and existing.role != "owner" and existing.is_active:
+                existing.is_active = False
+                _cdb.commit()
+                revoked.append(c.company_name)
+
+    parts = []
+    if granted:
+        parts.append(f"access: {', '.join(granted)}")
+    if revoked:
+        parts.append(f"revoked: {', '.join(revoked)}")
+    flash(f"Updated {template_user.full_name} — " + "; ".join(parts) if parts else "No changes made.")
+    return redirect(url_for("company_settings"))
+
+
 @app.route("/company/upgrade-plan", methods=["POST"])
 @login_required
 @owner_required
@@ -9778,7 +12147,7 @@ def upgrade_plan():
         company.subscription_plan     = new_plan
         company.max_users_per_company = plan.max_users
         company.max_companies_allowed = plan.max_companies
-        cdb.commit()
+        db.session.commit()
         flash(f"Plan upgraded to {plan.name} successfully!")
     else:
         flash("Invalid plan selected.")
@@ -9963,6 +12332,7 @@ def _creditor_summary(company_id):
 
 @app.route("/debtors")
 @login_required
+@require_permission("clients", "view")
 def debtors_list():
     company_id        = get_current_company()
     debtors           = _debtor_summary(company_id)
@@ -9976,6 +12346,7 @@ def debtors_list():
 
 @app.route("/creditors")
 @login_required
+@require_permission("suppliers", "view")
 def creditors_list():
     company_id    = get_current_company()
     creditors     = _creditor_summary(company_id)
@@ -9989,6 +12360,7 @@ def creditors_list():
 
 @app.route("/debtors/<int:client_pk>/statement")
 @login_required
+@require_permission("clients", "view")
 def debtor_statement(client_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -10060,6 +12432,7 @@ def debtor_statement(client_pk):
 
 @app.route("/creditors/<int:supplier_pk>/statement")
 @login_required
+@require_permission("suppliers", "view")
 def creditor_statement(supplier_pk):
     cdb = get_cdb()
     company_id = get_current_company()
@@ -10189,6 +12562,7 @@ def _build_invoices_json(company_id, entities, fetch_fn):
 
 @app.route("/receipts/new")
 @login_required
+@require_permission("receipts_payments", "view")
 def receipt_new():
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -10197,12 +12571,22 @@ def receipt_new():
     selected_id    = request.args.get("client_id", type=int)
     invoices_json  = _build_invoices_json(company_id, all_clients, _outstanding_invoices_for_client)
 
+    # Date-wise filter for history
+    date_from_str = request.args.get("date_from", "")
+    date_to_str   = request.args.get("date_to", "")
+    date_from = date.fromisoformat(date_from_str) if date_from_str else None
+    date_to   = date.fromisoformat(date_to_str) if date_to_str else None
+    has_date_filter = bool(date_from or date_to)
+    hist_limit = 1000 if has_date_filter else 100
+
     # Build receipt history — cash + bank transactions
     history = []
-    cash_receipts = (cdb.query(CashTransaction)
-                     .filter_by(company_id=company_id, category="Receipt")
-                     .order_by(CashTransaction.date.desc())
-                     .limit(100).all())
+    cash_q = cdb.query(CashTransaction).filter_by(company_id=company_id, category="Receipt")
+    if date_from:
+        cash_q = cash_q.filter(CashTransaction.date >= date_from)
+    if date_to:
+        cash_q = cash_q.filter(CashTransaction.date <= date_to)
+    cash_receipts = cash_q.order_by(CashTransaction.date.desc()).limit(hist_limit).all()
     for t in cash_receipts:
         history.append({
             "date":      t.date.strftime("%d %b %Y") if t.date else "",
@@ -10214,11 +12598,14 @@ def receipt_new():
             "notes":     t.notes or "",
         })
 
-    bank_receipts = (cdb.query(BankTransaction)
-                     .filter_by(company_id=company_id, type="credit")
-                     .filter(BankTransaction.description.like("Payment received%"))
-                     .order_by(BankTransaction.date.desc())
-                     .limit(100).all())
+    bank_q = (cdb.query(BankTransaction)
+              .filter_by(company_id=company_id, type="credit")
+              .filter(BankTransaction.description.like("Payment received%")))
+    if date_from:
+        bank_q = bank_q.filter(BankTransaction.date >= date_from)
+    if date_to:
+        bank_q = bank_q.filter(BankTransaction.date <= date_to)
+    bank_receipts = bank_q.order_by(BankTransaction.date.desc()).limit(hist_limit).all()
     for t in bank_receipts:
         bank_name = ""
         if t.bank_account:
@@ -10242,11 +12629,14 @@ def receipt_new():
         selected_id=selected_id,
         today=str(date.today()),
         history=history,
+        date_from=date_from_str,
+        date_to=date_to_str,
     )
 
 
 @app.route("/receipts/save", methods=["POST"])
 @login_required
+@require_permission("receipts_payments", "create")
 def receipt_save():
     cdb         = get_cdb()
     company_id  = get_current_company()
@@ -10354,6 +12744,7 @@ def receipt_save():
 
 @app.route("/payments/new")
 @login_required
+@require_permission("receipts_payments", "view")
 def payment_new():
     cdb        = get_cdb()
     company_id = get_current_company()
@@ -10362,12 +12753,22 @@ def payment_new():
     selected_id    = request.args.get("supplier_id", type=int)
     invoices_json  = _build_invoices_json(company_id, all_suppliers, _outstanding_invoices_for_supplier)
 
+    # Date-wise filter for history
+    date_from_str = request.args.get("date_from", "")
+    date_to_str   = request.args.get("date_to", "")
+    date_from = date.fromisoformat(date_from_str) if date_from_str else None
+    date_to   = date.fromisoformat(date_to_str) if date_to_str else None
+    has_date_filter = bool(date_from or date_to)
+    hist_limit = 1000 if has_date_filter else 100
+
     # Build payment history — cash + bank transactions
     history = []
-    cash_payments = (cdb.query(CashTransaction)
-                     .filter_by(company_id=company_id, category="Payment")
-                     .order_by(CashTransaction.date.desc())
-                     .limit(100).all())
+    cash_q = cdb.query(CashTransaction).filter_by(company_id=company_id, category="Payment")
+    if date_from:
+        cash_q = cash_q.filter(CashTransaction.date >= date_from)
+    if date_to:
+        cash_q = cash_q.filter(CashTransaction.date <= date_to)
+    cash_payments = cash_q.order_by(CashTransaction.date.desc()).limit(hist_limit).all()
     for t in cash_payments:
         history.append({
             "date":      t.date.strftime("%d %b %Y") if t.date else "",
@@ -10379,11 +12780,14 @@ def payment_new():
             "notes":     t.notes or "",
         })
 
-    bank_payments = (cdb.query(BankTransaction)
-                     .filter_by(company_id=company_id, type="debit")
-                     .filter(BankTransaction.description.like("Payment made%"))
-                     .order_by(BankTransaction.date.desc())
-                     .limit(100).all())
+    bank_q = (cdb.query(BankTransaction)
+              .filter_by(company_id=company_id, type="debit")
+              .filter(BankTransaction.description.like("Payment made%")))
+    if date_from:
+        bank_q = bank_q.filter(BankTransaction.date >= date_from)
+    if date_to:
+        bank_q = bank_q.filter(BankTransaction.date <= date_to)
+    bank_payments = bank_q.order_by(BankTransaction.date.desc()).limit(hist_limit).all()
     for t in bank_payments:
         bank_name = ""
         if t.bank_account:
@@ -10407,11 +12811,14 @@ def payment_new():
         selected_id=selected_id,
         today=str(date.today()),
         history=history,
+        date_from=date_from_str,
+        date_to=date_to_str,
     )
 
 
 @app.route("/payments/save", methods=["POST"])
 @login_required
+@require_permission("receipts_payments", "create")
 def payment_save():
     cdb         = get_cdb()
     company_id  = get_current_company()
@@ -10517,6 +12924,7 @@ def payment_save():
 
 @app.route("/backup")
 @login_required
+@require_permission("backup", "view")
 def backup():
     """Backup management page"""
     company_id = get_current_company()
@@ -10550,6 +12958,7 @@ def backup():
 
 @app.route("/backup/create", methods=["POST"])
 @login_required
+@require_permission("backup", "create")
 def create_backup():
     """Create a new backup"""
     company_id = get_current_company()
@@ -10582,6 +12991,7 @@ def create_backup():
 
 @app.route("/backup/restore/<backup_id>", methods=["POST"])
 @login_required
+@require_permission("backup", "edit")
 def restore_backup(backup_id):
     """Restore from a backup"""
     company_id = get_current_company()
@@ -10600,6 +13010,7 @@ def restore_backup(backup_id):
 
 @app.route("/backup/download/<backup_id>")
 @login_required
+@require_permission("backup", "view")
 def download_backup(backup_id):
     """Download backup file"""
     company_id = get_current_company()
@@ -10619,6 +13030,7 @@ def download_backup(backup_id):
 
 @app.route("/backup/delete/<backup_id>", methods=["POST"])
 @login_required
+@owner_required
 def delete_backup_record(backup_id):
     """Delete a backup"""
     company_id = get_current_company()
@@ -10636,6 +13048,7 @@ def delete_backup_record(backup_id):
 
 @app.route("/backup/schedule", methods=["POST"])
 @login_required
+@require_permission("backup", "edit")
 def schedule_backup():
     """Schedule automatic backups"""
     company_id = get_current_company()
@@ -10692,6 +13105,7 @@ def schedule_backup():
 
 @app.route("/backup/upload-to-cloud/<backup_id>", methods=["POST"])
 @login_required
+@require_permission("backup", "edit")
 def upload_backup_to_cloud_route(backup_id):
     """Upload existing backup to cloud"""
     company_id = get_current_company()

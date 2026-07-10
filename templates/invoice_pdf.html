@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @page { margin: 8mm; size: A4; }
+  body { margin:0; padding:0; background:#fff; font-family:Arial,sans-serif; }
+  .f3 { font-family:Arial,sans-serif; font-size:10.5px; border:1.5px solid #111; padding:10px 14px 8px; }
+  table { border-collapse:collapse; width:100%; }
+  td { vertical-align:top; }
+
+  .f3-track-top { text-align:center; font-size:11px; font-weight:800; letter-spacing:1.5px; margin-top:2px; margin-bottom:6px; font-family:'Courier New',monospace; }
+
+  .f3-hdr-table { border-bottom:1.5px solid #111; padding-bottom:8px; margin-bottom:8px; }
+  .f3-hdr-table td { padding-bottom:8px; }
+  .f3-logo-cell { width:48px; }
+  .f3-logo-box { width:42px; height:34px; border:1.5px solid #111; text-align:center; font-size:18px; line-height:34px; }
+  .f3-co-name { font-size:16px; font-weight:900; letter-spacing:.4px; line-height:1.1; }
+  .f3-co-sub  { font-size:9px; font-weight:700; color:#333; margin-top:2px; }
+  .f3-co-web  { font-size:7.5px; color:#555; margin-top:1px; }
+  .f3-awb-big { font-family:'Courier New',monospace; font-size:22px; font-weight:900; letter-spacing:1px; text-align:right; }
+
+  .f3-barcode-row { text-align:center; padding:4px 0 8px; border-bottom:1.5px solid #111; margin-bottom:6px; }
+  .f3-barcode-row svg { height:34px; }
+
+  .f3-toprow { border-bottom:1.5px solid #111; margin-bottom:0; }
+  .f3-toprow td { padding:4px 8px; border-right:1px solid #111; }
+  .f3-toprow td.last { border-right:none; }
+  .f3-lbl { font-size:8px; font-weight:800; text-transform:uppercase; color:#333; letter-spacing:.4px; }
+  .f3-val { font-size:10.5px; font-weight:700; margin-top:2px; }
+  .f3-svc-badge { background:#222; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:3px 4px; }
+  .f3-meta-line { font-size:9px; margin-top:4px; }
+  .f3-meta-line span { margin-right:14px; }
+
+  .f3-parties { border-bottom:1.5px solid #111; }
+  .f3-parties td { padding:6px 10px; border-right:1px solid #111; width:50%; }
+  .f3-parties td.last { border-right:none; }
+  .f3-party p { font-size:9.5px; margin:1px 0; line-height:1.45; }
+  .f3-party .pname { font-size:10.5px; font-weight:800; }
+
+  .f3-midrow { border-bottom:1.5px solid #111; }
+  .f3-midrow td { padding:6px 8px; border-right:1px solid #111; vertical-align:top; }
+  .f3-midrow td.last { border-right:none; }
+  .f3-midrow .f3-big { font-size:15px; font-weight:800; margin-top:3px; }
+  .f3-stamp-box { background:#222; color:#fff; font-weight:900; font-size:12px; text-align:center; padding:5px 4px; text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+
+  .f3-shipval-row td { padding:0; border:none; font-size:8px; font-weight:800; text-transform:uppercase; color:#333; }
+  .f3-shipval-row2 td { padding:0; border:none; font-size:10.5px; font-weight:700; }
+
+  .f3-botrow { border-bottom:1.5px solid #111; }
+  .f3-botrow td { padding:6px 8px; border-right:1px solid #111; font-size:8.5px; line-height:1.5; color:#333; vertical-align:top; }
+  .f3-botrow td.last { border-right:none; }
+  .f3-acct-row td { font-size:9.5px; padding:1px 0; }
+  .f3-acct-row td.right { text-align:right; }
+  .f3-routing { background:#222; color:#fff; text-align:center; font-weight:800; font-size:9.5px; padding:3px 4px; margin-top:4px; }
+
+  .f3-terms { padding:5px 8px 2px; font-size:7.5px; color:#444; line-height:1.5; }
+  .f3-track-bottom { text-align:center; font-size:9px; font-weight:700; letter-spacing:1px; padding-top:4px; }
+</style>
+</head>
+<body>
+
+<div class="f3">
+
+  <table class="f3-hdr-table">
+    <tr>
+      <td style="width:52px;padding-right:10px">
+        <div class="f3-logo-box">{% if company_logo_url %}<img src="{{ company_logo_url }}" alt="logo" style="width:100%;height:100%;">{% else %}&#128230;{% endif %}</div>
+      </td>
+      <td>
+        <div class="f3-co-name">{{ company.company_name if company and company.company_name else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+        <div class="f3-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
+        <div class="f3-co-web">
+          Website: {{ company_website if company_website is defined else 'www.pacificexp.net' }}
+          &nbsp;&bull;&nbsp; E-mail: {{ company_email if company_email is defined else 'info@pacificexp.net' }}
+        </div>
+      </td>
+      <td style="width:140px" class="f3-awb-big">{{ invoice.docket_no }}</td>
+    </tr>
+  </table>
+
+  <div class="f3-barcode-row">
+    <svg viewBox="0 0 300 40" preserveAspectRatio="none">
+      {% for i in range(60) %}
+      <rect x="{{ i * 5 }}" y="0" width="{{ 1 if i % 2 == 0 else 3 }}" height="40" fill="#111"></rect>
+      {% endfor %}
+    </svg>
+  </div>
+  <div class="f3-track-top">{{ invoice.docket_no }}</div>
+
+  <table class="f3-toprow">
+    <tr>
+      <td style="width:20.00%"><div class="f3-lbl">Account / Invoice No.</div><div class="f3-val">{{ invoice.id }}</div></td>
+      <td style="width:25.45%"><div class="f3-lbl">Customer</div><div class="f3-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div></td>
+      <td style="width:16.36%"><div class="f3-lbl">Origin</div><div class="f3-val">{{ invoice.origin or 'India' }}</div></td>
+      <td style="width:21.82%"><div class="f3-lbl">Destination</div><div class="f3-val">{{ invoice.destination or '—' }}</div></td>
+      <td style="width:16.36%" class="last">
+        <div class="f3-lbl">Service</div>
+        <span class="f3-svc-badge">{{ invoice.mode or '—' }}</span>
+        <div class="f3-meta-line"><span>Wt: <strong>{{ invoice.weight }} kg</strong></span></div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="f3-parties">
+    <tr>
+      <td>
+        <div class="f3-lbl">Sender's Name</div>
+        <p class="pname">{{ invoice.shipper_name or invoice.customer_name or '—' }}</p>
+        <div class="f3-lbl" style="margin-top:5px">Address</div>
+        <p>{{ invoice.shipper_address1 or '—' }}{% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}</p>
+        <div class="f3-meta-line">
+          <span>PIN: <strong>{{ invoice.shipper_pincode or '—' }}</strong></span>
+          <span>State: <strong>{{ invoice.shipper_state or '—' }}</strong></span>
+          <span>Country: <strong>{{ invoice.shipper_country or 'India' }}</strong></span>
+        </div>
+        <div class="f3-meta-line">
+          <span>Tel: <strong>{{ invoice.customer_phone or '—' }}</strong></span>
+          <span>City: <strong>{{ invoice.shipper_city or '—' }}</strong></span>
+        </div>
+      </td>
+      <td class="last">
+        <div class="f3-lbl">Recipient's Name</div>
+        <p class="pname">{{ invoice.receiver_name or '—' }}</p>
+        <div class="f3-lbl" style="margin-top:5px">Address</div>
+        <p>{{ invoice.receiver_address1 or '—' }}{% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}</p>
+        <div class="f3-meta-line">
+          <span>PIN: <strong>{{ invoice.receiver_pincode or '—' }}</strong></span>
+          <span>State: <strong>{{ invoice.receiver_state or '—' }}</strong></span>
+        </div>
+        <div class="f3-meta-line">
+          <span>Tel: <strong>{{ invoice.receiver_phone or '—' }}</strong></span>
+          <span>Country: <strong>{{ invoice.receiver_country or invoice.destination or '—' }}</strong></span>
+          <span>City: <strong>{{ invoice.receiver_city or '—' }}</strong></span>
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="f3-midrow">
+    <tr>
+      <td style="width:29.41%">
+        <div class="f3-lbl">Description of Goods</div>
+        <div style="font-size:10px;margin-top:3px">
+          {% if invoice.packages %}{{ invoice.packages | map(attribute='name') | select | join(', ') }}
+          {% else %}{{ invoice.notes or '—' }}{% endif %}
+        </div>
+        <div style="margin-top:10px;font-size:7.8px;color:#444;line-height:1.5">
+          <strong>Shipper Agreement</strong><br>
+          Shipper agrees to {{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}
+          standard terms and conditions of carriage. Shipper's signature:
+          <span style="display:inline-block;border-bottom:1px solid #111;width:90px">&nbsp;</span>
+        </div>
+      </td>
+      <td style="width:16.18%">
+        <div class="f3-lbl">Pieces</div>
+        <div class="f3-big">{{ invoice.pieces }}</div>
+      </td>
+      <td style="width:26.47%">
+        <div class="f3-lbl">Chargeable Wt</div>
+        <div class="f3-big">{{ invoice.weight }} kg</div>
+      </td>
+      <td style="width:27.94%" class="last">
+        <table class="f3-shipval-row"><tr>
+          <td style="width:50%">Shipment Value</td>
+          <td style="width:50%;text-align:right">Booking Date</td>
+        </tr></table>
+        <table class="f3-shipval-row2"><tr>
+          <td style="width:50%">₹{{ "{:,.2f}".format(invoice.total | float) }}</td>
+          <td style="width:50%;text-align:right">{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</td>
+        </tr></table>
+        <div class="f3-stamp-box">
+          {% if invoice.status|lower == 'paid' %}PAID
+          {% elif invoice.status|lower == 'partial' %}PARTIAL
+          {% else %}PENDING{% endif %}
+        </div>
+      </td>
+    </tr>
+  </table>
+
+  <table class="f3-botrow">
+    <tr>
+      <td style="width:37.14%">
+        <div class="f3-lbl">Pick Up</div>
+        <table class="f3-acct-row"><tr><td>Name:</td><td class="right">&nbsp;</td></tr></table>
+        <table class="f3-acct-row"><tr><td>Sign:</td><td class="right">&nbsp;</td></tr></table>
+        <table class="f3-acct-row"><tr><td>Date:</td><td class="right">&nbsp;</td></tr></table>
+      </td>
+      <td style="width:37.14%">
+        <div class="f3-lbl">All cheques should be drawn in favour of</div>
+        <p style="font-weight:700;font-size:9.5px;margin:3px 0">{{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}</p>
+        <table class="f3-acct-row"><tr><td>Invoice No.:</td><td class="right"><strong>{{ invoice.id }}</strong></td></tr></table>
+        <table class="f3-acct-row"><tr><td>Freight:</td><td class="right"><strong>₹{{ "{:,.2f}".format(invoice.freight | float) }}</strong></td></tr></table>
+        {% if invoice.fuel_charge and invoice.fuel_charge|float > 0 %}
+        <table class="f3-acct-row"><tr><td>Fuel:</td><td class="right"><strong>₹{{ "{:,.2f}".format(invoice.fuel_charge|float) }}</strong></td></tr></table>
+        {% endif %}
+        {% if invoice.other_charges and invoice.other_charges|float > 0 %}
+        <table class="f3-acct-row"><tr><td>Other:</td><td class="right"><strong>₹{{ "{:,.2f}".format(invoice.other_charges|float) }}</strong></td></tr></table>
+        {% endif %}
+        {% if invoice.tax and invoice.tax|float > 0 %}
+        <table class="f3-acct-row"><tr><td>GST (18%):</td><td class="right"><strong>₹{{ "{:,.2f}".format(invoice.tax|float) }}</strong></td></tr></table>
+        {% endif %}
+      </td>
+      <td style="width:25.71%" class="last">
+        <table class="f3-acct-row"><tr><td>Status</td><td class="right">
+          <strong>
+            {% if invoice.status|lower == 'paid' %}PAID
+            {% elif invoice.status|lower == 'partial' %}PARTIAL
+            {% else %}PENDING{% endif %}
+          </strong>
+        </td></tr></table>
+        <table class="f3-acct-row"><tr><td>Method of Payment</td><td class="right"><strong>{{ (invoice.payment_mode or 'credit') | upper }}</strong></td></tr></table>
+        <div class="f3-routing">{{ invoice.mode or 'ROUTING CODE' }}</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="f3-terms">
+    <strong>Terms &amp; Conditions:</strong>
+    1. No Claims would be entertained for any damage during transit &amp; delay in delivery due to any reason.&nbsp;|&nbsp;
+    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.&nbsp;|&nbsp;
+    3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.&nbsp;|&nbsp;
+    *** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***
+  </div>
+
+  <div class="f3-track-bottom">{{ invoice.docket_no }}</div>
+</div>
+
+</body>
+</html>

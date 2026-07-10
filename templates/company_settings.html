@@ -4,78 +4,158 @@
 {% set active = 'settings' %}
 
 {% block content %}
-<div class="grid-2" style="gap: 24px;">
-  
-  <!-- Company Information -->
+
+<div class="cs-header">
+  <div>
+    <h2>⚙️ Company Settings</h2>
+    <p>Manage your company profile, security, subscription, and team.</p>
+  </div>
+</div>
+
+<div class="cs-tabs no-print">
+  <button class="cs-tab active" data-tab="info" onclick="csShowTab('info')">🏢 Company Info</button>
+  <button class="cs-tab" data-tab="security" onclick="csShowTab('security')">🔒 Security</button>
+  <button class="cs-tab" data-tab="plan" onclick="csShowTab('plan')">💎 Subscription</button>
+  <button class="cs-tab" data-tab="team" onclick="csShowTab('team')">👥 Team ({{ owner_user_count }})</button>
+  <button class="cs-tab" data-tab="access" onclick="csShowTab('access')">🔑 Access</button>
+</div>
+
+<!-- ══════════════ COMPANY INFO ══════════════ -->
+<div class="cs-panel" id="tab-info">
   <div class="card card-body">
-    <h3 style="margin-bottom: 20px;">🏢 Company Information</h3>
-    <form method="POST" action="/company/update-info">
+    <h3 class="cs-card-title">🏢 Company Information</h3>
+    <form method="POST" action="/company/update-info" enctype="multipart/form-data">
       <div class="form-group">
-        <label>Company Name</label>
-        <input type="text" name="company_name" value="{{ company.company_name }}" required>
+        <label>Company Logo</label>
+        <div class="cs-logo-row">
+          {% if company_logo_url %}
+          <img src="{{ company_logo_url }}" alt="Current logo" class="cs-logo-preview">
+          {% else %}
+          <div class="cs-logo-preview cs-logo-placeholder">No logo</div>
+          {% endif %}
+          <input type="file" name="logo" accept=".png,.jpg,.jpeg,.webp">
+        </div>
+        <small class="cs-hint">PNG, JPG, or WEBP. This appears on your invoices and in the sidebar.</small>
       </div>
-      <div class="form-group">
-        <label>GST Number</label>
-        <input type="text" name="gst_number" value="{{ company.gst_number or '' }}">
+
+      <div class="cs-grid">
+        <div class="form-group">
+          <label>Company Name *</label>
+          <input type="text" name="company_name" value="{{ company.company_name }}" required>
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" name="phone" value="{{ company.phone or '' }}">
+        </div>
       </div>
-      <div class="form-group">
-        <label>Phone</label>
-        <input type="text" name="phone" value="{{ company.phone or '' }}">
-      </div>
+
       <div class="form-group">
         <label>Address</label>
         <textarea name="address" rows="3">{{ company.address or '' }}</textarea>
       </div>
+
+      <!-- GST registration toggle — matches the registration flow -->
+      <div class="cs-gst-block">
+        <div class="cs-toggle-row">
+          <label class="cs-switch">
+            <input type="radio" name="is_gst_registered" value="1"
+                   {% if company.is_gst_registered %}checked{% endif %}
+                   onchange="csToggleGst(true)">
+            GST Registered
+          </label>
+          <label class="cs-switch">
+            <input type="radio" name="is_gst_registered" value="0"
+                   {% if not company.is_gst_registered %}checked{% endif %}
+                   onchange="csToggleGst(false)">
+            Not GST Registered
+          </label>
+        </div>
+        <div class="form-group" id="gstNumberField" style="{% if not company.is_gst_registered %}display:none;{% endif %} margin-top:12px;">
+          <label>GST Number</label>
+          <input type="text" name="gst_number" value="{{ company.gst_number or '' }}" placeholder="e.g. 27AAABC1234F1Z5">
+        </div>
+      </div>
+
+      <h4 class="cs-subhead">📦 AWB / Docket Numbering</h4>
+      <div class="cs-grid">
+        <div class="form-group">
+          <label>AWB Prefix</label>
+          <input type="text" name="awb_prefix" value="{{ company.awb_prefix }}" maxlength="10" style="text-transform:uppercase;">
+        </div>
+        <div class="form-group">
+          <label>Next AWB Start Number</label>
+          <input type="number" name="awb_start" value="{{ company.awb_start }}">
+        </div>
+      </div>
+
       <button type="submit" class="btn btn-primary">Save Changes</button>
     </form>
   </div>
-  
-  <!-- Subscription Plan -->
+</div>
+
+<!-- ══════════════ SECURITY / CHANGE PASSWORD ══════════════ -->
+<div class="cs-panel" id="tab-security" style="display:none;">
   <div class="card card-body">
-    <h3 style="margin-bottom: 20px;">💎 Current Plan: {{ current_plan.name if current_plan else 'No Plan' }}</h3>
-    <div style="background: #F3F4F6; padding: 16px; border-radius: 12px; margin-bottom: 20px;">
-      <p><strong>🏢 Max Companies:</strong> {{ company.max_companies_allowed }}</p>
-      <p><strong>👥 Max Users:</strong> {{ company.max_users_per_company }}</p>
-      <p><strong>📅 Valid Until:</strong> {{ company.subscription_end }}</p>
-    </div>
-    
-    <h4 style="margin-bottom: 12px;">Upgrade Plan</h4>
-    <form method="POST" action="/company/upgrade-plan">
-      <div class="grid-2" style="gap: 12px; margin-bottom: 16px;">
-        {% for plan_key, plan in plans.items() %}
-        <label style="display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #E5E7EB; border-radius: 8px; cursor: pointer;">
-          <input type="radio" name="plan" value="{{ plan_key }}" {% if company.subscription_plan == plan_key %}checked{% endif %}>
-          <div>
-            <strong>{{ plan.name }}</strong><br>
-            <small>₹{{ plan.price }}/month</small>
-          </div>
-        </label>
-        {% endfor %}
+    <h3 class="cs-card-title">🔒 Change Password</h3>
+    <p class="cs-hint">Choose a strong password you don't use anywhere else.</p>
+    <form method="POST" action="/company/change-password" id="pwForm" style="max-width:420px;">
+      <div class="form-group">
+        <label>Current Password *</label>
+        <input type="password" name="current_password" required autocomplete="current-password">
       </div>
-      <button type="submit" class="btn btn-success">Upgrade Plan →</button>
+      <div class="form-group">
+        <label>New Password *</label>
+        <input type="password" name="new_password" id="newPassword" required minlength="8" autocomplete="new-password">
+        <small class="cs-hint">Minimum 8 characters.</small>
+      </div>
+      <div class="form-group">
+        <label>Confirm New Password *</label>
+        <input type="password" name="confirm_password" id="confirmPassword" required minlength="8" autocomplete="new-password">
+      </div>
+      <div id="pwMismatch" class="cs-error" style="display:none;">Passwords do not match.</div>
+      <button type="submit" class="btn btn-primary">Update Password</button>
     </form>
   </div>
-  
-  <!-- Plans Grid for Display -->
-  <div class="plans-grid" style="grid-column: span 2;">
-    <h3 style="margin-bottom: 20px;">Available Plans</h3>
+</div>
+
+<!-- ══════════════ SUBSCRIPTION ══════════════ -->
+<div class="cs-panel" id="tab-plan" style="display:none;">
+  <div class="card card-body">
+    <h3 class="cs-card-title">💎 Current Plan: {{ current_plan.name if current_plan else 'No Plan' }}</h3>
+    <div class="cs-plan-summary">
+      <div><span class="cs-plan-lbl">🏢 Max Companies</span><strong>{{ company.max_companies_allowed }}</strong></div>
+      <div><span class="cs-plan-lbl">👥 Max Users (owner-wide)</span><strong>{{ owner_max_users }}</strong></div>
+      <div><span class="cs-plan-lbl">📅 Valid Until</span><strong>{{ company.subscription_end }}</strong></div>
+    </div>
+  </div>
+
+  <div class="card card-body" style="margin-top:20px;">
+    <h3 class="cs-card-title">Available Plans</h3>
     <div class="grid-3">
     {% for plan_id, plan in plans.items() %}
-    <div class="plan-card {% if current_plan and current_plan.name == plan.name %}active-plan{% endif %}" style="border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px;">
+    <div class="plan-card {% if current_plan and current_plan.name == plan.name %}active-plan{% endif %}">
       <h3>{{ plan.name }}</h3>
-      <div class="price" style="font-size: 24px; font-weight: bold; margin: 10px 0;">₹{{ plan.price }}</div>
-      <ul style="list-style: none; padding: 0;">
+      <div class="price">
+        {% if plan.price == "Contact Sales" %}
+          {{ plan.price }}
+        {% else %}
+          ₹{{ plan.price }}
+        {% endif %}
+      </div>
+      <ul>
         <li>🏢 Max Companies: {{ plan.max_companies }}</li>
         <li>👥 Max Users: {{ plan.max_users }}</li>
-        {% for feature in plan.features %}
-        <li>✓ {{ feature }}</li>
-        {% endfor %}
+        {% if plan.features %}
+          {% for feature in plan.features[:3] %}
+          <li>✓ {{ feature }}</li>
+          {% endfor %}
+          {% if plan.features|length > 3 %}
+          <li style="color:#94a3b8; font-size:11px;">+ {{ plan.features|length - 3 }} more features</li>
+          {% endif %}
+        {% endif %}
       </ul>
       {% if current_plan and current_plan.name != plan.name %}
-      <form method="POST" action="{{ url_for('upgrade_plan') }}">
-        <input type="hidden" name="plan" value="{{ plan_id }}">
-        <button type="submit" class="btn btn-primary" style="width: 100%;">Upgrade</button>
-      </form>
+      <button class="btn btn-primary" style="width: 100%;" onclick="showUpgradeModal('{{ plan_id }}', '{{ plan.name }}')">Upgrade</button>
       {% elif current_plan and current_plan.name == plan.name %}
       <button class="btn btn-secondary" disabled style="width: 100%;">Current Plan</button>
       {% endif %}
@@ -83,35 +163,203 @@
     {% endfor %}
     </div>
   </div>
+</div>
 
-  <!-- Team Members -->
-  <div class="card card-body" style="grid-column: span 2;">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h3>👥 Team Members ({{ users|length }}/{{ company.max_users_per_company }})</h3>
-      <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
+<!-- Upgrade Modal -->
+<div id="upgradeModal" class="cs-modal-overlay">
+  <div class="cs-modal" style="max-width: 500px;">
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div style="font-size: 48px; margin-bottom: 10px;">💎</div>
+      <h3 style="margin: 0; color: #1e2a3a;">Upgrade to <span id="upgradePlanName"></span></h3>
+      <p style="color: #5b6e8c; margin-top: 8px; font-size: 14px;">
+        To upgrade your subscription, please contact our sales team.
+      </p>
     </div>
     
+    <div style="background: #f0f7ff; border-radius: 12px; padding: 20px; margin: 16px 0;">
+      <div style="display: flex; align-items: center; gap: 12px; justify-content: center;">
+        <div style="background: #2c7da0; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+          <i class="fas fa-envelope"></i>
+        </div>
+        <div>
+          <div style="font-weight: 600; font-size: 14px;">Email Us</div>
+          <a href="mailto:sales@magnustic.com" style="color: #2c7da0; font-weight: 600; font-size: 16px; text-decoration: none;">
+            sales@magnustic.com
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <div style="background: #f9fafb; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+      <p style="margin: 0; font-size: 13px; color: #6B7280;">
+        <i class="fas fa-info-circle" style="color: #2c7da0;"></i>
+        Our sales team will help you with:
+      </p>
+      <ul style="margin: 8px 0 0 0; padding-left: 20px; font-size: 13px; color: #4B5563;">
+        <li>Custom plan pricing</li>
+        <li>Bulk user discounts</li>
+        <li>Enterprise features</li>
+        <li>Migration support</li>
+      </ul>
+    </div>
+    
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
+      <button type="button" class="btn btn-ghost" onclick="closeUpgradeModal()">Close</button>
+      <a href="mailto:sales@magnustic.com?subject=Plan%20Upgrade%20-%20{{ company.company_name }}&body=I%20would%20like%20to%20upgrade%20from%20{{ current_plan.name if current_plan else 'No Plan' }}%20to%20[PLAN_NAME]%20plan.%0A%0ACompany%3A%20{{ company.company_name }}%0AEmail%3A%20{{ user.email }}%0A%0APlease%20contact%20me%20for%20pricing%20and%20details." 
+         class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+        <i class="fas fa-envelope"></i> Email Sales
+      </a>
+    </div>
+  </div>
+</div>
+
+<style>
+/* Add these styles for the upgrade modal */
+.cs-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(17,24,39,.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.cs-modal-overlay.open {
+  display: flex;
+}
+.cs-modal {
+  background: #fff;
+  border-radius: 16px;
+  width: 500px;
+  max-width: 90%;
+  padding: 24px;
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: modalFadeIn 0.3s ease-out;
+}
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+</style>
+
+<script>
+function showUpgradeModal(planId, planName) {
+  document.getElementById('upgradePlanName').textContent = planName;
+  document.getElementById('upgradeModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgradeModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// Close modal on ESC key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    closeUpgradeModal();
+  }
+});
+
+// Close modal on click outside
+document.getElementById('upgradeModal').addEventListener('click', function(e) {
+  if (e.target === this) {
+    closeUpgradeModal();
+  }
+});
+</script>
+
+<!-- ══════════════ TEAM MEMBERS ══════════════ -->
+<div class="cs-panel" id="tab-team" style="display:none;">
+  <div class="card card-body">
+    <div class="cs-team-head">
+      <h3 class="cs-card-title" style="margin-bottom:0;">👥 Team — {{ owner_user_count }}/{{ owner_max_users }} seats used across all your companies</h3>
+      <button class="btn btn-primary" onclick="showAddUserModal()">+ Add User</button>
+    </div>
+
+    <p class="cs-hint" style="margin-bottom:16px;">Each row is one person. Access is per company — a user can hold a different role in each company you own.</p>
+
     <div class="table-wrap">
       <table>
         <thead>
-          <tr><th>User ID</th><th>Name</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th><th></th></tr>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            {% for c in owner_companies %}
+            <th>{{ c.company_name }}</th>
+            {% endfor %}
+            <th>Actions</th>
+          </tr>
         </thead>
         <tbody>
-          <!-- FIX: users is a list, iterate directly -->
-          {% for user in users %}
+          {% for email, info in user_access_map.items() %}
+          {% set is_owner_row = info.companies | selectattr('role', 'equalto', 'owner') | list %}
           <tr>
-            <td>{{ user.user_id }}</td>
-            <td>{{ user.full_name }}</td>
-            <td>{{ user.email }}</td>
-            <td>{{ user.role|replace('_', ' ')|title }}</td>
-            <td>{{ user.department or '-' }}</td>
-            <td>{% if user.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-danger">Inactive</span>{% endif %}</td>
-            <td>
-              {% if user.role != 'owner' %}
-              <a href="/company/remove-user/{{ user.user_id }}" class="btn btn-danger btn-sm" onclick="return confirm('Remove this user?')">Remove</a>
+            <td>{{ info.full_name }}</td>
+            <td>{{ email }}</td>
+            {% for c in owner_companies %}
+              {% set access = info.companies | selectattr('company_id', 'equalto', c.company_id) | list %}
+              <td>
+                {% if access %}
+                  <span class="badge badge-success">{{ access[0].role|title }}</span>
+                  {% if access[0].role != 'owner' %}
+                  <a href="{{ url_for('revoke_company_user', email=email, company_id=c.company_id) }}"
+                     class="cs-revoke-link" title="Revoke access to {{ c.company_name }}"
+                     onclick="return confirm('Revoke access to {{ c.company_name }}?')">✕</a>
+                  {% endif %}
+                {% else %}
+                  <span class="cs-no-access">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+            <td style="white-space:nowrap;">
+              {% if not is_owner_row %}
+              <button type="button" class="btn btn-ghost btn-sm" onclick="openEditUser('{{ loop.index }}')">Edit</button>
+              <a href="{{ url_for('delete_company_user', email=email) }}"
+                 class="cs-revoke-link" title="Delete {{ info.full_name }} from all companies"
+                 onclick="return confirm('Remove {{ info.full_name }} from ALL your companies? They will lose all access and won\'t be able to log in.')">Delete</a>
+              {% else %}
+              <span class="cs-no-access">—</span>
               {% endif %}
             </td>
           </tr>
+
+          {% if not is_owner_row %}
+          <div id="editUserModal-{{ loop.index }}" class="cs-modal-overlay">
+            <div class="cs-modal">
+              <h3 style="margin-bottom:20px">Edit Access — {{ info.full_name }}</h3>
+              <form method="POST" action="{{ url_for('edit_user_access', email=email) }}">
+                <div class="form-group">
+                  <label>Company Access</label>
+                  <div class="cs-company-access-list">
+                    {% for c in owner_companies %}
+                    {% set access = info.companies | selectattr('company_id', 'equalto', c.company_id) | list %}
+                    <div class="cs-company-access-row">
+                      <label class="cs-switch">
+                        <input type="checkbox" name="company_ids" value="{{ c.company_id }}"
+                               {% if access %}checked{% endif %}>
+                        {{ c.company_name }}
+                      </label>
+                      <select name="role_{{ c.company_id }}">
+                        <option value="manager" {% if access and access[0].role == 'manager' %}selected{% endif %}>Manager</option>
+                        <option value="employee" {% if not access or access[0].role == 'employee' %}selected{% endif %}>Employee (Sales)</option>
+                        <option value="accountant" {% if access and access[0].role == 'accountant' %}selected{% endif %}>Accountant</option>
+                      </select>
+                    </div>
+                    {% endfor %}
+                  </div>
+                  <small class="cs-hint">Uncheck a company to revoke access to it. Check a new one to grant it.</small>
+                </div>
+                <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
+                  <button type="button" class="btn btn-ghost" onclick="closeEditUser('{{ loop.index }}')">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Save Access</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -119,10 +367,93 @@
   </div>
 </div>
 
+<div class="cs-panel" id="tab-access" style="display:none;">
+  <div class="card card-body">
+    <h3 class="cs-card-title">🔑 What Sales and Accounts can access</h3>
+    <p class="cs-hint" style="margin-bottom:16px;">
+      No one except you can delete anything yet — deletion isn't handed out through this screen.
+      These settings control what each role can <b>view</b>, <b>create</b>, and <b>edit</b> in {{ company.company_name if company else "this company" }}.
+    </p>
+
+    {% for role, role_label in [("employee", "Sales (Employee)"), ("accountant", "Accounts (Accountant)")] %}
+    <form method="POST" action="{{ url_for('save_role_permissions', role=role) }}" class="cs-perm-form">
+      <h4 class="cs-perm-role-title">{{ role_label }}</h4>
+      <div class="table-wrap" style="margin-bottom:18px;">
+        <table class="cs-perm-table">
+          <thead>
+            <tr>
+              <th>Module</th>
+              <th>View</th>
+              <th>Create</th>
+              <th>Edit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for module in perm_modules %}
+            <tr>
+              <td>{{ perm_labels[module] }}</td>
+              {% for action in perm_actions %}
+              <td style="text-align:center;">
+                <input type="checkbox" name="perm__{{ module }}__{{ action }}"
+                       {% if role_permissions[role][module][action] %}checked{% endif %}>
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="btn btn-primary">Save {{ role_label }} Access</button>
+    </form>
+    {% endfor %}
+
+    <hr style="margin:28px 0; border:none; border-top:1px solid #E5E7EB;">
+
+    <h3 class="cs-card-title">Per-person overrides</h3>
+    <p class="cs-hint" style="margin-bottom:16px;">Give one specific person more (or less) than their role's default above.</p>
+
+    {% for u in users %}
+      {% if u.role not in ["owner", "super_admin"] %}
+      <details class="cs-perm-user">
+        <summary>{{ u.full_name }} <span class="cs-hint">({{ u.role|title }})</span></summary>
+        <form method="POST" action="{{ url_for('save_user_permissions', user_id=u.user_id) }}">
+          <div class="table-wrap" style="margin:12px 0;">
+            <table class="cs-perm-table">
+              <thead>
+                <tr>
+                  <th>Module</th>
+                  <th>View</th>
+                  <th>Create</th>
+                  <th>Edit</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for module in perm_modules %}
+                <tr>
+                  <td>{{ perm_labels[module] }}</td>
+                  {% for action in perm_actions %}
+                  <td style="text-align:center;">
+                    <input type="checkbox" name="perm__{{ module }}__{{ action }}"
+                           {% if user_permissions[u.user_id][module][action] %}checked{% endif %}>
+                  </td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <button type="submit" class="btn btn-secondary">Save Access for {{ u.full_name }}</button>
+        </form>
+      </details>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
 <!-- Add User Modal -->
-<div id="addUserModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
-  <div style="background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px;">
-    <h3 style="margin-bottom:20px">Add Team Member</h3>
+<div id="addUserModal" class="cs-modal-overlay">
+  <div class="cs-modal">
+    <h3 style="margin-bottom:20px">Add / Grant Access</h3>
     <form method="POST" action="/company/add-user">
       <div class="form-group">
         <label>Full Name *</label>
@@ -133,75 +464,148 @@
         <input type="email" name="email" required>
       </div>
       <div class="form-group">
-        <label>Password *</label>
-        <input type="password" name="password" required>
+        <label>Password</label>
+        <input type="password" name="password" minlength="8">
+        <small class="cs-hint">Required only for a brand-new person. Leave blank if this email already has access to one of your other companies — they'll just be granted access here too, using their existing password.</small>
       </div>
       <div class="grid-2">
-        <div class="form-group">
-          <label>Role</label>
-          <select name="role">
-            <option value="sales_manager">Sales Manager</option>
-            <option value="sales_executive">Sales Executive</option>
-            <option value="accountant">Accountant</option>
-            <option value="operations">Operations</option>
-            <option value="staff">Staff</option>
-          </select>
-        </div>
         <div class="form-group">
           <label>Department</label>
           <input type="text" name="department" placeholder="e.g., Sales">
         </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="text" name="phone">
+        </div>
       </div>
+
       <div class="form-group">
-        <label>Phone</label>
-        <input type="text" name="phone">
+        <label>Grant Access To *</label>
+        <div class="cs-company-access-list">
+          {% for c in owner_companies %}
+          <div class="cs-company-access-row">
+            <label class="cs-switch">
+              <input type="checkbox" name="company_ids" value="{{ c.company_id }}"
+                     {% if c.company_id == company.company_id %}checked{% endif %}>
+              {{ c.company_name }}
+            </label>
+            <select name="role_{{ c.company_id }}">
+              <option value="manager">Manager</option>
+              <option value="employee" selected>Employee (Sales)</option>
+              <option value="accountant">Accountant</option>
+            </select>
+          </div>
+          {% endfor %}
+        </div>
       </div>
+
       <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add User</button>
+        <button type="submit" class="btn btn-primary">Save Access</button>
       </div>
     </form>
   </div>
 </div>
 
 <style>
-.grid-3 {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-}
-.plan-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  transition: all 0.3s ease;
-}
-.plan-card.active-plan {
-  border: 2px solid #4F46E5;
-  background: #F8FAFF;
-}
-.badge {
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
-.badge-success {
-  background: #DCFCE7;
-  color: #16A34A;
-}
-.badge-danger {
-  background: #FEE2E2;
-  color: #DC2626;
-}
+.cs-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.cs-header h2 { font-size:22px; margin-bottom:4px; }
+.cs-header p { font-size:13px; color:#6B7280; }
+
+.cs-tabs { display:flex; gap:6px; margin-bottom:22px; border-bottom:1.5px solid #E5E7EB; flex-wrap:wrap; }
+.cs-tab { background:none; border:none; padding:10px 18px; font-size:13.5px; font-weight:600;
+  color:#6B7280; cursor:pointer; border-bottom:2.5px solid transparent; margin-bottom:-1.5px; }
+.cs-tab:hover { color:#4F46E5; }
+.cs-tab.active { color:#4F46E5; border-bottom-color:#4F46E5; }
+
+.cs-card-title { margin-bottom:18px; font-size:16px; }
+.cs-subhead { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
+  color:#6B7280; margin:22px 0 12px; }
+.cs-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){ .cs-grid { grid-template-columns:1fr; } }
+
+.cs-gst-block { background:#F9FAFB; border-radius:10px; padding:14px 16px; margin-top:16px; }
+.cs-toggle-row { display:flex; gap:20px; flex-wrap:wrap; }
+.cs-switch { display:flex; align-items:center; gap:6px; font-size:13.5px; font-weight:600; cursor:pointer; }
+
+.cs-hint { font-size:12px; color:#9CA3AF; margin-top:2px; }
+.cs-logo-row { display:flex; align-items:center; gap:14px; }
+.cs-logo-preview { width:64px; height:64px; border-radius:10px; object-fit:contain; border:1px solid #E5E7EB; background:#F9FAFB; }
+.cs-logo-placeholder { display:flex; align-items:center; justify-content:center; font-size:11px; color:#9CA3AF; }
+.cs-error { font-size:12.5px; color:#DC2626; background:#FEE2E2; padding:8px 12px; border-radius:8px; margin-bottom:12px; }
+
+.cs-plan-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px;
+  background:#F3F4F6; padding:16px; border-radius:12px; margin-bottom:6px; }
+.cs-plan-lbl { display:block; font-size:11px; color:#6B7280; text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+
+.cs-team-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+
+.grid-3 { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:20px; }
+.plan-card { background:#fff; border:1px solid #E5E7EB; border-radius:12px; padding:20px; transition:all .2s ease; }
+.plan-card.active-plan { border:2px solid #4F46E5; background:#F8FAFF; }
+.plan-card .price { font-size:24px; font-weight:800; margin:10px 0; color:#111827; }
+.plan-card ul { list-style:none; padding:0; font-size:13px; color:#374151; }
+.plan-card li { padding:3px 0; }
+
+.badge { padding:4px 10px; border-radius:12px; font-size:12px; font-weight:600; }
+.badge-success { background:#DCFCE7; color:#16A34A; }
+.badge-danger  { background:#FEE2E2; color:#DC2626; }
+
+.cs-modal-overlay { display:none; position:fixed; inset:0; background:rgba(17,24,39,.5); z-index:1000;
+  align-items:center; justify-content:center; }
+.cs-modal-overlay.open { display:flex; }
+.cs-modal { background:#fff; border-radius:16px; width:500px; max-width:90%; padding:24px; max-height:85vh; overflow-y:auto; }
+
+.cs-company-access-list { border:1px solid #E5E7EB; border-radius:10px; padding:10px 12px; max-height:220px; overflow-y:auto; }
+.cs-company-access-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid #F3F4F6; }
+.cs-company-access-row:last-child { border-bottom:none; }
+.cs-company-access-row select { font-size:12.5px; padding:4px 8px; border-radius:6px; border:1px solid #D1D5DB; }
+
+.btn-sm { padding:4px 10px; font-size:12px; }
+.cs-revoke-link { margin-left:6px; color:#DC2626; text-decoration:none; font-weight:700; font-size:12px; }
+.cs-revoke-link:hover { text-decoration:underline; }
+.cs-no-access { color:#D1D5DB; }
+.cs-perm-role-title { margin: 4px 0 10px; font-size:14.5px; }
+.cs-perm-table th, .cs-perm-table td { padding:6px 10px; font-size:13px; }
+.cs-perm-user { border:1px solid #E5E7EB; border-radius:8px; padding:10px 14px; margin-bottom:10px; }
+.cs-perm-user summary { cursor:pointer; font-weight:600; font-size:13.5px; }
 </style>
 
 <script>
+function csShowTab(name) {
+  document.querySelectorAll('.cs-panel').forEach(p => p.style.display = 'none');
+  document.getElementById('tab-' + name).style.display = 'block';
+  document.querySelectorAll('.cs-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+}
+
+function csToggleGst(isRegistered) {
+  document.getElementById('gstNumberField').style.display = isRegistered ? 'block' : 'none';
+}
+
 function showAddUserModal() {
-  document.getElementById('addUserModal').style.display = 'flex';
+  document.getElementById('addUserModal').classList.add('open');
 }
 function closeModal() {
-  document.getElementById('addUserModal').style.display = 'none';
+  document.getElementById('addUserModal').classList.remove('open');
 }
+
+function openEditUser(idx) {
+  document.getElementById('editUserModal-' + idx).classList.add('open');
+}
+function closeEditUser(idx) {
+  document.getElementById('editUserModal-' + idx).classList.remove('open');
+}
+
+document.getElementById('pwForm').addEventListener('submit', function(e) {
+  const np = document.getElementById('newPassword').value;
+  const cp = document.getElementById('confirmPassword').value;
+  const mismatch = document.getElementById('pwMismatch');
+  if (np !== cp) {
+    e.preventDefault();
+    mismatch.style.display = 'block';
+  } else {
+    mismatch.style.display = 'none';
+  }
+});
 </script>
 {% endblock %}

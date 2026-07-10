@@ -296,6 +296,27 @@
 
 /* Print area hidden on screen */
 #pxcPrintArea, #perfPrintArea, #boxPrintArea, #awbPrintArea, #scPrintArea { display:none; }
+
+/* ── PAPER SIZE MODAL ────────────────────────────────────────── */
+.psize-overlay { display:none; position:fixed; inset:0; background:rgba(17,24,39,.55);
+  z-index:9999; align-items:center; justify-content:center; }
+.psize-overlay.open { display:flex; }
+.psize-modal { background:#fff; border-radius:14px; padding:24px 26px; width:100%; max-width:380px;
+  box-shadow:0 20px 50px rgba(0,0,0,.25); }
+.psize-modal h3 { font-size:16px; font-weight:800; color:#111827; margin-bottom:4px; }
+.psize-modal p { font-size:12.5px; color:#6B7280; margin-bottom:16px; }
+.psize-options { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:10px; }
+.psize-option { border:1.5px solid #E5E7EB; border-radius:10px; padding:12px 8px; text-align:center;
+  cursor:pointer; background:#fff; transition:all .12s; }
+.psize-option:hover { border-color:#4F46E5; background:#EEF2FF; }
+.psize-option .ps-name { font-size:13px; font-weight:800; color:#111827; }
+.psize-option .ps-dim { font-size:10.5px; color:#9CA3AF; margin-top:2px; }
+.psize-warn { font-size:11.5px; color:#B45309; background:#FEF3C7; border-radius:8px; padding:8px 10px;
+  margin-bottom:14px; display:none; }
+.psize-warn.show { display:block; }
+.psize-cancel { width:100%; text-align:center; padding:10px; border-radius:8px; border:1.5px solid #E5E7EB;
+  background:#fff; font-size:13px; font-weight:600; color:#6B7280; cursor:pointer; }
+.psize-cancel:hover { background:#F9FAFB; }
 </style>
 {% endblock %}
 
@@ -314,6 +335,31 @@
     <button class="print-btn pb-sc" onclick="triggerPrint('sc')">🏷️ Label</button>
   </div>
 </div>
+
+<!-- ── PAPER SIZE MODAL ────────────────────────────────────── -->
+<div class="psize-overlay no-print" id="psizeOverlay">
+  <div class="psize-modal">
+    <h3>Choose paper size</h3>
+    <p id="psizeSubtitle">Select the size to print on.</p>
+    <div class="psize-warn" id="psizeWarn">⚠️ This layout is designed for A4. A5 may clip or shrink content — check print preview before printing.</div>
+    <div class="psize-options">
+      <div class="psize-option" onclick="confirmPrintSize('A4')">
+        <div class="ps-name">A4</div>
+        <div class="ps-dim">210×297mm</div>
+      </div>
+      <div class="psize-option" onclick="confirmPrintSize('A5')">
+        <div class="ps-name">A5</div>
+        <div class="ps-dim">148×210mm</div>
+      </div>
+      <div class="psize-option" onclick="confirmPrintSize('Letter')">
+        <div class="ps-name">Letter</div>
+        <div class="ps-dim">8.5×11in</div>
+      </div>
+    </div>
+    <button class="psize-cancel" onclick="closePsizeModal()">Cancel</button>
+  </div>
+</div>
+
 
 <!-- ── META CARDS ─────────────────────────────────────────── -->
 <div class="meta-grid no-print">
@@ -520,10 +566,9 @@
 <div class="f3">
   <div class="f3-hdr-row">
     <div class="f3-hdr-left">
-      <div class="f3-logo-box">📦</div>
+      <div class="f3-logo-box">{% if company_logo_url %}<img src="{{ company_logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:contain;">{% else %}📦{% endif %}</div>
       <div>
-        <div class="f3-co-name">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
-        <div class="f3-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
+        <div class="f3-co-name">{{ company.company_name if company and company.company_name else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
         <div class="f3-co-web">
           Website: {{ company_website if company_website is defined else 'www.pacificexp.net' }}
           &nbsp;•&nbsp; E-mail: {{ company_email if company_email is defined else 'info@pacificexp.net' }}
@@ -596,7 +641,7 @@
       </div>
       <div style="margin-top:10px;font-size:7.8px;color:#444;line-height:1.5">
         <strong>Shipper Agreement</strong><br>
-        Shipper agrees to {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}
+        Shipper agrees to {{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}
         standard terms and conditions of carriage. Shipper's signature:
         <span style="display:inline-block;border-bottom:1px solid #111;width:90px">&nbsp;</span>
       </div>
@@ -635,7 +680,7 @@
     </div>
     <div>
       <div class="f3-lbl">All cheques should be drawn in favour of</div>
-      <p style="font-weight:700;font-size:9.5px;margin:3px 0">{{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</p>
+      <p style="font-weight:700;font-size:9.5px;margin:3px 0">{{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}</p>
       <div class="f3-acct-row"><span>Invoice No.:</span><strong>{{ invoice.id }}</strong></div>
       <div class="f3-acct-row"><span>Freight:</span><strong>₹{{ "{:,.2f}".format(invoice.freight | float) }}</strong></div>
       {% if invoice.fuel_charge and invoice.fuel_charge|float > 0 %}
@@ -672,6 +717,7 @@
   <div class="f3-track-bottom">{{ invoice.docket_no }}</div>
 </div>
 </div>
+
 {% endmacro %}
 
 <!-- ① PXC RECEIPT (single copy) -->
@@ -684,9 +730,9 @@
 <div class="awb-doc">
   <div class="awb-top">
     <div class="awb-hdr-left">
-      <div class="awb-logo-box">📦</div>
+      <div class="awb-logo-box">{% if company_logo_url %}<img src="{{ company_logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:contain;">{% else %}📦{% endif %}</div>
       <div>
-        <div class="awb-co-name">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+        <div class="awb-co-name">{{ company.company_name if company and company.company_name else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
         <div class="awb-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
         <div class="awb-co-web">
           WEBSITE: {{ company_website if company_website is defined else 'WWW.PACIFICEXP.NET' }}
@@ -781,7 +827,7 @@
       </div>
       <div class="awb-agreement">
         <strong>Shipper Agreement</strong><br>
-        Shipper agrees to {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}
+        Shipper agrees to {{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}
         standard terms and conditions of carriage. Shipper's signature:
         <span style="display:inline-block;border-bottom:1px solid #111;width:90px">&nbsp;</span>
       </div>
@@ -805,7 +851,7 @@
       </div>
       <div class="awb-cheque-fav">
         All cheques should be drawn in favour of<br>
-        <strong>{{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</strong>
+        <strong>{{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}</strong>
       </div>
       <div class="awb-acct-row"><span>Invoice No.:</span><strong>{{ invoice.id }}</strong></div>
       <div class="awb-acct-row"><span>E-Way Bill No.:</span><strong>—</strong></div>
@@ -958,7 +1004,7 @@
     </div>
 
     <div class="pf-sign">
-      <div class="pf-sign-box">Authorised Signatory<br><span style="font-size:9px;color:#555">For {{ company_name if company_name is defined else 'PXC Pacific Global Pvt. Ltd.' }}</span></div>
+      <div class="pf-sign-box">Authorised Signatory<br><span style="font-size:9px;color:#555">For {{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}</span></div>
       <div class="pf-sign-box">Shipper's Signature<br><span style="font-size:9px;color:#555">Date :</span></div>
     </div>
   </div>
@@ -988,9 +1034,9 @@
         <!-- Header -->
         <div class="bl-hdr">
           <div class="bl-logo-area">
-            <div class="bl-logo-icon">📦</div>
+            <div class="bl-logo-icon">{% if company_logo_url %}<img src="{{ company_logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:contain;">{% else %}📦{% endif %}</div>
             <div>
-              <div class="bl-co-name">{{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
+              <div class="bl-co-name">{{ company.company_name if company and company.company_name else 'PXC PACIFIC GLOBAL PVT. LTD.' }}</div>
               <div class="bl-co-sub">INTERNATIONAL COURIER | FREIGHT FORWARDER</div>
               <div class="bl-co-web">WEBSITE: {{ company_website if company_website is defined else 'WWW.PACIFICEXP.NET' }} &nbsp;•&nbsp; E-MAIL: {{ company_email if company_email is defined else 'INFO@PACIFICEXP.NET' }}</div>
             </div>
@@ -1089,7 +1135,7 @@
         <div class="bl-barcode-row">
           <div>
             <div style="font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">SHIPPER AGREEMENT</div>
-            <div style="font-size:7.5px;color:#444;line-height:1.4;">SHIPPER AGREES TO {{ company_name if company_name is defined else 'PXC PACIFIC GLOBAL PVT. LTD.' }} STANDARD TERM AND CONDITIONS OF CARRIAGE.</div>
+            <div style="font-size:7.5px;color:#444;line-height:1.4;">SHIPPER AGREES TO {{ company.company_name if company and company.company_name else 'PXC PACIFIC GLOBAL PVT. LTD.' }} STANDARD TERM AND CONDITIONS OF CARRIAGE.</div>
             <div style="margin-top:8px;font-size:7.5px;font-weight:700;">SHIPPER'S SIGNATURE</div>
             <div style="font-size:7.5px;margin-top:2px;">DATE</div>
           </div>
@@ -1220,8 +1266,48 @@ document.querySelectorAll('.pf-amount-words').forEach(function(el) {
 });
 
 let _activePrintId = null;
+let _pendingPrintType = null;
+const FIXED_LAYOUT_TYPES = ['perf', 'awb']; // designs with hard-coded A4 mm measurements
 
 function triggerPrint(type) {
+  _pendingPrintType = type;
+  const warn = document.getElementById('psizeWarn');
+  warn.classList.remove('show');
+  document.getElementById('psizeOverlay').classList.add('open');
+}
+
+function closePsizeModal() {
+  document.getElementById('psizeOverlay').classList.remove('open');
+  _pendingPrintType = null;
+}
+
+function confirmPrintSize(size) {
+  const type = _pendingPrintType;
+  if (!type) return;
+
+  // Fixed-layout documents (Performa, AWB copies) are built to exact A4 mm
+  // dimensions; A5 will clip or shrink them rather than reflow cleanly.
+  if (size === 'A5' && FIXED_LAYOUT_TYPES.includes(type)) {
+    const warn = document.getElementById('psizeWarn');
+    warn.classList.add('show');
+    if (!warn.dataset.confirmed) {
+      warn.dataset.confirmed = '1';
+      return; // require a second click to proceed after seeing the warning
+    }
+    delete warn.dataset.confirmed;
+  }
+
+  document.getElementById('psizeOverlay').classList.remove('open');
+
+  let pageStyle = document.getElementById('dynamicPageStyle');
+  if (!pageStyle) {
+    pageStyle = document.createElement('style');
+    pageStyle.id = 'dynamicPageStyle';
+    document.head.appendChild(pageStyle);
+  }
+  const cssSize = size === 'Letter' ? 'letter' : size;
+  pageStyle.textContent = `@page { size: ${cssSize}; margin: 5mm; }`;
+
   // Reset previous active area back to its original id
   if (_activePrintId) {
     const prev = document.getElementById('activePrintArea');
@@ -1237,6 +1323,7 @@ function triggerPrint(type) {
   if (!el) return;
   el.id = 'activePrintArea';
   _activePrintId = targetId;
+  _pendingPrintType = null;
 
   setTimeout(() => {
     window.print();

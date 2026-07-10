@@ -1,0 +1,116 @@
+<!-- settings_whatsapp.html - With Base URL Configuration -->
+{% extends "base.html" %}
+{% block title %}WhatsApp Connect{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <h3 class="mb-4">WhatsApp Connect - MobiCOMM</h3>
+
+  <div class="card mb-4">
+    <div class="card-body">
+      {% if has_key %}
+        <span class="badge bg-success mb-3">Connected</span>
+      {% else %}
+        <span class="badge bg-secondary mb-3">Not connected</span>
+      {% endif %}
+
+      <form method="POST">
+        <!-- Provider Selection (hidden or dropdown) -->
+        <div class="mb-3">
+          <label class="form-label">Provider</label>
+          <select name="whatsapp_provider" class="form-select" required>
+            <option value="mobicomm" {% if company.whatsapp_provider == 'mobicomm' %}selected{% endif %}>MobiCOMM</option>
+            <option value="meta_cloud" {% if company.whatsapp_provider == 'meta_cloud' %}selected{% endif %}>Meta Cloud API</option>
+            <option value="aisensy" {% if company.whatsapp_provider == 'aisensy' %}selected{% endif %}>AiSensy</option>
+          </select>
+          <small class="text-muted">Select your WhatsApp service provider.</small>
+        </div>
+
+        <!-- API Base URL - NEW! -->
+        <div class="mb-3">
+          <label class="form-label">API Base URL</label>
+          <input type="url" name="whatsapp_base_url" class="form-control"
+                 value="{{ company.whatsapp_base_url or 'https://api.dovesoft.io/REST/directApi/message' }}"
+                 placeholder="https://api.dovesoft.io/REST/directApi/message">
+          <small class="text-muted">
+            The API endpoint URL for your WhatsApp provider.
+            <br>MobiCOMM: <code>https://api.dovesoft.io/REST/directApi/message</code>
+          </small>
+        </div>
+
+        <!-- API Key -->
+        <div class="mb-3">
+          <label class="form-label">API Key</label>
+          <input type="password" name="whatsapp_api_key" class="form-control"
+                 placeholder="{% if has_key %}Leave blank to keep current key{% else %}Paste API key{% endif %}">
+          <small class="text-muted">Stored encrypted. Leave blank to keep existing.</small>
+        </div>
+
+        <!-- WABA Number -->
+        <div class="mb-3">
+          <label class="form-label">WhatsApp Business Number (WABA)</label>
+          <input type="text" name="whatsapp_business_no" class="form-control"
+                 value="{{ company.whatsapp_business_no or '' }}"
+                 placeholder="919820007084">
+          <small class="text-muted">Your WhatsApp Business phone number with country code.</small>
+        </div>
+
+        <!-- Template Names -->
+        <div class="mb-3">
+          <label class="form-label">Booking Confirmation Template</label>
+          <input type="text" name="whatsapp_template_generate" class="form-control"
+                 value="{{ company.whatsapp_template_generate or 'alhamamd1001' }}"
+                 placeholder="alhamamd1001">
+          <small class="text-muted">Sent when a new invoice is created.</small>
+        </div>
+
+        <div class="mb-3">
+  <label class="form-label">Carrier Update Template</label>
+  <input type="text" name="whatsapp_template_carrier_update" class="form-control"
+         value="{{ company.whatsapp_template_carrier_update or 'carrier_update' }}"
+         placeholder="carrier_update">
+  <small class="text-muted">Sent when the carrier reference number is updated on an invoice.</small>
+</div>
+
+        <div class="mb-3">
+          <label class="form-label">Delivery Confirmation Template</label>
+          <input type="text" name="whatsapp_template_delivery" class="form-control"
+                 value="{{ company.whatsapp_template_delivery or 'delivery_confirmation' }}"
+                 placeholder="delivery_confirmation">
+          <small class="text-muted">Sent when shipment is delivered.</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Settings</button>
+        {% if has_key %}
+        <button type="button" class="btn btn-danger" onclick="if(confirm('Disconnect WhatsApp?')){document.getElementById('disconnect-form').submit();}">
+          Disconnect
+        </button>
+        {% endif %}
+      </form>
+
+      {% if has_key %}
+      <form id="disconnect-form" method="POST" action="{{ url_for('whatsapp_disconnect') }}" style="display:none;"></form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Test Connection -->
+  {% if has_key %}
+  <div class="card">
+    <div class="card-header"><strong>Test Connection</strong></div>
+    <div class="card-body">
+      <form method="POST" action="{{ url_for('whatsapp_test') }}">
+        <div class="row">
+          <div class="col-md-6">
+            <input type="text" name="test_phone" class="form-control" placeholder="919820007084" required>
+          </div>
+          <div class="col-md-6">
+            <button type="submit" class="btn btn-outline-primary">Send Test Message</button>
+          </div>
+        </div>
+      </form>
+      <small class="text-muted">Test will use your configured template and send to the provided number.</small>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
