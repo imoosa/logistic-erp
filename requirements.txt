@@ -1,12 +1,29 @@
-flask>=3.0
-flask-sqlalchemy>=3.1
-pymysql>=1.1
-cryptography>=42.0
-gunicorn
-pytesseract
-pillow
-pdf2image
-werkzeug
+# Core web framework
+Flask
+Werkzeug
+itsdangerous
+
+# ORM / DB
+Flask-SQLAlchemy
+SQLAlchemy
+PyMySQL
+cryptography
+
+# Mail
+Flask-Mail
+
+# Config
+python-dotenv
+
+# Data / reporting
 pandas
 openpyxl
-python-dotenv
+
+# PDF generation (used for invoice PDFs)
+xhtml2pdf
+
+# HTTP client (WhatsApp connector / provider calls)
+requests
+
+# WSGI server for production (Nginx + Gunicorn deployment)
+gunicorn
