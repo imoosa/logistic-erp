@@ -208,7 +208,7 @@ def get_platform_engine():
     
     platform_db_uri = os.environ.get(
         "PLATFORM_DB_URI",
-        "mysql+pymysql://root@localhost/logistic_erp"
+        "sqlite:///platform.db"
     )
     return create_engine(platform_db_uri)
 
