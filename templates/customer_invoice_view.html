@@ -1,0 +1,400 @@
+{% extends "base.html" %}
+{% block title %}Customer Invoice {{ invoice.invoice_number }}{% endblock %}
+{% set active = 'customer_invoices' %}
+
+{% block extra_style %}
+<style>
+  /* ----- global reset / print ----- */
+  @media print {
+    body * { visibility: hidden !important; }
+    #printArea, #printArea * { visibility: visible !important; }
+    #printArea { position: absolute; left:0; top:0; width:100%; display:block !important; padding:0 !important; margin:0 !important; background:#fff !important; }
+    #printArea .invoice-print { border:1.5px solid #000 !important; padding:6mm !important; min-height:277mm !important; max-height:290mm !important; page-break-after:avoid !important; page-break-inside:avoid !important; margin:0 auto !important; width:210mm !important; max-width:210mm !important; background:#fff !important; }
+    .no-print { display:none !important; }
+    .template-overlay { display:none !important; }
+    .print-btn-group { display:none !important; }
+    .page-header { display:none !important; }
+    .invoice-header { display:none !important; }
+    .summary-grid { display:none !important; }
+    .card { display:none !important; }
+    .action-bar { display:none !important; }
+    .topbar { display:none !important; }
+    .sidebar { display:none !important; }
+    .main { margin:0 !important; padding:0 !important; }
+    .content { padding:0 !important; }
+  }
+
+  /* ----- meta-card design ----- */
+  .meta-card {
+    background: var(--bg-card, #ffffff);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+    border: 1px solid var(--border-color, #e9edf4);
+    padding: 24px 28px;
+    margin-bottom: 28px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 20px 40px;
+    transition: box-shadow 0.2s;
+  }
+  .meta-card:hover {
+    box-shadow: 0 12px 32px rgba(0,0,0,0.06);
+  }
+
+  .meta-card .meta-block {
+    flex: 1 1 160px;
+    min-width: 120px;
+  }
+  .meta-card .meta-block .meta-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted, #6b7280);
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .meta-card .meta-block .meta-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-body, #1f2937);
+    line-height: 1.3;
+    word-break: break-word;
+  }
+  .meta-card .meta-block .meta-value .sub {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted, #6b7280);
+    display: block;
+    margin-top: 2px;
+  }
+  .meta-card .meta-block .badge-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+  }
+  .meta-card .meta-block .badge-group .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 14px;
+    border-radius: 40px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+  }
+  .badge-success { background:#DCFCE7; color:#16A34A; }
+  .badge-warning  { background:#FEF9C3; color:#CA8A04; }
+  .badge-danger   { background:#FEE2E2; color:#DC2626; }
+  .badge-draft    { background:#F3F4F6; color:#4B5563; }
+  .badge-credit   { background:#DBEAFE; color:#1D4ED8; }
+  .badge-cash     { background:#FEF3C7; color:#92400E; }
+
+  .meta-card .meta-divider {
+    width: 1px;
+    background: var(--border-color, #e9edf4);
+    align-self: stretch;
+    flex: 0 0 1px;
+  }
+  @media (max-width: 700px) {
+    .meta-card .meta-divider { display: none; }
+    .meta-card { gap: 16px 20px; }
+  }
+
+  /* summary cards (light) */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .summary-card {
+    padding: 18px 12px;
+    background: var(--bg-card, #ffffff);
+    border-radius: 16px;
+    border: 1px solid var(--border-color, #e9edf4);
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  }
+  .summary-card .label { font-size: 11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); }
+  .summary-card .value { font-size: 24px; font-weight:800; color:var(--text-body); margin-top:4px; }
+  .summary-card .value.green { color:#16A34A; }
+  .summary-card .value.red { color:#DC2626; }
+
+  /* table */
+  .table-wrap { overflow:auto; border-radius:12px; border:1px solid var(--border-color, #e9edf4); }
+  table { width:100%; border-collapse:collapse; min-width:900px; }
+  thead th {
+    padding:12px 14px; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.7px;
+    color:#F59E0B; background:#012926;
+    border-bottom:1.5px solid var(--border-color); text-align:left; white-space:nowrap;
+  }
+  tbody td { padding:12px 14px; border-bottom:1px solid var(--border-color); font-size:13px; vertical-align:middle; color: var(--text-body); }
+  .awb-code {
+    font-family:'Courier New',monospace; font-size:12px; font-weight:700;
+    color:#1E40AF; background:#EEF2FF; padding:3px 10px; border-radius:6px;
+    display:inline-block;
+  }
+  body.dark-theme .awb-code { color:#A5B4FC; background:rgba(79,70,229,0.2); }
+
+  /* totals table */
+  .totals-table { width:100%; max-width:460px; margin-left:auto; }
+  .totals-table td { padding:6px 12px; border:none; }
+  .totals-table .label { font-weight:600; color:var(--text-muted); }
+  .totals-table .amount { text-align:right; }
+  .totals-table .grand-total { font-size:20px; font-weight:800; color:var(--text-body); }
+  .totals-table hr { border-color:var(--border-color); margin:6px 0; }
+
+  .action-bar { display:flex; gap:10px; flex-wrap:wrap; margin-top:24px; }
+  .invoice-type-badge { display:inline-flex; align-items:center; gap:4px; padding:4px 14px; border-radius:40px; font-size:12px; font-weight:700; }
+  .invoice-type-badge.credit { background:#DBEAFE; color:#1D4ED8; }
+  .invoice-type-badge.cash { background:#FEF3C7; color:#92400E; }
+
+  .card {
+    background: var(--bg-card, #ffffff);
+    border-radius: 20px;
+    border: 1px solid var(--border-color, #e9edf4);
+    padding: 24px 28px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    margin-bottom: 24px;
+  }
+  .card-body { padding:0; }
+  .btn-ghost { background:transparent; border:1px solid var(--border-color); }
+  .btn-sm { padding:6px 16px; font-size:13px; border-radius:40px; }
+  .btn-primary { background:#012926; color:white; border:none; }
+  .btn-success { background:#16A34A; color:white; border:none; }
+  .btn-danger { background:#DC2626; color:white; border:none; }
+  .btn { display:inline-flex; align-items:center; gap:6px; text-decoration:none; cursor:pointer; border-radius:40px; font-weight:600; transition:0.15s; padding:8px 20px; border:1px solid transparent; }
+  .btn:hover { opacity:0.85; transform:translateY(-1px); }
+
+  /* tax breakdown inline */
+  .tax-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .tax-breakdown span { background: var(--bg-table-alt, #f1f5f9); padding: 0 8px; border-radius: 12px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <h2 style="margin:0; font-size:24px;">📄 Customer Invoice</h2>
+  <div style="display:flex; gap:8px;">
+    <span class="invoice-type-badge {{ invoice.invoice_type or 'credit' }}">
+      {% if invoice.invoice_type == 'cash' %}💵 Cash Invoice{% else %}💳 Credit Invoice{% endif %}
+    </span>
+  </div>
+</div>
+
+<!-- ========== META CARD ========== -->
+<div class="meta-card">
+  <div class="meta-block">
+    <div class="meta-label">Invoice</div>
+    <div class="meta-value">
+      {{ invoice.invoice_number }}
+      <span class="sub">
+        Created: {{ invoice.created_at.strftime('%d %b %Y %H:%M') if invoice.created_at else '—' }}
+        {% if invoice.created_by %} · {{ invoice.created_by }}{% endif %}
+      </span>
+    </div>
+  </div>
+  <div class="meta-divider"></div>
+
+  <div class="meta-block">
+    <div class="meta-label">Status</div>
+    <div class="meta-value">
+      <span class="badge {% if invoice.status == 'Paid' %}badge-success{% elif invoice.status == 'Partial' %}badge-warning{% elif invoice.status == 'Void' %}badge-draft{% else %}badge-danger{% endif %}">
+        {{ invoice.status }}
+      </span>
+      <span class="sub" style="margin-top:6px;">
+        {% if invoice.invoice_type == 'cash' %}💵 Cash{% else %}💳 Credit{% endif %}
+      </span>
+    </div>
+  </div>
+  <div class="meta-divider"></div>
+
+  <div class="meta-block">
+    <div class="meta-label">Customer</div>
+    <div class="meta-value">
+      {{ invoice.client_name or '—' }}
+      <span class="sub">ID: {{ invoice.client_id or '—' }}</span>
+    </div>
+  </div>
+  <div class="meta-divider"></div>
+
+  <div class="meta-block">
+    <div class="meta-label">Dates</div>
+    <div class="meta-value">
+      <span style="font-size:16px;">{{ invoice.invoice_date.strftime('%d %b %Y') if invoice.invoice_date else '—' }}</span>
+      {% if invoice.due_date %}
+      <span class="sub">Due: {{ invoice.due_date.strftime('%d %b %Y') }}</span>
+      {% else %}
+      <span class="sub">No due date</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="meta-divider"></div>
+
+  <div class="meta-block" style="flex: 1 1 180px;">
+    <div class="meta-label">Financial</div>
+    <div class="meta-value" style="display:flex; flex-wrap:wrap; gap:8px 20px;">
+      <span style="font-size:14px; font-weight:600;">₹{{ "{:,.0f}".format(invoice.grand_total) }}</span>
+      <span style="font-size:13px; font-weight:400; color:var(--text-muted);">
+        Tax: ₹{{ "{:,.0f}".format(invoice.tax_amount) }}
+      </span>
+      <span style="font-size:13px; font-weight:400; color:var(--text-muted);">
+        Sub: ₹{{ "{:,.0f}".format(invoice.subtotal) }}
+      </span>
+      {% if invoice.paid_amount > 0 %}
+      <span style="font-size:13px; font-weight:500; color:#16A34A;">
+        Paid: ₹{{ "{:,.0f}".format(invoice.paid_amount) }}
+      </span>
+      <span style="font-size:13px; font-weight:600; color:#DC2626;">
+        Balance: ₹{{ "{:,.0f}".format(invoice.balance) }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Summary cards -->
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="label">Bookings</div>
+    <div class="value">{{ items | length }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Subtotal</div>
+    <div class="value">₹{{ "{:,.0f}".format(invoice.subtotal) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">GST</div>
+    <div class="value">₹{{ "{:,.0f}".format(invoice.tax_amount) }}</div>
+  </div>
+  <div class="summary-card">
+    <div class="label">Grand Total</div>
+    <div class="value {% if invoice.balance > 0 %}red{% else %}green{% endif %}">₹{{ "{:,.0f}".format(invoice.grand_total) }}</div>
+  </div>
+</div>
+
+<!-- Items card -->
+<div class="card">
+  <div class="card-body">
+    <h4 style="margin:0 0 16px;">📦 Bookings Included</h4>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>AWB / Docket</th><th>Booking Ref</th>
+            <th>Receiver</th><th>Destination</th><th>Carrier</th>
+            <th>Weight</th><th>Taxable</th>
+            <th>CGST</th><th>SGST</th><th>IGST</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>
+              {% if item.docket_no %}
+                <span class="awb-code">{{ item.docket_no }}</span>
+              {% else %}
+                <span style="color:var(--text-muted);">—</span>
+              {% endif %}
+            </td>
+            <td><a href="{{ url_for('invoice_view', invoice_id=item.booking_invoice_ref) }}" style="color:var(--primary);">{{ item.booking_invoice_ref or '—' }}</a></td>
+            <td>{{ item.receiver_name or '—' }}</td>
+            <td>{{ item.destination or '—' }}</td>
+            <td>{{ item.carrier or '—' }}</td>
+            <td>{{ item.weight_kg|round(2) if item.weight_kg else 0 }} kg</td>
+            <td>₹{{ "{:,.0f}".format(item.taxable_amount) }}</td>
+            <td>₹{{ "{:,.0f}".format(item.cgst_amount or 0) }}</td>
+            <td>₹{{ "{:,.0f}".format(item.sgst_amount or 0) }}</td>
+            <td>₹{{ "{:,.0f}".format(item.igst_amount or 0) }}</td>
+            <td><strong>₹{{ "{:,.0f}".format(item.total_amount) }}</strong></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="12" style="text-align:center;padding:32px;color:var(--text-muted);">No items found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals: show CGST+SGST only if any booking was intrastate, IGST only if any was interstate -->
+    <div style="margin-top:24px;">
+      <table class="totals-table">
+        <tr>
+          <td class="label">Subtotal</td>
+          <td class="amount">₹{{ "{:,.0f}".format(invoice.subtotal) }}</td>
+        </tr>
+        {% if invoice.cgst_total or invoice.sgst_total %}
+        <tr>
+          <td class="label">CGST</td>
+          <td class="amount">₹{{ "%.2f"|format(invoice.cgst_total or 0) }}</td>
+        </tr>
+        <tr>
+          <td class="label">SGST</td>
+          <td class="amount">₹{{ "%.2f"|format(invoice.sgst_total or 0) }}</td>
+        </tr>
+        {% endif %}
+        {% if invoice.igst_total %}
+        <tr>
+          <td class="label">IGST</td>
+          <td class="amount">₹{{ "{:,.0f}".format(invoice.igst_total or 0) }}</td>
+        </tr>
+        {% endif %}
+        <tr><td colspan="2"><hr></td></tr>
+        <tr>
+          <td class="label grand-total">Grand Total</td>
+          <td class="amount grand-total">₹{{ "{:,.0f}".format(invoice.grand_total) }}</td>
+        </tr>
+        {% if invoice.paid_amount > 0 %}
+        <tr>
+          <td class="label">Amount Paid</td>
+          <td class="amount" style="color:#16A34A;">₹{{ "{:,.0f}".format(invoice.paid_amount) }}</td>
+        </tr>
+        <tr>
+          <td class="label">Balance Due</td>
+          <td class="amount" style="color:#DC2626;font-weight:700;">₹{{ "{:,.0f}".format(invoice.balance) }}</td>
+        </tr>
+        {% endif %}
+      </table>
+    </div>
+
+    {% if invoice.notes %}
+    <div style="margin-top:16px; padding:14px 18px; background:var(--bg-table-alt, #f8fafc); border-radius:12px;">
+      <strong style="font-size:12px; color:var(--text-muted);">Notes:</strong>
+      <span style="font-size:13px;">{{ invoice.notes }}</span>
+    </div>
+    {% endif %}
+
+    {% if invoice.booking_ids_json %}
+    <div style="margin-top:12px; padding:10px 16px; background:var(--bg-table-alt, #f8fafc); border-radius:10px; font-size:12px; color:var(--text-muted); display:flex; flex-wrap:wrap; gap:4px;">
+      <strong style="margin-right:6px;">Booking IDs:</strong> 
+      {% set booking_ids = invoice.booking_ids_json | from_json %}
+      {{ booking_ids | join(', ') }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="action-bar">
+  <a href="{{ url_for('customer_invoice_list') }}" class="btn btn-ghost">← Back to List</a>
+  <a href="{{ url_for('customer_invoice_print', cust_inv_id=invoice.id, action='pdf') }}" class="btn btn-primary btn-sm">⬇️ PDF</a>
+  <a href="{{ url_for('customer_invoice_print', cust_inv_id=invoice.id, action='print') }}" class="btn btn-success btn-sm">🖨️ Print</a>
+  {% if invoice.status != 'Void' %}
+  <form method="POST" action="{{ url_for('customer_invoice_delete', cust_inv_id=invoice.id) }}" style="display:inline;" 
+        onsubmit="return confirm('Void this customer invoice? This can be reversed.');">
+    <button type="submit" class="btn btn-danger btn-sm">🚫 Void Invoice</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

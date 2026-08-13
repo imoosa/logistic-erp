@@ -101,6 +101,41 @@
   .form-group textarea { resize: vertical; min-height: 64px; }
   .form-row { display: flex; gap: 10px; justify-content: flex-end; }
 
+  /* ── Single-line add-expense form ── */
+  .form-single-row {
+    display: flex; flex-wrap: nowrap; gap: 10px; align-items: flex-end;
+    margin-bottom: 16px; overflow-x: auto; padding-bottom: 2px;
+  }
+  .form-single-row .form-group { flex: 1 1 0; min-width: 100px; }
+  .form-single-row .form-group.fg-date { flex: 0 0 130px; min-width: 130px; }
+  .form-single-row .form-group.fg-category { flex: 1 1 140px; min-width: 130px; }
+  .form-single-row .form-group.fg-amount { flex: 0 0 110px; min-width: 100px; }
+  .form-single-row .form-group.fg-payment { flex: 0 0 130px; min-width: 120px; }
+  .form-single-row .form-group.fg-reference { flex: 1 1 110px; min-width: 100px; }
+  .form-single-row .form-group.fg-description { flex: 2 1 160px; min-width: 140px; }
+  .form-single-row .form-group.fg-others { flex: 1 1 160px; min-width: 150px; }
+  .form-single-row .form-group input,
+  .form-single-row .form-group select {
+    white-space: nowrap; height: 38px; box-sizing: border-box;
+  }
+  .form-single-row .form-actions {
+    display: flex; flex-direction: column; gap: 5px; flex: 0 0 auto;
+  }
+  .form-single-row .form-actions label {
+    font-size: 12px; font-weight: 700; color: #374151;
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  .form-single-row .form-actions .btn-row { display: flex; gap: 8px; }
+  .form-single-row .form-actions .fb {
+    white-space: nowrap; height: 38px; box-sizing: border-box;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  @media (max-width: 1100px) {
+    .form-single-row { flex-wrap: wrap; overflow-x: visible; }
+    .form-single-row .form-group { flex: 1 1 160px; }
+    .form-single-row .form-actions { flex: 1 1 100%; justify-content: flex-end; }
+  }
+
   /* ── Table ── */
   .exp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .exp-table th {
@@ -174,6 +209,11 @@
       <label>To</label>
       <input type="date" id="toDate" value="{{ to_date }}" />
     </div>
+    <div class="fg" style="flex:1 1 240px;min-width:220px;">
+      <label>Search</label>
+      <input type="text" id="expSearchBox" placeholder="Search category, date, mode, description..."
+             autocomplete="off" oninput="liveSearchExpenses()" />
+    </div>
     <button class="fb" onclick="applyFilter()">Apply</button>
     <button class="fb" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;"
       onclick="resetFilter()">Reset</button>
@@ -190,33 +230,30 @@
       <button onclick="toggleForm()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94A3B8;">✕</button>
     </div>
     <form method="POST" action="{{ url_for('add_expense') }}">
-      <div class="form-grid cols3">
-        <div class="form-group">
+      <div class="form-single-row">
+        <div class="form-group fg-date">
           <label>Date *</label>
           <input type="date" name="date" value="{{ today }}" required />
         </div>
-        <div class="form-group">
-  <label>Category *</label>
-  <select name="category" required onchange="onCategoryChange(this)">
-    {% for cat in categories %}
-      <option value="{{ cat }}">{{ cat }}</option>
-    {% endfor %}
-  </select>
-</div>
-<!-- Others reason — shown only when Others is selected -->
-<div class="form-group" id="othersReasonGroup"
-     style="display:none; margin-bottom:14px;">
-  <label>Reason for Others *</label>
-  <input type="text" name="others_reason" id="othersReason"
-         placeholder="Describe what this expense is for…" />
-</div>
-        <div class="form-group">
+        <div class="form-group fg-category">
+          <label>Category *</label>
+          <select name="category" required onchange="onCategoryChange(this)">
+            {% for cat in categories %}
+              <option value="{{ cat }}">{{ cat }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <!-- Others reason — shown only when Others is selected -->
+        <div class="form-group fg-others" id="othersReasonGroup" style="display:none;">
+          <label>Reason for Others *</label>
+          <input type="text" name="others_reason" id="othersReason"
+                 placeholder="Describe what this expense is for…" />
+        </div>
+        <div class="form-group fg-amount">
           <label>Amount (₹) *</label>
           <input type="number" name="amount" step="0.01" min="0.01" placeholder="0.00" required />
         </div>
-      </div>
-      <div class="form-grid">
-        <div class="form-group">
+        <div class="form-group fg-payment">
           <label>Payment Mode</label>
           <select name="payment_mode">
             <option value="Cash">Cash</option>
@@ -226,19 +263,22 @@
             <option value="Card">Card</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group fg-reference">
           <label>Reference / Bill No.</label>
           <input type="text" name="reference" placeholder="Optional" />
         </div>
-      </div>
-      <div class="form-group" style="margin-bottom:16px;">
-        <label>Description</label>
-        <textarea name="description" placeholder="What was this expense for?"></textarea>
-      </div>
-      <div class="form-row">
-        <button type="button" class="fb" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;"
-          onclick="toggleForm()">Cancel</button>
-        <button type="submit" class="fb fb-red">Save Expense</button>
+        <div class="form-group fg-description">
+          <label>Description</label>
+          <input type="text" name="description" placeholder="What was this expense for?" />
+        </div>
+        <div class="form-actions">
+          <label style="visibility:hidden;">Action</label>
+          <div class="btn-row">
+            <button type="button" class="fb" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;"
+              onclick="toggleForm()">Cancel</button>
+            <button type="submit" class="fb fb-red">Save Expense</button>
+          </div>
+        </div>
       </div>
     </form>
   </div>
@@ -289,12 +329,12 @@
     <div class="panel">
       <div class="panel-hd">
         <span class="panel-title">Expense Entries</span>
-        <span style="font-size:12px;color:#94A3B8;">{{ expenses | length }} records</span>
+        <span style="font-size:12px;color:#94A3B8;" id="expRecordCount">{{ expenses | length }} records</span>
       </div>
 
       {% if expenses %}
       <div style="overflow-x:auto;">
-        <table class="exp-table">
+        <table class="exp-table" id="expTable">
           <thead>
             <tr>
               <th>Date</th>
@@ -306,9 +346,11 @@
               <th></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody id="expTableBody">
             {% for e in expenses %}
-            <tr>
+            <tr class="exp-row"
+                data-search="{{ (e.date.strftime('%d %b %Y') ~ ' ' ~ e.category ~ ' ' ~ e.payment_mode ~ ' ' ~ (e.description or '') ~ ' ' ~ (e.reference or ''))|lower }}"
+                data-amount="{{ e.amount }}">
               <td style="white-space:nowrap;">{{ e.date.strftime('%d %b %Y') }}</td>
               <td><span class="cat-badge">{{ e.category }}</span></td>
               <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -325,13 +367,17 @@
               </td>
             </tr>
             {% endfor %}
+            <tr id="expNoResultsRow" style="display:none;">
+              <td colspan="7" style="text-align:center;padding:28px 10px;color:#94A3B8;">
+                No expenses match your search.</td>
+            </tr>
           </tbody>
           <tfoot>
             <tr>
               <td colspan="5" style="padding:12px 10px;font-weight:700;color:#0F172A;border-top:2px solid #E2E8F0;">
                 Total</td>
               <td style="text-align:right;padding:12px 10px;font-size:16px;font-weight:800;
-                color:#EF4444;border-top:2px solid #E2E8F0;">
+                color:#EF4444;border-top:2px solid #E2E8F0;" id="expTotalCell">
                 ₹{{ "{:,.2f}".format(total) }}</td>
               <td style="border-top:2px solid #E2E8F0;"></td>
             </tr>
@@ -486,7 +532,7 @@
   const grp = document.getElementById('othersReasonGroup');
   const inp = document.getElementById('othersReason');
   if (sel.value === 'Others') {
-    grp.style.display = 'block';
+    grp.style.display = 'flex';
     inp.required = true;
   } else {
     grp.style.display = 'none';
@@ -518,9 +564,67 @@ document.querySelector('#addExpenseForm form').addEventListener('submit', functi
     window.location.href = `/expenses?from_date=${firstDay}&to_date=${today.toISOString().slice(0,10)}`;
   }
 
+  // Live client-side search across Category, Date, Payment Mode & Description
+  // (matches against the data-search attribute baked into each row, so it
+  // needs no server round-trip — instant as you type).
+  function liveSearchExpenses() {
+    const q = document.getElementById('expSearchBox').value.trim().toLowerCase();
+    const rows = Array.from(document.querySelectorAll('#expTableBody .exp-row'));
+    if (!rows.length) return;
+
+    let visibleCount = 0;
+    let visibleTotal = 0;
+    rows.forEach(row => {
+      const match = !q || (row.dataset.search || '').includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) {
+        visibleCount++;
+        visibleTotal += parseFloat(row.dataset.amount) || 0;
+      }
+    });
+
+    const noResultsRow = document.getElementById('expNoResultsRow');
+    if (noResultsRow) noResultsRow.style.display = visibleCount ? 'none' : '';
+
+    const countEl = document.getElementById('expRecordCount');
+    if (countEl) {
+      countEl.textContent = q
+        ? `${visibleCount} of ${rows.length} records`
+        : `${rows.length} records`;
+    }
+
+    const totalEl = document.getElementById('expTotalCell');
+    if (totalEl) {
+      totalEl.textContent = '₹' + visibleTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+  }
+
   function toggleForm() {
     document.getElementById('addExpenseForm').classList.toggle('open');
   }
+
+  // Enter key moves to next field instead of submitting the form
+  (function() {
+    const form = document.querySelector('#addExpenseForm form');
+    if (!form) return;
+
+    form.addEventListener('keydown', function(e) {
+      if (e.key !== 'Enter') return;
+      if (e.target.tagName === 'TEXTAREA') return; // allow newlines in textarea
+
+      e.preventDefault();
+
+      const fields = Array.from(
+        form.querySelectorAll('input, select, textarea, button[type="submit"]')
+      ).filter(el => !el.disabled && el.offsetParent !== null); // visible/enabled only
+
+      const idx = fields.indexOf(e.target);
+      if (idx > -1 && idx < fields.length - 1) {
+        fields[idx + 1].focus();
+        if (fields[idx + 1].select) fields[idx + 1].select();
+      }
+    });
+  })();
 
   // REPLACE the bottom of your script block
 document.addEventListener('DOMContentLoaded', function() {

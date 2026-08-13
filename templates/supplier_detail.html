@@ -207,6 +207,7 @@
 <div class="action-bar-top">
   <a href="/suppliers/{{ supplier.id }}/edit" class="btn btn-primary">✏️ Edit Supplier</a>
   <a href="/payments/new?supplier_id={{ supplier.id }}" class="btn btn-ghost">💸 Record Payment</a>
+  <a href="/suppliers/{{ supplier.id }}/statement" class="btn btn-primary">📊 View Statement</a>
   <a href="/suppliers" class="btn btn-ghost" style="margin-left:auto;">← Back to Suppliers</a>
 </div>
 
@@ -339,6 +340,10 @@
       <div class="ds-row">
         <span class="ds-label">PAN Number</span>
         <span class="ds-value" style="font-family: monospace;">{{ supplier.pan_number or '—' }}</span>
+      </div>
+      <div class="ds-row">
+        <span class="ds-label">Aadhar Number</span>
+        <span class="ds-value" style="font-family: monospace;">{{ supplier.aadhar_number or '—' }}</span>
       </div>
     </div>
   </div>

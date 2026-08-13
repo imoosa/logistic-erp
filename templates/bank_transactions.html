@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Bank Transactions{% endblock %}
+{% block page_title %}Bank Transactions{% endblock %}
+{% set active = 'bank_accounts' %}
+
+{% block extra_style %}
+<style>
+  .account-summary-bar {
+    background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%);
+    color: white;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .account-summary-bar .bank-name {
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .account-summary-bar .account-name {
+    font-size: 13px;
+    opacity: 0.85;
+  }
+  .account-summary-bar .balance {
+    font-size: 26px;
+    font-weight: 800;
+  }
+  .txn-table-wrap {
+    background: var(--bg-card);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+  }
+  table.txn-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.txn-table th {
+    text-align: left;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 12px 16px;
+    background: var(--bg-table-alt);
+    border-bottom: 1px solid var(--border-color);
+  }
+  table.txn-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 14px;
+    color: var(--text-body);
+  }
+  table.txn-table tr:last-child td {
+    border-bottom: none;
+  }
+  .amount-credit {
+    color: #059669;
+    font-weight: 700;
+  }
+  .amount-debit {
+    color: #DC2626;
+    font-weight: 700;
+  }
+  .txn-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .txn-badge.credit {
+    background: #D1FAE5;
+    color: #065F46;
+  }
+  .txn-badge.debit {
+    background: #FEE2E2;
+    color: #991B1B;
+  }
+  body.dark-theme .txn-badge.credit {
+    background: rgba(5,150,105,0.2);
+    color: #34D399;
+  }
+  body.dark-theme .txn-badge.debit {
+    background: rgba(220,38,38,0.2);
+    color: #F87171;
+  }
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 16px;
+    color: #4F46E5;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<a href="/bank-accounts" class="back-link">&larr; Back to Bank Accounts</a>
+
+<div class="account-summary-bar">
+  <div>
+    <div class="bank-name">{{ account.bank_name }}</div>
+    <div class="account-name">{{ account.account_name }} &middot; {{ account.account_number }}</div>
+  </div>
+  <div>
+    <div style="font-size:12px; opacity:0.85; text-align:right;">Current Balance</div>
+    <div class="balance">₹{{ "{:,.2f}".format(account.balance) }}</div>
+  </div>
+</div>
+
+<div class="page-header">
+  <h2>Transaction History</h2>
+</div>
+
+<div class="txn-table-wrap">
+  <table class="txn-table">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Description</th>
+        <th>Party</th>
+        <th>Reference</th>
+        <th>Mode</th>
+        <th>Type</th>
+        <th style="text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for txn in transactions %}
+      <tr>
+        <td>{{ txn.date.strftime('%d %b %Y') if txn.date else '-' }}</td>
+        <td>{{ txn.description|default('-', true) }}</td>
+        <td>{{ txn.party_name|default('-', true) }}</td>
+        <td>{{ txn.reference|default('-', true) }}</td>
+        <td>{{ txn.transaction_mode|default('-', true) }}</td>
+        <td>
+          {% set ttype = (txn.type|default('', true))|lower %}
+          <span class="txn-badge {{ 'credit' if ttype == 'credit' else 'debit' }}">
+            {{ txn.type|default('-', true) }}
+          </span>
+        </td>
+        <td style="text-align:right;" class="{{ 'amount-credit' if ttype == 'credit' else 'amount-debit' }}">
+          {{ '+' if ttype == 'credit' else '-' }}₹{{ "{:,.2f}".format(txn.amount) }}
+        </td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="7" style="text-align:center; padding:40px; color:#6B7280;">
+          No transactions recorded for this account yet.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}

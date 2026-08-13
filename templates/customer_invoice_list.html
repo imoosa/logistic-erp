@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}Customer Invoices{% endblock %}
+{% set active = 'customer_invoices' %}
+
+{% block extra_style %}
+<style>
+  .summary-strip {
+    display:flex; gap:24px; flex-wrap:wrap;
+    padding:14px 20px; background: var(--bg-table-alt);
+    border-radius:10px; margin-bottom:18px;
+    border:1px solid var(--border-color);
+  }
+  .s-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color: var(--text-muted); font-weight:700; }
+  .s-val   { font-size:18px; font-weight:800; color: var(--text-body); }
+  .s-val.green { color:#16A34A; }
+  .s-val.red   { color:#DC2626; }
+  
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .badge-success { background:#DCFCE7; color:#16A34A; }
+  .badge-warning  { background:#FEF9C3; color:#CA8A04; }
+  .badge-danger   { background:#FEE2E2; color:#DC2626; }
+  .badge-draft    { background:#F3F4F6; color:#4B5563; }
+  
+  .tab { padding:8px 18px; border-radius:20px; font-size:13px; font-weight:600;
+         color: var(--text-muted); border:1.5px solid var(--border-color); text-decoration:none; transition:all .15s; }
+  .tab:hover { border-color:#012926; color:#F59E0B; }
+  .tab.active { background:#012926; color:#F59E0B; border-color:#012926; }
+  
+  .table-wrap { overflow:auto; max-height:68vh; border-radius:10px; position:relative; }
+  table { width:100%; border-collapse:collapse; min-width:720px; }
+  thead th {
+    padding:11px 14px; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.7px;
+    color:#F59E0B; background:#012926;
+    border-bottom:1.5px solid var(--border-color); text-align:left; white-space:nowrap;
+    position:sticky; top:0; z-index:2;
+  }
+  tbody td { padding:13px 14px; border-bottom:1px solid var(--border-color); font-size:13.5px; vertical-align:middle; color: var(--text-body); }
+  tbody tr:hover { background: var(--bg-table-alt); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <h2 style="margin: 0;">📄 Customer Invoices</h2>
+  <a href="{{ url_for('customer_invoice_new') }}" class="btn btn-primary">+ New Invoice</a>
+</div>
+
+{% set total_amount = invoices | sum(attribute='grand_total') %}
+{% set total_paid = invoices | sum(attribute='paid_amount') %}
+{% set total_balance = invoices | sum(attribute='balance') %}
+
+<div class="summary-strip">
+  <div>
+    <div class="s-label">Total Invoices</div>
+    <div class="s-val">{{ invoices | length }}</div>
+  </div>
+  <div>
+    <div class="s-label">Total Amount</div>
+    <div class="s-val">₹{{ "{:,.0f}".format(total_amount) }}</div>
+  </div>
+  <div>
+    <div class="s-label">Amount Received</div>
+    <div class="s-val green">₹{{ "{:,.0f}".format(total_paid) }}</div>
+  </div>
+  <div>
+    <div class="s-label">Balance Pending</div>
+    <div class="s-val red">₹{{ "{:,.0f}".format(total_balance) }}</div>
+  </div>
+</div>
+
+<div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">
+  {% for s in ['All', 'Pending', 'Paid', 'Partial', 'Void'] %}
+  <a href="?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">
+    {{ s }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Type</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Bookings</th>
+          <th>Subtotal</th>
+          <th>GST</th>
+          <th>Total</th>
+          <th>Status</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+          <td><strong>{{ inv.invoice_number }}</strong></td>
+          <td>
+      {% if inv.invoice_type == 'cash' %}
+        <span class="badge badge-warning">💵 Cash</span>
+      {% else %}
+        <span class="badge badge-primary">💳 Credit</span>
+      {% endif %}
+    </td>
+          <td>{{ inv.client_name or '—' }}</td>
+          <td>{{ inv.invoice_date.strftime('%d %b %Y') if inv.invoice_date else '—' }}</td>
+          <td>
+            {% if inv.booking_ids_json %}
+              {% set booking_ids = inv.booking_ids_json | from_json %}
+              {{ booking_ids | length }}
+            {% else %}
+              0
+            {% endif %}
+          </td>
+          <td>₹{{ "{:,.0f}".format(inv.subtotal) }}</td>
+          <td>₹{{ "{:,.0f}".format(inv.tax_amount) }}</td>
+          <td><strong>₹{{ "{:,.0f}".format(inv.grand_total) }}</strong></td>
+          <td>
+            {% if inv.status == 'Paid' %}
+              <span class="badge badge-success">✅ Paid</span>
+            {% elif inv.status == 'Partial' %}
+              <span class="badge badge-warning">⏳ Partial</span>
+            {% elif inv.status == 'Void' %}
+              <span class="badge badge-draft">🚫 Void</span>
+            {% else %}
+              <span class="badge badge-danger">⚠ Pending</span>
+            {% endif %}
+          </td>
+          <td style="text-align:right; white-space:nowrap;">
+  <a href="{{ url_for('customer_invoice_view', cust_inv_id=inv.id) }}" class="btn btn-ghost btn-sm">👁️ View</a>
+  <a href="{{ url_for('customer_invoice_print', cust_inv_id=inv.id, action='pdf') }}" class="btn btn-primary btn-sm">⬇️ PDF</a>
+  <a href="{{ url_for('customer_invoice_print', cust_inv_id=inv.id, action='print') }}" class="btn btn-success btn-sm">🖨️ Print</a>
+  {% if inv.status != 'Void' %}
+  <form method="POST" action="{{ url_for('customer_invoice_delete', cust_inv_id=inv.id) }}" style="display:inline;" 
+        onsubmit="return confirm('Void this customer invoice? This can be reversed.');">
+    <button type="submit" class="btn btn-danger btn-sm">🚫 Void</button>
+  </form>
+  {% endif %}
+</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
+            <div style="font-size:32px;margin-bottom:8px">📭</div>
+            No customer invoices found.
+            <br>
+            <a href="{{ url_for('customer_invoice_new') }}" class="btn btn-primary" style="margin-top:12px;">Create your first invoice</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

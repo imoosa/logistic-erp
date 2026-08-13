@@ -6,54 +6,71 @@
 {% block extra_style %}
 <style>
   .summary-bar { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
-  .sum-card { background:#fff; border-radius:14px; padding:20px 24px; border:1px solid var(--gray-100);
-              display:flex; align-items:center; gap:16px; }
+  .sum-card { background:var(--bg-card); border-radius:14px; padding:20px 24px; border:1px solid var(--border-color);
+              display:flex; align-items:center; gap:16px; transition: background 0.3s ease, border-color 0.3s ease; }
   .sum-icon { font-size:32px; }
-  .sum-val  { font-size:24px; font-weight:800; }
-  .sum-lbl  { font-size:12px; color:var(--gray-500); margin-top:2px; }
+  .sum-val  { font-size:24px; font-weight:800; color: var(--text-body); }
+  .sum-lbl  { font-size:12px; color:var(--text-muted); margin-top:2px; }
 
-  .search-bar { display:flex; gap:12px; margin-bottom:16px; }
-  .search-bar input { max-width:320px; }
+  .search-bar { display:flex; gap:12px; margin-bottom:16px; flex-wrap: wrap; }
+  .search-bar input { max-width:320px; background:var(--bg-input); color:var(--text-body); border-color:var(--border-color); }
+  .search-bar select { background:var(--bg-input); color:var(--text-body); border-color:var(--border-color); padding: 9px 12px; border-radius: 8px; font-family: var(--font); font-size: 13.5px; }
 
   .chip-overdue { background:#FEE2E2; color:#DC2626; padding:2px 8px; border-radius:10px;
                   font-size:11px; font-weight:700; margin-left:6px; }
+  body.dark-theme .chip-overdue { background:rgba(220,38,38,0.15); color:#F87171; }
 
   .amt-payable  { color:#7C3AED; font-weight:700; }
+  body.dark-theme .amt-payable { color:#A78BFA; }
   .amt-due      { color:#DC2626; font-weight:600; }
+  body.dark-theme .amt-due { color:#F87171; }
   .amt-payment  { color:#16A34A; font-weight:600; }
+  body.dark-theme .amt-payment { color:#34D399; }
 
-  .view-btn { background:#F5F3FF; color:#7C3AED; border:none; padding:6px 12px;
+  .view-btn { background:var(--primary-light); color:var(--primary); border:none; padding:6px 12px;
               border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
               transition:background .15s; display:inline-flex; align-items:center; gap:4px; }
-  .view-btn:hover { background:#7C3AED; color:#fff; }
+  .view-btn:hover { background:var(--primary); color:#fff; }
+  body.dark-theme .view-btn { background:rgba(245,158,11,0.15); color:#FBBF24; }
+  body.dark-theme .view-btn:hover { background:#F59E0B; color:#fff; }
 
   .pay-btn { background:#FEF3C7; color:#D97706; border:none; padding:6px 12px;
              border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none;
              transition:background .15s; display:inline-flex; align-items:center; gap:4px; margin-left:6px; }
   .pay-btn:hover { background:#D97706; color:#fff; }
+  body.dark-theme .pay-btn { background:rgba(217,119,6,0.15); color:#FBBF24; }
+  body.dark-theme .pay-btn:hover { background:#D97706; color:#fff; }
 
   .tbl-row:hover { background:var(--gray-50); cursor:pointer; }
+  body.dark-theme .tbl-row:hover { background:rgba(255,255,255,0.03); }
   .action-cell   { display:flex; gap:6px; white-space:nowrap; }
   .table-wrap th {
     background: #012926;
     color: #F59E0B;
   }
+  body.dark-theme .table-wrap th {
+    background: #011A18;
+    color: #F59E0B;
+  }
+  .table-wrap td { color: var(--text-body); border-color: var(--border-color); }
+  .table-wrap tbody tr { border-bottom: 1px solid var(--border-color); }
 
   @media(max-width:900px){ .summary-bar{grid-template-columns:1fr 1fr;} }
+  @media(max-width:600px){ .summary-bar{grid-template-columns:1fr;} }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
   <div>
-    <h2>📤 Creditors</h2>
-    <p style="color:var(--gray-500);font-size:13px;margin-top:4px;">
+    <h2 style="color:var(--text-body);">📤 Creditors</h2>
+    <p style="color:var(--text-muted);font-size:13px;margin-top:4px;">
       Suppliers you owe money to — track payable amounts &amp; due dates.
     </p>
   </div>
-  <div style="display:flex;gap:10px;">
-    <a href="/payments/new" class="btn btn-warning" style="background:#D97706;color:#fff;">💸 Record Payment</a>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    <a href="/payments/new" class="btn" style="background:#D97706;color:#fff;">💸 Record Payment</a>
     <a href="/purchase/new" class="btn btn-primary">+ New Purchase</a>
   </div>
 </div>
@@ -114,17 +131,17 @@
         <tr class="tbl-row {% if c.overdue %}row-overdue{% endif %}"
             data-overdue="{{ 'yes' if c.overdue else 'no' }}"
             onclick="window.location='/creditors/{{ c.id }}/statement'">
-          <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
+          <td style="color:var(--text-muted); font-size:12px;">{{ loop.index }}</td>
           <td>
-            <strong>{{ c.name }}</strong>
+            <strong style="color:var(--text-body);">{{ c.name }}</strong>
             {% if c.overdue %}<span class="chip-overdue">OVERDUE</span>{% endif %}
-            <div style="font-size:11px; color:var(--gray-400);">
+            <div style="font-size:11px; color:var(--text-muted);">
               {% if c.phone %}📞 {{ c.phone }}{% endif %}
               {% if c.city %} · {{ c.city }}{% endif %}
             </div>
           </td>
           <td><span class="amt-payable">₹{{ "{:,.0f}".format(c.total_pending) }}</span></td>
-          <td style="color:var(--gray-600); font-size:13px;">
+          <td style="color:var(--text-muted); font-size:13px;">
             {% if c.last_bill_date %}{{ c.last_bill_date.strftime('%d %b %Y') }}{% else %}—{% endif %}
           </td>
           <td>
@@ -133,7 +150,7 @@
                 {{ c.nearest_due_date.strftime('%d %b %Y') }}
               </span>
             {% else %}
-              <span style="color:var(--gray-400);">—</span>
+              <span style="color:var(--text-muted);">—</span>
             {% endif %}
           </td>
           <td>
@@ -141,7 +158,7 @@
               <span class="amt-due">₹{{ "{:,.0f}".format(c.nearest_due_amt) }}</span>
             {% else %}—{% endif %}
           </td>
-          <td style="color:var(--gray-600); font-size:13px;">
+          <td style="color:var(--text-muted); font-size:13px;">
             {% if c.last_payment_date %}{{ c.last_payment_date.strftime('%d %b %Y') }}{% else %}—{% endif %}
           </td>
           <td>
@@ -158,7 +175,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="9" style="text-align:center; padding:48px; color:var(--gray-400);">
+          <td colspan="9" style="text-align:center; padding:48px; color:var(--text-muted);">
             🎉 No outstanding creditors right now!
           </td>
         </tr>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><h2>🗑 Deleted Bookings</h2></div>
+<table class="party-table" style="width:100%;border-collapse:collapse;">
+  <thead><tr>
+    <th>AWB No.</th><th>Invoice ID</th><th>Party</th><th>Amount</th>
+    <th>Deleted By</th><th>Deleted At</th><th>Reason</th>
+  </tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.awb_no or '—' }}</td>
+      <td>{{ r.invoice_id }}</td>
+      <td>{{ r.client_name or r.shipper_name or '—' }}</td>
+      <td>₹{{ '%.2f'|format(r.grand_total or 0) }}</td>
+      <td>{{ r.deleted_by }}</td>
+      <td>{{ r.deleted_at.strftime('%d %b %Y %H:%M') }}</td>
+      <td>{{ r.reason or '—' }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" style="text-align:center;color:#9CA3AF;">No deleted bookings yet.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

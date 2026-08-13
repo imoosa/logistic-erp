@@ -9,27 +9,27 @@
 
   /* ── Date Filter ── */
   .filter-bar {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px;
     padding: 16px 22px;
     margin-bottom: 26px;
     display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     box-shadow: 0 1px 4px rgba(0,0,0,.04);
   }
   .fg { display: flex; flex-direction: column; gap: 5px; }
-  .fg label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #64748B; }
+  .fg label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
   .fg input, .fg select {
     padding: 9px 13px; border-radius: 10px;
-    border: 1.5px solid #E2E8F0; font-size: 13px; min-width: 155px;
+    border: 1.5px solid var(--border-color); font-size: 13px; min-width: 155px;
     font-family: inherit; outline: none;
     transition: border .15s;
   }
   .fg input:focus, .fg select:focus { border-color: #2563EB; }
   .fb { background: #2563EB; color: #fff; border: none; border-radius: 10px; padding: 9px 20px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background .15s; }
   .fb:hover { background: #1D4ED8; }
-  .fb-reset { background: #F1F5F9; color: #334155; border: 1px solid #E2E8F0; }
-  .fb-reset:hover { background: #E2E8F0; }
+  .fb-reset { background: var(--bg-table-alt); color: var(--text-muted); border: 1px solid var(--border-color); }
+  .fb-reset:hover { background: var(--border-color); }
 
   /* ── Mini Balance Row ── */
   .balance-row {
@@ -39,10 +39,10 @@
     margin-bottom: 22px;
   }
   .balance-mini {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 14px;
     padding: 14px 18px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     display: flex; align-items: center; gap: 14px;
     box-shadow: 0 1px 3px rgba(0,0,0,.04);
   }
@@ -53,8 +53,8 @@
   }
   .balance-mini-icon.cash { background: #ECFDF5; }
   .balance-mini-icon.bank { background: #EFF6FF; }
-  .balance-mini-label { font-size: 11px; font-weight: 600; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
-  .balance-mini-val { font-size: 20px; font-weight: 800; color: #0F172A; line-height: 1.2; margin-top: 2px; }
+  .balance-mini-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+  .balance-mini-val { font-size: 20px; font-weight: 800; color: var(--text-body); line-height: 1.2; margin-top: 2px; }
 
   /* ── KPI Cards ── */
 .kpi-grid {
@@ -64,10 +64,10 @@
   margin-bottom: 26px;
 }
 .kpi-card {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 14px;
   padding: 14px 16px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid var(--border-color);
   position: relative; overflow: hidden;
   box-shadow: 0 1px 4px rgba(0,0,0,.04);
   transition: transform .15s, box-shadow .15s;
@@ -102,11 +102,11 @@
 .kpi-badge.down { background: #FEE2E2; color: #DC2626; }
 .kpi-badge.neutral { background: #FEF3C7; color: #D97706; }
 
-.kpi-label { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: .4px; }
-.kpi-value { font-size: 20px; font-weight: 800; color: #0F172A; margin: 4px 0 3px; line-height: 1.1; }
+.kpi-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .4px; }
+.kpi-value { font-size: 20px; font-weight: 800; color: var(--text-body); margin: 4px 0 3px; line-height: 1.1; }
 .kpi-value.up   { color: #059669; }
 .kpi-value.down { color: #DC2626; }
-.kpi-sub { font-size: 10.5px; color: #94A3B8; border-top: 1px solid #F1F5F9; padding-top: 8px; margin-top: 8px; }
+.kpi-sub { font-size: 10.5px; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 8px; margin-top: 8px; }
 
 @media (max-width: 1100px) {
   .kpi-grid { grid-template-columns: repeat(3, 1fr); }
@@ -122,10 +122,10 @@
     margin-bottom: 22px;
   }
   .chart-panel {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 18px;
     padding: 20px 22px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     box-shadow: 0 1px 4px rgba(0,0,0,.04);
   }
   .chart-panel-hd {
@@ -133,7 +133,7 @@
     margin-bottom: 18px;
   }
   .chart-panel-title {
-    font-size: 15px; font-weight: 700; color: #0F172A;
+    font-size: 15px; font-weight: 700; color: var(--text-body);
     display: flex; align-items: center; gap: 8px;
   }
   .chart-panel-title::before {
@@ -146,7 +146,7 @@
   .chart-panel-title.amber::before { background: linear-gradient(180deg, #D97706, #FCD34D); }
 
   .chart-legend { display: flex; gap: 14px; flex-wrap: wrap; }
-  .legend-dot { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #64748B; font-weight: 500; }
+  .legend-dot { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); font-weight: 500; }
   .legend-dot span { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 
   canvas { width: 100% !important; }
@@ -156,11 +156,11 @@
     gap: 10px; width: 100%;
   }
   .donut-stat {
-    background: #F8FAFC; border-radius: 10px; padding: 12px 14px;
-    border: 1px solid #E2E8F0; text-align: center;
+    background: var(--bg-table-alt); border-radius: 10px; padding: 12px 14px;
+    border: 1px solid var(--border-color); text-align: center;
   }
-  .donut-stat-val { font-size: 16px; font-weight: 800; color: #0F172A; }
-  .donut-stat-lbl { font-size: 11px; color: #64748B; margin-top: 2px; }
+  .donut-stat-val { font-size: 16px; font-weight: 800; color: var(--text-body); }
+  .donut-stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
   /* ── Three-col charts ── */
   .charts-row-3 {
@@ -178,19 +178,19 @@
     margin-bottom: 22px;
   }
   .table-panel {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 18px;
     padding: 20px 22px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     box-shadow: 0 1px 4px rgba(0,0,0,.04);
   }
   .tp-hd { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-  .tp-title { font-size: 15px; font-weight: 700; color: #0F172A; }
+  .tp-title { font-size: 15px; font-weight: 700; color: var(--text-body); }
   .tp-link { font-size: 12px; color: #2563EB; text-decoration: none; font-weight: 600; }
   .tp-link:hover { text-decoration: underline; }
   .mini-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .mini-table th { padding: 8px 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: #94A3B8; border-bottom: 1px solid #F1F5F9; text-align: left; }
-  .mini-table td { padding: 9px 6px; border-bottom: 1px solid #F8FAFC; color: #334155; }
+  .mini-table th { padding: 8px 6px; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--text-muted); border-bottom: 1px solid var(--border-color); text-align: left; }
+  .mini-table td { padding: 9px 6px; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
   .mini-table tr:last-child td { border-bottom: none; }
   .mini-badge { background: #EFF6FF; color: #2563EB; padding: 3px 9px; border-radius: 30px; font-size: 10.5px; font-weight: 600; }
   .mini-badge.warn { background: #FEF3C7; color: #D97706; }
@@ -206,9 +206,9 @@
     display: grid; grid-template-columns: 1fr 1fr 1fr;
     gap: 8px; margin-top: 14px;
   }
-  .cf-box { background: #F8FAFC; border-radius: 10px; padding: 10px 12px; text-align: center; border: 1px solid #E2E8F0; }
+  .cf-box { background: var(--bg-table-alt); border-radius: 10px; padding: 10px 12px; text-align: center; border: 1px solid var(--border-color); }
   .cf-box-val { font-size: 15px; font-weight: 800; }
-  .cf-box-lbl { font-size: 10.5px; color: #64748B; margin-top: 2px; }
+  .cf-box-lbl { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
 
   @media (max-width: 1100px) {
     .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -222,6 +222,23 @@
   }
 </style>
 {% endblock %}
+
+  /* Dark-theme overrides for pastel icon/badge surfaces */
+  body.dark-theme .balance-mini-icon.cash { background: rgba(5,150,105,0.18); }
+  body.dark-theme .balance-mini-icon.bank { background: rgba(37,99,235,0.18); }
+  body.dark-theme .kpi-icon-wrap.sale      { background: rgba(37,99,235,0.18); }
+  body.dark-theme .kpi-icon-wrap.purchase  { background: rgba(217,119,6,0.18); }
+  body.dark-theme .kpi-icon-wrap.profit    { background: rgba(5,150,105,0.18); }
+  body.dark-theme .kpi-icon-wrap.expense   { background: rgba(220,38,38,0.18); }
+  body.dark-theme .kpi-icon-wrap.pending   { background: rgba(124,58,237,0.18); }
+  body.dark-theme .kpi-icon-wrap.netprofit { background: rgba(14,165,233,0.18); }
+  body.dark-theme .kpi-badge.up,
+  body.dark-theme .mini-badge.up { background: rgba(5,150,105,0.2); color: #34D399; }
+  body.dark-theme .kpi-badge.down,
+  body.dark-theme .mini-badge.danger { background: rgba(220,38,38,0.2); color: #F87171; }
+  body.dark-theme .kpi-badge.neutral,
+  body.dark-theme .mini-badge.warn { background: rgba(217,119,6,0.2); color: #FBBF24; }
+  body.dark-theme .mini-badge { background: rgba(37,99,235,0.2); color: #93C5FD; }
 
 {% block content %}
 <div class="dash">
@@ -459,7 +476,7 @@
             <td><span class="mini-badge">{{ c.status }}</span></td>
           </tr>
           {% else %}
-          <tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:20px;">No client data</td></tr>
+          <tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">No client data</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -485,7 +502,7 @@
             <td><span class="mini-badge {% if inv.status == 'Unpaid' %}danger{% elif inv.status == 'Partial' %}warn{% endif %}">{{ inv.status }}</span></td>
           </tr>
           {% else %}
-          <tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No recent invoices</td></tr>
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No recent invoices</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -537,7 +554,7 @@
             <td><span class="mini-badge {% if p.status == 'Unpaid' %}danger{% elif p.status == 'Partial' %}warn{% endif %}">{{ p.status }}</span></td>
           </tr>
           {% else %}
-          <tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No purchase data</td></tr>
+          <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No purchase data</td></tr>
           {% endfor %}
         </tbody>
       </table>
@@ -549,9 +566,13 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
   // ── Chart defaults ──
+  function isDarkMode() { return document.body.classList.contains('dark-theme'); }
+  function chartTextColor() { return isDarkMode() ? '#9CA3AF' : '#64748B'; }
+  function chartGridColor() { return isDarkMode() ? 'rgba(255,255,255,0.08)' : '#F1F5F9'; }
+
   Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
   Chart.defaults.font.size = 12;
-  Chart.defaults.color = '#64748B';
+  Chart.defaults.color = chartTextColor();
 
   let charts = {};
 
@@ -591,7 +612,7 @@
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-          y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1)+'L' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v) } }
+          y: { grid: { color: chartGridColor() }, ticks: { callback: v => '₹' + (v >= 100000 ? (v/100000).toFixed(1)+'L' : v >= 1000 ? (v/1000).toFixed(0)+'K' : v) } }
         }
       }
     });
@@ -630,7 +651,7 @@
         plugins: { legend: { display: false } },
         scales: {
           x: { grid: { display: false } },
-          y: { grid: { color: '#F1F5F9' }, ticks: { callback: v => '₹' + (Math.abs(v) >= 100000 ? (v/100000).toFixed(1)+'L' : Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'K' : v) } }
+          y: { grid: { color: chartGridColor() }, ticks: { callback: v => '₹' + (Math.abs(v) >= 100000 ? (v/100000).toFixed(1)+'L' : Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'K' : v) } }
         }
       }
     });
@@ -669,7 +690,13 @@
   }
 
   // Build on load
-  buildCharts(initLabels, initRevenue, initPurchase, initProfitL, initProfit, initSaleTot, initPend, initPurch, initInflow, initOutflow);
+  let lastChartArgs = [initLabels, initRevenue, initPurchase, initProfitL, initProfit, initSaleTot, initPend, initPurch, initInflow, initOutflow];
+  buildCharts(...lastChartArgs);
+
+  document.addEventListener('themechange', function() {
+    Chart.defaults.color = chartTextColor();
+    buildCharts(...lastChartArgs);
+  });
 
   // ── Refresh dashboard ──
 async function refreshDashboard() {
@@ -711,7 +738,7 @@ async function refreshDashboard() {
         document.getElementById('purchRatioAmt').innerText = fmt(k.total_purchases);
 
         // Rebuild charts with expense data
-        buildCharts(
+        lastChartArgs = [
             data.chart_labels,
             data.revenue_data,
             data.purchase_data,
@@ -722,14 +749,15 @@ async function refreshDashboard() {
             k.total_purchases,
             k.cash_inflow_period,
             k.cash_outflow_period
-        );
+        ];
+        buildCharts(...lastChartArgs);
 
         // Update top clients table
         const cb = document.querySelector('.tables-row .table-panel:first-child tbody');
         if (cb && data.top_clients) {
             cb.innerHTML = data.top_clients.length
                 ? data.top_clients.map(c => `<tr><td><strong>${escHtml(c.name)}</strong></td><td>${fmt(c.total_billed)}</td><td>${fmt(c.pending)}</td><td><span class="mini-badge">${c.status}</span></td></tr>`).join('')
-                : '<tr><td colspan="4" style="text-align:center;color:#94A3B8;padding:20px;">No client data</td></tr>';
+                : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">No client data</td></tr>';
         }
 
         // Update recent invoices table
@@ -737,7 +765,7 @@ async function refreshDashboard() {
         if (ib && data.recent_invoices) {
             ib.innerHTML = data.recent_invoices.length
                 ? data.recent_invoices.map(i => `<tr><td>${escHtml(i.id)}</td><td>${escHtml(i.customer)}</td><td>${i.date}</td><td>${fmt(i.total)}</td><td><span class="mini-badge ${i.status === 'Pending' ? 'danger' : i.status === 'Partial' ? 'warn' : ''}">${i.status}</span></td></tr>`).join('')
-                : '<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:20px;">No invoices</td></tr>';
+                : '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">No invoices</td></tr>';
         }
 
         // Update low stock table

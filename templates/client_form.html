@@ -60,7 +60,7 @@
 <div class="form-card">
   <form method="POST"
         action="{{ '/clients/' ~ client.id ~ '/edit' if client else '/clients/new' }}"
-        id="clientForm">
+        id="clientForm" enctype="multipart/form-data">
 
     <!-- ══ 1. Basic Information ══════════════════════════════════════════ -->
     <div class="section-title">👤 Basic Information</div>
@@ -201,12 +201,57 @@
         </select>
       </div>
     </div>
-    <div class="form-group" style="max-width:300px">
-      <label>PAN Number</label>
-      <input type="text" name="pan_number" maxlength="10"
-             value="{{ client.pan_number if client else '' }}"
-             placeholder="AAAAA1234F"
-             oninput="this.value=this.value.toUpperCase()">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>PAN Number</label>
+        <input type="text" name="pan_number" maxlength="10"
+               value="{{ client.pan_number if client else '' }}"
+               placeholder="AAAAA1234F"
+               oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="form-group">
+        <label>Aadhar Number</label>
+        <input type="text" name="aadhar_number" id="aadharInput" maxlength="12" inputmode="numeric"
+               value="{{ client.aadhar_number if client else '' }}"
+               placeholder="123456789012"
+               oninput="this.value=this.value.replace(/\D/g,''); validateAadhar(this)">
+        <div class="field-hint" id="aadharHint">12-digit Aadhar number.</div>
+      </div>
+    </div>
+
+    <div class="field-hint" style="margin-bottom:10px;">
+      Scanned copies uploaded here are used automatically on this client's credit bookings —
+      no need to re-upload at booking time.
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Aadhaar — Front</label>
+        <input type="file" name="aadhar_front_file" accept=".jpg,.jpeg,.png">
+        {% if client and client.aadhar_front_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.aadhar_front_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>Aadhaar — Back</label>
+        <input type="file" name="aadhar_back_file" accept=".jpg,.jpeg,.png">
+        {% if client and client.aadhar_back_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.aadhar_back_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>PAN — Front</label>
+        <input type="file" name="pan_front_file" accept=".jpg,.jpeg,.png">
+        {% if client and client.pan_front_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.pan_front_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
+      <div class="form-group">
+        <label>PAN — Back</label>
+        <input type="file" name="pan_back_file" accept=".jpg,.jpeg,.png">
+        {% if client and client.pan_back_file %}
+        <div class="field-hint"><a href="{{ url_for('static', filename='client_docs/' + client.pan_back_file) }}" target="_blank">📎 View current file</a></div>
+        {% endif %}
+      </div>
     </div>
 
     <!-- ══ 5. Financial / Credit ═════════════════════════════════════════ -->
@@ -296,9 +341,28 @@ function validateGST(input) {
   }
 }
 
+function validateAadhar(input) {
+  const val  = input.value.trim();
+  const hint = document.getElementById('aadharHint');
+  if (!val) {
+    hint.textContent = '12-digit Aadhar number.';
+    hint.className   = 'field-hint';
+    return;
+  }
+  if (/^[0-9]{12}$/.test(val)) {
+    hint.textContent = '✓ Valid format';
+    hint.className   = 'field-hint gst-valid';
+  } else {
+    hint.textContent = `✗ ${val.length}/12 digits`;
+    hint.className   = 'field-hint gst-invalid';
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const g = document.getElementById('gstInput');
   if (g && g.value) validateGST(g);
+  const a = document.getElementById('aadharInput');
+  if (a && a.value) validateAadhar(a);
 });
 </script>
 {% endblock %}

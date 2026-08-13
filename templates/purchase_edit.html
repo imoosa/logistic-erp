@@ -128,6 +128,9 @@ table.items-table input:focus, table.items-table select:focus { border-color:#4F
               <th style="text-align:right">Qty</th>
               <th style="min-width:100px">Weight (Kg)</th>
               <th style="min-width:100px">Rate / Kg</th>
+              <th style="min-width:100px">Other Charges</th>
+              <th style="min-width:100px">Resale Charges</th>
+              <th style="text-align:right;min-width:100px">Before GST</th>
               <th class="gst-col" style="min-width:80px">GST %</th>
               <th class="gst-col" style="text-align:right;min-width:90px">GST Amt</th>
               <th style="text-align:right;min-width:110px">Line Total</th>
@@ -155,6 +158,19 @@ table.items-table input:focus, table.items-table select:focus { border-color:#4F
                 <input type="number" name="rate_per_kg[]" id="rate{{ loop.index0 }}"
                        value="{{ item.rate_per_kg or 0 }}" min="0" step="0.01"
                        oninput="calcLine({{ loop.index0 }})">
+              </td>
+              <td>  <!-- ← NEW: Other Charges -->
+              <input type="number" name="other_charges[]" id="otherCharges{{ loop.index0 }}"
+                    value="{{ item.other_charges or 0 }}" min="0" step="0.01"
+                    oninput="calcLine({{ loop.index0 }})">
+            </td>
+            <td>
+              <input type="number" name="resale_charges[]" id="resaleCharges{{ loop.index0 }}"
+                    value="{{ "%.2f"|format(item.resale_charges or 0) }}"
+                    step="0.01" min="0" oninput="calcLine({{ loop.index0 }})">
+            </td>
+              <td style="text-align:right;font-weight:600;color:#334155;" id="taxable{{ loop.index0 }}">
+                ₹{{ "{:,.2f}".format(item.taxable_value or 0) }}
               </td>
               <td class="gst-col">
                 <select name="gst_percent[]" id="gst{{ loop.index0 }}" onchange="calcLine({{ loop.index0 }})">
@@ -212,7 +228,9 @@ const ROW_COUNT = {{ invoice.items | length }};
 function calcLine(idx) {
   const w = parseFloat(document.getElementById('weight' + idx)?.value) || 0;
   const r = parseFloat(document.getElementById('rate'   + idx)?.value) || 0;
-  const taxable = w * r;
+  const oc = parseFloat(document.getElementById('otherCharges' + idx)?.value) || 0;  // ← NEW
+  const resale = parseFloat(document.getElementById('resaleCharges' + idx)?.value) || 0;
+  const taxable = (w * r) + oc + resale;
 
   let gstAmt = 0;
   if (IS_GST) {
@@ -222,8 +240,10 @@ function calcLine(idx) {
   }
 
   const lineTotal = Math.round((taxable + gstAmt) * 100) / 100;
+  const taxableEl = document.getElementById('taxable' + idx);
   const gstEl = document.getElementById('gstAmt'   + idx);
   const totEl = document.getElementById('lineTotal' + idx);
+  if (taxableEl) taxableEl.textContent = '₹' + fmt(taxable);
   if (gstEl) gstEl.textContent = '₹' + fmt(gstAmt);
   if (totEl) totEl.textContent = '₹' + fmt(lineTotal);
 
@@ -239,7 +259,9 @@ function calcGrandTotal() {
   for (let i = 0; i < ROW_COUNT; i++) {
     const w = parseFloat(document.getElementById('weight' + i)?.value) || 0;
     const r = parseFloat(document.getElementById('rate'   + i)?.value) || 0;
-    const taxable = w * r;
+    const oc = parseFloat(document.getElementById('otherCharges' + i)?.value) || 0;
+    const resale = parseFloat(document.getElementById('resaleCharges' + i)?.value) || 0;
+    const taxable = (w * r) + oc + resale;
     let gstAmt = 0;
     if (IS_GST) {
       const gstSel = document.getElementById('gst' + i);

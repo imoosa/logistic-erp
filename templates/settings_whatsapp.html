@@ -1,115 +1,292 @@
 <!-- settings_whatsapp.html - With Base URL Configuration -->
 {% extends "base.html" %}
 {% block title %}WhatsApp Connect{% endblock %}
+
+{% block extra_style %}
+<style>
+  /* Scoped to this page's wrapper so nothing here leaks out or gets
+     silently overridden by global .card/.badge/.form-control rules
+     defined elsewhere in base.html. */
+  .wa-settings {
+    max-width: 960px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .wa-settings .wa-card {
+    background: #fff;
+    border: 1px solid #e3e6ea;
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+  }
+
+  .wa-settings .wa-card-header {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #edf0f3;
+  }
+
+  .wa-settings .wa-status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+
+  .wa-settings .wa-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .wa-settings .wa-status-badge.is-connected {
+    background: #e7f7ed;
+    color: #16793f;
+    border: 1px solid #b6e6c6;
+  }
+
+  .wa-settings .wa-status-badge.is-connected::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #1caa53;
+    flex-shrink: 0;
+  }
+
+  .wa-settings .wa-status-badge.is-disconnected {
+    background: #f2f3f5;
+    color: #565d66;
+    border: 1px solid #dde1e6;
+  }
+
+  .wa-settings .wa-status-badge.is-disconnected::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #9aa1ab;
+    flex-shrink: 0;
+  }
+
+  .wa-settings .wa-field {
+    margin-bottom: 22px;
+  }
+
+  .wa-settings .wa-field:last-child {
+    margin-bottom: 0;
+  }
+
+  .wa-settings .wa-field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2430;
+    margin-bottom: 6px;
+  }
+
+  .wa-settings .wa-field .form-control,
+  .wa-settings .wa-field .form-select {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d7dbe0;
+    font-size: 14px;
+  }
+
+  .wa-settings .wa-field .form-control:focus,
+  .wa-settings .wa-field .form-select:focus {
+    border-color: #4f7cff;
+    box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.15);
+  }
+
+  .wa-settings .wa-hint {
+    display: block;
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: #8a919b;
+    line-height: 1.5;
+  }
+
+  .wa-settings .wa-hint code {
+    background: #f2f3f5;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  .wa-settings .wa-template-block {
+    background: #fafbfc;
+    border: 1px solid #edf0f3;
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+
+  .wa-settings .wa-template-block:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .wa-settings .wa-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+    padding-top: 20px;
+    border-top: 1px solid #edf0f3;
+  }
+
+  .wa-settings .wa-btn {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+  }
+
+  .wa-settings .wa-btn-primary {
+    background: #3762f2;
+    color: #fff;
+  }
+
+  .wa-settings .wa-btn-primary:hover {
+    background: #2c50d6;
+  }
+
+  .wa-settings .wa-btn-danger {
+    background: #fff;
+    color: #d5303c;
+    border: 1px solid #f0c4c7;
+  }
+
+  .wa-settings .wa-btn-danger:hover {
+    background: #fdf1f1;
+  }
+
+  .wa-settings .wa-test-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .wa-settings .wa-test-row input {
+    flex: 1;
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4">
-  <h3 class="mb-4">WhatsApp Connect - MobiCOMM</h3>
+<div class="container-fluid py-4 wa-settings">
+  <h3 class="mb-4">WhatsApp Connect</h3>
 
-  <div class="card mb-4">
-    <div class="card-body">
+  <div class="wa-card">
+    <div class="wa-status-row">
       {% if has_key %}
-        <span class="badge bg-success mb-3">Connected</span>
+        <span class="wa-status-badge is-connected">Connected</span>
       {% else %}
-        <span class="badge bg-secondary mb-3">Not connected</span>
+        <span class="wa-status-badge is-disconnected">Not connected</span>
       {% endif %}
+    </div>
 
-      <form method="POST">
-        <!-- Provider Selection (hidden or dropdown) -->
-        <div class="mb-3">
-          <label class="form-label">Provider</label>
-          <select name="whatsapp_provider" class="form-select" required>
-            <option value="mobicomm" {% if company.whatsapp_provider == 'mobicomm' %}selected{% endif %}>MobiCOMM</option>
-            <option value="meta_cloud" {% if company.whatsapp_provider == 'meta_cloud' %}selected{% endif %}>Meta Cloud API</option>
-            <option value="aisensy" {% if company.whatsapp_provider == 'aisensy' %}selected{% endif %}>AiSensy</option>
-          </select>
-          <small class="text-muted">Select your WhatsApp service provider.</small>
+    <form method="POST">
+      <div class="wa-card-header">Provider &amp; Connection</div>
+
+      <div class="wa-field">
+        <label>Provider</label>
+        <select name="whatsapp_provider" class="form-select" required>
+          <option value="mobicomm" {% if company.whatsapp_provider == 'mobicomm' %}selected{% endif %}>MobiCOMM</option>
+          <option value="meta_cloud" {% if company.whatsapp_provider == 'meta_cloud' %}selected{% endif %}>Meta Cloud API</option>
+          <option value="aisensy" {% if company.whatsapp_provider == 'aisensy' %}selected{% endif %}>AiSensy</option>
+        </select>
+        <small class="wa-hint">Select your WhatsApp service provider.</small>
+      </div>
+
+      <div class="wa-field">
+        <label>API Base URL</label>
+        <input type="url" name="whatsapp_base_url" class="form-control"
+               value="{{ company.whatsapp_base_url or 'https://api.dovesoft.io/REST/directApi/message' }}"
+               placeholder="https://api.dovesoft.io/REST/directApi/message">
+        <small class="wa-hint">
+          The API endpoint URL for your WhatsApp provider.<br>
+          MobiCOMM: <code>https://api.dovesoft.io/REST/directApi/message</code>
+        </small>
+      </div>
+
+      <div class="wa-field">
+        <label>API Key</label>
+        <input type="password" name="whatsapp_api_key" class="form-control"
+               placeholder="{% if has_key %}Leave blank to keep current key{% else %}Paste API key{% endif %}">
+        <small class="wa-hint">Stored encrypted. Leave blank to keep existing.</small>
+      </div>
+
+      <div class="wa-field">
+        <label>WhatsApp Business Number (WABA)</label>
+        <input type="text" name="whatsapp_business_no" class="form-control"
+               value="{{ company.whatsapp_business_no or '' }}"
+               placeholder="919820007084">
+        <small class="wa-hint">Your WhatsApp Business phone number with country code.</small>
+      </div>
+
+      <div class="wa-card-header" style="margin-top:32px;">Message Templates</div>
+      <small class="wa-hint" style="margin-bottom:16px;display:block;">
+        Variables are fixed, not user-editable, and sent in the order the approved
+        template expects. Just enter the exact template name approved in your
+        Meta / provider dashboard.
+      </small>
+
+      {% for event_key, ev in events.items() %}
+      <div class="wa-template-block">
+        <div class="wa-field" style="margin-bottom:0;">
+          <label>
+            {% if event_key == 'invoice_created' %}Booking Confirmation Template
+            {% elif event_key == 'invoice_updated' %}Shipment Update Template
+            {% elif event_key == 'tracking_number_updated' %}Tracking Update Template
+            {% else %}Template{% endif %}
+          </label>
+          <input type="text" name="{{ ev.prefix }}_name" class="form-control"
+                 value="{{ ev.template_name }}"
+                 placeholder="exact name approved in Meta / provider dashboard">
         </div>
+      </div>
+      {% endfor %}
 
-        <!-- API Base URL - NEW! -->
-        <div class="mb-3">
-          <label class="form-label">API Base URL</label>
-          <input type="url" name="whatsapp_base_url" class="form-control"
-                 value="{{ company.whatsapp_base_url or 'https://api.dovesoft.io/REST/directApi/message' }}"
-                 placeholder="https://api.dovesoft.io/REST/directApi/message">
-          <small class="text-muted">
-            The API endpoint URL for your WhatsApp provider.
-            <br>MobiCOMM: <code>https://api.dovesoft.io/REST/directApi/message</code>
-          </small>
-        </div>
-
-        <!-- API Key -->
-        <div class="mb-3">
-          <label class="form-label">API Key</label>
-          <input type="password" name="whatsapp_api_key" class="form-control"
-                 placeholder="{% if has_key %}Leave blank to keep current key{% else %}Paste API key{% endif %}">
-          <small class="text-muted">Stored encrypted. Leave blank to keep existing.</small>
-        </div>
-
-        <!-- WABA Number -->
-        <div class="mb-3">
-          <label class="form-label">WhatsApp Business Number (WABA)</label>
-          <input type="text" name="whatsapp_business_no" class="form-control"
-                 value="{{ company.whatsapp_business_no or '' }}"
-                 placeholder="919820007084">
-          <small class="text-muted">Your WhatsApp Business phone number with country code.</small>
-        </div>
-
-        <!-- Template Names -->
-        <div class="mb-3">
-          <label class="form-label">Booking Confirmation Template</label>
-          <input type="text" name="whatsapp_template_generate" class="form-control"
-                 value="{{ company.whatsapp_template_generate or 'alhamamd1001' }}"
-                 placeholder="alhamamd1001">
-          <small class="text-muted">Sent when a new invoice is created.</small>
-        </div>
-
-        <div class="mb-3">
-  <label class="form-label">Carrier Update Template</label>
-  <input type="text" name="whatsapp_template_carrier_update" class="form-control"
-         value="{{ company.whatsapp_template_carrier_update or 'carrier_update' }}"
-         placeholder="carrier_update">
-  <small class="text-muted">Sent when the carrier reference number is updated on an invoice.</small>
-</div>
-
-        <div class="mb-3">
-          <label class="form-label">Delivery Confirmation Template</label>
-          <input type="text" name="whatsapp_template_delivery" class="form-control"
-                 value="{{ company.whatsapp_template_delivery or 'delivery_confirmation' }}"
-                 placeholder="delivery_confirmation">
-          <small class="text-muted">Sent when shipment is delivered.</small>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Save Settings</button>
+      <div class="wa-actions">
+        <button type="submit" class="wa-btn wa-btn-primary">Save Settings</button>
         {% if has_key %}
-        <button type="button" class="btn btn-danger" onclick="if(confirm('Disconnect WhatsApp?')){document.getElementById('disconnect-form').submit();}">
+        <button type="button" class="wa-btn wa-btn-danger"
+                onclick="if(confirm('Disconnect WhatsApp?')){document.getElementById('disconnect-form').submit();}">
           Disconnect
         </button>
         {% endif %}
-      </form>
+      </div>
+    </form>
 
-      {% if has_key %}
-      <form id="disconnect-form" method="POST" action="{{ url_for('whatsapp_disconnect') }}" style="display:none;"></form>
-      {% endif %}
-    </div>
+    {% if has_key %}
+    <form id="disconnect-form" method="POST" action="{{ url_for('whatsapp_disconnect') }}" style="display:none;"></form>
+    {% endif %}
   </div>
 
-  <!-- Test Connection -->
   {% if has_key %}
-  <div class="card">
-    <div class="card-header"><strong>Test Connection</strong></div>
-    <div class="card-body">
-      <form method="POST" action="{{ url_for('whatsapp_test') }}">
-        <div class="row">
-          <div class="col-md-6">
-            <input type="text" name="test_phone" class="form-control" placeholder="919820007084" required>
-          </div>
-          <div class="col-md-6">
-            <button type="submit" class="btn btn-outline-primary">Send Test Message</button>
-          </div>
-        </div>
+  <div class="wa-card">
+    <div class="wa-card-header">Test Connection</div>
+    <div class="wa-test-row">
+      <form method="POST" action="{{ url_for('whatsapp_test') }}" style="display:flex; gap:12px; width:100%;">
+        <input type="text" name="test_phone" class="form-control" placeholder="919820007084" required>
+        <button type="submit" class="wa-btn wa-btn-primary" style="white-space:nowrap;">Send Test Message</button>
       </form>
-      <small class="text-muted">Test will use your configured template and send to the provided number.</small>
     </div>
+    <small class="wa-hint" style="margin-top:12px;">Test will use your configured template and send to the provided number.</small>
   </div>
   {% endif %}
 </div>

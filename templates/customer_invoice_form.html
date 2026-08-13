@@ -1,0 +1,625 @@
+{% extends "base.html" %}
+{% block title %}New Customer Invoice{% endblock %}
+{% set active = 'customer_invoices' %}
+
+{% block extra_style %}
+<style>
+  .booking-checkbox { width:16px; height:16px; cursor:pointer; accent-color:var(--primary); }
+  .booking-row { transition:background .15s; }
+  .booking-row:hover { background:var(--bg-table-alt); }
+  .booking-row.selected { background:var(--primary-light); }
+  body.dark-theme .booking-row.selected { background:rgba(245,158,11,0.15); }
+
+  .filter-bar {
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+    padding:12px 16px; background:var(--bg-table-alt); border-radius:8px;
+    border:1px solid var(--border-color); margin-bottom:16px;
+  }
+  .filter-bar label { font-size:12px; font-weight:600; color:var(--text-muted); margin:0; white-space:nowrap; }
+  .filter-bar input, .filter-bar select { width:auto; padding:7px 10px; border:1.5px solid var(--border-color); border-radius:6px; font-size:13px; }
+
+  /* ===== Invoice document shell ===== */
+  .invoice-doc {
+    background:var(--bg-card, #fff);
+    border:1px solid var(--border-color);
+    border-radius:10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.06);
+    overflow:hidden;
+    margin-bottom:16px;
+  }
+  .invoice-letterhead {
+    display:flex; justify-content:space-between; align-items:flex-start;
+    flex-wrap:wrap; gap:20px;
+    padding:28px 32px 22px;
+    border-bottom:3px solid var(--primary);
+  }
+  .invoice-letterhead .brand-block .brand-title {
+    font-size:22px; font-weight:800; letter-spacing:.3px; color:var(--text-body);
+    margin:0 0 4px;
+  }
+  .invoice-letterhead .brand-block .brand-sub {
+    font-size:12.5px; color:var(--text-muted);
+  }
+  .invoice-letterhead .invoice-meta { text-align:right; }
+  .invoice-meta .invoice-doc-title {
+    font-size:26px; font-weight:800; letter-spacing:2px; color:var(--primary);
+    margin:0 0 6px; text-transform:uppercase;
+  }
+  .invoice-number-label {
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted);
+  }
+  .invoice-number-display {
+    font-family:'Courier New', monospace;
+    font-size:20px; font-weight:800; color:var(--text-body);
+    letter-spacing:.5px;
+  }
+
+  .invoice-subhead {
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:0;
+    border-bottom:1px solid var(--border-color);
+  }
+  .invoice-subhead .subhead-cell {
+    padding:16px 32px;
+    border-right:1px solid var(--border-color);
+  }
+  .invoice-subhead .subhead-cell:last-child { border-right:none; }
+  .subhead-cell .subhead-label {
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted);
+    margin-bottom:4px; display:block;
+  }
+
+  .type-option { display:flex; gap:16px; align-items:center; }
+  .type-option label { display:flex; align-items:center; gap:6px; font-size:13px; font-weight:600; margin:0; cursor:pointer; padding:6px 12px; border-radius:6px; border:1.5px solid var(--border-color); transition:all .15s; }
+  .type-option label:hover { background:var(--bg-table-alt); }
+  .type-option input[type="radio"] { width:15px; height:15px; accent-color:var(--primary); }
+  .type-option label.selected { border-color:var(--primary); background:var(--primary-light); }
+  body.dark-theme .type-option label.selected { background:rgba(245,158,11,0.15); }
+
+  .invoice-details-row {
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;
+    padding:20px 32px 8px;
+  }
+  .invoice-notes-row { padding:0 32px 20px; }
+
+  /* ===== Line items table, invoice-style ===== */
+  .invoice-body { padding:0 32px 28px; }
+  .select-all-wrap { display:flex; align-items:center; gap:10px; padding:14px 0 10px; }
+  .select-all-wrap label { font-size:13px; font-weight:600; margin:0; cursor:pointer; }
+
+  .table-wrap { overflow:auto; max-height:60vh; border:1px solid var(--border-color); border-radius:8px; }
+  table { width:100%; border-collapse:collapse; min-width:900px; }
+  thead th {
+    padding:10px 12px; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.6px;
+    color:var(--text-muted); background:var(--bg-table-alt);
+    border-bottom:2px solid var(--border-color); text-align:left; white-space:nowrap;
+    position:sticky; top:0; z-index:2;
+  }
+  thead th.num { text-align:right; }
+  tbody td { padding:10px 12px; border-bottom:1px solid var(--border-color); font-size:13px; vertical-align:middle; color: var(--text-body); }
+  tbody td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  tbody tr:last-child td { border-bottom:none; }
+  tbody tr:hover { background: var(--bg-table-alt); }
+
+  .awb-code {
+    font-family:'Courier New',monospace; font-size:12px; font-weight:700;
+    color:#1E40AF; background:#EEF2FF; padding:3px 8px; border-radius:4px;
+    display:inline-block;
+  }
+  body.dark-theme .awb-code { color:#A5B4FC; background:rgba(79,70,229,0.2); }
+
+  .selected-customer-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 14px; background:var(--primary-light); color:var(--primary-dark);
+    border-radius:20px; font-size:13px; font-weight:600;
+  }
+  body.dark-theme .selected-customer-badge { background:rgba(245,158,11,0.15); color:#FBBF24; }
+
+  .no-bookings-msg { text-align:center; padding:48px; color:var(--text-muted); }
+  .no-bookings-msg .icon { font-size:48px; margin-bottom:12px; }
+  .no-bookings-msg .title { font-size:18px; font-weight:600; color:var(--text-body); margin-bottom:4px; }
+
+  .client-count-badge {
+    background:var(--bg-table-alt); padding:2px 10px; border-radius:12px;
+    font-size:11px; color:var(--text-muted); margin-left:6px;
+  }
+
+  /* ===== Totals block, like a real invoice footer ===== */
+  .invoice-totals-wrap {
+    display:flex; justify-content:flex-end; margin-top:18px;
+  }
+  .invoice-totals {
+    width:100%; max-width:340px;
+    border:1px solid var(--border-color); border-radius:8px; overflow:hidden;
+  }
+  .invoice-totals .totals-row {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 16px; font-size:13px; color:var(--text-body);
+    border-bottom:1px solid var(--border-color);
+    background:var(--bg-card, #fff);
+  }
+  .invoice-totals .totals-row .label { color:var(--text-muted); }
+  .invoice-totals .totals-row.grand {
+    background:var(--bg-table-alt);
+    border-bottom:none;
+    padding:14px 16px;
+  }
+  .invoice-totals .totals-row.grand .label {
+    font-size:12.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-body);
+  }
+  .invoice-totals .totals-row.grand .value {
+    font-size:20px; font-weight:800; color:var(--primary);
+  }
+  .invoice-totals .totals-row .value { font-variant-numeric:tabular-nums; font-weight:600; }
+
+  .invoice-actions-row {
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:12px; margin-top:18px;
+  }
+  .invoice-actions-row .selected-count-inline { font-size:12.5px; color:var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h2>📄 Create Customer Invoice</h2>
+  <p style="color:var(--text-muted);">Select bookings to include in the invoice. All selected bookings will be aggregated.</p>
+</div>
+
+<!-- Filter Form - Auto-submits on change -->
+<form method="GET" action="{{ url_for('customer_invoice_new') }}" id="filterForm" style="margin-bottom:16px;">
+  <div class="filter-bar">
+    <label>🔍 Filter by Customer:</label>
+    <select name="client_id" id="clientSelect" onchange="this.form.submit()" style="min-width:200px;">
+      <option value="">— All Customers —</option>
+      {% for c in clients %}
+      <option value="{{ c.id }}" {% if client_filter == c.id %}selected{% endif %}>
+        {{ c.name }} ({{ c.client_type or 'Customer' }})
+      </option>
+      {% endfor %}
+    </select>
+    <label>From</label>
+    <input type="date" name="from_date" value="{{ from_date }}" onchange="this.form.submit()">
+    <label>To</label>
+    <input type="date" name="to_date" value="{{ to_date }}" onchange="this.form.submit()">
+    {% if client_filter or from_date or to_date %}
+    <a href="{{ url_for('customer_invoice_new') }}" class="btn btn-ghost btn-sm">✕ Clear Filters</a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Main Invoice Form -->
+<form method="POST" action="{{ url_for('customer_invoice_create') }}" id="invoiceForm">
+  <div class="invoice-doc">
+
+    <!-- Letterhead -->
+    <div class="invoice-letterhead">
+      <div class="brand-block">
+        <p class="brand-title">{{ company.company_name if company else 'Your Company' }}</p>
+        <p class="brand-sub">{% if company and company.address %}
+        {{ company.address }}
+      {% endif %}</p>
+      <div style="font-size:12px; color:var(--text-muted);">
+      {% if company and company.phone %}
+        Phone: {{ company.phone }}
+      {% endif %}
+      {% if company and company.is_gst_registered and company.gst_number %}
+        | GST: {{ company.gst_number }}
+      {% endif %}
+    </div>
+      </div>
+      <div class="invoice-meta">
+        <p class="invoice-doc-title">Invoice</p>
+        <div class="invoice-number-label">Invoice No.</div>
+        <div class="invoice-number-display" id="invoiceNumberDisplay">{{ default_invoice_number }}</div>
+      </div>
+    </div>
+
+    <!-- Bill-to / dates / type -->
+
+<div class="invoice-subhead">
+  
+  
+  <div class="subhead-cell">
+    <span class="subhead-label">Bill To (Customer)</span>
+    {% if selected_client %}
+      <div style="font-size:14px; font-weight:600; color:var(--text-body);">
+        {{ selected_client.name }}
+      </div>
+      <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+        {% if selected_client.address_line1 %}
+          {{ selected_client.address_line1 }}
+          {% if selected_client.address_line2 %}, {{ selected_client.address_line2 }}{% endif %}
+        {% endif %}
+        {% if selected_client.city or selected_client.state %}
+          <br>{{ selected_client.city }}{% if selected_client.city and selected_client.state %}, {% endif %}{{ selected_client.state }} {{ selected_client.pincode or '' }}
+        {% endif %}
+      </div>
+      <div style="font-size:12px; color:var(--text-muted);">
+        {% if selected_client.phone %}
+          Phone: {{ selected_client.phone }}
+        {% endif %}
+        {% if selected_client.alternate_phone %}
+          | Alt: {{ selected_client.alternate_phone }}
+        {% endif %}
+        {% if selected_client.gst_number %}
+          | GST: {{ selected_client.gst_number }}
+        {% endif %}
+        {% if selected_client.pan_number %}
+          | PAN: {{ selected_client.pan_number }}
+        {% endif %}
+      </div>
+      <div style="font-size:12px; color:var(--text-muted);">
+        {% if selected_client.email %}
+          Email: {{ selected_client.email }}
+        {% endif %}
+      </div>
+    {% else %}
+      <div style="font-size:14px; color:var(--text-muted); font-style:italic; padding:8px 0;">
+        Select a customer above to see details
+      </div>
+    {% endif %}
+    <input type="hidden" name="client_id" value="{{ client_filter or '' }}">
+  </div>
+  
+  <div class="subhead-cell">
+    <span class="subhead-label">Invoice Date</span>
+    <input type="date" name="invoice_date" value="{{ default_invoice_date }}" style="border:none; background:transparent; padding:0; font-size:14px; font-weight:600;">
+    <div style="height:10px;"></div>
+    <span class="subhead-label">Due Date</span>
+    <input type="date" name="due_date" value="{{ default_due_date }}" style="border:none; background:transparent; padding:0; font-size:14px; font-weight:600;">
+  </div>
+
+      <div class="subhead-cell">
+        <span class="subhead-label">Payment Type</span>
+        <div class="type-option" style="margin-top:4px;">
+          <label class="{% if default_type == 'credit' %}selected{% endif %}" id="creditLabel">
+            <input type="radio" name="invoice_type" value="credit" {% if default_type == 'credit' %}checked{% endif %}> Credit
+          </label>
+          <label class="{% if default_type == 'cash' %}selected{% endif %}" id="cashLabel">
+            <input type="radio" name="invoice_type" value="cash" {% if default_type == 'cash' %}checked{% endif %}> Cash
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="invoice-notes-row">
+      <div class="form-group" style="margin:14px 0 0;">
+        <label style="font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted);">Notes</label>
+        <input type="text" name="notes" placeholder="Additional notes for this invoice" style="width:100%;">
+      </div>
+    </div>
+
+    <!-- Line items -->
+    <div class="invoice-body">
+      <div class="select-all-wrap">
+        <input type="checkbox" id="selectAll" class="booking-checkbox">
+        <label for="selectAll">Select All ({{ bookings | length }} bookings)</label>
+        <span style="color:var(--text-muted);font-size:12px;margin-left:auto;" id="selectedCount">0 selected</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:36px;">✓</th>
+              <th>Customer</th>
+              <th>AWB / Docket</th>
+              <th>Date</th>
+              <th>Receiver</th>
+              <th>Destination</th>
+              <th>Carrier</th>
+              <th class="num">Weight</th>
+              <th class="num">Amount</th>
+              <th class="num">GST</th>
+              <th class="num">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if bookings %}
+              {% for b in bookings %}
+              <tr class="booking-row" data-id="{{ b.id }}" data-amount="{{ b.amount }}" data-gst="{{ b.gst }}" data-total="{{ b.total }}" data-booking-type="{{ b.booking_type or 'credit' }}">
+                <td>
+                  <input type="checkbox" name="booking_ids[]" value="{{ b.id }}" class="booking-checkbox booking-select">
+                </td>
+                 <td><span class="selected-customer-badge" style="padding:3px 10px;font-size:12px;">{{ b.client_name }}</span></td>
+                <td>
+                  {% if b.docket_no %}
+                    <span class="awb-code">{{ b.docket_no }}</span>
+                  {% else %}
+                    <span style="color:var(--text-muted);font-size:12px;">—</span>
+                  {% endif %}
+                  <div style="font-size:10px;color:var(--text-muted);">{{ b.invoice_id }}</div>
+                </td>
+                <td>{{ b.date.strftime('%d %b %Y') if b.date else '—' }}</td>
+                <td><strong>{{ b.receiver_name or '—' }}</strong></td>
+                <td>{{ b.destination or '—' }}</td>
+                <td>{{ b.carrier or '—' }}</td>
+                <td class="num">{{ b.weight|round(2) if b.weight else 0 }} kg</td>
+                <td class="num">₹{{ "{:,.0f}".format(b.amount) }}</td>
+                <td class="num">₹{{ "{:,.0f}".format(b.gst) }}</td>
+                <td class="num"><strong>₹{{ "{:,.0f}".format(b.total) }}</strong></td>
+              </tr>
+              {% endfor %}
+            {% else %}
+              <tr>
+                <td colspan="10">
+                  <div class="no-bookings-msg">
+                    <div class="icon">📭</div>
+                    <div class="title">No bookings available</div>
+                    {% if client_filter %}
+                      <p>This customer has no bookings available for invoicing.</p>
+                      <p style="font-size:12px; margin-top:4px;">
+                        Bookings must be non-void, non-draft, and not already in another customer invoice.
+                      </p>
+                      <a href="{{ url_for('customer_invoice_new') }}" class="btn btn-ghost btn-sm" style="margin-top:12px;">View all customers</a>
+                    {% else %}
+                      <p>Select a customer above to see their bookings.</p>
+                      <p style="font-size:12px; margin-top:4px;">Or <a href="{{ url_for('client_list') }}" style="color:var(--primary);">create a new customer</a> first.</p>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Totals block, styled like a real invoice footer -->
+      <div class="invoice-totals-wrap">
+        <div class="invoice-totals">
+          <div class="totals-row">
+            <span class="label">Selected Bookings</span>
+            <span class="value" id="selectedCountDisplay">0</span>
+          </div>
+          <div class="totals-row">
+            <span class="label">Invoice Type</span>
+            <span class="value" id="invoiceTypeDisplay">—</span>
+          </div>
+          <div class="totals-row">
+            <span class="label">Subtotal</span>
+            <span class="value" id="subtotalDisplay">₹0</span>
+          </div>
+          <div class="totals-row">
+            <span class="label">GST</span>
+            <span class="value" id="gstDisplay">₹0</span>
+          </div>
+          <div class="totals-row grand">
+            <span class="label">Grand Total</span>
+            <span class="value" id="grandTotalDisplay">₹0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="invoice-actions-row">
+        <span class="selected-count-inline">
+          {% if not bookings %}No bookings to invoice{% endif %}
+        </span>
+        <button type="submit" class="btn btn-primary" style="font-size:15px; padding:12px 32px;" {% if not bookings %}disabled{% endif %}>
+          Generate Invoice
+        </button>
+      </div>
+    </div>
+  </div>
+</form>
+
+<script>
+(function(){
+  const checkboxes = document.querySelectorAll('.booking-select');
+  const selectAll = document.getElementById('selectAll');
+  const selectedCount = document.getElementById('selectedCount');
+  const selectedCountDisplay = document.getElementById('selectedCountDisplay');
+  const subtotalDisplay = document.getElementById('subtotalDisplay');
+  const gstDisplay = document.getElementById('gstDisplay');
+  const grandTotalDisplay = document.getElementById('grandTotalDisplay');
+  const invoiceTypeDisplay = document.getElementById('invoiceTypeDisplay');
+  const invoiceNumberDisplay = document.getElementById('invoiceNumberDisplay');
+  
+  // Invoice numbers from server
+  const creditNumber = '{{ credit_number }}';
+  const cashNumber = '{{ cash_number }}';
+  
+  function updateInvoiceNumber(type) {
+    if (type === 'credit') {
+      invoiceNumberDisplay.textContent = creditNumber;
+    } else {
+      invoiceNumberDisplay.textContent = cashNumber;
+    }
+  }
+  
+  function updateSummary() {
+    let selected = 0;
+    let subtotal = 0;
+    let gst = 0;
+    let total = 0;
+    let hasCredit = false;
+    let hasCash = false;
+    
+    checkboxes.forEach(cb => {
+      if (cb.checked) {
+        const row = cb.closest('tr');
+        const amount = parseFloat(row.dataset.amount || 0);
+        const gstVal = parseFloat(row.dataset.gst || 0);
+        const totalVal = parseFloat(row.dataset.total || 0);
+        const bookingType = row.dataset.bookingType || 'credit';
+        selected++;
+        subtotal += amount;
+        gst += gstVal;
+        total += totalVal;
+        if (bookingType === 'credit') hasCredit = true;
+        if (bookingType === 'cash') hasCash = true;
+        row.classList.add('selected');
+      } else {
+        const row = cb.closest('tr');
+        row.classList.remove('selected');
+      }
+    });
+    
+    selectedCount.textContent = selected + ' selected';
+    selectedCountDisplay.textContent = selected;
+    subtotalDisplay.textContent = '₹' + subtotal.toFixed(0);
+    gstDisplay.textContent = '₹' + gst.toFixed(0);
+    grandTotalDisplay.textContent = '₹' + total.toFixed(0);
+    
+    // Determine invoice type and update
+    let invoiceType = 'credit';
+    let typeLabel = '—';
+    if (selected === 0) {
+      invoiceType = manualType || 'credit';
+      typeLabel = invoiceType === 'cash' ? '💵 Cash' : '—';
+    } else if (hasCash && hasCredit) {
+      invoiceType = 'credit';
+      typeLabel = '💳 Credit (Mixed)';
+    } else if (manualType) {
+      invoiceType = manualType;
+      typeLabel = manualType === 'cash' ? '💵 Cash' : '💳 Credit';
+    } else if (hasCash) {
+      invoiceType = 'cash';
+      typeLabel = '💵 Cash';
+    } else {
+      invoiceType = 'credit';
+      typeLabel = '💳 Credit';
+    }
+    
+    invoiceTypeDisplay.textContent = typeLabel;
+    
+    // Update the radio button and invoice number
+    const creditRadio = document.querySelector('input[name="invoice_type"][value="credit"]');
+    const cashRadio = document.querySelector('input[name="invoice_type"][value="cash"]');
+    const creditLabel = document.getElementById('creditLabel');
+    const cashLabel = document.getElementById('cashLabel');
+    
+    if (selected === 0) {
+      if (creditRadio) {
+        creditRadio.checked = true;
+        creditLabel.classList.add('selected');
+        cashLabel.classList.remove('selected');
+      }
+      updateInvoiceNumber('credit');
+    } else if (invoiceType === 'cash') {
+      if (cashRadio) {
+        cashRadio.checked = true;
+        cashLabel.classList.add('selected');
+        creditLabel.classList.remove('selected');
+      }
+      updateInvoiceNumber('cash');
+    } else {
+      if (creditRadio) {
+        creditRadio.checked = true;
+        creditLabel.classList.add('selected');
+        cashLabel.classList.remove('selected');
+      }
+      updateInvoiceNumber('credit');
+    }
+  }
+  
+  // Listen to radio button changes
+  document.querySelectorAll('input[name="invoice_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+      const type = this.value;
+      const creditLabel = document.getElementById('creditLabel');
+      const cashLabel = document.getElementById('cashLabel');
+      
+      if (type === 'credit') {
+        creditLabel.classList.add('selected');
+        cashLabel.classList.remove('selected');
+      } else {
+        cashLabel.classList.add('selected');
+        creditLabel.classList.remove('selected');
+      }
+      updateInvoiceNumber(type);
+      invoiceTypeDisplay.textContent = type === 'credit' ? '💳 Credit' : '💵 Cash';
+    });
+  });
+  
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', updateSummary);
+  });
+  
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(cb => cb.checked = this.checked);
+      updateSummary();
+    });
+  }
+  
+  // Initial update
+  updateSummary();
+})();
+// Show/hide rows to match customer + payment type + date range.
+window.filterBookings = function() {
+    const clientId = clientSelect ? clientSelect.value : '';
+    const type = selectedType();
+    const from = dateFrom && dateFrom.value ? dateFrom.value : null;
+    const to = dateTo && dateTo.value ? dateTo.value : null;
+
+    // Get the selected client name for cash client matching
+    let selectedClientName = null;
+    if (clientId) {
+        const selectedOption = clientSelect.options[clientSelect.selectedIndex];
+        if (selectedOption) {
+            // Extract the client name from the option text (before the " (Client type)")
+            const fullText = selectedOption.text;
+            selectedClientName = fullText.split('(')[0].trim();
+        }
+    }
+
+    let visible = 0;
+
+    allRows.forEach(row => {
+        let match = false;
+        
+        if (clientId) {
+            // Check if it's a credit booking with matching client_id
+            const rowClientId = row.dataset.clientId;
+            if (rowClientId && rowClientId === clientId) {
+                match = true;
+            }
+            // Check if it's a cash booking with matching client_name
+            else if (!rowClientId || rowClientId === '' || rowClientId === 'None') {
+                // Cash booking - match by client_name
+                const rowClientName = row.dataset.clientName || '';
+                if (rowClientName && selectedClientName && 
+                    rowClientName.toLowerCase() === selectedClientName.toLowerCase()) {
+                    match = true;
+                }
+            }
+        }
+
+        // Apply booking type filter (cash/credit)
+        if (match && row.dataset.bookingType && row.dataset.bookingType !== type) {
+            match = false;
+        }
+
+        // Apply date filters
+        if (match && from && row.dataset.date && row.dataset.date < from) {
+            match = false;
+        }
+        if (match && to && row.dataset.date && row.dataset.date > to) {
+            match = false;
+        }
+
+        row.style.display = match ? '' : 'none';
+        if (match) visible++;
+
+        if (!match) {
+            const cb = row.querySelector('.booking-select');
+            if (cb && cb.checked) cb.checked = false;
+        }
+    });
+
+    if (selectCustomerRow) selectCustomerRow.style.display = clientId ? 'none' : '';
+    if (noResultsRow) noResultsRow.style.display = (clientId && visible === 0) ? '' : 'none';
+
+    visibleCountLabel.textContent = clientId
+        ? '(' + visible + ' pending AWB' + (visible === 1 ? '' : 's') + ')'
+        : '(select a customer above)';
+
+    creditLabel.classList.toggle('selected', type === 'credit');
+    cashLabel.classList.toggle('selected', type === 'cash');
+    updateInvoiceNumber(type);
+
+    updateSummary();
+};
+</script>
+{% endblock %}

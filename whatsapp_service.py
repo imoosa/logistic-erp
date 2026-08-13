@@ -1,5 +1,12 @@
 """
 whatsapp_service.py - WhatsApp Integration with PDF Attachment Support
+
+UPDATED: header/media block is now gated on an explicit header_type
+('document' | 'image' | 'video'), not just "was a media_url passed in."
+Previously any call that happened to include a media_url got a header
+component injected regardless of whether the company's Meta-approved
+template actually had a header slot — that mismatch is what was causing
+sends to fail silently for templates that were approved body-only.
 """
 
 import os
@@ -48,118 +55,97 @@ def format_phone_number(phone):
     return phone
 
 
-def _send_whatsapp_template(company, to_number, template_name, params, media_url=None):
+def _build_header_component(media_url, header_type):
+    """
+    Build the WhatsApp 'header' component, or return None if this send
+    shouldn't have one. header_type must be explicitly 'document', 'image',
+    or 'video' — a media_url alone is no longer enough to trigger this,
+    because that mismatch (attaching a header to a body-only approved
+    template) is what breaks the send.
+    """
+    if not media_url or header_type not in ("document", "image", "video"):
+        return None
+    if not isinstance(media_url, str) or not media_url.startswith(('http://', 'https://')):
+        return None
+
+    if header_type == "document":
+        from urllib.parse import urlparse
+        media_path = urlparse(media_url).path
+        raw_name = media_path.rsplit('/', 1)[-1] or 'invoice'
+        clean_filename = raw_name if '.' in raw_name else f"{raw_name}.pdf"
+        return {
+            "type": "header",
+            "parameters": [{
+                "type": "document",
+                "document": {"link": media_url, "filename": clean_filename}
+            }]
+        }
+    elif header_type == "image":
+        return {
+            "type": "header",
+            "parameters": [{"type": "image", "image": {"link": media_url}}]
+        }
+    elif header_type == "video":
+        return {
+            "type": "header",
+            "parameters": [{"type": "video", "video": {"link": media_url}}]
+        }
+    return None
+
+
+def _send_whatsapp_template(company, to_number, template_name, params, media_url=None, header_type="none"):
     """
     Send WhatsApp template via MobiCOMM API
-    
+
     Args:
         company: Company object with WhatsApp settings
         to_number: Recipient phone number
         template_name: Template name in MobiCOMM
-        params: List of parameters for the template body
-        media_url: Optional media URL for PDF attachment (must be HTTPS)
-    
+        params: List of parameters for the template body (any length)
+        media_url: Optional media URL for header attachment (must be HTTPS)
+        header_type: 'none' | 'document' | 'image' | 'video' — must match what
+                     was actually approved for this template in Meta Business
+                     Manager, or the send fails.
+
     Returns:
         dict: {'success': bool, 'message_id': str, 'error': str}
     """
-    import json
-    
     # ─── VALIDATION ──────────────────────────────────────────────────────────
     if not company:
         return {'success': False, 'error': 'Company not provided'}
-    
+
     if not company.whatsapp_enabled:
         return {'success': False, 'error': 'WhatsApp not enabled'}
-    
+
     if not company.whatsapp_api_key:
         return {'success': False, 'error': 'API key not configured'}
-    
+
     if not company.whatsapp_base_url:
         return {'success': False, 'error': 'Base URL not configured'}
-    
+
     to_number = format_phone_number(to_number)
     if not to_number:
         return {'success': False, 'error': 'Invalid phone number'}
-    
+
     # ─── DECRYPT API KEY ─────────────────────────────────────────────────────
     api_key = decrypt_secret(company.whatsapp_api_key)
     waba_number = company.whatsapp_business_no or ""
-    
+
     # ─── BUILD PAYLOAD ───────────────────────────────────────────────────────
     components = []
-    
-    # ─── HEADER - PDF / DOCUMENT ATTACHMENT ──────────────────────────────
-    if media_url and isinstance(media_url, str) and media_url.startswith(('http://', 'https://')):
-        # Determine media type from the URL PATH only — strip any ?query
-        # (e.g. our ?token=... signed link) before looking at the extension,
-        # otherwise the token's own dots get mistaken for a file extension.
-        media_path = media_url.split('?', 1)[0]
-        ext = media_path.split('.')[-1].lower() if '.' in media_path else 'pdf'
-        clean_filename = media_path.split('/')[-1] or 'invoice.pdf'
-        if '.' not in clean_filename:
-            clean_filename = f"{clean_filename}.{ext}"
 
-        # Map extension to WhatsApp media type
-        if ext in ['pdf', 'doc', 'docx', 'xls', 'xlsx']:
-            media_type = 'document'
-            # For document type, we MUST use the 'document' object format
-            components.append({
-                "type": "header",
-                "parameters": [{
-                    "type": "document",
-                    "document": {
-                        "link": media_url,
-                        "filename": clean_filename
-                    }
-                }]
-            })
-        elif ext in ['jpg', 'jpeg', 'png', 'webp']:
-            components.append({
-                "type": "header",
-                "parameters": [{
-                    "type": "image",
-                    "image": {
-                        "link": media_url
-                    }
-                }]
-            })
-        elif ext in ['mp4', 'mov', 'avi']:
-            components.append({
-                "type": "header",
-                "parameters": [{
-                    "type": "video",
-                    "video": {
-                        "link": media_url
-                    }
-                }]
-            })
-        else:
-            # Default to document if unknown
-            components.append({
-                "type": "header",
-                "parameters": [{
-                    "type": "document",
-                    "document": {
-                        "link": media_url,
-                        "filename": clean_filename or 'file.pdf'
-                    }
-                }]
-            })
-    
-    # ─── BODY PARAMETERS ────────────────────────────────────────────────────
+    header_component = _build_header_component(media_url, header_type)
+    if header_component:
+        components.append(header_component)
+
+    # ─── BODY PARAMETERS (any length — no assumption about count) ───────────
     if params:
-        body_params = []
-        for param in params:
-            body_params.append({
-                "type": "text",
-                "text": str(param)
-            })
-        
+        body_params = [{"type": "text", "text": str(p)} for p in params]
         components.append({
             "type": "body",
             "parameters": body_params
         })
-    
+
     # ─── BUILD FINAL PAYLOAD ─────────────────────────────────────────────────
     payload = {
         "messaging_product": "whatsapp",
@@ -174,35 +160,34 @@ def _send_whatsapp_template(company, to_number, template_name, params, media_url
             "components": components
         }
     }
-    
+
     # ─── HEADERS ─────────────────────────────────────────────────────────────
     headers = {
         "Content-Type": "application/json",
         "Key": api_key,
     }
-    
+
     if waba_number:
         headers["wabaNumber"] = waba_number
-    
+
     # ─── SEND REQUEST ───────────────────────────────────────────────────────
     url = company.whatsapp_base_url.rstrip('/')
-    
+
     print(f"[WhatsApp] Sending to: {to_number}")
     print(f"[WhatsApp] Template: {template_name}")
     print(f"[WhatsApp] URL: {url}")
-    print(f"[WhatsApp] Media URL: {media_url}")
+    print(f"[WhatsApp] header_type: {header_type}, media_url: {media_url}")
     print(f"[WhatsApp] Payload: {json.dumps(payload, indent=2)}")
-    
+
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=30)
-        
+
         print(f"[WhatsApp] Response Status: {response.status_code}")
         print(f"[WhatsApp] Response Body: {response.text[:500]}")
-        
+
         if response.status_code in (200, 201, 202):
             data = response.json()
-            
-            # Check for API-level errors
+
             if "error" in data:
                 return {
                     'success': False,
@@ -210,7 +195,7 @@ def _send_whatsapp_template(company, to_number, template_name, params, media_url
                     'error': data.get('error', {}).get('message', 'Unknown API error'),
                     'response': data
                 }
-            
+
             return {
                 'success': True,
                 'message_id': data.get('message_id') or data.get('id') or data.get('messageId'),
@@ -224,7 +209,7 @@ def _send_whatsapp_template(company, to_number, template_name, params, media_url
                 'error': f"HTTP {response.status_code}: {response.text}",
                 'response': response.text
             }
-            
+
     except requests.exceptions.Timeout:
         return {'success': False, 'error': 'Request timeout'}
     except requests.exceptions.ConnectionError:
@@ -233,83 +218,86 @@ def _send_whatsapp_template(company, to_number, template_name, params, media_url
         return {'success': False, 'error': str(e)}
 
 
-def send_booking_confirmation(company, invoice, docket_no, media_url=None):
-    """Send booking confirmation with optional PDF attachment"""
+def send_booking_confirmation(company, invoice, docket_no, media_url=None, header_type="none"):
+    """Send booking confirmation. No PDF attached unless header_type is explicitly set."""
     client = invoice.client_obj if hasattr(invoice, 'client_obj') else None
     to_number = client.phone if client else invoice.phone
-    
+
     if not to_number:
         return {'success': False, 'error': 'No phone number found'}
-    
+
     params = [
-        docket_no,  # {{1}}
-        invoice.date.strftime("%d-%b-%Y"),  # {{2}}
-        company.phone or "",  # {{3}}
+        docket_no,
+        invoice.date.strftime("%d-%b-%Y"),
+        company.phone or "",
     ]
-    
+
     template_name = company.whatsapp_template_generate or "booking_confirmation"
-    
+
     return _send_whatsapp_template(
         company=company,
         to_number=to_number,
         template_name=template_name,
         params=params,
-        media_url=media_url
+        media_url=media_url,
+        header_type=header_type,
     )
 
 
-def send_shipment_update(company, invoice, docket_no, status, media_url=None):
-    """Send shipment status update with optional PDF attachment"""
+def send_shipment_update(company, invoice, docket_no, status, media_url=None, header_type="none"):
+    """Send shipment status update. No PDF attached unless header_type is explicitly set."""
     client = invoice.client_obj if hasattr(invoice, 'client_obj') else None
     to_number = client.phone if client else invoice.phone
-    
+
     if not to_number:
         return {'success': False, 'error': 'No phone number found'}
-    
+
     params = [
-        docket_no,  # {{1}}
-        status or invoice.status or "Updated",  # {{2}}
-        datetime.now().strftime("%d-%b-%Y"),  # {{3}}
-        company.phone or "",  # {{4}}
+        docket_no,
+        status or invoice.status or "Updated",
+        datetime.now().strftime("%d-%b-%Y"),
+        company.phone or "",
     ]
-    
+
     template_name = company.whatsapp_template_update or "shipment_update"
-    
+
     return _send_whatsapp_template(
         company=company,
         to_number=to_number,
         template_name=template_name,
         params=params,
-        media_url=media_url
+        media_url=media_url,
+        header_type=header_type,
     )
 
 
-def send_delivery_confirmation(company, invoice, docket_no, media_url=None):
-    """Send delivery confirmation with optional PDF attachment"""
+def send_delivery_confirmation(company, invoice, docket_no, media_url=None, header_type="none"):
+    """Send delivery confirmation. No PDF attached unless header_type is explicitly set."""
     client = invoice.client_obj if hasattr(invoice, 'client_obj') else None
     to_number = client.phone if client else invoice.phone
-    
+
     if not to_number:
         return {'success': False, 'error': 'No phone number found'}
-    
+
     params = [
-        docket_no,  # {{1}}
-        datetime.now().strftime("%d-%b-%Y"),  # {{2}}
-        company.phone or "",  # {{3}}
+        docket_no,
+        datetime.now().strftime("%d-%b-%Y"),
+        company.phone or "",
     ]
-    
+
     template_name = company.whatsapp_template_delivery or "delivery_confirmation"
-    
+
     return _send_whatsapp_template(
         company=company,
         to_number=to_number,
         template_name=template_name,
         params=params,
-        media_url=media_url
+        media_url=media_url,
+        header_type=header_type,
     )
 
 
-def _try_generic_connector(company, to_number, template_name, params, language_code="en", media_url=None):
+def _try_generic_connector(company, to_number, template_name, params, language_code="en", media_url=None, header_type="none"):
     """
     Returns a result dict if this company is migrated to the generic connector
     (has a CompanyWhatsAppConfig row), or None if it isn't.
@@ -347,7 +335,8 @@ def _try_generic_connector(company, to_number, template_name, params, language_c
     except (ConnectorConfigError, ConnectorSecurityError) as e:
         return {"success": False, "error": str(e)}
 
-def send_carrier_update(company, invoice, docket_no, client_name, carrier, carrier_ref, media_url=None):
+
+def send_carrier_update(company, invoice, docket_no, client_name, carrier, carrier_ref, media_url=None, header_type="none"):
     """Send carrier-reference-updated notification"""
     client = invoice.client_obj if hasattr(invoice, 'client_obj') else None
     to_number = client.phone if client else invoice.phone
@@ -356,10 +345,10 @@ def send_carrier_update(company, invoice, docket_no, client_name, carrier, carri
         return {'success': False, 'error': 'No phone number found'}
 
     params = [
-        client_name or "Customer",  # {{1}}
-        docket_no,                  # {{2}}
-        carrier_ref,                # {{3}}
-        carrier or "",              # {{4}}
+        client_name or "Customer",
+        docket_no,
+        carrier_ref,
+        carrier or "",
     ]
 
     template_name = company.whatsapp_template_carrier_update or "carrier_reference_update"
@@ -369,8 +358,10 @@ def send_carrier_update(company, invoice, docket_no, client_name, carrier, carri
         to_number=to_number,
         template_name=template_name,
         params=params,
-        media_url=media_url
+        media_url=media_url,
+        header_type=header_type,
     )
+
 
 def build_manual_whatsapp_link(to_number, message):
     """Build wa.me link for manual sending"""
@@ -379,23 +370,28 @@ def build_manual_whatsapp_link(to_number, message):
     return f"https://wa.me/{digits}?text={urllib.parse.quote(message)}"
 
 
-def send_or_manual(company, to_number, template_name, params, fallback_message, language_code="en", media_url=None):
+def send_or_manual(company, to_number, template_name, params, fallback_message, language_code="en",
+                    media_url=None, header_type="none"):
     """
     Unified entry point: try generic-connector config first, then legacy MobiCOMM,
     then fall back to a manual wa.me link.
-    
+
     Args:
-        media_url: Optional URL to a PDF/document to attach to the template
+        media_url: Optional URL to a document/image/video to attach.
+        header_type: 'none' | 'document' | 'image' | 'video'. Must match what the
+                     company's approved template actually supports — a mismatch
+                     here is what causes silent send failures, not a media_url
+                     being present or absent.
     """
     print(f"[WhatsApp Debug] company: {company.company_id if company else 'None'}")
     print(f"[WhatsApp Debug] to_number: {to_number}")
     print(f"[WhatsApp Debug] template_name: {template_name}")
-    print(f"[WhatsApp Debug] params: {params}")
-    print(f"[WhatsApp Debug] media_url: {media_url}")
+    print(f"[WhatsApp Debug] params ({len(params) if params else 0}): {params}")
+    print(f"[WhatsApp Debug] header_type: {header_type}, media_url: {media_url}")
 
     if company and getattr(company, "whatsapp_enabled", False):
         generic_result = _try_generic_connector(
-            company, to_number, template_name, params, language_code, media_url
+            company, to_number, template_name, params, language_code, media_url, header_type
         )
 
         if generic_result is not None:
@@ -416,7 +412,8 @@ def send_or_manual(company, to_number, template_name, params, fallback_message, 
                     to_number=to_number,
                     template_name=template_name,
                     params=params,
-                    media_url=media_url  # ← Pass media_url through
+                    media_url=media_url,
+                    header_type=header_type,
                 )
             except NotImplementedError as e:
                 result = {"sent": False, "provider_msg_id": None, "error": str(e)}

@@ -10,6 +10,8 @@ This DB is always mysql+pymysql. Customers never touch it.
 from flask_sqlalchemy import SQLAlchemy
 from datetime import date, datetime
 from sqlalchemy import func
+import secrets
+import hashlib
 
 # Create SQLAlchemy instance WITHOUT binding to an app yet
 # This will be initialized with init_app(app) in app.py
@@ -103,6 +105,8 @@ class BackupRecord(db.Model):
     restore_date    = db.Column(db.DateTime, nullable=True)
     restored_by     = db.Column(db.String(100), nullable=True)
     created_at      = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    backup_from_date = db.Column(db.Date, nullable=True)
+    backup_to_date = db.Column(db.Date, nullable=True)
 
     company = db.relationship("Company", backref="backups")
 
@@ -148,15 +152,40 @@ class Company(db.Model):
     gst_number            = db.Column(db.String(20),  nullable=True)
     logo_filename = db.Column(db.String(255), nullable=True)
     address               = db.Column(db.String(300), nullable=True)
-    phone                 = db.Column(db.String(20),  nullable=True)
+    phone                 = db.Column(db.String(100),  nullable=True)
+    mobile                = db.Column(db.String(20),  nullable=True)
+    slogan                = db.Column(db.String(150), nullable=True)
+    website               = db.Column(db.String(200), nullable=True)
+    email                 = db.Column(db.String(200), nullable=True)
+    extra_info            = db.Column(db.String(300), nullable=True)
     logo                  = db.Column(db.String(300), nullable=True)
     awb_prefix   = db.Column(db.String(10),  nullable=False, default="AHL")
-    awb_start    = db.Column(db.Integer,     nullable=False, default=81000)
+    awb_start    = db.Column(db.BigInteger,  nullable=False, default=81000)
+    public_slug  = db.Column(db.String(50),  unique=True, nullable=True, index=True)
     created_at            = db.Column(db.Date,        nullable=False, default=date.today)
     is_active             = db.Column(db.Boolean,     nullable=False, default=True)
     is_gst_registered = db.Column(db.Boolean, nullable=False, default=True)
     gst_number = db.Column(db.String(20), nullable=True, unique=True)
+    terms_footer   = db.Column(db.Text, nullable=True)   
+    terms_annexure = db.Column(db.Text, nullable=True)
+    show_terms_customer_invoice = db.Column(db.Boolean, nullable=False, default=True)
+    show_terms_awb_invoice = db.Column(db.Boolean, nullable=False, default=True)
+    show_terms_performa_invoice = db.Column(db.Boolean, nullable=False, default=True)
+    show_terms_box_label      = db.Column(db.Boolean, nullable=False, default=True)
+    show_terms_shipping_label = db.Column(db.Boolean, nullable=False, default=True)
+    show_address_customer_invoice = db.Column(db.Boolean, nullable=False, default=True)
+    show_address_awb_invoice = db.Column(db.Boolean, nullable=False, default=True)
+    show_address_performa_invoice = db.Column(db.Boolean, nullable=False, default=True)
+    show_address_box_label      = db.Column(db.Boolean, nullable=False, default=True)
+    show_address_shipping_label = db.Column(db.Boolean, nullable=False, default=True)
+    invoice_template = db.Column(db.String(20), default='classic', nullable=False)
 
+    # ── Credit limit behaviour ──────────────────────────────────────────────
+    # 'warn'  -> booking is allowed, invoice.html asks the user to confirm
+    # 'block' -> booking is refused server-side, invoice can't be generated
+    # Set from Company Settings → Credit Limit (see update_company_info()).
+    credit_limit_action = db.Column(db.String(10), nullable=False, default="warn")
+    
     hidden_on_mobile = db.Column(db.Boolean, nullable=False, default=False)
     storage_type = db.Column(db.String(10),  nullable=False, default="local")
     data_db_uri  = db.Column(db.String(500), nullable=True)   # connection string / path
@@ -171,6 +200,7 @@ class Company(db.Model):
     whatsapp_enabled     = db.Column(db.Boolean,     nullable=False, default=False)
     whatsapp_template_delivery = db.Column(db.String(100), nullable=True)
     whatsapp_template_carrier_update = db.Column(db.String(100), nullable=True)
+    show_manifest_checkboxes = db.Column(db.Boolean, default=True)
 
     sms_provider  = db.Column(db.String(20),  nullable=True)   # 'msg91' | 'twilio' | None
     sms_api_key   = db.Column(db.Text,        nullable=True)   # ENCRYPTED at rest
@@ -241,6 +271,9 @@ class WhatsAppTemplate(db.Model):
     language_code = db.Column(db.String(10),  nullable=False, default="en")
     is_active     = db.Column(db.Boolean,     nullable=False, default=True)
     created_at    = db.Column(db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    header_type    = db.Column(db.String(20), nullable=False, default="none")  
+    variables_json = db.Column(db.Text, nullable=True)
 
     company = db.relationship("Company")
 
@@ -317,3 +350,65 @@ class CompanyWhatsAppConfig(db.Model):
 
     def __repr__(self):
         return f"<CompanyWhatsAppConfig {self.company_id}>"
+
+
+# ── Tracking page: cross-tenant docket index + carrier URL config ──────────
+class TrackingIndex(db.Model):
+    """docket_no -> which company_id's database it lives in, for the public
+    tracking page (avoids fanning a search query across every tenant DB)."""
+    __tablename__ = "tracking_index"
+
+    id          = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    docket_no   = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    company_id  = db.Column(db.String(20), nullable=False, index=True)
+    carrier     = db.Column(db.String(100), nullable=True)
+    updated_at  = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CarrierTrackingConfig(db.Model):
+    """Normalized carrier name -> public tracking URL template."""
+    __tablename__ = "carrier_tracking_configs"
+
+    id                     = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    carrier_key            = db.Column(db.String(50), unique=True, nullable=False)
+    display_name           = db.Column(db.String(100), nullable=False)
+    tracking_url_template  = db.Column(db.String(500), nullable=False)
+    is_active              = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class CompanyApiKey(db.Model):
+    """
+    One row per issued key. Only the SHA-256 hash is stored — the plaintext
+    is shown to the tenant exactly once, at creation time, and never again.
+    Not a data-access secret by itself (docket_no is already public via the
+    /track page); this exists to attribute API calls to a tenant, scope
+    rate limits per company, and let one integration be revoked without
+    touching anyone else's.
+    """
+    __tablename__ = "company_api_keys"
+
+    id             = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    company_id     = db.Column(db.String(20), nullable=False, index=True)
+    key_hash       = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    key_prefix     = db.Column(db.String(16), nullable=False)
+    label          = db.Column(db.String(100), nullable=True)
+    allowed_origin = db.Column(db.String(255), nullable=True)
+    is_active      = db.Column(db.Boolean, nullable=False, default=True)
+    created_at     = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    last_used_at   = db.Column(db.DateTime, nullable=True)
+
+
+def generate_api_key(company_id, label=None, allowed_origin=None):
+    """Returns (plaintext_key, CompanyApiKey row). Plaintext is never stored."""
+    plaintext = "mgn_live_" + secrets.token_urlsafe(32)
+    key_hash = hashlib.sha256(plaintext.encode()).hexdigest()
+    row = CompanyApiKey(
+        company_id=company_id,
+        key_hash=key_hash,
+        key_prefix=plaintext[:16],
+        label=label,
+        allowed_origin=allowed_origin,
+    )
+    db.session.add(row)
+    db.session.commit()
+    return plaintext, row

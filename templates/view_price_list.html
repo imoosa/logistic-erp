@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}{{ price_list.courier }} Price List{% endblock %}
+{% block page_title %}📊 Price List Details{% endblock %}
+{% set active = 'price_lists' %}
+
+{% block extra_style %}
+<style>
+  .pl-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  .pl-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .pl-card { background:#fff; border:1px solid var(--gray-100); border-radius:14px; padding:16px 20px; }
+  .pl-card .lbl { font-size:11px; color:var(--gray-500); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; }
+  .pl-card .val { font-size:16px; font-weight:700; color:var(--gray-900); }
+
+  .rate-note { font-size:12px; color:var(--gray-500); }
+  .rate-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .rate-toolbar input { max-width:260px; }
+
+  /* Matrix table: country pinned on the left, weight tiers scroll horizontally */
+  .matrix-scroll { overflow-x:auto; border:1px solid var(--gray-100); border-radius:12px; }
+  .matrix-table { border-collapse:separate; border-spacing:0; font-size:12.5px; min-width:100%; }
+  .matrix-table th, .matrix-table td { padding:9px 14px; white-space:nowrap; border-bottom:1px solid var(--gray-100); }
+  .matrix-table thead th {
+    background:#012926; color:#F59E0B; font-size:11px; text-transform:uppercase;
+    letter-spacing:.4px; text-align:right; position:sticky; top:0; z-index:1;
+  }
+  .matrix-table thead th.country-head { text-align:left; z-index:3; }
+  .matrix-table td.country-cell, .matrix-table th.country-head {
+    position:sticky; left:0; background:#fff; z-index:2;
+    text-align:left; font-weight:700; color:var(--gray-900);
+    border-right:1px solid var(--gray-100);
+  }
+  .matrix-table thead th.country-head { background:#012926; color:#F59E0B; }
+  .matrix-table td { text-align:right; font-variant-numeric:tabular-nums; color:var(--gray-700); }
+  .matrix-table tbody tr:nth-child(even) td:not(.country-cell) { background:#FAFBFC; }
+  .matrix-table tbody tr:hover td { background:#F5F3FF; }
+  .matrix-table tbody tr:hover td.country-cell { background:#F5F3FF; }
+  .matrix-table td.dash { color:var(--gray-300); text-align:center; }
+
+  /* Bands section */
+  .band-section { margin-top:22px; }
+  .band-section h3 { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .band-section .rate-note { margin-bottom:14px; }
+  .band-row { display:flex; gap:14px; padding:12px 16px; border-bottom:1px solid var(--gray-100); align-items:flex-start; flex-wrap:wrap; }
+  .band-row:last-child { border-bottom:none; }
+  .band-row .band-country { min-width:120px; font-weight:700; font-size:13px; color:var(--gray-900); flex-shrink:0; }
+  .band-chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .band-chip {
+    background:#EEF2FF; color:#4338CA; font-size:11.5px; font-weight:600;
+    padding:4px 10px; border-radius:20px; white-space:nowrap;
+  }
+
+  @media(max-width:900px){
+    .pl-summary{grid-template-columns:1fr 1fr;}
+    .band-row { flex-direction:column; gap:6px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="pl-header">
+  <div>
+    <h2>{{ price_list.courier }} — {{ price_list.filename }}</h2>
+    <p style="color:var(--gray-500);font-size:13px;margin-top:4px;">
+      Uploaded {{ price_list.uploaded_at.strftime('%d %b %Y, %I:%M %p') }}
+      {% if price_list.uploaded_by %} by {{ price_list.uploaded_by }}{% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('price_lists') }}" class="btn btn-ghost">← Back to Price Lists</a>
+</div>
+
+<!-- Summary cards -->
+<div class="pl-summary">
+  <div class="pl-card">
+    <div class="lbl">Courier</div>
+    <div class="val">{{ price_list.courier }}</div>
+  </div>
+  <div class="pl-card">
+    <div class="lbl">Uploaded On</div>
+    <div class="val">{{ price_list.uploaded_at.strftime('%d %b %Y') }}</div>
+    <div style="font-size:12px;color:var(--gray-500);margin-top:2px;">{{ price_list.uploaded_at.strftime('%I:%M %p') }}</div>
+  </div>
+  <div class="pl-card">
+    <div class="lbl">List Type</div>
+    <div class="val">
+      {% if price_list.list_type == 'purchase' %}
+        <span class="badge" style="background:#EDE9FE;color:#6D28D9;">Purchase</span>
+      {% else %}
+        <span class="badge badge-success">Sales</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="pl-card">
+    <div class="lbl">Status</div>
+    <div class="val">
+      {% if price_list.is_active %}
+        <span class="badge badge-success">Active</span>
+      {% else %}
+        <span class="badge badge-warning">Inactive</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if countries %}
+
+<!-- Weight-tier matrix -->
+<div class="card">
+  <div class="card-body">
+    <div class="rate-toolbar">
+      <p class="rate-note">
+        {{ countries|length }} destination{{ '' if countries|length == 1 else 's' }} ·
+        {{ rate_data.weights|length }} weight tier{{ '' if rate_data.weights|length == 1 else 's' }} ·
+        {{ rate_data.format if rate_data.format else 'unknown' }} format
+      </p>
+      <input type="text" id="countrySearch" placeholder="🔍  Filter country…" oninput="filterCountries()">
+    </div>
+
+    <div class="matrix-scroll">
+      <table class="matrix-table" id="rateMatrix">
+        <thead>
+          <tr>
+            <th class="country-head">Country</th>
+            {% for w in rate_data.weights %}
+            <th>{{ w }}kg</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for country, rates in countries.items() %}
+          {% set tier_map = {} %}
+          {% for t in rates.tiers %}{% set _ = tier_map.update({t.weight: t.price}) %}{% endfor %}
+          <tr data-country="{{ country|lower }}">
+            <td class="country-cell">{{ country }}</td>
+            {% for w in rate_data.weights %}
+              {% if w in tier_map %}
+              <td>₹{{ "{:,.2f}".format(tier_map[w]) }}</td>
+              {% else %}
+              <td class="dash">—</td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Per-kg bands (heavier shipments beyond the tier table) -->
+{% set has_bands = countries.values()|selectattr('bands')|list|length > 0 %}
+{% if has_bands %}
+<div class="card band-section">
+  <div class="card-body">
+    <h3>Per-KG Rates (heavier shipments)</h3>
+    <p class="rate-note">Rate per kg once a shipment crosses the last fixed tier above.</p>
+    {% for country, rates in countries.items() %}
+      {% if rates.bands %}
+      <div class="band-row">
+        <div class="band-country">{{ country }}</div>
+        <div class="band-chips">
+          {% for b in rates.bands %}
+          <span class="band-chip">{{ b.min_kg }}–{{ b.max_kg if b.max_kg else '∞' }}kg: ₹{{ "{:,.2f}".format(b.rate_per_kg) }}/kg</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div style="text-align:center;padding:40px;color:var(--gray-400);">
+      No parsed rate data found in this price list.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function filterCountries(){
+  const q = document.getElementById('countrySearch').value.toLowerCase();
+  document.querySelectorAll('#rateMatrix tbody tr').forEach(row => {
+    row.style.display = row.dataset.country.includes(q) ? '' : 'none';
+  });
+}
+</script>
+
+{% endblock %}

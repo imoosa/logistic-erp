@@ -150,6 +150,8 @@
   </div>
 </div>
 
+
+
 <!-- Action bar -->
 <div class="action-bar">
   <h2>📋 Available Backups</h2>
@@ -160,61 +162,93 @@
   </div>
 </div>
 
+<!-- Upload & Restore Backup Section -->
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--gray-100);">
+        <h2 style="font-size:16px;font-weight:700;color:var(--gray-800);">📤 Upload & Restore Backup</h2>
+    </div>
+    <div class="card-body" style="padding:20px;">
+        <form id="uploadBackupForm" method="POST" action="{{ url_for('upload_backup') }}" 
+              enctype="multipart/form-data" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <div class="form-group" style="flex:1;min-width:200px;margin:0;">
+                <label style="font-size:12px;font-weight:600;color:var(--gray-600);display:block;margin-bottom:4px;">Select Backup File (.zip)</label>
+                <input type="file" name="backup_file" accept=".zip" required
+                       style="display:block;width:100%;padding:8px 12px;border:1px solid var(--gray-200);border-radius:8px;font-size:13px;background:#fff;">
+            </div>
+            <button type="submit" class="btn btn-danger" style="white-space:nowrap;padding:10px 24px;"
+                    onclick="return confirm('⚠️ This will REPLACE ALL current company data with the backup file. Are you sure you want to continue?');">
+                📤 Upload & Restore
+            </button>
+        </form>
+        <div style="margin-top:12px;font-size:12px;color:var(--gray-500);display:flex;align-items:center;gap:8px;">
+            <span style="color:#DC2626;font-weight:700;">⚠️</span>
+            <span>This will overwrite ALL current data. Upload a backup .zip file to restore.</span>
+        </div>
+    </div>
+</div>
+
 <!-- Backups Table -->
 <div class="card">
   <div class="card-body" style="padding:0;">
     {% if backups %}
     <div class="table-wrap backup-table">
       <table>
-        <thead>
-          <tr>
-            <th>Backup ID</th>
-            <th>Date & Time</th>
-            <th>Size</th>
-            <th>Status</th>
-            <th>Cloud</th>
-            <th>Last Restored</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for backup in backups %}
-          <tr>
-            <td><span class="backup-id">{{ backup.backup_id }}</span></td>
-            <td style="font-size:13px;">{{ backup.backup_date.strftime('%d %b %Y, %H:%M') }}</td>
-            <td style="font-size:13px;">{{ "%.2f"|format(backup.file_size_mb) }} MB</td>
-            <td>
-              <span class="badge {% if backup.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
-                {% if backup.status == 'completed' %}✔ Completed{% else %}⏳ {{ backup.status|title }}{% endif %}
-              </span>
-            </td>
-            <td style="font-size:13px;">
-              {% if backup.cloud_backup %}☁️ Yes{% else %}<span style="color:var(--gray-400);">—</span>{% endif %}
-            </td>
-            <td style="font-size:13px;">
-              {% if backup.restore_date %}{{ backup.restore_date.strftime('%d %b %Y') }}{% else %}<span style="color:var(--gray-400);">—</span>{% endif %}
-            </td>
-            <td>
-              <div class="tbl-actions">
-                <!-- Download -->
-                <a href="{{ url_for('download_backup', backup_id=backup.backup_id) }}"
-                   class="tbl-btn" title="Download">⬇️</a>
-                <!-- Restore -->
-                <button class="tbl-btn warn" title="Restore"
-                  onclick="openRestore('{{ backup.backup_id }}', '{{ backup.backup_date.strftime('%d %b %Y %H:%M') }}')">↩️</button>
-                <!-- Upload to Cloud -->
-                <button class="tbl-btn" title="Upload to Cloud"
-                  onclick="openCloudUpload('{{ backup.backup_id }}')">☁️</button>
-                <!-- Delete -->
-                <form method="POST" action="{{ url_for('delete_backup_record', backup_id=backup.backup_id) }}"
-                      onsubmit="return confirm('Delete this backup permanently?');" style="margin:0;">
-                  <button type="submit" class="tbl-btn danger" title="Delete">🗑️</button>
-                </form>
-              </div>
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
+        <!-- In the backup table section -->
+<thead>
+  <tr>
+    <th>Backup ID</th>
+    <th>Date & Time</th>
+    <th>Date Range</th>
+    <th>Size</th>
+    <th>Status</th>
+    <th>Last Restored</th>
+    <th>Actions</th>
+  </tr>
+</thead>
+<tbody>
+  {% for backup in backups %}
+  <tr>
+    <td><span class="backup-id">{{ backup.backup_id }}</span></td>
+    <td style="font-size:13px;">{{ backup.backup_date.strftime('%d %b %Y, %H:%M') }}</td>
+    <td style="font-size:13px;">
+      {% if backup.backup_from_date or backup.backup_to_date %}
+        {% if backup.backup_from_date and backup.backup_to_date %}
+          {{ backup.backup_from_date.strftime('%d %b %Y') }} → {{ backup.backup_to_date.strftime('%d %b %Y') }}
+        {% elif backup.backup_from_date %}
+          From {{ backup.backup_from_date.strftime('%d %b %Y') }}
+        {% elif backup.backup_to_date %}
+          Until {{ backup.backup_to_date.strftime('%d %b %Y') }}
+        {% endif %}
+      {% else %}
+        <span style="color:var(--gray-400);">Full Backup</span>
+      {% endif %}
+    </td>
+    <td style="font-size:13px;">{{ "%.2f"|format(backup.file_size_mb) }} MB</td>
+    <td>
+      <span class="badge {% if backup.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
+        {% if backup.status == 'completed' %}✔ Completed{% else %}⏳ {{ backup.status|title }}{% endif %}
+      </span>
+    </td>
+    <td style="font-size:13px;">
+      {% if backup.restore_date %}{{ backup.restore_date.strftime('%d %b %Y') }}{% else %}<span style="color:var(--gray-400);">—</span>{% endif %}
+    </td>
+    <td>
+      <div class="tbl-actions">
+        <a href="{{ url_for('download_backup', backup_id=backup.backup_id) }}"
+           class="tbl-btn" title="Download">⬇️</a>
+        <button class="tbl-btn warn" title="Restore"
+          onclick="openRestore('{{ backup.backup_id }}', '{{ backup.backup_date.strftime('%d %b %Y %H:%M') }}')">↩️</button>
+        <button class="tbl-btn" title="Upload to Cloud"
+          onclick="openCloudUpload('{{ backup.backup_id }}')">☁️</button>
+        <form method="POST" action="{{ url_for('delete_backup_record', backup_id=backup.backup_id) }}"
+              onsubmit="return confirm('Delete this backup permanently?');" style="margin:0;">
+          <button type="submit" class="tbl-btn danger" title="Delete">🗑️</button>
+        </form>
+      </div>
+    </td>
+  </tr>
+  {% endfor %}
+</tbody>
       </table>
     </div>
     {% else %}
@@ -229,9 +263,7 @@
 </div>
 
 
-<!-- ══════════════════════════════════════════════
-     MODAL: Create Backup
-════════════════════════════════════════════════ -->
+<!-- In the create backup modal, add date range pickers -->
 <div class="modal-overlay" id="createModal">
   <div class="modal-box">
     <form method="POST" action="{{ url_for('create_backup') }}">
@@ -239,11 +271,42 @@
         <div class="modal-header-icon blue">💾</div>
         <div class="modal-title-text">
           <h3>Create New Backup</h3>
-          <p>Snapshot your current company data</p>
+          <p>Snapshot your company data with optional date range</p>
         </div>
         <button type="button" class="modal-close" onclick="closeModal('createModal')">✕</button>
       </div>
       <div class="modal-body">
+        <!-- Date Range Section -->
+        <div style="background: var(--gray-50); border-radius: 10px; padding: 14px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <span style="font-size: 14px;">📅</span>
+            <span style="font-size: 13px; font-weight: 600; color: var(--gray-700);">Date Range (Optional)</span>
+            <span style="font-size: 11px; color: var(--gray-400);">Leave blank for full backup</span>
+          </div>
+          <div class="grid-2">
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 11px; font-weight: 600; color: var(--gray-500);">From Date</label>
+              <input type="date" name="from_date" id="backupFromDate" 
+                     value="{{ (today_ist() - timedelta(days=30)).isoformat() if today_ist else '' }}"
+                     style="width: 100%; padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px;">
+            </div>
+            <div class="form-group" style="margin: 0;">
+              <label style="font-size: 11px; font-weight: 600; color: var(--gray-500);">To Date</label>
+              <input type="date" name="to_date" id="backupToDate" 
+                     value="{{ today_ist().isoformat() if today_ist else '' }}"
+                     style="width: 100%; padding: 6px 10px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px;">
+            </div>
+          </div>
+          <div style="margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('today')">Today</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('week')">Last 7 Days</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('month')">Last 30 Days</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('quarter')">Last 90 Days</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('year')">Last Year</button>
+            <button type="button" class="btn btn-xs btn-ghost" onclick="setDateRange('all')">All Time</button>
+          </div>
+        </div>
+
         <div class="check-row">
           <input type="checkbox" id="incAttach" name="include_attachments" value="true" checked>
           <label for="incAttach">
@@ -457,6 +520,57 @@
 
 {% block extra_script %}
 <script>
+/* ── Date range shortcuts ── */
+  function setDateRange(range) {
+    const today = new Date();
+    const fromDate = document.getElementById('backupFromDate');
+    const toDate = document.getElementById('backupToDate');
+    
+    const formatDate = (d) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    switch(range) {
+      case 'today':
+        fromDate.value = formatDate(today);
+        toDate.value = formatDate(today);
+        break;
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+        fromDate.value = formatDate(weekAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'month':
+        const monthAgo = new Date(today);
+        monthAgo.setDate(today.getDate() - 30);
+        fromDate.value = formatDate(monthAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'quarter':
+        const quarterAgo = new Date(today);
+        quarterAgo.setDate(today.getDate() - 90);
+        fromDate.value = formatDate(quarterAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'year':
+        const yearAgo = new Date(today);
+        yearAgo.setFullYear(today.getFullYear() - 1);
+        fromDate.value = formatDate(yearAgo);
+        toDate.value = formatDate(today);
+        break;
+      case 'all':
+      default:
+        fromDate.value = '';
+        toDate.value = '';
+        break;
+    }
+  }
+
+
   /* ── Modal helpers ── */
   function openModal(id) {
     document.getElementById(id).classList.add('open');

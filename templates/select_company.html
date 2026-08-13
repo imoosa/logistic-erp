@@ -157,6 +157,8 @@
   .meta-pill.plan-premium  { background: #eff6ff; color: #1e40af; }
   .meta-pill.plan-gold     { background: #fffbeb; color: #92400e; }
   .meta-pill.plan-custom   { background: #faf5ff; color: #6b21a8; }
+  .meta-pill-gst      { background: #f0fdf4; color: #166534; }
+  .meta-pill-gst-none { background: #fef2f2; color: #991b1b; }
 
   .company-address {
     font-size: 13px;
@@ -415,6 +417,16 @@
         <span class="meta-pill">
           👥 {{ company.user_count }} assigned
         </span>
+        <!-- GST registration status -->
+        {% if company.gst_number %}
+        <span class="meta-pill meta-pill-gst">
+          🧾 GST: {{ company.gst_number }}
+        </span>
+        {% else %}
+        <span class="meta-pill meta-pill-gst-none">
+          🧾 Not Registered
+        </span>
+        {% endif %}
       </div>
 
       {% if company.address %}

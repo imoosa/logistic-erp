@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+{% block title %}Export Reports{% endblock %}
+{% block page_title %}Export Reports{% endblock %}
+
+{% block extra_style %}
+<style>
+    /* ---- Page fills the available content height instead of leaving a
+       blank void — .content is a flex item with a real computed height,
+       so height:100% here actually claims it. ---- */
+    .export-page-wrap {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .export-hero {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        background: linear-gradient(135deg, #012926 0%, #01443F 100%);
+        border-radius: var(--radius);
+        padding: 22px 28px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 14px rgba(1,41,38,0.18);
+        flex-shrink: 0;
+    }
+    .export-hero-icon {
+        width: 46px; height: 46px; border-radius: 12px;
+        background: rgba(245,158,11,0.16);
+        color: var(--primary);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 21px; flex-shrink: 0;
+    }
+    .export-hero h1 {
+        font-size: 19px; font-weight: 800; color: #fff; margin: 0 0 4px;
+        letter-spacing: -0.01em;
+    }
+    .export-hero .sub {
+        color: rgba(255,255,255,0.72);
+        font-size: 13px; line-height: 1.5; margin: 0; max-width: 620px;
+    }
+
+    .export-row {
+        display: grid;
+        grid-template-columns: minmax(380px, 460px) 1fr;
+        gap: 20px;
+        flex: 1;
+        min-height: 0; /* let grid children scroll instead of overflowing */
+    }
+    @media (max-width: 900px) {
+        .export-row { grid-template-columns: 1fr; }
+    }
+
+    .export-card {
+        align-self: start;
+        padding: 22px 24px 20px;
+    }
+
+    .export-card fieldset {
+        border: none;
+        padding: 0;
+        margin: 0 0 16px;
+    }
+    .export-card fieldset:last-of-type {
+        margin-bottom: 0;
+    }
+    .export-card legend {
+        font-weight: 700;
+        font-size: 13px;
+        color: var(--gray-800);
+        margin-bottom: 9px;
+        padding: 0;
+        text-transform: uppercase;
+        letter-spacing: .03em;
+    }
+    .type-options {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .type-options label {
+        flex: 1;
+        border: 1.5px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 11px 8px;
+        text-align: center;
+        font-size: 13.5px;
+        cursor: pointer;
+        transition: border-color .12s ease, background-color .12s ease;
+    }
+    .type-options input { display: none; }
+    .type-options label:has(input:checked) {
+        border-color: var(--primary);
+        background: var(--primary-light);
+        color: var(--primary-dark);
+        font-weight: 700;
+    }
+    .sync-toggle {
+        display: inline-flex;
+        width: auto;
+        align-items: center;
+        gap: 7px;
+        font-size: 13px;
+        color: var(--gray-700);
+        margin: 0;
+        cursor: pointer;
+    }
+    .sync-toggle input { cursor: pointer; margin: 0; width: 15px; height: 15px; accent-color: var(--primary); }
+    .date-block {
+        display: none;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-100, #f1f5f9);
+        border-radius: 10px;
+        padding: 16px;
+    }
+    .date-block.active { display: block; }
+    .date-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 10px;
+    }
+    .date-row > div { flex: 1; }
+    .export-card label.field-label {
+        display: block;
+        font-size: 12.5px;
+        color: var(--gray-500);
+        margin-bottom: 4px;
+        font-weight: 600;
+    }
+    .export-card input[type="date"] {
+        width: 100%;
+        padding: 9px 10px;
+        border: 1.5px solid var(--gray-200);
+        border-radius: 7px;
+        font-size: 14.5px;
+        color: var(--gray-900);
+        background: #fff;
+        font-family: var(--font);
+    }
+    .export-card input[type="date"]:focus {
+        outline: none;
+        border-color: var(--primary);
+    }
+    .export-card input[type="date"]:disabled {
+        background: var(--gray-100, #f1f5f9);
+        color: var(--gray-400);
+    }
+    .presets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 0;
+    }
+    .presets button {
+        border: 1.5px solid var(--gray-200);
+        background: #fff;
+        border-radius: 6px;
+        padding: 6px 11px;
+        font-size: 12.5px;
+        font-family: var(--font);
+        cursor: pointer;
+        color: var(--gray-700);
+        transition: border-color .12s ease, color .12s ease;
+    }
+    .presets button:hover { border-color: var(--primary); color: var(--primary-dark); }
+    .export-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        border-top: 1px solid var(--gray-200);
+        padding-top: 16px;
+        margin-top: 16px;
+    }
+
+    /* History panel stretches to fill whatever height is left in the row */
+    .history-card {
+        display: flex;
+        flex-direction: column;
+        padding: 22px 24px;
+        min-height: 0;
+    }
+    .history-card h2 {
+        font-size: 14.5px;
+        margin: 0 0 14px;
+        color: var(--gray-900);
+        text-transform: uppercase;
+        letter-spacing: .03em;
+        flex-shrink: 0;
+    }
+    .history-table-wrap {
+        overflow: auto;
+        flex: 1;
+        min-height: 0;
+    }
+    .history-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+    .history-table thead th {
+        position: sticky;
+        top: 0;
+        background: var(--gray-50);
+    }
+    .history-table td.file-cell {
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .history-empty {
+        color: var(--gray-500);
+        font-size: 13.5px;
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .history-empty-icon { font-size: 28px; opacity: .6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="export-page-wrap">
+
+    <div class="export-hero">
+        <div class="export-hero-icon">📊</div>
+        <div>
+            <h1>Export Reports to Excel</h1>
+            <p class="sub">Choose what to export and the date range. Pending receivables/payables are filtered by invoice date using this same range — an unpaid invoice outside it won't appear, even if it's still owed today.</p>
+        </div>
+    </div>
+
+    <div class="export-row">
+        <div class="card export-card">
+            <form action="{{ url_for('export_reports_excel') }}" method="get" id="export-form">
+
+                <fieldset>
+                    <legend>What to export</legend>
+                    <div class="type-options">
+                        <label>
+                            <input type="radio" name="type" value="both" checked onchange="toggleBlocks()">
+                            <span>Sales + Purchase</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="type" value="sales" onchange="toggleBlocks()">
+                            <span>Sales only</span>
+                        </label>
+                        <label>
+                            <input type="radio" name="type" value="purchase" onchange="toggleBlocks()">
+                            <span>Purchase only</span>
+                        </label>
+                    </div>
+                    <label class="sync-toggle" id="sync-toggle-wrap">
+                        <input type="checkbox" id="sync-dates" checked onchange="toggleBlocks()">
+                        Use the same date range for both
+                    </label>
+                </fieldset>
+
+                <fieldset id="sales-block" class="date-block active">
+                    <label class="field-label" id="sales-legend">Date range</label>
+                    <div class="date-row">
+                        <div>
+                            <label class="field-label" for="sales_from">From</label>
+                            <input type="date" id="sales_from" name="sales_from" value="{{ default_from }}" onchange="mirrorIfSynced('sales')">
+                        </div>
+                        <div>
+                            <label class="field-label" for="sales_to">To</label>
+                            <input type="date" id="sales_to" name="sales_to" value="{{ default_to }}" onchange="mirrorIfSynced('sales')">
+                        </div>
+                    </div>
+                    <div class="presets">
+                        <button type="button" onclick="applyPreset('sales','month')">This month</button>
+                        <button type="button" onclick="applyPreset('sales','lastmonth')">Last month</button>
+                        <button type="button" onclick="applyPreset('sales','quarter')">This quarter</button>
+                        <button type="button" onclick="applyPreset('sales','fy')">This FY (Apr–Mar)</button>
+                        <button type="button" onclick="clearRange('sales')">All time</button>
+                    </div>
+                </fieldset>
+
+                <fieldset id="purchase-block" class="date-block">
+                    <label class="field-label">Purchase date range</label>
+                    <div class="date-row">
+                        <div>
+                            <label class="field-label" for="purchase_from">From</label>
+                            <input type="date" id="purchase_from" name="purchase_from" value="{{ default_from }}">
+                        </div>
+                        <div>
+                            <label class="field-label" for="purchase_to">To</label>
+                            <input type="date" id="purchase_to" name="purchase_to" value="{{ default_to }}">
+                        </div>
+                    </div>
+                    <div class="presets">
+                        <button type="button" onclick="applyPreset('purchase','month')">This month</button>
+                        <button type="button" onclick="applyPreset('purchase','lastmonth')">Last month</button>
+                        <button type="button" onclick="applyPreset('purchase','quarter')">This quarter</button>
+                        <button type="button" onclick="applyPreset('purchase','fy')">This FY (Apr–Mar)</button>
+                        <button type="button" onclick="clearRange('purchase')">All time</button>
+                    </div>
+                </fieldset>
+
+                <div class="export-actions">
+                    <button type="submit" class="btn btn-primary">⬇ Download Excel</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card history-card">
+            <h2>Recent exports</h2>
+            {% if history %}
+            <div class="history-table-wrap">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Type</th>
+                        <th>Sales range</th>
+                        <th>Purchase range</th>
+                        <th>By</th>
+                        <th>File</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for h in history %}
+                    <tr>
+                        <td>{{ h.created_at.strftime('%d %b %Y, %I:%M %p') if h.created_at else '—' }}</td>
+                        <td><span class="badge badge-primary">{{ h.export_type }}</span></td>
+                        <td>
+                            {% if h.sales_from or h.sales_to %}
+                                {{ h.sales_from.strftime('%d %b %y') if h.sales_from else 'start' }} – {{ h.sales_to.strftime('%d %b %y') if h.sales_to else 'end' }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if h.purchase_from or h.purchase_to %}
+                                {{ h.purchase_from.strftime('%d %b %y') if h.purchase_from else 'start' }} – {{ h.purchase_to.strftime('%d %b %y') if h.purchase_to else 'end' }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+                        <td>{{ h.exported_by or '—' }}</td>
+                        <td class="file-cell" title="{{ h.filename }}">{{ h.filename }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <div class="history-empty">
+                <div class="history-empty-icon">🗂️</div>
+                No exports yet — your download history will show up here.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_script %}
+<script>
+function toggleBlocks() {
+    const type = document.querySelector('input[name="type"]:checked').value;
+    const synced = document.getElementById('sync-dates').checked;
+    const salesBlock = document.getElementById('sales-block');
+    const purchaseBlock = document.getElementById('purchase-block');
+    const syncWrap = document.getElementById('sync-toggle-wrap');
+    const salesLegend = document.getElementById('sales-legend');
+
+    const showSales = (type === 'sales' || type === 'both');
+    const showPurchase = (type === 'purchase' || type === 'both');
+
+    // The sync toggle only makes sense when exporting both
+    syncWrap.style.display = (type === 'both') ? 'flex' : 'none';
+
+    const purchaseVisible = showPurchase && !(type === 'both' && synced);
+
+    salesBlock.classList.toggle('active', showSales);
+    purchaseBlock.classList.toggle('active', purchaseVisible);
+
+    salesLegend.textContent = (type === 'both' && synced) ? 'Date range (applies to both)' : 'Sales date range';
+
+    document.getElementById('sales_from').disabled = !showSales;
+    document.getElementById('sales_to').disabled = !showSales;
+    // When synced, the purchase inputs are hidden but still submitted —
+    // mirror sales into them right now so they're never left on a stale default.
+    document.getElementById('purchase_from').disabled = !showPurchase;
+    document.getElementById('purchase_to').disabled = !showPurchase;
+
+    if (type === 'both' && synced) {
+        mirrorIfSynced('sales');
+    }
+}
+
+function mirrorIfSynced(source) {
+    const type = document.querySelector('input[name="type"]:checked').value;
+    const synced = document.getElementById('sync-dates').checked;
+    if (type === 'both' && synced) {
+        document.getElementById('purchase_from').value = document.getElementById('sales_from').value;
+        document.getElementById('purchase_to').value = document.getElementById('sales_to').value;
+    }
+}
+
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+function toISO(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+
+function applyPreset(target, preset) {
+    const today = new Date();
+    let from, to;
+
+    if (preset === 'month') {
+        from = new Date(today.getFullYear(), today.getMonth(), 1);
+        to = today;
+    } else if (preset === 'lastmonth') {
+        from = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        to = new Date(today.getFullYear(), today.getMonth(), 0);
+    } else if (preset === 'quarter') {
+        const qStartMonth = Math.floor(today.getMonth() / 3) * 3;
+        from = new Date(today.getFullYear(), qStartMonth, 1);
+        to = today;
+    } else if (preset === 'fy') {
+        const fyStartYear = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+        from = new Date(fyStartYear, 3, 1);
+        to = today;
+    }
+
+    document.getElementById(target + '_from').value = toISO(from);
+    document.getElementById(target + '_to').value = toISO(to);
+    mirrorIfSynced(target);
+}
+
+function clearRange(target) {
+    document.getElementById(target + '_from').value = '';
+    document.getElementById(target + '_to').value = '';
+    mirrorIfSynced(target);
+}
+
+toggleBlocks();
+</script>
+{% endblock %}

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Manifest {{ target_date.strftime('%d-%m-%Y') if target_date else '' }}</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #111827;
+        margin: 0;
+        padding: 24px 32px;
+        background: #F3F4F6;
+    }
+    .sheet {
+        max-width: 960px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 28px 36px 36px;
+        border: 1px solid #E5E7EB;
+    }
+    .toolbar {
+        max-width: 960px;
+        margin: 0 auto 12px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .toolbar button, .toolbar a {
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 14px;
+        border-radius: 6px;
+        border: 1px solid #D1D5DB;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .toolbar button:hover, .toolbar a:hover { background: #F9FAFB; }
+
+    h1.title {
+        text-align: center;
+        font-size: 22px;
+        letter-spacing: 2px;
+        margin: 0 0 6px;
+        padding-bottom: 14px;
+        border-bottom: 2px solid #111827;
+    }
+
+    .header-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 1.3fr 1fr;
+        gap: 20px;
+        padding: 18px 0 20px;
+        border-bottom: 1px solid #D1D5DB;
+        margin-bottom: 18px;
+    }
+    .header-grid .label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #374151;
+        margin-bottom: 4px;
+    }
+    .header-grid .value { font-size: 13px; color: #111827; }
+    .kv-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 2px 0;
+        gap: 10px;
+    }
+    .kv-row .k { color: #374151; }
+    .kv-row .v { font-weight: 700; text-align: right; }
+
+    table.manifest-doc {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+    }
+    table.manifest-doc th {
+        border: 1px solid #9CA3AF;
+        background: #F3F4F6;
+        padding: 6px 6px;
+        text-align: left;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    table.manifest-doc td {
+        border: 1px solid #D1D5DB;
+        padding: 6px 6px;
+        vertical-align: top;
+    }
+    table.manifest-doc tr.manifest-group-row td {
+        font-weight: 700;
+        background: #F3F4F6;
+        border-top: 2px solid #9CA3AF;
+        font-size: 11px;
+    }
+    table.manifest-doc tr.total-row td {
+        font-weight: 700;
+        background: #F9FAFB;
+        border-top: 2px solid #111827;
+    }
+    .muted { color: #9CA3AF; }
+
+    .footer-note {
+        margin-top: 18px;
+        font-size: 11px;
+        color: #6B7280;
+    }
+
+    @media print {
+        body { background: #fff; padding: 0; margin: 0; }
+        .toolbar { display: none !important; }
+        .sheet { border: none; padding: 0; max-width: none; }
+    }
+</style>
+</head>
+<body>
+{% if is_selected_print %}
+<div style="background:#EFF6FF;border:1px solid #93C5FD;border-radius:6px;padding:8px 16px;margin-bottom:16px;font-size:13px;color:#1E40AF;">
+    📋 <strong>Selected Entries Only</strong> — {{ total_boxes }} boxes from {{ manifests | length }} manifest(s)
+</div>
+{% endif %}
+<div class="toolbar">
+    <a href="{{ url_for('manifest_list') }}">← Back</a>
+    <button onclick="window.print()">🖨️ Print</button>
+</div>
+
+<div class="sheet">
+
+    <h1 class="title">MANIFEST</h1>
+
+    <div class="header-grid" style="grid-template-columns: 1.3fr 1.3fr 1fr;">
+        <div>
+            <div class="label">FROM,</div>
+            <div class="value">{{ from_company_name or '—' }}</div>
+        </div>
+        <div>
+            {% if to_supplier %}
+            <div class="label">TO,</div>
+            <div class="value">{{ to_supplier.name }}</div>
+            {% set addr_parts = [to_supplier.address_line1, to_supplier.address_line2, to_supplier.city, to_supplier.state, to_supplier.pincode] | select | list %}
+            {% if addr_parts %}
+            <div class="value">{{ addr_parts | join(', ') }}</div>
+            {% endif %}
+            {% if to_supplier.phone %}
+            <div class="value">{{ to_supplier.phone }}</div>
+            {% endif %}
+            {% endif %}
+        </div>
+        <div>
+            <div class="kv-row"><span class="k">DATE :</span><span class="v">{{ target_date.strftime('%d/%m/%Y') if target_date else '—' }}</span></div>
+            <div class="kv-row"><span class="k">TOTAL PCS :</span><span class="v">{{ total_boxes }}</span></div>
+            <div class="kv-row"><span class="k">TOTAL WEIGHT :</span><span class="v">{{ '%.3f'|format(total_weight) if total_weight else '—' }}</span></div>
+           
+        </div>
+    </div>
+
+    <table class="manifest-doc">
+        <thead>
+            <tr>
+                <th>SR<br>NO</th>
+                <th>Manifest ID</th>
+                <th>AWB NO.</th>
+                <th>PCS</th>
+                <th>BOX WEIGHT</th>
+                <th>DEST</th>
+                <th>CARRIER REF</th>
+                <th>RECEIVER</th>
+                <th>Service</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set ns = namespace(sr=0) %}
+            {% for manifest in manifests %}
+                {% if manifests | length > 1 %}
+                
+                {% endif %}
+                {% set mfst_entries = entries_by_manifest.get(manifest.id) %}
+                {% if mfst_entries %}
+                    {# Group entries by docket_no (AWB) so multi-box AWBs collapse to one row #}
+                    {% set ns_grp = namespace(groups=[], keys=[]) %}
+                    {% for entry in mfst_entries %}
+                        {% set gkey = entry.docket_no if entry.docket_no else 'NODOCKET-' ~ entry.id %}
+                        {% if gkey in ns_grp.keys %}
+                            {% set _ = ns_grp.groups[ns_grp.keys.index(gkey)].append(entry) %}
+                        {% else %}
+                            {% set _ = ns_grp.keys.append(gkey) %}
+                            {% set _ = ns_grp.groups.append([entry]) %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% for group in ns_grp.groups %}
+                    {% set ns.sr = ns.sr + 1 %}
+                    {% set first_entry = group[0] %}
+                    {% set group_boxes = group | sum(attribute='boxes') %}
+                    {% set first_ship = shipment_data.get(first_entry.id) %}
+                    <tr>
+                        <td>{{ ns.sr }}</td>
+                        <td>{{ manifest.manifest_id }}</td>
+                        <td>{{ first_entry.docket_no or '—' }}</td>
+                        <td>{{ group_boxes }}</td>
+                        <td>{{ '%.3f'|format(first_ship.actual_weight) if first_ship and first_ship.actual_weight else '—' }}</td>
+                        <td>{{ first_ship.destination if first_ship and first_ship.destination else '—' }}</td>
+                        <td>{{ first_ship.carrier_ref if first_ship and first_ship.carrier_ref else '—' }}</td>
+                        <td>{{ first_ship.receiver if first_ship and first_ship.receiver else '—' }}</td>
+                        <td>{{ first_entry.courier_name }}</td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="15" class="muted" style="text-align:center;padding:8px;">No entries on {{ manifest.manifest_id }}.</td></tr>
+                {% endif %}
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="3" style="text-align:right;">TOTAL</td>
+                <td>{{ total_boxes }}</td>
+                <td colspan="11"></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer-note">
+        Charge weight, box weight, dimensions, volumetric weight, destination and receiver are pulled from the
+        matching customer invoice by AWB/docket number where available, shown as “—” otherwise. Coloader and
+        payment type are not captured by this manifest type. Combined view of {{ manifests | length }}
+        manifest(s) for {{ target_date.strftime('%d %b %Y') if target_date else '' }}.
+    </div>
+
+</div>
+
+</body>
+</html>

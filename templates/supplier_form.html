@@ -232,12 +232,22 @@
         </select>
       </div>
     </div>
-    <div class="form-group" style="max-width:300px">
-      <label>PAN Number</label>
-      <input type="text" name="pan_number" maxlength="10"
-             value="{{ fd.pan_number or (supplier.pan_number if supplier else '') }}"
-             placeholder="AAAAA1234F"
-             oninput="this.value=this.value.toUpperCase()">
+    <div class="grid-2">
+      <div class="form-group">
+        <label>PAN Number</label>
+        <input type="text" name="pan_number" maxlength="10"
+               value="{{ fd.pan_number or (supplier.pan_number if supplier else '') }}"
+               placeholder="AAAAA1234F"
+               oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="form-group">
+        <label>Aadhar Number</label>
+        <input type="text" name="aadhar_number" id="aadharInput" maxlength="12" inputmode="numeric"
+               value="{{ fd.aadhar_number or (supplier.aadhar_number if supplier else '') }}"
+               placeholder="123456789012"
+               oninput="this.value=this.value.replace(/\D/g,''); validateAadhar(this)">
+        <div class="field-hint" id="aadharHint">12-digit Aadhar number.</div>
+      </div>
     </div>
 
     <!-- ══ 5. Financial / Credit ═════════════════════════════════════════ -->
@@ -327,6 +337,23 @@ function validateGST(input) {
   }
 }
 
+function validateAadhar(input) {
+  const val  = input.value.trim();
+  const hint = document.getElementById('aadharHint');
+  if (!val) {
+    hint.textContent = '12-digit Aadhar number.';
+    hint.className   = 'field-hint';
+    return;
+  }
+  if (/^[0-9]{12}$/.test(val)) {
+    hint.textContent = '✓ Valid format';
+    hint.className   = 'field-hint gst-valid';
+  } else {
+    hint.textContent = `✗ ${val.length}/12 digits`;
+    hint.className   = 'field-hint gst-invalid';
+  }
+}
+
 function addBrandRow() {
   const wrap = document.getElementById('brandRows');
   const row  = document.createElement('div');
@@ -347,6 +374,9 @@ function removeBrandRow(btn) {
 document.addEventListener('DOMContentLoaded', () => {
   const g = document.getElementById('gstInput');
   if (g && g.value) validateGST(g);
+
+  const a = document.getElementById('aadharInput');
+  if (a && a.value) validateAadhar(a);
 
   // Start with one empty brand row if none exist yet, so the field isn't hidden
   if (document.getElementById('brandRows').children.length === 0) {

@@ -302,6 +302,31 @@
       {{ "%.1f"|format(loan.repayment_percentage) }}% Repaid
     </div>
     
+    <div class="repayment-form">
+      <div class="form-group">
+        <label>Amount *</label>
+        <input type="number" id="repayAmount{{ loan.id }}" placeholder="Enter amount" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="repayDate{{ loan.id }}" value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label>Payment Mode</label>
+        <select id="repayMode{{ loan.id }}">
+          <option value="Cash">Cash</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="UPI">UPI</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Reference</label>
+        <input type="text" id="repayRef{{ loan.id }}" placeholder="Transaction/Cheque No">
+      </div>
+      <button onclick="recordRepayment({{ loan.id }}, 'given')" style="padding: 8px 20px; background: #10B981; color: white; border: none; border-radius: 6px;">Record Payment</button>
+    </div>
+
     <h4>Repayment History</h4>
     <table class="repayment-table">
       <thead>
@@ -329,31 +354,6 @@
         {% endfor %}
       </tbody>
     </table>
-    
-    <div class="repayment-form">
-      <div class="form-group">
-        <label>Amount *</label>
-        <input type="number" id="repayAmount{{ loan.id }}" placeholder="Enter amount" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Date</label>
-        <input type="date" id="repayDate{{ loan.id }}" value="{{ today }}">
-      </div>
-      <div class="form-group">
-        <label>Payment Mode</label>
-        <select id="repayMode{{ loan.id }}">
-          <option value="Cash">Cash</option>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="Cheque">Cheque</option>
-          <option value="UPI">UPI</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Reference</label>
-        <input type="text" id="repayRef{{ loan.id }}" placeholder="Transaction/Cheque No">
-      </div>
-      <button onclick="recordRepayment({{ loan.id }}, 'given')" style="padding: 8px 20px; background: #10B981; color: white; border: none; border-radius: 6px;">Record Payment</button>
-    </div>
   </div>
 </div>
 {% else %}
@@ -412,6 +412,31 @@
       {{ "%.1f"|format(loan.repayment_percentage) }}% Repaid
     </div>
     
+    <div class="repayment-form">
+      <div class="form-group">
+        <label>Amount *</label>
+        <input type="number" id="repayAmount{{ loan.id }}" placeholder="Enter amount" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="repayDate{{ loan.id }}" value="{{ today }}">
+      </div>
+      <div class="form-group">
+        <label>Payment Mode</label>
+        <select id="repayMode{{ loan.id }}">
+          <option value="Cash">Cash</option>
+          <option value="Bank Transfer">Bank Transfer</option>
+          <option value="Cheque">Cheque</option>
+          <option value="UPI">UPI</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Reference</label>
+        <input type="text" id="repayRef{{ loan.id }}" placeholder="Transaction/Cheque No">
+      </div>
+      <button onclick="recordRepayment({{ loan.id }}, 'taken')" style="padding: 8px 20px; background: #10B981; color: white; border: none; border-radius: 6px;">Record Payment</button>
+    </div>
+
     <h4>Payment History</h4>
     <table class="repayment-table">
       <thead>
@@ -439,31 +464,6 @@
         {% endfor %}
       </tbody>
     </table>
-    
-    <div class="repayment-form">
-      <div class="form-group">
-        <label>Amount *</label>
-        <input type="number" id="repayAmount{{ loan.id }}" placeholder="Enter amount" step="0.01">
-      </div>
-      <div class="form-group">
-        <label>Date</label>
-        <input type="date" id="repayDate{{ loan.id }}" value="{{ today }}">
-      </div>
-      <div class="form-group">
-        <label>Payment Mode</label>
-        <select id="repayMode{{ loan.id }}">
-          <option value="Cash">Cash</option>
-          <option value="Bank Transfer">Bank Transfer</option>
-          <option value="Cheque">Cheque</option>
-          <option value="UPI">UPI</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>Reference</label>
-        <input type="text" id="repayRef{{ loan.id }}" placeholder="Transaction/Cheque No">
-      </div>
-      <button onclick="recordRepayment({{ loan.id }}, 'taken')" style="padding: 8px 20px; background: #10B981; color: white; border: none; border-radius: 6px;">Record Payment</button>
-    </div>
   </div>
 </div>
 {% else %}

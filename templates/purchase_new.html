@@ -179,6 +179,7 @@ table.items-table input:focus, table.items-table select:focus { border-color:#4F
             <tr>
               <th>S.No</th>
               <th style="min-width:140px">AWB Number</th>
+              <th style="min-width:130px">Carrier Ref</th>
               <th style="min-width:160px">Party Name</th>
               <th style="min-width:140px">Destination</th>
               <th style="min-width:130px">Courier</th>
@@ -186,6 +187,9 @@ table.items-table input:focus, table.items-table select:focus { border-color:#4F
               <th style="min-width:80px">Qty</th>
               <th style="min-width:90px">Weight (Kg)</th>
               <th style="min-width:90px">Rate / Kg</th>
+              <th style="min-width:100px">Other Charges</th>
+              <th style="min-width:100px">Resale Charges</th>
+              <th style="min-width:100px">Before GST</th>
               <th class="gst-col" style="min-width:80px">GST %</th>
               <th class="gst-col" style="min-width:90px">GST Amt</th>
               <th style="min-width:110px">Line Total</th>
@@ -327,6 +331,7 @@ function addRow() {
              onchange="onAwbChange(this, ${id})" autocomplete="off">
       <datalist id="awbList${id}"></datalist>
     </td>
+    <td><input type="text" name="carrier_ref[]" placeholder="Courier's tracking ref"></td>
     <td><input type="text" name="party_name[]" placeholder="Auto-filled" readonly></td>
     <td><input type="text" name="destination[]" placeholder="Auto-filled" readonly></td>
     <td>
@@ -344,6 +349,9 @@ function addRow() {
     <td><input type="number" name="item_qty[]" id="itemQty${id}" min="0" step="1" value="0"></td>
     <td><input type="number" name="weight_kg[]" id="weight${id}" min="0" step="0.01" value="0" oninput="calcLine(${id})"></td>
     <td><input type="number" name="rate_per_kg[]" id="rate${id}" min="0" step="0.01" value="0" oninput="calcLine(${id})"></td>
+     <td><input type="number" name="other_charges[]" id="otherCharges${id}" min="0" step="0.01" value="0" oninput="calcLine(${id})" placeholder="0.00"></td>
+    <td class="line-taxable" id="taxable${id}">₹0.00</td>
+    <td><input type="number" name="resale_charges[]" id="resaleCharges${id}" min="0" step="0.01" value="0" oninput="calcLine(${id})" placeholder="0.00"></td>
     <td class="gst-col">
       <select name="gst_percent[]" id="gst${id}" onchange="calcLine(${id})">
         ${gstOptions(DEFAULT_GST)}
@@ -372,7 +380,9 @@ function removeRow(id) {
 function calcLine(id) {
   const w = parseFloat(document.getElementById('weight' + id).value) || 0;
   const r = parseFloat(document.getElementById('rate' + id).value) || 0;
-  const taxable = w * r;
+  const oc = parseFloat(document.getElementById('otherCharges' + id).value) || 0;
+  const resale = parseFloat(document.getElementById('resaleCharges' + id).value) || 0;  
+  const taxable = (w * r) + oc + resale;
 
   let gstPct = 0;
   let gstAmt = 0;
@@ -384,6 +394,8 @@ function calcLine(id) {
 
   const lineTotal = round2(taxable + gstAmt);
 
+  const taxableEl = document.getElementById('taxable' + id);
+  if (taxableEl) taxableEl.textContent = '₹' + fmt(taxable);
   const gstAmtEl = document.getElementById('gstAmt' + id);
   if (gstAmtEl) gstAmtEl.textContent = '₹' + fmt(gstAmt);
   document.getElementById('lineTotal' + id).textContent = '₹' + fmt(lineTotal);
@@ -468,7 +480,9 @@ function calcGrandTotal() {
     if (!id) return;
     const w = parseFloat(document.getElementById('weight' + id)?.value) || 0;
     const r = parseFloat(document.getElementById('rate' + id)?.value) || 0;
-    const taxable = w * r;
+    const oc = parseFloat(document.getElementById('otherCharges' + id)?.value) || 0;
+    const resale = parseFloat(document.getElementById('resaleCharges' + id)?.value) || 0;
+    const taxable = (w * r) + oc + resale;
     let gstAmt = 0;
     if (IS_GST) {
       const gstSel = document.getElementById('gst' + id);
@@ -510,11 +524,14 @@ async function onAwbChange(input, id) {
     if (!res.ok) {
       tr.querySelector('[name="party_name[]"]').value = '';
       tr.querySelector('[name="destination[]"]').value = '';
+      tr.querySelector('[name="carrier_ref[]"]').value = '';
       return;
     }
     const data = await res.json();
     tr.querySelector('[name="party_name[]"]').value = data.party_name || '';
     tr.querySelector('[name="destination[]"]').value = data.destination || '';
+    const carrierRefField = tr.querySelector('[name="carrier_ref[]"]');
+    if (carrierRefField && !carrierRefField.value) carrierRefField.value = data.carrier_ref || '';
 
     const sel = tr.querySelector(`select[name="item_select_${id}"]`);
     sel.innerHTML = '<option value="">— Item —</option>' +

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}WhatsApp Template Mapping{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0">WhatsApp Template Mapping</h3>
+    <a href="{{ url_for('whatsapp_settings') }}" class="btn btn-outline-secondary btn-sm">&larr; WhatsApp Settings</a>
+  </div>
+
+  <div class="alert alert-info">
+    For each event below, enter the <strong>exact template name</strong> as approved in your
+    WhatsApp provider's dashboard, then map each variable slot ({{1}}, {{2}}, ...) to what it
+    should contain. Leave the name blank to skip configuring that event — it will keep using
+    the default behavior until you fill it in.
+  </div>
+
+  <form method="POST">
+    {% for ev in events %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <strong>{{ ev.label }}</strong>
+        <div class="text-muted small">{{ ev.desc }}</div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-3">
+          <div class="col-md-4">
+            <label class="form-label">Template Name (exact, as approved)</label>
+            <input type="text" class="form-control" name="tpl_{{ ev.event_key }}_name"
+                   value="{{ ev.row.template_name if ev.row else '' }}"
+                   placeholder="e.g. booking_confirmation_v2">
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Language</label>
+            <input type="text" class="form-control" name="tpl_{{ ev.event_key }}_lang"
+                   value="{{ ev.row.language_code if ev.row else 'en' }}">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Header Type</label>
+            <select class="form-select" name="tpl_{{ ev.event_key }}_header">
+              {% set current_header = ev.row.header_type if ev.row else 'none' %}
+              <option value="none" {% if current_header == 'none' %}selected{% endif %}>None (text only)</option>
+              <option value="document" {% if current_header == 'document' %}selected{% endif %}>Document (PDF)</option>
+              <option value="image" {% if current_header == 'image' %}selected{% endif %}>Image</option>
+              <option value="video" {% if current_header == 'video' %}selected{% endif %}>Video</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="form-label">Variable Slots (in order — slot 1 = {{1}}, slot 2 = {{2}}, ...)</label>
+        <div class="var-slots" data-event="{{ ev.event_key }}">
+          {% for i in range(ev.selected_fields|length) %}
+          <div class="d-flex align-items-center gap-2 mb-2 var-slot-row">
+            <span class="badge bg-secondary" style="min-width:2.5rem;">#{{ loop.index }}</span>
+            <select class="form-select form-select-sm" name="tpl_{{ ev.event_key }}_var">
+              <option value="">-- Not used --</option>
+              {% for fkey, fval in ev.field_options.items() %}
+              <option value="{{ fkey }}" {% if ev.selected_fields[loop.index0] == fkey %}selected{% endif %}>{{ fval[0] }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-slot-btn">&times;</button>
+          </div>
+          {% endfor %}
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-primary add-slot-btn" data-event="{{ ev.event_key }}">
+          + Add Variable Slot
+        </button>
+
+        {% if ev.row and ev.row.param_count %}
+        <div class="text-muted small mt-2">Currently configured for {{ ev.row.param_count }} variable(s).</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+    <button type="submit" class="btn btn-primary">Save Template Mapping</button>
+  </form>
+</div>
+
+<!-- Hidden template row, cloned by JS when "+ Add Variable Slot" is clicked -->
+<template id="slot-row-template">
+  <div class="d-flex align-items-center gap-2 mb-2 var-slot-row">
+    <span class="badge bg-secondary slot-number" style="min-width:2.5rem;"></span>
+    <select class="form-select form-select-sm slot-select" name="">
+      <option value="">-- Not used --</option>
+    </select>
+    <button type="button" class="btn btn-sm btn-outline-danger remove-slot-btn">&times;</button>
+  </div>
+</template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Build each event's option list from the server-rendered first slot
+  // (or an empty container if there are no existing slots yet) so JS
+  // doesn't need its own hardcoded copy of the field catalogue.
+  document.querySelectorAll('.add-slot-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const eventKey = btn.dataset.event;
+      const container = document.querySelector('.var-slots[data-event="' + eventKey + '"]');
+
+      // Grab option list from an existing select in this event's block,
+      // if there is one; otherwise this event has zero slots configured
+      // yet and there's nothing to clone options from — bail with a
+      // message rather than adding a broken empty dropdown.
+      const existingSelect = container.querySelector('select');
+      if (!existingSelect) {
+        alert('This event has no variable options rendered yet — reload the page after the first save, or contact support if this persists.');
+        return;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'd-flex align-items-center gap-2 mb-2 var-slot-row';
+
+      const badge = document.createElement('span');
+      badge.className = 'badge bg-secondary';
+      badge.style.minWidth = '2.5rem';
+
+      const select = document.createElement('select');
+      select.className = 'form-select form-select-sm';
+      select.name = 'tpl_' + eventKey + '_var';
+      select.innerHTML = existingSelect.innerHTML;
+      select.value = '';
+
+      const removeBtn = document.createElement('button');
+      removeBtn.type = 'button';
+      removeBtn.className = 'btn btn-sm btn-outline-danger remove-slot-btn';
+      removeBtn.innerHTML = '&times;';
+      removeBtn.addEventListener('click', function () {
+        row.remove();
+        renumberSlots(container);
+      });
+
+      row.appendChild(badge);
+      row.appendChild(select);
+      row.appendChild(removeBtn);
+      container.appendChild(row);
+      renumberSlots(container);
+    });
+  });
+
+  document.querySelectorAll('.remove-slot-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const container = btn.closest('.var-slots');
+      btn.closest('.var-slot-row').remove();
+      renumberSlots(container);
+    });
+  });
+
+  function renumberSlots(container) {
+    container.querySelectorAll('.var-slot-row').forEach(function (row, idx) {
+      const badge = row.querySelector('.badge');
+      if (badge) badge.textContent = '#' + (idx + 1);
+    });
+  }
+});
+</script>
+{% endblock %}

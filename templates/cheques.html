@@ -12,7 +12,7 @@
 
   .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px,1fr));
     gap: 14px; margin-bottom: 24px; }
-  .summary-card { background: #fff; border: 1px solid var(--gray-100); border-radius: 12px; padding: 16px 18px; }
+  .summary-card { background: var(--bg-card); border: 1px solid var(--gray-100); border-radius: 12px; padding: 16px 18px; }
   .summary-card .sc-label { font-size: 12px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
   .summary-card .sc-value { font-size: 20px; font-weight: 800; margin-top: 4px; }
 
@@ -29,10 +29,51 @@
     border-radius: 8px; font-size: 14px; }
   .form-grid input:focus, .form-grid select:focus { outline: none; border-color: #B45309; }
 
+ 
+
+    .cheque-top-grid { 
+  display: grid; 
+  grid-template-columns: 1fr 1.2fr; 
+  gap: 16px; 
+  margin-bottom: 12px; 
+}
+@media (max-width: 720px) { 
+  .cheque-top-grid { 
+    grid-template-columns: 1fr; 
+  } 
+}
+.top-col label.field-label { 
+  display: block; 
+  font-size: 11px; 
+  font-weight: 700; 
+  color: var(--gray-600);
+  text-transform: uppercase; 
+  letter-spacing: .03em; 
+  margin-bottom: 4px; 
+}
+
+  /* Searchable party/supplier combobox */
+  .ss-control { position: relative; }
+  .ss-control input[type="text"] { width: 100%; padding: 10px 12px; border: 1.5px solid var(--gray-200);
+    border-radius: 8px; font-size: 14px; }
+  .ss-control input[type="text"]:focus { outline: none; border-color: #B45309; }
+  .ss-dropdown { display: none; position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; right: 0;
+    max-height: 220px; overflow-y: auto; background: var(--bg-card); border: 1.5px solid var(--gray-200);
+    border-radius: 8px; box-shadow: 0 8px 20px rgba(0,0,0,.08); }
+  .ss-dropdown.open { display: block; }
+  .ss-option { padding: 9px 12px; font-size: 13px; cursor: pointer; }
+  .ss-option:hover, .ss-option.ss-active { background: #FEF3C7; }
+  .ss-empty { padding: 9px 12px; font-size: 13px; color: var(--gray-400); }
+
   .date-filter-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
     margin-bottom: 14px; padding: 12px 14px; background: var(--gray-50); border-radius: 8px; }
   .date-filter-bar label { font-size: 13px; color: var(--gray-600); font-weight: 600; display: flex; align-items: center; gap: 6px; }
   .date-filter-bar input, .date-filter-bar select { padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px; }
+
+  .register-search-bar { margin-bottom: 14px; }
+  .register-search-bar input { width: 100%; max-width: 380px; padding: 9px 14px; border: 1.5px solid var(--gray-200);
+    border-radius: 8px; font-size: 13px; }
+  .register-search-bar input:focus { outline: none; border-color: #B45309; }
 
   .reg-table { width: 100%; border-collapse: collapse; font-size: 13px; }
   .reg-table thead th { background: var(--gray-50); padding: 10px 14px; text-align: left;
@@ -60,6 +101,33 @@
 
   .no-history { text-align: center; padding: 48px; color: var(--gray-400); }
   .no-history-icon { font-size: 36px; margin-bottom: 10px; }
+
+  .party-pending-box { display:flex; align-items:center; justify-content:space-between;
+    background:#FFFBEB; border:1.5px solid #FDE68A; border-radius:10px;
+    padding:10px 16px; margin-top:12px; }
+  .ppb-label { font-size:12px; font-weight:700; color:#92400E; text-transform:uppercase; letter-spacing:.03em; }
+  .ppb-value { font-size:18px; font-weight:800; color:#B45309; }
+
+  #applyToSelect { width:100%; padding:10px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:14px; }
+  #applyToSelect:focus { outline: none; border-color: #B45309; }
+  #billSelectWrap select { width:100%; padding:10px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:14px; }
+
+  .outstanding-row-btn { border:none; border-radius:6px; padding:6px 12px; font-size:11px;
+    font-weight:700; cursor:pointer; color:#fff; }
+
+  /* ── Dark theme ── mirrors base.html's translucent-bg/bright-text pattern */
+  body.dark-theme .dir-tab.active-received { background: rgba(22,163,74,.18); color: #4ADE80; }
+  body.dark-theme .dir-tab.active-paid { background: rgba(180,83,9,.2); color: #FBBF24; }
+  body.dark-theme .ss-option:hover, body.dark-theme .ss-option.ss-active { background: rgba(245,158,11,.15); }
+  body.dark-theme .reg-table tbody tr:hover { background: rgba(245,158,11,.08); }
+  body.dark-theme .dir-received { background: rgba(22,163,74,.2); color: #4ADE80; }
+  body.dark-theme .dir-paid { background: rgba(180,83,9,.2); color: #FBBF24; }
+  body.dark-theme .status-Pending { background: rgba(161,98,7,.2); color: #FBBF24; }
+  body.dark-theme .status-Cleared { background: rgba(22,163,74,.2); color: #4ADE80; }
+  body.dark-theme .status-Bounced { background: rgba(220,38,38,.2); color: #F87171; }
+  body.dark-theme .party-pending-box { background: rgba(180,83,9,.12); border-color: rgba(245,158,11,.35); }
+  body.dark-theme .ppb-label { color: #FBBF24; }
+  body.dark-theme .ppb-value { color: #FBBF24; }
 </style>
 {% endblock %}
 
@@ -100,21 +168,58 @@
       <div class="direction-tabs">
         <label class="dir-tab active-received" id="tabReceived">
           <input type="radio" name="direction" value="received" checked onchange="onDirChange()" style="display:none;">
-          ⬇️ Cheque Received (from Client)
+          ↓ Cheque Received (from Client)
         </label>
         <label class="dir-tab" id="tabPaid">
           <input type="radio" name="direction" value="paid" onchange="onDirChange()" style="display:none;">
-          ⬆️ Cheque Paid (to Supplier)
+          ↑ Cheque Paid (to Supplier)
         </label>
       </div>
 
-      <div class="form-grid" style="margin-bottom:16px;">
-        <div id="partyWrap">
-          <label id="partyLabel">Client *</label>
-          <select id="partySelect" onchange="onPartyChange()">
-            <option value="">— Select —</option>
-          </select>
+      <input type="hidden" name="party_type" id="partyTypeInput" value="client">
+      <input type="hidden" name="party_id" id="partyIdInput">
+      <input type="hidden" name="party_name" id="partyNameInput">
+      <input type="hidden" name="invoice_id" id="invoiceIdInput">
+      <input type="hidden" name="purchase_invoice_id" id="purchaseInvoiceIdInput">
+
+  
+
+      <!-- Party + Bill side-by-side block with compact design -->
+<div class="cheque-top-grid">
+  <div class="top-col">
+    <label class="field-label" id="partyLabel">Client *</label>
+    <div class="ss-control">
+      <input type="text" id="partySearchInput" autocomplete="off"
+             placeholder="Type to search client…"
+             onfocus="openPartyDropdown()" oninput="filterPartyDropdown()">
+      <div class="ss-dropdown" id="partyDropdown"></div>
+    </div>
+    <div class="party-pending-box" id="partyPendingBox" style="display:none;">
+      <span class="ppb-label" id="partyPendingLabel">Receivable</span>
+      <span class="ppb-value" id="partyPendingValue">₹0.00</span>
+    </div>
+  </div>
+
+  <div class="top-col">
+    <label class="field-label">Apply Cheque To</label>
+    <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <select id="applyToSelect" onchange="onApplyToChange()" style="flex:1; min-width:140px; padding:8px 10px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:13px; background:var(--bg-card);">
+        <option value="bill">Against a Bill</option>
+        <option value="advance">General Payment</option>
+      </select>
+      <div id="billSelectWrap" style="flex:1.5; min-width:160px;">
+        <select id="billSelect" onchange="onBillSelectChange()" style="width:100%; padding:8px 10px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:13px; background:var(--bg-card);">
+          <option value="">— Select a party first —</option>
+        </select>
+        <div id="billNoOutstanding" style="display:none;color:var(--gray-400);font-size:11px;margin-top:2px;">
+          No outstanding bills — use General Payment
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+      <div class="form-grid" style="margin-bottom:16px;">
         <div>
           <label>Cheque No. *</label>
           <input type="text" name="cheque_no" required placeholder="e.g. 004521">
@@ -132,7 +237,7 @@
           <input type="text" name="bank_name" placeholder="e.g. HDFC Bank">
         </div>
         <div>
-          <label>Deposit / Draw Account (for when it clears)</label>
+          <label>Deposit Bank</label>
           <select name="bank_account_id">
             <option value="">— Select bank account —</option>
             {% for b in bank_accounts %}
@@ -146,14 +251,71 @@
         </div>
       </div>
 
-      <input type="hidden" name="party_type" id="partyTypeInput" value="client">
-      <input type="hidden" name="party_id" id="partyIdInput">
-      <input type="hidden" name="party_name" id="partyNameInput">
-
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <button type="submit" class="btn btn-primary" style="background:#B45309;">✅ Save Cheque</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- ── Outstanding Parties ── -->
+<div class="card" style="margin-top:24px;">
+  <div class="card-body">
+    <div class="history-header">
+      <div class="history-title" id="outstandingTitle">Clients — To Receive ({{ debtors|length }})</div>
+    </div>
+
+    <div id="outstandingReceive">
+      {% if debtors %}
+      <div style="overflow-x:auto;">
+        <table class="reg-table">
+          <thead>
+            <tr><th>Client</th><th style="text-align:right;">Pending</th><th>Nearest Due</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for d in debtors %}
+            <tr>
+              <td>{{ d.name }}</td>
+              <td style="text-align:right;font-weight:700;color:#16A34A;">₹{{ "{:,.2f}".format(d.total_pending) }}</td>
+              <td style="font-size:12px;{% if d.overdue %}color:#DC2626;{% else %}color:var(--gray-600);{% endif %}">
+                {{ d.nearest_due_date.strftime('%d %b %Y') if d.nearest_due_date else '—' }}{% if d.overdue %} (overdue){% endif %}
+              </td>
+              <td><button type="button" class="outstanding-row-btn" style="background:#16A34A;" onclick="selectPartyFromOutstanding('received', {{ d.id }}, {{ d.name|tojson }})">Record Cheque</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-history"><div class="no-history-icon">✅</div><div style="font-weight:600;">No clients with pending dues.</div></div>
+      {% endif %}
+    </div>
+
+    <div id="outstandingPay" style="display:none;">
+      {% if creditors %}
+      <div style="overflow-x:auto;">
+        <table class="reg-table">
+          <thead>
+            <tr><th>Supplier</th><th style="text-align:right;">Payable</th><th>Nearest Due</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for c in creditors %}
+            <tr>
+              <td>{{ c.name }}</td>
+              <td style="text-align:right;font-weight:700;color:#B45309;">₹{{ "{:,.2f}".format(c.total_pending) }}</td>
+              <td style="font-size:12px;{% if c.overdue %}color:#DC2626;{% else %}color:var(--gray-600);{% endif %}">
+                {{ c.nearest_due_date.strftime('%d %b %Y') if c.nearest_due_date else '—' }}{% if c.overdue %} (overdue){% endif %}
+              </td>
+              <td><button type="button" class="outstanding-row-btn" style="background:#B45309;" onclick="selectPartyFromOutstanding('paid', {{ c.id }}, {{ c.name|tojson }})">Record Cheque</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-history"><div class="no-history-icon">✅</div><div style="font-weight:600;">No suppliers with pending dues.</div></div>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -188,17 +350,21 @@
       {% if direction or status or date_from or date_to %}
       <a href="/cheques" class="btn btn-ghost" style="padding:6px 14px; font-size:13px;">Clear</a>
       {% endif %}
+      <input type="text" id="registerSearch" placeholder="🔍 Search this table — party, cheque no., or bank…" oninput="filterRegister()">
     </form>
+
+    
 
     {% if cheques %}
     <div style="overflow-x:auto;">
-      <table class="reg-table">
+      <table class="reg-table" id="registerTable">
         <thead>
           <tr>
             <th>#</th>
             <th>Cheque Date</th>
             <th>Direction</th>
             <th>Party</th>
+            <th>Bill</th>
             <th>Cheque No.</th>
             <th>Bank</th>
             <th style="text-align:right;">Amount</th>
@@ -214,6 +380,7 @@
             <td style="white-space:nowrap;">{{ c.cheque_date }}</td>
             <td><span class="dir-badge dir-{{ c.direction }}">{{ 'Received' if c.direction == 'received' else 'Paid' }}</span></td>
             <td>{{ c.party_name }}</td>
+            <td style="font-size:12px; color:var(--gray-600);">{{ c.bill_ref or '—' }}</td>
             <td>{{ c.cheque_no }}</td>
             <td style="font-size:12px; color:var(--gray-600);">{{ c.bank_name }}</td>
             <td style="text-align:right; font-weight:700;">₹{{ "{:,.2f}".format(c.amount) }}</td>
@@ -261,16 +428,75 @@
     {% endfor %}
   ];
 
-  function populateParty(list, label) {
-    document.getElementById('partyLabel').textContent = label;
-    const sel = document.getElementById('partySelect');
-    sel.innerHTML = '<option value="">— Select —</option>';
+  // Bill-wise outstanding per party ({partyId: [{id, ref, date, total, balance}, ...]})
+  // and each party's cached total pending/payable — same data the Receipts/
+  // Payments pages already use, so the numbers here always agree with those.
+  const INVOICES_BY_CLIENT     = {{ invoices_json|safe }};
+  const BILLS_BY_SUPPLIER      = {{ purchase_invoices_json|safe }};
+  const CLIENT_PENDING         = {{ client_pending_json|safe }};
+  const SUPPLIER_PAYABLE       = {{ supplier_payable_json|safe }};
+
+  let currentPartyList = CLIENTS;
+  let selectedPartyId  = '';
+  let selectedPartyName = '';
+
+  // ── Searchable party/supplier combobox ──
+  function renderPartyDropdown(list) {
+    const dd = document.getElementById('partyDropdown');
+    dd.innerHTML = '';
+    if (list.length === 0) {
+      dd.innerHTML = '<div class="ss-empty">No match found</div>';
+      return;
+    }
     list.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
+      const opt = document.createElement('div');
+      opt.className = 'ss-option';
       opt.textContent = p.name;
-      sel.appendChild(opt);
+      opt.onclick = () => choosePartyOption(p.id, p.name);
+      dd.appendChild(opt);
     });
+  }
+
+  function openPartyDropdown() {
+    renderPartyDropdown(currentPartyList);
+    document.getElementById('partyDropdown').classList.add('open');
+  }
+
+  function closePartyDropdown() {
+    document.getElementById('partyDropdown').classList.remove('open');
+  }
+
+  function filterPartyDropdown() {
+    const q = document.getElementById('partySearchInput').value.trim().toLowerCase();
+    const filtered = q ? currentPartyList.filter(p => p.name.toLowerCase().includes(q)) : currentPartyList;
+    renderPartyDropdown(filtered);
+    document.getElementById('partyDropdown').classList.add('open');
+    // Typing something that no longer matches the selected party clears the selection
+    if (selectedPartyName && document.getElementById('partySearchInput').value !== selectedPartyName) {
+      selectedPartyId = '';
+      onPartyChange();
+    }
+  }
+
+  function choosePartyOption(id, name) {
+    document.getElementById('partySearchInput').value = name;
+    selectedPartyId = id;
+    selectedPartyName = name;
+    closePartyDropdown();
+    onPartyChange();
+  }
+
+  document.addEventListener('click', function(e) {
+    const wrap = document.getElementById('partySearchInput').closest('.ss-control');
+    if (wrap && !wrap.contains(e.target)) closePartyDropdown();
+  });
+
+  function resetPartyInput(label) {
+    document.getElementById('partyLabel').textContent = label;
+    document.getElementById('partySearchInput').value = '';
+    document.getElementById('partySearchInput').placeholder = 'Type to search ' + label.replace(' *','').toLowerCase() + '…';
+    selectedPartyId = '';
+    selectedPartyName = '';
   }
 
   function onDirChange() {
@@ -278,21 +504,147 @@
     document.getElementById('tabReceived').classList.toggle('active-received', dir === 'received');
     document.getElementById('tabPaid').classList.toggle('active-paid', dir === 'paid');
     document.getElementById('partyTypeInput').value = dir === 'received' ? 'client' : 'supplier';
-    populateParty(dir === 'received' ? CLIENTS : SUPPLIERS, dir === 'received' ? 'Client *' : 'Supplier *');
+    currentPartyList = dir === 'received' ? CLIENTS : SUPPLIERS;
+    resetPartyInput(dir === 'received' ? 'Client *' : 'Supplier *');
     onPartyChange();
+    syncOutstanding(dir);
+  }
+
+  function syncOutstanding(dir) {
+    document.getElementById('outstandingTitle').textContent = dir === 'received'
+      ? 'Clients — To Receive ({{ debtors|length }})'
+      : 'Suppliers — To Pay ({{ creditors|length }})';
+    document.getElementById('outstandingReceive').style.display = dir === 'received' ? '' : 'none';
+    document.getElementById('outstandingPay').style.display     = dir === 'paid'     ? '' : 'none';
   }
 
   function onPartyChange() {
-    const sel = document.getElementById('partySelect');
-    const opt = sel.options[sel.selectedIndex];
-    document.getElementById('partyIdInput').value = sel.value;
-    document.getElementById('partyNameInput').value = sel.value ? opt.textContent : '';
+    const dir = document.querySelector('input[name="direction"]:checked').value;
+    document.getElementById('partyIdInput').value = selectedPartyId;
+    document.getElementById('partyNameInput').value = selectedPartyId ? selectedPartyName : '';
+
+    const pendingBox   = document.getElementById('partyPendingBox');
+
+    if (!selectedPartyId) {
+      pendingBox.style.display = 'none';
+      document.getElementById('invoiceIdInput').value = '';
+      document.getElementById('purchaseInvoiceIdInput').value = '';
+      populateBillSelect(dir, ''); // resets to "select a party first"
+      return;
+    }
+
+    // Total pending/payable for the selected party
+    const totalPending = dir === 'received'
+      ? (CLIENT_PENDING[selectedPartyId] || 0)
+      : (SUPPLIER_PAYABLE[selectedPartyId] || 0);
+    document.getElementById('partyPendingLabel').textContent = dir === 'received'
+      ? 'Receivable — Cheques Received' : 'Payable — Cheques Paid';
+    document.getElementById('partyPendingValue').textContent = '₹' + totalPending.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    pendingBox.style.display = 'flex';
+
+    populateBillSelect(dir, selectedPartyId);
+  }
+
+  function populateBillSelect(dir, partyId) {
+    const billSel = document.getElementById('billSelect');
+    const noOut   = document.getElementById('billNoOutstanding');
+
+    if (!partyId) {
+      billSel.innerHTML = '<option value="">— Select a party first —</option>';
+      billSel.style.display = '';
+      noOut.style.display = 'none';
+      return;
+    }
+
+    const list = (dir === 'received' ? INVOICES_BY_CLIENT[partyId] : BILLS_BY_SUPPLIER[partyId]) || [];
+    billSel.innerHTML = '<option value="">— Select —</option>';
+    list.forEach(inv => {
+      const opt = document.createElement('option');
+      opt.value = inv.id;
+      opt.dataset.balance = inv.balance;
+      opt.textContent = `${inv.ref} — ₹${inv.balance.toLocaleString('en-IN', {minimumFractionDigits: 2})} of ₹${inv.total.toLocaleString('en-IN', {minimumFractionDigits: 2})} (${inv.date})`;
+      billSel.appendChild(opt);
+    });
+
+    if (list.length === 0) {
+      noOut.style.display = 'block';
+      billSel.style.display = 'none';
+      // Nothing to apply against — fall back to General Payment automatically.
+      document.getElementById('applyToSelect').value = 'advance';
+      onApplyToChange();
+    } else {
+      noOut.style.display = 'none';
+      billSel.style.display = '';
+    }
+    onBillSelectChange();
+  }
+
+  function onApplyToChange() {
+    const mode = document.getElementById('applyToSelect').value;
+    document.getElementById('billSelectWrap').style.display = mode === 'bill' ? 'block' : 'none';
+
+    if (mode === 'advance') {
+      document.getElementById('invoiceIdInput').value = '';
+      document.getElementById('purchaseInvoiceIdInput').value = '';
+    } else {
+      onBillSelectChange();
+    }
+  }
+
+  function onBillSelectChange() {
+    const dir = document.querySelector('input[name="direction"]:checked').value;
+    const mode = document.getElementById('applyToSelect').value;
+    const billSel = document.getElementById('billSelect');
+    const value = mode === 'bill' ? billSel.value : '';
+
+    document.getElementById('invoiceIdInput').value          = (mode === 'bill' && dir === 'received') ? value : '';
+    document.getElementById('purchaseInvoiceIdInput').value  = (mode === 'bill' && dir === 'paid')     ? value : '';
+
+    // Convenience: default the amount to the selected bill's remaining balance.
+    // The user can still lower it for a partial cheque against that bill —
+    // the backend caps it at the balance either way.
+    const opt = billSel.options[billSel.selectedIndex];
+    const amountInput = document.querySelector('input[name="amount"]');
+    if (mode === 'bill' && opt && opt.dataset.balance && !amountInput.value) {
+      amountInput.value = parseFloat(opt.dataset.balance).toFixed(2);
+    }
+  }
+
+  function selectPartyFromOutstanding(direction, partyId, partyName) {
+    document.querySelector(`input[name="direction"][value="${direction}"]`).checked = true;
+    currentPartyList = direction === 'received' ? CLIENTS : SUPPLIERS;
+    document.getElementById('partyTypeInput').value = direction === 'received' ? 'client' : 'supplier';
+    document.getElementById('tabReceived').classList.toggle('active-received', direction === 'received');
+    document.getElementById('tabPaid').classList.toggle('active-paid', direction === 'paid');
+    document.getElementById('partyLabel').textContent = direction === 'received' ? 'Client *' : 'Supplier *';
+    document.getElementById('partySearchInput').value = String(partyName);
+    selectedPartyId = String(partyId);
+    selectedPartyName = String(partyName);
+    onPartyChange();
+    syncOutstanding(direction);
+    document.getElementById('chequeForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ── Register table search ──
+  function filterRegister() {
+    const q = document.getElementById('registerSearch').value.trim().toLowerCase();
+    const rows = document.querySelectorAll('#registerTable tbody tr');
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(q) ? '' : 'none';
+    });
   }
 
   document.getElementById('chequeForm').addEventListener('submit', function(e) {
     if (!document.getElementById('partyIdInput').value) {
       e.preventDefault();
       alert('Please select a client or supplier.');
+      return;
+    }
+    const mode = document.getElementById('applyToSelect').value;
+    if (mode === 'bill' && !document.getElementById('invoiceIdInput').value && !document.getElementById('purchaseInvoiceIdInput').value) {
+      e.preventDefault();
+      alert('Select a bill to apply this cheque against, or switch to General Payment.');
     }
   });
 

@@ -17,40 +17,45 @@
   {% endfor %}
 </div>
 
+<div class="ent-search-box">
+  <span class="ent-search-icon">🔍</span>
+  <input type="text" id="supplierSearchInput" placeholder="Search name, ID, contact, phone, email…" oninput="filterSuppliers()">
+</div>
+
 <div class="card">
   <div class="table-wrap">
-    <table>
+    <table class="ent-table">
       <thead>
         <tr>
+          <th>Supplier ID</th>
           <th>Supplier Name</th>
           <th>Contact Person</th>
           <th>Phone</th>
           <th>Email</th>
-          <th>Payable</th>
+          <th class="ent-num-col">Payable</th>
           <th>Status</th>
           <th>WhatsApp</th>
-          <th>Actions</th>
+          <th class="ent-actions-col">Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for s in suppliers %}
-        <tr>
+        <tr class="supplier-row" data-search="{{ (s.supplier_name or '')|lower }} {{ (s.supplier_id or '')|lower }} {{ (s.contact_person or '')|lower }} {{ (s.phone or '')|lower }} {{ (s.email or '')|lower }}">
+          <td><span class="ent-id-chip">{{ s.supplier_id }}</span></td>
           <td>
-            <div style="display:flex;align-items:center;gap:10px">
-              <div style="width:32px;height:32px;border-radius:8px;background:#FEF3C7;color:#D97706;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">
-                {{ s.supplier_name[0] }}
-              </div>
+            <div class="ent-entity-cell">
+              <div class="ent-avatar">{{ s.supplier_name[0] }}</div>
               <strong>{{ s.supplier_name }}</strong>
             </div>
           </td>
           <td>{{ s.contact_person or '-' }}</td>
           <td>{{ s.phone or '-' }}</td>
           <td>{{ s.email or '-' }}</td>
-          <td>
+          <td class="ent-num-col">
             {% if s.payable and s.payable > 0 %}
-              <strong style="color:#DC2626">₹{{ "{:,.0f}".format(s.payable) }}</strong>
+              <strong class="ent-amount-due">₹{{ "{:,.0f}".format(s.payable) }}</strong>
             {% else %}
-              <span style="color:#16A34A">₹0</span>
+              <span class="ent-amount-clear">₹0</span>
             {% endif %}
           </td>
           <td>
@@ -66,49 +71,382 @@
           </td>
           <td>
             {% if s.phone %}
-            <a href="https://wa.me/91{{ s.phone }}" target="_blank"
-               class="btn btn-sm" style="color:#25D366;border:1.5px solid #25D366;background:#fff;text-decoration:none">
-              💬 Chat
-            </a>
+            <a href="https://wa.me/91{{ s.phone }}" target="_blank" class="ent-wa-btn">💬 Chat</a>
             {% else %}
-              <span style="color:#9CA3AF">-</span>
+              <span class="ent-dash">-</span>
             {% endif %}
           </td>
           <td>
-            <div style="display:flex; gap:5px;">
-              <a href="/suppliers/{{ s.id }}" class="btn btn-ghost btn-sm" title="View Details">👁️</a>
-              <a href="/suppliers/{{ s.id }}/edit" class="btn btn-ghost btn-sm" title="Edit">✏️</a>
+            <div class="ent-action-group">
+              <a href="/suppliers/{{ s.id }}/statement" class="ent-icon-btn" title="Statement">📊</a>
+              <a href="/suppliers/{{ s.id }}" class="ent-icon-btn" title="View Details">👁️</a>
+              <a href="/suppliers/{{ s.id }}/edit" class="ent-icon-btn" title="Edit">✏️</a>
               {% if session.user.role in ['owner', 'super_admin'] %}
-              <a href="/suppliers/{{ s.id }}/delete" class="btn btn-danger btn-sm" title="Delete"
-                 onclick="return confirm('Are you sure you want to delete supplier {{ s.supplier_name }}? This action cannot be undone.')">🗑️</a>
+              <a href="/suppliers/{{ s.id }}/delete" class="ent-icon-btn supplier-clear-link" title="Clear Payable"
+                 data-name="{{ s.supplier_name }}" data-amount="{{ '{:,.0f}'.format(s.payable or 0) }}">🧹</a>
+              <a href="/suppliers/{{ s.id }}/shift-to-opening" class="ent-icon-btn supplier-shift-link" title="Shift Payable to Opening Balance"
+                 data-name="{{ s.supplier_name }}" data-amount="{{ '{:,.0f}'.format(s.payable or 0) }}">🔄</a>
               {% endif %}
             </div>
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" style="text-align:center;padding:40px;color:#9CA3AF">
-          No suppliers found. <a href="/suppliers/new">Add your first supplier →</a>
-        </td>
+        <tr>
+          <td colspan="9">
+            <div class="ent-empty-state">
+              <div class="ent-empty-icon">🚚</div>
+              <p class="ent-empty-title">No suppliers yet</p>
+              <p class="ent-empty-sub">Add your first supplier to start tracking purchase invoices and payables.</p>
+              <a href="/suppliers/new" class="btn btn-primary">+ New Supplier</a>
+            </div>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
+    <div id="supplierNoResults" class="ent-no-results" style="display:none;">
+      <div class="ent-empty-icon">🔍</div>
+      No suppliers match your search.
+    </div>
+  </div>
+</div>
+
+<!-- Clear Payable modal -->
+<div id="clearModalOverlay" class="ent-modal-overlay">
+  <div class="ent-modal">
+    <div class="ent-modal-icon">🧹</div>
+    <h3 class="ent-modal-title">Clear Payable</h3>
+    <p class="ent-modal-body" id="clearModalBody"></p>
+    <p class="ent-modal-warn">⚠️ This can't be undone — there will be no record of the cleared statement left in the ledger view. Print or download the current statement first if you need a copy.</p>
+    <div class="ent-modal-choices">
+      <button type="button" class="ent-modal-choice-btn" id="clearCompleteBtn">
+        <strong>Clear Completely</strong>
+        <span>Removes everything — including any bills made today.</span>
+      </button>
+      <button type="button" class="ent-modal-choice-btn" id="clearYesterdayBtn">
+        <strong>Clear till Yesterday</strong>
+        <span>Clears everything up to yesterday — today's bills stay in the new statement.</span>
+      </button>
+    </div>
+    <div class="ent-modal-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="clearModalCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shift to Opening / Carry Forward modal -->
+<div id="shiftModalOverlay" class="ent-modal-overlay">
+  <div class="ent-modal">
+    <div class="ent-modal-icon">🔄</div>
+    <h3 class="ent-modal-title">Carry Forward Payable</h3>
+    <p class="ent-modal-body" id="shiftModalBody"></p>
+    <div class="ent-modal-field">
+      <label for="shiftAsOfDate">Carry forward through (last date to close):</label>
+      <input type="date" id="shiftAsOfDate">
+      <span class="ent-modal-field-hint" id="shiftAsOfHint"></span>
+    </div>
+    <p class="ent-modal-warn">⚠️ The old statement will be deleted and a new one generated with the carried-forward balance. Print or download the current statement first if you need a copy.</p>
+    <div class="ent-modal-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="shiftModalCancel">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" id="shiftConfirmBtn">Confirm Carry Forward</button>
+    </div>
   </div>
 </div>
 
 <style>
-  .btn-danger {
-    background: #DC2626;
-    color: white;
-    border: none;
+  /* ---- Confirmation modals (Clear Payable / Carry Forward) ---- */
+  .ent-modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(15, 23, 42, 0.55);
+    align-items: center; justify-content: center; padding: 20px;
   }
-  .btn-danger:hover {
-    background: #B91C1C;
+  .ent-modal-overlay.open { display: flex; }
+  .ent-modal {
+    background: var(--bg-modal); border-radius: 14px; max-width: 420px; width: 100%;
+    padding: 24px 24px 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    text-align: center;
   }
-  .table-wrap th {
-    background: #012926;
-    color: #F59E0B;
+  .ent-modal-icon { font-size: 28px; margin-bottom: 6px; }
+  .ent-modal-title {
+    font-size: 16.5px; font-weight: 800; color: var(--text-body); margin: 0 0 10px;
+  }
+  .ent-modal-body {
+    font-size: 13px; color: var(--text-body); line-height: 1.5; margin: 0 0 10px;
+  }
+  .ent-modal-warn {
+    font-size: 12px; color: #92400E; background: #FFFBEB;
+    border: 1px solid #FDE68A; border-radius: 8px; padding: 8px 10px;
+    margin: 0 0 16px; line-height: 1.45;
+  }
+  body.dark-theme .ent-modal-warn {
+    color: #FBBF24; background: rgba(217,119,6,0.15); border-color: rgba(217,119,6,0.35);
+  }
+  .ent-modal-choices { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .ent-modal-choice-btn {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    text-align: left; width: 100%; background: var(--bg-input); border: 1.5px solid var(--border-color);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer;
+    transition: border-color .12s ease, background-color .12s ease;
+  }
+  .ent-modal-choice-btn:hover { border-color: #012926; background: var(--bg-table-alt); }
+  .ent-modal-choice-btn strong { font-size: 13px; color: #012926; }
+  .ent-modal-choice-btn span { font-size: 11.5px; color: var(--text-muted); }
+  body.dark-theme .ent-modal-choice-btn:hover { border-color: var(--primary); }
+  body.dark-theme .ent-modal-choice-btn strong { color: var(--primary); }
+  .ent-modal-field { text-align: left; margin-bottom: 14px; }
+  .ent-modal-field label {
+    display: block; font-size: 12px; font-weight: 700; color: var(--text-body); margin-bottom: 5px;
+  }
+  .ent-modal-field input[type="date"] {
+    width: 100%; padding: 8px 10px; border: 1.5px solid var(--border-color); border-radius: 8px;
+    font-size: 13px; font-family: inherit; color: var(--text-body); background: var(--bg-input);
+  }
+  .ent-modal-field input[type="date"]:focus { border-color: #012926; outline: none; }
+  body.dark-theme .ent-modal-field input[type="date"]:focus { border-color: var(--primary); }
+  .ent-modal-field-hint { display: block; font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .ent-modal-actions {
+    display: flex; justify-content: center; gap: 10px;
   }
 </style>
+
+<style>
+  /* ---- Page chrome overrides (stopgap — belongs in base.html) ---- */
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+  }
+  .page-header h2 {
+    font-size: 22px; font-weight: 800; color: var(--text-body);
+    letter-spacing: -0.01em; margin: 0;
+  }
+  .page-header .btn-primary {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #012926; color: #F59E0B; border: none;
+    padding: 10px 18px; border-radius: 9px; font-size: 13.5px; font-weight: 700;
+    text-decoration: none; box-shadow: 0 1px 2px rgba(0,0,0,.08);
+    transition: background-color .12s ease, transform .12s ease;
+  }
+  .page-header .btn-primary:hover {
+    background: #01443F; transform: translateY(-1px);
+  }
+
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 18px;
+    border-bottom: 1.5px solid var(--border-color); padding-bottom: 0;
+  }
+  .tabs .tab {
+    display: inline-block; padding: 8px 16px; font-size: 13px; font-weight: 600;
+    color: var(--text-muted); text-decoration: none; border-radius: 8px 8px 0 0;
+    position: relative; top: 1.5px;
+    transition: color .12s ease, background-color .12s ease;
+  }
+  .tabs .tab:hover { color: #012926; background: var(--bg-table-alt); }
+  .tabs .tab.active {
+    color: #012926; font-weight: 700;
+    border-bottom: 2.5px solid #F59E0B;
+  }
+  body.dark-theme .tabs .tab:hover,
+  body.dark-theme .tabs .tab.active {
+    color: var(--primary);
+  }
+
+  /* ---- Entity list (clients/suppliers) design system ---- */
+  .ent-search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-input); border: 1.5px solid var(--border-color); border-radius: 999px;
+    padding: 9px 16px; max-width: 380px; margin-bottom: 18px;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .ent-search-box:focus-within {
+    border-color: #012926;
+    box-shadow: 0 0 0 3px rgba(1, 41, 38, 0.08);
+  }
+  body.dark-theme .ent-search-box:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(245,158,11,0.15);
+  }
+  .ent-search-icon { font-size: 13px; opacity: .6; }
+  .ent-search-box input {
+    border: none; background: none; outline: none; font-size: 13.5px;
+    font-family: inherit; color: var(--text-body); width: 100%;
+  }
+  .ent-search-box input::placeholder { color: var(--text-muted); }
+
+  .ent-table thead th {
+    background: #012926;
+    color: #F59E0B;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    font-weight: 700;
+    padding: 12px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .ent-table td {
+    padding: 12px 14px;
+    font-size: 13.5px;
+    color: var(--text-body);
+    border-bottom: 1px solid var(--border-color);
+  }
+  .ent-table tbody tr {
+    transition: background-color .12s ease;
+  }
+  .ent-table tbody tr:hover {
+    background-color: var(--bg-table-alt);
+  }
+  .ent-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .ent-num-col { text-align: right; font-variant-numeric: tabular-nums; }
+  .ent-actions-col { text-align: right; }
+
+  .ent-id-chip {
+    font-size: 11.5px; font-weight: 700; color: #4F46E5;
+    background: #EEF2FF; border: 1px solid #C7D2FE; border-radius: 6px;
+    padding: 3px 9px; white-space: nowrap; letter-spacing: .01em;
+  }
+  body.dark-theme .ent-id-chip {
+    color: #A5B4FC; background: rgba(79,70,229,0.2); border-color: rgba(79,70,229,0.4);
+  }
+
+  .ent-entity-cell { display: flex; align-items: center; gap: 10px; }
+  .ent-avatar {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+    color: #B45309; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13.5px; flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(217,119,6,0.18);
+  }
+
+  .ent-amount-due { color: #DC2626; }
+  .ent-amount-clear { color: #16A34A; font-weight: 600; }
+  .ent-dash { color: var(--text-muted); }
+
+  .ent-wa-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: #25D366; border: 1.5px solid #25D366; background: var(--bg-card);
+    border-radius: 7px; padding: 5px 11px; font-size: 12.5px; font-weight: 600;
+    text-decoration: none; white-space: nowrap;
+    transition: background-color .12s ease, color .12s ease;
+  }
+  .ent-wa-btn:hover { background: #25D366; color: #fff; }
+
+  .ent-action-group { display: flex; gap: 4px; justify-content: flex-end; }
+  .ent-icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 7px;
+    font-size: 14px; text-decoration: none;
+    background: transparent; border: 1px solid transparent;
+    transition: background-color .12s ease, border-color .12s ease;
+  }
+  .ent-icon-btn:hover { background: var(--bg-table-alt); border-color: var(--border-color); }
+  .ent-icon-btn-danger:hover { background: #FEF2F2; border-color: #FECACA; }
+  body.dark-theme .ent-icon-btn-danger:hover { background: rgba(220,38,38,0.15); border-color: rgba(220,38,38,0.35); }
+
+  .ent-empty-state, .ent-no-results {
+    text-align: center; padding: 56px 20px; color: var(--text-muted);
+  }
+  .ent-empty-icon { font-size: 32px; margin-bottom: 10px; opacity: .7; }
+  .ent-empty-title { font-size: 15px; font-weight: 700; color: var(--text-body); margin: 0 0 4px; }
+  .ent-empty-sub { font-size: 13px; color: var(--text-muted); margin: 0 0 16px; }
+  .ent-no-results { font-weight: 600; font-size: 13.5px; }
+</style>
+
+<script>
+function filterSuppliers() {
+  const q = document.getElementById('supplierSearchInput').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.supplier-row').forEach(function(row){
+    const match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const noResults = document.getElementById('supplierNoResults');
+  if (noResults) noResults.style.display = (visible === 0) ? 'block' : 'none';
+}
+
+(function() {
+  // Clear Payable modal
+  let clearTargetUrl = null;
+  const clearOverlay = document.getElementById('clearModalOverlay');
+  const clearBody = document.getElementById('clearModalBody');
+
+  document.querySelectorAll('.supplier-clear-link').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      clearTargetUrl = link.getAttribute('href');
+      clearBody.textContent = 'Clearing the payable balance for ' + link.dataset.name +
+        ' (₹' + link.dataset.amount + ') removes it from the statement — after this there will be no records left in the ledger view for the cleared period. The supplier record and purchase invoices themselves stay in your GST records.';
+      clearOverlay.classList.add('open');
+    });
+  });
+  document.getElementById('clearCompleteBtn').addEventListener('click', function() {
+    if (clearTargetUrl) window.location = clearTargetUrl + '?scope=complete';
+  });
+  document.getElementById('clearYesterdayBtn').addEventListener('click', function() {
+    if (clearTargetUrl) window.location = clearTargetUrl + '?scope=till_yesterday';
+  });
+  document.getElementById('clearModalCancel').addEventListener('click', function() {
+    clearOverlay.classList.remove('open');
+    clearTargetUrl = null;
+  });
+  clearOverlay.addEventListener('click', function(e) {
+    if (e.target === clearOverlay) { clearOverlay.classList.remove('open'); clearTargetUrl = null; }
+  });
+
+  // Carry Forward / Shift to Opening modal
+  let shiftTargetUrl = null;
+  const shiftOverlay = document.getElementById('shiftModalOverlay');
+  const shiftBody = document.getElementById('shiftModalBody');
+  const shiftAsOfDate = document.getElementById('shiftAsOfDate');
+  const shiftAsOfHint = document.getElementById('shiftAsOfHint');
+
+  function yesterdayStr() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  }
+  function updateShiftHint() {
+    if (!shiftAsOfDate.value) { shiftAsOfHint.textContent = ''; return; }
+    const asOf = new Date(shiftAsOfDate.value + 'T00:00:00');
+    const nextDay = new Date(asOf);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const fmt = (d) => d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    shiftAsOfHint.textContent = 'Everything through ' + fmt(asOf) + ' is archived. The new statement opens with the carried-forward balance dated ' + fmt(nextDay) + ', and any bills from ' + fmt(nextDay) + ' onward stay live.';
+  }
+  shiftAsOfDate.addEventListener('change', updateShiftHint);
+
+  document.querySelectorAll('.supplier-shift-link').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      shiftTargetUrl = link.getAttribute('href');
+      shiftBody.textContent = 'The old statement for ' + link.dataset.name +
+        ' will be archived and a new one generated. Pick the last date to include in the closed statement — the balance as of that date (currently ₹' + link.dataset.amount +
+        ' payable) carries forward as the new opening balance.';
+      const yStr = yesterdayStr();
+      shiftAsOfDate.value = yStr;
+      shiftAsOfDate.max = yStr;
+      updateShiftHint();
+      shiftOverlay.classList.add('open');
+    });
+  });
+  document.getElementById('shiftConfirmBtn').addEventListener('click', function() {
+    if (shiftTargetUrl) {
+      const asOf = shiftAsOfDate.value || yesterdayStr();
+      window.location = shiftTargetUrl + '?as_of=' + encodeURIComponent(asOf);
+    }
+  });
+  document.getElementById('shiftModalCancel').addEventListener('click', function() {
+    shiftOverlay.classList.remove('open');
+    shiftTargetUrl = null;
+  });
+  shiftOverlay.addEventListener('click', function(e) {
+    if (e.target === shiftOverlay) { shiftOverlay.classList.remove('open'); shiftTargetUrl = null; }
+  });
+})();
+</script>
 
 {% endblock %}

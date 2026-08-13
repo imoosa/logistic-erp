@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice {{ invoice.id }}</title>
+    <style>
+        /* ── PXC RECEIPT ─────────────────────────────────────────────── */
+        .f3 {
+            font-family: Arial, sans-serif;
+            font-size: 10.5px;
+            border: 1.5px solid #111;
+            padding: 10px 14px 8px;
+            position: relative;
+        }
+        .f3 * { box-sizing: border-box; }
+        .f3-hdr-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1.5px solid #111;
+            padding-bottom: 8px;
+            margin-bottom: 8px;
+        }
+        .f3-hdr-left {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .f3-logo-box {
+            width: 78px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+        .f3-co-name {
+            font-size: 16px;
+            font-weight: 900;
+            letter-spacing: 0.4px;
+            line-height: 1.1;
+        }
+        .f3-co-sub {
+            font-size: 9px;
+            font-weight: 700;
+            color: #333;
+            margin-top: 2px;
+        }
+        .f3-co-web {
+            font-size: 9px;
+            color: #111;
+            margin-top: 1px;
+        }
+        .f3-awb-big {
+            font-family: 'Courier New', monospace;
+            font-size: 22px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            text-align: right;
+        }
+        .f3-no-col {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+        .f3-barcode-row {
+            text-align: right;
+            padding: 2px 0 0;
+            margin: 0;
+        }
+        .f3-barcode-row svg {
+            height: 26px;
+            width: 130px;
+            display: block;
+            margin: 0 0 0 auto;
+        }
+        .f3-toprow {
+            display: grid;
+            grid-template-columns: 1fr 1.3fr 0.8fr 0.75fr 1fr 0.95fr;
+            border-bottom: 1.5px solid #111;
+        }
+        .f3-toprow > div {
+            padding: 4px 8px;
+            border-right: 1px solid #111;
+        }
+        .f3-toprow > div:last-child { border-right: none; }
+        .f3-toprow .f3-lbl { font-size: 8.5px; }
+        .f3-lbl {
+            font-size: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #333;
+            letter-spacing: 0.4px;
+        }
+        .f3-val {
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        .f3-parties {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            border-bottom: 1.5px solid #111;
+        }
+        .f3-party {
+            padding: 6px 10px;
+            border-right: 1px solid #111;
+        }
+        .f3-party:last-child { border-right: none; }
+        .f3-party p {
+            font-size: 9.5px;
+            margin: 1px 0;
+            line-height: 1.45;
+        }
+        .f3-party .pname {
+            font-size: 10.5px;
+            font-weight: 800;
+        }
+        .f3-meta-line {
+            display: flex;
+            gap: 14px;
+            margin-top: 4px;
+            font-size: 9px;
+            flex-wrap: wrap;
+        }
+        .f3-midrow {
+            display: grid;
+            grid-template-columns: 0.65fr 0.85fr 1.1fr 0.95fr;
+            border-bottom: 1.5px solid #111;
+        }
+        .f3-midrow > div {
+            padding: 6px 8px;
+            border-right: 1px solid #111;
+        }
+        .f3-midrow > div:last-child { border-right: none; }
+        .f3-stamp-box {
+            background: #222;
+            color: #fff;
+            font-weight: 900;
+            font-size: 12px;
+            text-align: center;
+            padding: 5px 4px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        .f3-shipval-lbl {
+            display: flex;
+            justify-content: space-between;
+        }
+        .f3-botrow {
+            display: grid;
+            grid-template-columns: 1.4fr 1.3fr 0.9fr;
+            border-bottom: 1.5px solid #111;
+        }
+        .f3-botrow > div {
+            padding: 6px 8px;
+            border-right: 1px solid #111;
+            font-size: 8.5px;
+            line-height: 1.5;
+            color: #333;
+        }
+        .f3-botrow > div:last-child { border-right: none; }
+        .f3-acct-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 9.5px;
+            margin: 2px 0;
+        }
+        .f3-routing {
+            background: #222;
+            color: #fff;
+            text-align: center;
+            font-weight: 800;
+            font-size: 9.5px;
+            padding: 3px 4px;
+            margin-top: 4px;
+        }
+        .f3-terms {
+            padding: 6px 8px 4px;
+            font-size: 7.5px;
+            color: #444;
+            line-height: 1.5;
+            border-top: 1.5px solid #111;
+        }
+        .f3-terms-line {
+            display: block;
+            margin-top: 3px;
+        }
+        .f3-terms-line:first-child { margin-top: 0; }
+        .f3-track-bottom {
+            text-align: center;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            padding-top: 4px;
+        }
+
+        @page {
+            size: A4;
+            margin: 5mm;
+        }
+        body {
+            background: #fff;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+        .print-container {
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 5mm;
+        }
+    </style>
+</head>
+<body>
+    <div class="print-container">
+        <!-- PXC RECEIPT -->
+        <div class="f3">
+            <!-- HEADER -->
+            <div class="f3-hdr-row">
+                <div class="f3-hdr-left">
+                    <div class="f3-logo-box">
+                        {% if company_logo_url %}
+                            <img src="{{ company_logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:contain;">
+                        {% else %}
+                            📦
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="f3-co-name">
+                            {{ company.company_name if company and company.company_name else 'PXC PACIFIC GLOBAL PVT. LTD.' }}
+                        </div>
+                        {% if company and company.slogan %}
+                            <div class="f3-co-sub">{{ company.slogan }}</div>
+                        {% endif %}
+                        {% if company and company.show_address_customer_invoice %}
+                            <div class="f3-co-web">{{ company.address }}</div>
+                        {% endif %}
+                        {% if company and (company.phone or company.mobile or company.email or company.website) %}
+                            <div class="f3-co-web">
+                                {% if company.phone %}Ph: {{ company.phone }}{% endif %}
+                                {% if company.phone and company.mobile %} / {% endif %}
+                                {% if company.mobile %}Mob: {{ company.mobile }}{% endif %}
+                                {% if (company.phone or company.mobile) and company.email %} &nbsp;•&nbsp; {% endif %}
+                                {% if company.email %}Email: {{ company.email }}{% endif %}
+                                {% if company.email and company.website %} &nbsp;•&nbsp; {% endif %}
+                                {% if company.website %}Website: {{ company.website }}{% endif %}
+                            </div>
+                        {% endif %}
+                        {% if company and company.extra_info %}
+                            <div class="f3-co-web">{{ company.extra_info }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="f3-no-col">
+                    <div class="f3-awb-big">{{ invoice.docket_no or invoice.id }}</div>
+                    <div class="f3-barcode-row">
+                        <svg viewBox="0 0 150 30">
+                            {% for i in range(30) %}
+                                <rect x="{{ i * 5 }}" y="0" width="{{ 1 if i % 2 == 0 else 3 }}" height="30" fill="#111"></rect>
+                            {% endfor %}
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TOP ROW -->
+            <div class="f3-toprow">
+                <div>
+                    <div class="f3-lbl">Client ID</div>
+                    <div class="f3-val">{{ invoice.client_display_id or '—' }}</div>
+                </div>
+                <div>
+                    <div class="f3-lbl">Customer</div>
+                    <div class="f3-val">{{ invoice.shipper_name or invoice.customer_name or '—' }}</div>
+                </div>
+                <div>
+                    <div class="f3-lbl">Origin</div>
+                    <div class="f3-val">{{ invoice.origin or 'India' }}</div>
+                </div>
+                <div>
+                    <div class="f3-lbl">Destination</div>
+                    <div class="f3-val">{{ invoice.destination or '—' }}</div>
+                </div>
+                <div>
+                    <div class="f3-lbl">Weight</div>
+                    <div class="f3-meta-line">
+                        <span>Wt: <strong>{{ invoice.weight or invoice.freight_weight or 0 }} kg</strong></span>
+                    </div>
+                    {% if invoice.packages %}
+                        <div class="f3-meta-line">
+                            <span>Dim: <strong>
+                                {% for pkg in invoice.packages %}
+                                    {{ pkg.length or '—' }}×{{ pkg.width or '—' }}×{{ pkg.height or '—' }}{% if not loop.last %}, {% endif %}
+                                {% endfor %} cm
+                            </strong></span>
+                        </div>
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="f3-lbl">Service</div>
+                    <div class="f3-val">{{ invoice.carrier or 'COURIER' }}</div>
+                </div>
+            </div>
+
+            <!-- PARTIES -->
+            <div class="f3-parties">
+                <div class="f3-party">
+                    <div class="f3-lbl">Sender's Name</div>
+                    <p class="pname">{{ invoice.shipper_name or invoice.customer_name or '—' }}</p>
+                    <div class="f3-lbl" style="margin-top:5px">Address</div>
+                    <p>
+                        {{ invoice.shipper_address1 or '—' }}
+                        {% if invoice.shipper_address2 %}, {{ invoice.shipper_address2 }}{% endif %}
+                    </p>
+                    <div class="f3-meta-line">
+                        <span>PIN: <strong>{{ invoice.shipper_pincode or '—' }}</strong></span>
+                        <span>State: <strong>{{ invoice.shipper_state or '—' }}</strong></span>
+                        <span>Country: <strong>{{ invoice.shipper_country or 'India' }}</strong></span>
+                    </div>
+                    <div class="f3-meta-line">
+                        <span>Tel: <strong>{{ invoice.customer_phone or '—' }}</strong></span>
+                        <span>City: <strong>{{ invoice.shipper_city or '—' }}</strong></span>
+                    </div>
+                </div>
+                <div class="f3-party">
+                    <div class="f3-lbl">Recipient's Name</div>
+                    <p class="pname">{{ invoice.receiver_name or '—' }}</p>
+                    <div class="f3-lbl" style="margin-top:5px">Address</div>
+                    <p>
+                        {{ invoice.receiver_address1 or '—' }}
+                        {% if invoice.receiver_address2 %}, {{ invoice.receiver_address2 }}{% endif %}
+                    </p>
+                    <div class="f3-meta-line">
+                        <span>PIN: <strong>{{ invoice.receiver_pincode or '—' }}</strong></span>
+                        <span>State: <strong>{{ invoice.receiver_state or '—' }}</strong></span>
+                    </div>
+                    <div class="f3-meta-line">
+                        <span>Tel: <strong>{{ invoice.receiver_phone or '—' }}</strong></span>
+                        <span>Country: <strong>{{ invoice.receiver_country or invoice.destination or '—' }}</strong></span>
+                        <span>City: <strong>{{ invoice.receiver_city or '—' }}</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MIDDLE ROW -->
+            <div class="f3-midrow">
+                <div>
+                    <div class="f3-lbl">Pick Up</div>
+                    <div class="f3-acct-row"><span>Name:</span><span>&nbsp;</span></div>
+                    <div class="f3-acct-row"><span>Sign:</span><span>&nbsp;</span></div>
+                    <div class="f3-acct-row"><span>Date:</span><span>&nbsp;</span></div>
+                </div>
+                <div>
+                    <div class="f3-shipval-lbl">
+                        <span class="f3-lbl">Pieces</span>
+                        <span class="f3-lbl">Chargeable Wt</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:15px;font-weight:800;margin-top:3px">
+                        <span>{{ invoice.pieces or 1 }}</span>
+                        <span>{{ invoice.weight or invoice.freight_weight or 0 }} kg</span>
+                    </div>
+                </div>
+                <div>
+                    <div class="f3-lbl">Description of Goods</div>
+                    <div style="font-size:10px;margin-top:3px">
+                        {% if invoice.packages %}
+                            {{ invoice.packages | map(attribute='name') | select | join(', ') }}
+                        {% else %}
+                            {{ invoice.notes or '—' }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="f3-shipval-lbl">
+                        <span class="f3-lbl">Shipment Value</span>
+                        <span class="f3-lbl">Booking Date</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;margin-top:2px">
+                        <span>₹{{ "{:,.2f}".format(invoice.total | float) }}</span>
+                        <span>{{ invoice.date.strftime('%d/%m/%Y') if invoice.date else '—' }}</span>
+                    </div>
+                    <div class="f3-stamp-box">
+                        {% if invoice.status|lower == 'paid' %}PAID
+                        {% elif invoice.status|lower == 'partial' %}PARTIAL
+                        {% else %}PENDING{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM ROW -->
+            <div class="f3-botrow">
+                <div>
+                    <div style="display:flex;flex-direction:column;height:100%;">
+                        <div>
+                            <div class="f3-lbl">Shipper Agreement</div>
+                            <div style="margin-top:5px;font-size:7.8px;color:#444;line-height:1.5">
+                                Shipper agrees to 
+                                {{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}
+                                standard terms and conditions of carriage.
+                            </div>
+                        </div>
+                        <div style="margin-top:auto;padding-top:8px;font-size:8px;color:#444;">
+                            Shipper's Signature: 
+                            <span style="display:inline-block;border-bottom:1px solid #111;width:130px">&nbsp;</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <div class="f3-lbl">All cheques should be drawn in favour of</div>
+                    <p style="font-weight:700;font-size:9.5px;margin:3px 0">
+                        {{ company.company_name if company and company.company_name else 'PXC Pacific Global Pvt. Ltd.' }}
+                    </p>
+                    <div class="f3-acct-row"><span>Client ID:</span><strong>{{ invoice.client_display_id or '—' }}</strong></div>
+                    {% if invoice.freight_rate_per_kg and invoice.freight_rate_per_kg|float > 0 %}
+                        <div class="f3-acct-row"><span>Rate/Kg:</span><strong>₹{{ "{:,.2f}".format(invoice.freight_rate_per_kg|float) }}</strong></div>
+                    {% endif %}
+                    <div class="f3-acct-row"><span>Freight:</span><strong>₹{{ "{:,.2f}".format(invoice.freight | float) }}</strong></div>
+                    {% if invoice.fuel_charge and invoice.fuel_charge|float > 0 %}
+                        <div class="f3-acct-row"><span>Fuel:</span><strong>₹{{ "{:,.2f}".format(invoice.fuel_charge|float) }}</strong></div>
+                    {% endif %}
+                    {% if invoice.other_charges and invoice.other_charges|float > 0 %}
+                        <div class="f3-acct-row"><span>Other:</span><strong>₹{{ "{:,.2f}".format(invoice.other_charges|float) }}</strong></div>
+                    {% endif %}
+                    {% if invoice.discount and invoice.discount|float > 0 %}
+                        <div class="f3-acct-row"><span>Discount:</span><strong>−₹{{ "{:,.2f}".format(invoice.discount|float) }}</strong></div>
+                    {% endif %}
+                    {% if invoice.tax and invoice.tax|float > 0 %}
+                        <div class="f3-acct-row"><span>GST (18%):</span><strong>₹{{ "{:,.2f}".format(invoice.tax|float) }}</strong></div>
+                    {% endif %}
+                    <div class="f3-acct-row" style="border-top:1px solid #000;margin-top:4px;padding-top:4px;font-size:10.5px">
+                        <span>Total Amount:</span>
+                        <strong>₹{{ "{:,.2f}".format(invoice.total|float) }}</strong>
+                    </div>
+                </div>
+                <div>
+                    <div class="f3-acct-row">
+                        <span>Status</span>
+                        <strong>
+                            {% if invoice.status|lower == 'paid' %}PAID
+                            {% elif invoice.status|lower == 'partial' %}PARTIAL
+                            {% else %}PENDING{% endif %}
+                        </strong>
+                    </div>
+                    <div class="f3-acct-row">
+                        <span>Method of Payment</span>
+                        <strong>{{ (invoice.payment_mode or 'credit') | upper }}</strong>
+                    </div>
+                    <div class="f3-routing">{{ invoice.mode or 'ROUTING CODE' }}</div>
+                </div>
+            </div>
+
+            <!-- TERMS -->
+            <div class="f3-terms">
+                <strong>Terms &amp; Conditions:</strong>
+                {% if company and company.terms_footer %}
+                    <div class="f3-terms-line"><strong>Terms:</strong> {{ company.terms_footer }}</div>
+                {% endif %}
+                <div class="f3-terms-line">
+                    This receipt does not imply we have physically received the parcel in our hub.&nbsp;|&nbsp;
+                    *** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="f3-track-bottom">{{ invoice.docket_no or invoice.id }}</div>
+        </div>
+        <!-- END PXC RECEIPT -->
+    </div>
+</body>
+</html>

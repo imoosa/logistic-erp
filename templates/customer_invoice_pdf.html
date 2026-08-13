@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tax Invoice – A4 Portrait</title>
+  <style>
+    /* ── RESET & BASE ── */
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    /* Force A4 portrait when printed / converted to PDF */
+    @page { size: A4 portrait; margin: 8mm; }
+
+    body {
+      font-family: 'Helvetica', Arial, sans-serif;
+      font-size: 11px;
+      color: #1a1a2e;
+      line-height: 1.4;
+      background: #f0f0f0;
+      padding: 15px;
+    }
+
+    @media print {
+      body { padding: 0; background: #fff; }
+      .no-print { display: none !important; }
+      .page-break { page-break-after: always; }
+    }
+
+    .print-toolbar {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+    }
+    @media print { .print-toolbar { display: none !important; } }
+
+    .btn-print {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s;
+    }
+    .btn-print-primary { background: #1a237e; color: #fff; }
+    .btn-print-primary:hover { background: #0d1b5e; }
+    .btn-print-secondary { background: #e5e7eb; color: #1a1a2e; }
+    .btn-print-secondary:hover { background: #d1d5db; }
+
+    /* ── INVOICE CONTAINER — A4 portrait width ── */
+    .invoice-box {
+      width: 190mm;
+      max-width: 190mm;
+      min-height: 277mm;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #ddd;
+      padding: 12mm 10mm;
+    }
+    @media print {
+      .invoice-box { border: none; padding: 0; width: 100%; min-height: 0; }
+    }
+
+    /* ── TITLE BAR (centered, top) ── */
+    .title-bar {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .title-bar h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #1a237e;
+      letter-spacing: 1.5px;
+    }
+
+    /* ── HEADER (company) ── */
+    .header {
+      border-bottom: 2px solid #1a237e;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+    .company-name {
+      font-size: 18px;
+      font-weight: 800;
+      color: #1a237e;
+      letter-spacing: 0.5px;
+    }
+    .company-address {
+      font-size: 10.5px;
+      color: #4b5563;
+      margin-top: 3px;
+    }
+    .company-meta-row {
+      font-size: 10.5px;
+      color: #4b5563;
+      margin-top: 2px;
+    }
+    .company-meta-row span + span::before {
+      content: " | ";
+      color: #cbd5e1;
+    }
+
+    /* ── BILL TO + INVOICE DETAILS — horizontal row ── */
+    .info-row {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+      table-layout: fixed;
+    }
+    .info-row td {
+      vertical-align: top;
+      border: 1px solid #d1d5db;
+      padding: 8px 10px;
+    }
+    .info-row td.bill-to-col { width: 58%; }
+    .info-row td.details-col { width: 42%; }
+
+    .buyer-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 3px;
+    }
+    .buyer-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .buyer-details {
+      font-size: 10.5px;
+      color: #4b5563;
+      margin-top: 2px;
+    }
+
+    .details-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .details-table td {
+      border: none;
+      padding: 1.5px 0;
+      font-size: 10.5px;
+    }
+    .details-table td.d-label {
+      color: #6b7280;
+      font-weight: 600;
+      width: 45%;
+    }
+    .details-table td.d-value {
+      color: #1a1a2e;
+      font-weight: 700;
+      text-align: right;
+    }
+
+    /* ── TABLE ── */
+    .table-wrap { margin: 8px 0; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    thead th {
+      background: #1a237e;
+      color: #ffffff;
+      padding: 6px 8px;
+      text-align: left;
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-weight: 700;
+      border: 1px solid #1a237e;
+    }
+    thead th.text-right { text-align: right; }
+    thead th.text-center { text-align: center; }
+    tbody td { padding: 5px 8px; border: 1px solid #d1d5db; vertical-align: middle; }
+    tbody td.text-right { text-align: right; }
+    tbody td.text-center { text-align: center; }
+    tfoot td { padding: 5px 8px; border: 1px solid #d1d5db; font-weight: 700; }
+    tfoot td.text-right { text-align: right; }
+    .table-total-row td { border-top: 2px solid #1a237e; }
+
+    .awb-code {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      color: #1E40AF;
+      background: #EEF2FF;
+      padding: 2px 6px;
+      border-radius: 3px;
+      display: inline-block;
+    }
+
+    /* ── TOTALS SECTION ── */
+    .totals-section { margin-top: 10px; display: flex; justify-content: flex-end; }
+    .totals-table { width: 100%; max-width: 260px; border-collapse: collapse; }
+    .totals-table td { padding: 3px 8px; border: none; font-size: 11px; }
+    .totals-table .label { color: #4b5563; font-weight: 600; }
+    .totals-table .amount { text-align: right; font-weight: 600; }
+    .totals-table .grand-total { font-size: 15px; font-weight: 800; color: #1a237e; }
+    .totals-table .grand-total-label { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+    .totals-table hr { border: none; border-top: 1.5px solid #d1d5db; margin: 3px 0; }
+
+    /* ── HSN SUMMARY ── */
+    .hsn-summary { margin-top: 10px; }
+    .hsn-summary table { font-size: 10px; }
+    .hsn-summary thead th { background: #e5e7eb; color: #1a1a2e; border: 1px solid #d1d5db; }
+    .hsn-summary tbody td { border: 1px solid #d1d5db; }
+
+    /* ── AMOUNT IN WORDS ── */
+    .amount-words {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .amount-words span { font-weight: 400; color: #4b5563; }
+
+    /* ── DECLARATION ── */
+    .declaration {
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 10px;
+      color: #4b5563;
+      font-style: italic;
+    }
+
+    /* ── SIGNATURE ── */
+    .signature {
+      margin-top: 20px;
+      padding-top: 10px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+    .signature .left { font-size: 10px; color: #6b7280; }
+    .signature .right { text-align: right; }
+    .signature .right .sig-line {
+      width: 180px;
+      border-top: 1px solid #1a1a2e;
+      margin-top: 20px;
+      padding-top: 4px;
+      font-size: 10px;
+      color: #6b7280;
+    }
+
+    /* ── FOOTER ── */
+    .footer {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 9px;
+      color: #9ca3af;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 8px;
+    }
+
+    @media (max-width: 768px) {
+      .invoice-box { width: 100%; }
+      .info-row { display: block; }
+      .info-row tr, .info-row td { display: block; width: 100% !important; }
+      .signature { flex-direction: column; align-items: flex-start; gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="print-toolbar no-print">
+  <button onclick="window.print()" class="btn-print btn-print-primary">🖨️ Print / Save PDF</button>
+  <a href="#" class="btn-print btn-print-secondary">← Back</a>
+</div>
+
+<div class="invoice-box">
+
+  <!-- TITLE (centered, top-most) -->
+  <div class="title-bar">
+    <h1>TAX INVOICE</h1>
+  </div>
+
+  <!-- COMPANY HEADER -->
+  <div class="header">
+    <div class="company-name">Demo Company</div>
+    <div class="company-address">
+      3rd floor, Hatimi Mansion, Opp. TB hospital, Maskasath, Itwari, Nagpur, 440002
+    </div>
+    <div class="company-meta-row">
+      <span>GSTIN: 27AAABC1234F12</span>
+      <span>E-Mail: IMOOSA53@GMAIL.COM</span>
+      <span>Phone: 9876543210</span>
+    </div>
+  </div>
+
+  <!-- BILL TO + INVOICE DETAILS — same horizontal row -->
+  <table class="info-row">
+    <tr>
+      <td class="bill-to-col">
+        <div class="buyer-label">Bill To</div>
+        <div class="buyer-name">Tata Consultancy</div>
+        <div class="buyer-details">
+          384, 4TH FLOOR WARD NO. 45 WAREKAR MOHALLA, maskasath
+          <br>NAGPUR, Maharashtra 440002
+          <br>Phone: 9876543211
+          <br>GSTIN: 27AAABC1234F12
+          <br>PAN: CRQPM0071A
+        </div>
+      </td>
+      <td class="details-col">
+        <table class="details-table">
+          <tr><td class="d-label">Invoice No.</td><td class="d-value">CR-001</td></tr>
+          <tr><td class="d-label">Invoice Date</td><td class="d-value">08-Aug-2026</td></tr>
+          <tr><td class="d-label">Due Date</td><td class="d-value">07-Sep-2026</td></tr>
+          <tr><td class="d-label">Type</td><td class="d-value">Credit</td></tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+
+  <!-- ITEMS TABLE -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:26px;">#</th>
+          <th>AWB / Docket</th>
+          <th style="width:60px;">Date</th>
+          <th>Receiver</th>
+          <th>Destination</th>
+          <th>Carrier</th>
+          <th style="text-align:right;width:50px;">Weight</th>
+          <th style="text-align:right;width:60px;">Amount</th>
+          <th style="text-align:right;width:55px;">GST</th>
+          <th style="text-align:right;width:60px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="text-center">1</td>
+          <td><span class="awb-code">AHL81014</span></td>
+          <td>15 Jul 2026</td>
+          <td><strong>Ibrahim moosa</strong></td>
+          <td>USA</td>
+          <td>DHL</td>
+          <td class="text-right">25.0 kg</td>
+          <td class="text-right">₹25,833</td>
+          <td class="text-right">₹4,650</td>
+          <td class="text-right"><strong>₹30,483</strong></td>
+        </tr>
+        <tr>
+          <td class="text-center">2</td>
+          <td><span class="awb-code">7861000049</span></td>
+          <td>31 Jul 2026</td>
+          <td><strong>Fatema Moosa</strong></td>
+          <td>Canada</td>
+          <td>DPD</td>
+          <td class="text-right">45.0 kg</td>
+          <td class="text-right">₹46,316</td>
+          <td class="text-right">₹8,337</td>
+          <td class="text-right"><strong>₹54,652</strong></td>
+        </tr>
+        <tr>
+          <td class="text-center">3</td>
+          <td><span class="awb-code">7861000046</span></td>
+          <td>02 Aug 2026</td>
+          <td><strong>Ibrahim moosa</strong></td>
+          <td>Australia</td>
+          <td>DPD</td>
+          <td class="text-right">45.0 kg</td>
+          <td class="text-right">₹46,687</td>
+          <td class="text-right">₹8,404</td>
+          <td class="text-right"><strong>₹55,091</strong></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="table-total-row">
+          <td colspan="7"></td>
+          <td class="text-right"><strong>₹1,18,836</strong></td>
+          <td class="text-right"><strong>₹21,390</strong></td>
+          <td class="text-right"><strong>₹1,40,226</strong></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <div class="amount-words">
+    Amount Chargeable (in words)<br>
+    <span>INR ONE LAKH FORTY THOUSAND TWO HUNDRED TWENTY SIX Only</span>
+  </div>
+
+  <div class="hsn-summary">
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:right;">Taxable Value</th>
+          <th style="text-align:right;">CGST</th>
+          <th style="text-align:right;">SGST</th>
+          <th style="text-align:right;">IGST</th>
+          <th style="text-align:right;">Total Tax</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="text-right">₹1,18,836</td>
+          <td class="text-right">₹10,695</td>
+          <td class="text-right">₹10,695</td>
+          <td class="text-right">₹0</td>
+          <td class="text-right">₹21,390</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="amount-words" style="margin-top:6px;background:#f3f4f6;">
+    Tax Amount (in words):
+    <span>INR TWENTY ONE THOUSAND THREE HUNDRED NINETY Only</span>
+  </div>
+
+  <div class="declaration">
+    We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+  </div>
+
+  <div class="signature">
+    <div class="left">
+      <div style="font-size:10px;color:#6b7280;">This is a Computer Generated Invoice</div>
+    </div>
+    <div class="right">
+      <div style="font-weight:600;">Authorised Signatory</div>
+      <div class="sig-line">Demo Company</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <strong>Demo Company</strong> —
+    3rd floor, Hatimi Mansion, Opp. TB hospital, Maskasath, Itwari, Nagpur, 440002 —
+    Phone: 9876543210
+    <br><span style="font-size:8px;">Generated on 08-Aug-2026</span>
+  </div>
+
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // auto‑print if URL contains ?print=1
+    if (window.location.search.includes('print=1')) {
+      window.print();
+    }
+  });
+</script>
+
+</body>
+</html>

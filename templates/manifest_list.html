@@ -8,7 +8,8 @@
 @media print {
     .sidebar, .topbar, .page-header, .filter-bar,
     .card.card-body:has(form), .summary-strip,
-    .date-tabs-wrap, .action-links, .btn { display: none !important; }
+    .date-tabs-wrap, .action-links, .btn,
+    .bulk-toolbar-group { display: none !important; }
     .manifest-table-wrap { border: none; overflow: visible; }
     .manifest-sheet { font-size: 11px; }
     .manifest-sheet thead tr th {
@@ -23,8 +24,8 @@
     .sidebar, .topbar, .page-header, .filter-bar,
     [style*="margin-bottom:14px;display:flex;align-items:center;gap:10px;"],
     .card.card-body:has(form), .summary-strip,
-    .date-tabs-wrap, .action-links, .btn { display: none !important; }
-    /* ... rest of your print styles ... */
+    .date-tabs-wrap, .action-links, .btn,
+    .bulk-toolbar-group { display: none !important; }
 }
 
 
@@ -33,17 +34,26 @@
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
+    align-items: center;
     margin-bottom: 16px;
-    border-bottom: 2px solid #E5E7EB;
+    border-bottom: 2px solid var(--border-color);
     padding-bottom: 0;
 }
+
+.date-tab-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
 .date-tab {
     padding: 8px 16px;
     border-radius: 8px 8px 0 0;
-    border: 1px solid #E5E7EB;
+    border: 1px solid var(--border-color);
     border-bottom: none;
-    background: #F9FAFB;
-    color: #6B7280;
+    background: var(--bg-table-alt);
+    color: var(--text-muted);
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -57,7 +67,7 @@
 .date-tab.active {
     background: #012926;
     color: #F59E0B;
-    border-color: #E5E7EB;
+    border-color: var(--border-color);
     border-bottom-color: #fff;
     z-index: 1;
 }
@@ -76,10 +86,101 @@
     display: block;
     font-size: 10px;
     font-weight: 400;
-    color: #9CA3AF;
+    color: var(--text-muted);
     margin-top: 1px;
 }
 .date-tab.active .tab-boxes { color: #012926; }
+
+/* ── Calendar dropdown ── */
+.calendar-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.calendar-toggle {
+    padding: 6px 14px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    background: var(--bg-table-alt);
+    color: #4F46E5;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    bottom: -2px;
+    position: relative;
+}
+
+.calendar-toggle:hover {
+    background: #EEF2FF;
+    color: #4F46E5;
+}
+
+.calendar-toggle.active {
+    background: #012926;
+    color: #F59E0B;
+    border-color: var(--border-color);
+    border-bottom-color: #fff;
+    z-index: 1;
+}
+
+.calendar-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: calc(100% + 2px);
+    right: 0;
+    background: var(--bg-modal);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    padding: 16px;
+    z-index: 1000;
+    min-width: 280px;
+}
+
+.calendar-dropdown-menu.show {
+    display: block;
+}
+
+.calendar-dropdown-menu input[type="date"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+
+.calendar-dropdown-menu .calendar-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.calendar-dropdown-menu .calendar-actions button {
+    flex: 1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-modal);
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.calendar-dropdown-menu .calendar-actions button:hover {
+    background: var(--border-color);
+}
+
+.calendar-dropdown-menu .calendar-actions .btn-primary {
+    background: #012926;
+    color: #F59E0B;
+    border-color: #012926;
+}
+
+.calendar-dropdown-menu .calendar-actions .btn-primary:hover {
+    background: #1a3d3a;
+}
 
 /* ── Day panels ── */
 .day-panel { display: none; }
@@ -90,41 +191,45 @@
     display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
 }
 .summary-chip {
-    flex: 1; min-width: 130px; background: #fff;
-    border: 1px solid #E5E7EB; border-radius: 8px;
+    flex: 1; min-width: 130px; background: var(--bg-card);
+    border: 1px solid var(--border-color); border-radius: 8px;
     padding: 10px 16px; text-align: center;
 }
 .summary-chip .val { font-size: 22px; font-weight: 800; line-height: 1.1; }
-.summary-chip .lbl { font-size: 11px; color: #6B7280; margin-top: 2px; }
+.summary-chip .lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
 /* ── Manifest Table ── */
 .manifest-table-wrap {
-    overflow-x: auto; border-radius: 8px; border: 1px solid #E5E7EB;
+    overflow-x: auto; border-radius: 8px; border: 1px solid var(--border-color);
 }
 .manifest-sheet {
-    width: 100%; border-collapse: collapse; font-size: 13px; background: #fff;
+    width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg-card);
 }
 .manifest-sheet thead tr th {
     background: #012926; color: #F59E0B; padding: 9px 12px;
     text-align: left; font-size: 12px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
 }
-.manifest-sheet tr.shipper-first-row td { border-top: 1px solid #D1D5DB; }
+.manifest-sheet tr.shipper-first-row td { border-top: 1px solid var(--border-color); }
 .manifest-sheet tbody tr.data-row td {
-    padding: 8px 12px; border-bottom: 1px solid #F3F4F6; vertical-align: middle;
+    padding: 8px 12px; border-bottom: 1px solid var(--border-color); vertical-align: middle;
 }
-.manifest-sheet tbody tr.data-row:hover td { background: #F9FAFB; }
+.manifest-sheet tbody tr.data-row:hover td { background: var(--bg-table-alt); }
 td.shipper-cell {
     font-weight: 700; color: #1E3A5F; background: #F8FAFF;
     white-space: nowrap; border-left: 3px solid #4F46E5; min-width: 140px;
 }
 td.shipper-cell.continuation {
-    color: #9CA3AF; font-weight: 400; font-size: 11px;
-    font-style: italic; border-left: 3px solid #E0E7FF;
+    color: #1E3A5F; font-weight: 700; font-size: 13px;
+    border-left: 3px solid #E0E7FF;
+}
+body.dark-theme td.shipper-cell,
+body.dark-theme td.shipper-cell.continuation {
+    color: #93C5FD; background: rgba(79,70,229,0.12);
 }
 .mft-id {
-    font-family: monospace; font-size: 12px; color: #6B7280;
-    background: #F3F4F6; border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+    font-family: monospace; font-size: 12px; color: var(--text-muted);
+    background: var(--border-color); border-radius: 4px; padding: 1px 6px; white-space: nowrap;
 }
 .courier-pill {
     display: inline-block; background: #EFF6FF; color: #1D4ED8;
@@ -135,18 +240,106 @@ td.shipper-cell.continuation {
     border-radius: 10px; padding: 2px 10px; font-size: 12px; font-weight: 700;
 }
 .manifest-sheet tr.subtotal-row td {
-    background: #FAFAFA; font-size: 12px; color: #6B7280;
-    padding: 5px 12px; border-bottom: 2px solid #E5E7EB;
+    background: var(--bg-table-alt); font-size: 12px; color: var(--text-muted);
+    padding: 5px 12px; border-bottom: 2px solid var(--border-color);
 }
-.manifest-sheet tr.subtotal-row td.sub-val { font-weight: 700; color: #374151; }
+.manifest-sheet tr.subtotal-row td.sub-val { font-weight: 700; color: var(--text-muted); }
 .action-links a {
     color: #4F46E5; font-size: 12px; text-decoration: none;
     margin-right: 8px; white-space: nowrap;
 }
 .action-links a:hover { text-decoration: underline; }
 .action-links a.del { color: #DC2626; }
-.empty-state { text-align: center; padding: 60px 20px; color: #9CA3AF; }
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
 .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+/* ── Status pills ── */
+.status-pill {
+    display: inline-block; border-radius: 10px; padding: 2px 10px;
+    font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.status-pill.status-generated { background: #F0FDF4; color: #16A34A; }
+.status-pill.status-pending { background: #FFFBEB; color: #B45309; }
+
+/* ── Bulk action toolbar (Generate / Print Selected merged) ── */
+.bulk-toolbar-group {
+    border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden;
+    margin-bottom: 16px; background: var(--bg-card);
+    box-shadow: 0 1px 2px rgba(16,24,40,0.03);
+}
+.bulk-action-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 12px 16px; flex-wrap: wrap;
+}
+.bulk-action-row + .bulk-action-row { border-top: 1px solid var(--border-color); }
+.bulk-action-row.row-generated { border-left: 3px solid #16A34A; }
+.bulk-action-row.row-pending { border-left: 3px solid #D97706; }
+
+.bar-label {
+    font-size: 13px; color: var(--text-muted); font-weight: 500;
+    display: flex; align-items: center; gap: 8px; cursor: pointer;
+    white-space: nowrap;
+}
+.bar-label input[type="checkbox"] {
+    width: 16px; height: 16px; accent-color: #012926; cursor: pointer;
+}
+.bar-actions { display: flex; align-items: center; gap: 8px; }
+
+.btn-bulk {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 16px; border-radius: 7px; border: none;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    white-space: nowrap; transition: background 0.15s;
+}
+.btn-bulk-generate { background: #D97706; color: #fff; }
+.btn-bulk-generate:hover:not(:disabled) { background: #B45309; }
+.btn-bulk-print { background: #16A34A; color: #fff; }
+.btn-bulk-print:hover:not(:disabled) { background: #15803D; }
+.btn-bulk:disabled { background: var(--border-color) !important; color: var(--text-muted) !important; cursor: not-allowed; }
+.btn-bulk-clear {
+    background: transparent; color: var(--text-muted); border: 1px solid var(--border-color);
+    font-weight: 600;
+}
+.btn-bulk-clear:hover { background: var(--bg-table-alt); }
+
+/* ── Company header with buttons ── */
+.company-header-row td {
+    background: #F0F4FF !important;
+    padding: 6px 12px !important;
+    font-weight: 700;
+    color: #1E3A5F;
+    border-top: 2px solid #4F46E5;
+    border-bottom: 1px solid #E0E7FF;
+}
+
+.company-header-row .company-select-all {
+    width: 14px;
+    height: 14px;
+    accent-color: #012926;
+    cursor: pointer;
+    margin-right: 4px;
+}
+
+.company-header-row .company-generate-btn:hover:not(:disabled) {
+    background: #B45309 !important;
+}
+
+.company-header-row .company-print-btn:hover:not(:disabled) {
+    background: #15803D !important;
+}
+
+body.dark-theme .company-header-row td {
+    background: #1a1a2e !important;
+    color: #93C5FD;
+    border-top-color: #818CF8;
+    border-bottom-color: #374151;
+}
+
+@media (max-width: 640px) {
+    .bulk-action-row { flex-direction: column; align-items: stretch; }
+    .bar-actions { width: 100%; }
+    .btn-bulk { flex: 1; justify-content: center; }
+}
 
 /* ── Day summary bar ── */
 .day-summary-bar {
@@ -157,6 +350,25 @@ td.shipper-cell.continuation {
     background: #EFF6FF; color: #1D4ED8; border-radius: 8px;
     padding: 6px 14px; font-size: 13px; font-weight: 600;
 }
+
+/* ── Mobile responsive ── */
+@media (max-width: 768px) {
+    .date-tab {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+    .date-tab .tab-boxes {
+        font-size: 9px;
+    }
+    .calendar-toggle {
+        font-size: 11px;
+        padding: 4px 10px;
+    }
+    .calendar-dropdown-menu {
+        min-width: 240px;
+        right: -10px;
+    }
+}
 </style>
 {% endblock %}
 
@@ -165,11 +377,10 @@ td.shipper-cell.continuation {
 <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
     <div>
         <h2>📋 Company Manifest</h2>
-        <p style="color:#6B7280;font-size:13px;">Date-wise dispatch log — boxes received from shippers, sent via courier</p>
+        <p style="color:var(--text-muted);font-size:13px;">Date-wise dispatch log — boxes received from shippers, sent via courier</p>
     </div>
     <div style="display:flex;gap:8px;">
-        <button onclick="window.print()" class="btn btn-ghost">🖨️ Print</button>
-        
+        <button onclick="printActiveDay()" class="btn btn-ghost">🖨️ Print All Generated</button>
     </div>
 </div>
 
@@ -191,42 +402,100 @@ td.shipper-cell.continuation {
 </div>
 {% endif %}
 
-{% if manifests %}
+<!-- ── Filter bar ── -->
+<div style="margin-bottom:14px;display:flex;align-items:center;gap:6px;flex-wrap:nowrap;background:var(--bg-table-alt);padding:4px 12px;border-radius:8px;border:1px solid var(--border-color);overflow-x:auto;">
+    <span style="font-size:12px;font-weight:500;color:var(--text-muted);white-space:nowrap;">Filter by</span>
 
-{#
-  Group manifests by date for tab rendering.
-  We collect unique dates in order (already sorted desc from query).
-#}
-
-<!-- ── Supplier (Parent Company) Filter ── -->
-<div style="margin-bottom:14px;display:flex;align-items:center;gap:10px;">
-    <label style="font-size:13px;font-weight:600;color:#374151;">Filter by Company:</label>
-    <select onchange="if(this.value){window.location='/manifest/list?supplier_id='+this.value}else{window.location='/manifest/list'}"
-            style="padding:7px 12px;border:1.5px solid #E5E7EB;border-radius:8px;font-size:13px;min-width:200px;">
-        <option value="">— All —</option>
+    <select id="companyFilter" onchange="applyFilters()"
+            style="padding:2px 8px;border:1px solid var(--border-color);border-radius:14px;font-size:11px;background:var(--bg-input);color:var(--text-body);cursor:pointer;outline:none;height:26px;min-width:110px;white-space:nowrap;">
+        <option value="">Company: All</option>
         {% for sup in suppliers_with_brands %}
         <option value="{{ sup.id }}" {{ 'selected' if supplier_id and supplier_id|int == sup.id }}>{{ sup.name }}</option>
         {% endfor %}
     </select>
+
+    <select id="statusFilter" onchange="applyFilters()"
+            style="padding:2px 8px;border:1px solid var(--border-color);border-radius:14px;font-size:11px;background:var(--bg-input);color:var(--text-body);cursor:pointer;outline:none;height:26px;min-width:110px;white-space:nowrap;">
+        <option value="">Status: All</option>
+        <option value="generated" {% if request.args.get('status') == 'generated' %}selected{% endif %}>✅ Generated</option>
+        <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>⏳ Pending</option>
+    </select>
+
+    {% if selected_supplier_name or request.args.get('status') %}
+    <span style="color:var(--text-muted);font-size:14px;white-space:nowrap;">|</span>
+    {% endif %}
     {% if selected_supplier_name %}
-    <span style="font-size:12px;color:#6B7280;">Showing manifests for <strong>{{ selected_supplier_name }}</strong>'s brands only</span>
+    <span style="font-size:10px;color:#4F46E5;background:#EEF2FF;padding:1px 10px;border-radius:10px;white-space:nowrap;">{{ selected_supplier_name }}</span>
+    {% endif %}
+    {% if request.args.get('status') %}
+    <span style="font-size:10px;color:#16A34A;background:#F0FDF4;padding:1px 10px;border-radius:10px;white-space:nowrap;">{{ request.args.get('status')|capitalize }}</span>
     {% endif %}
 </div>
 
+<script>
+    function applyFilters() {
+    const company = document.getElementById('companyFilter').value;
+    const status = document.getElementById('statusFilter').value;
+
+    let url = '/manifest/list';
+    let params = [];
+
+    if (company) params.push('supplier_id=' + company);
+    if (status) params.push('status=' + status);
+
+    if (params.length > 0) {
+        url += '?' + params.join('&');
+    }
+
+    window.location.href = url;
+}
+</script>
+
+{% if manifests %}
 <!-- ── Date Tabs ── -->
 <div class="date-tabs-wrap">
-    {% for d in date_keys %}
-        {% set day_list = grouped_manifests[d] %}
-        {% set day_boxes = day_list | sum(attribute='total_boxes') %}
-        <div class="date-tab {% if loop.first %}active{% endif %}"
-             onclick="switchTab('{{ d }}')"
-             id="tab-{{ d }}">
-            {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
-            <span class="tab-count">{{ day_list | length }}</span>
-            <span class="tab-boxes">{{ day_boxes }} boxes</span>
+    <div class="date-tab-group">
+        {% for d in date_keys[:5] %}
+            {% set day_list = grouped_manifests[d] %}
+            {% set day_boxes = day_list | sum(attribute='total_boxes') %}
+            <div class="date-tab {% if loop.first %}active{% endif %}"
+                 onclick="switchTab('{{ d }}')"
+                 id="tab-{{ d }}">
+                {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
+                <span class="tab-count">{{ day_list | length }}</span>
+                <span class="tab-boxes">{{ day_boxes }} boxes</span>
+            </div>
+        {% endfor %}
+    </div>
+
+    {% if date_keys|length > 5 %}
+        <div class="calendar-dropdown">
+            <button class="calendar-toggle" onclick="toggleCalendar()">
+                📅 More Dates
+            </button>
+            <div class="calendar-dropdown-menu" id="calendarMenu">
+                <input type="date" id="calendarDatePicker" 
+                       max="{{ date_keys[0] }}" 
+                       min="{{ date_keys[-1] }}">
+                <div class="calendar-actions">
+                    <button onclick="closeCalendar()">Cancel</button>
+                    <button class="btn-primary" onclick="goToSelectedDate()">Go to Date</button>
+                </div>
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #E5E7EB;">
+                    <div style="font-size: 12px; color: #6B7280; margin-bottom: 6px;">Available dates:</div>
+                    {% for d in date_keys[5:] %}
+                        <span style="display:inline-block; font-size:11px; background:#F3F4F6; padding:2px 8px; border-radius:10px; margin:2px; cursor:pointer;" 
+                              onclick="goToDate('{{ d }}')">
+                            {{ d[8:10] }}/{{ d[5:7] }}/{{ d[0:4] }}
+                        </span>
+                    {% endfor %}
+                </div>
+            </div>
         </div>
-    {% endfor %}
+    {% endif %}
 </div>
+
+
 
 <!-- ── Day Panels ── -->
 {% for d in date_keys %}
@@ -234,15 +503,22 @@ td.shipper-cell.continuation {
     {% set day_boxes = day_manifests | sum(attribute='total_boxes') %}
 
     <div class="day-panel {% if loop.first %}active{% endif %}" id="panel-{{ d }}">
-
         <!-- Day summary bar -->
         <div class="day-summary-bar">
-            <div style="font-size:13px;color:#374151;font-weight:600;">
+            <div style="font-size:13px;color:var(--text-body);font-weight:600;">
                 📅 {{ day_manifests[0].date.strftime('%A, %d %B %Y') }}
             </div>
-            <div style="display:flex;gap:8px;">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <span class="ds-chip">{{ day_manifests | length }} manifest(s)</span>
-                <span class="ds-chip" style="background:#F0FDF4;color:#16A34A;">{{ day_boxes }} boxes dispatched</span>
+                <span class="ds-chip">{{ day_boxes }} boxes booked</span>
+                {% set ns_day = namespace(dispatched=0) %}
+                {% for dm in day_manifests %}
+                    {% for de in entries_by_manifest.get(dm.id, []) %}
+                        {% if de.status == 'Generated' %}{% set ns_day.dispatched = ns_day.dispatched + 1 %}{% endif %}
+                    {% endfor %}
+                {% endfor %}
+                {% set day_dispatched = ns_day.dispatched %}
+                <span class="ds-chip" style="background:#F0FDF4;color:#16A34A;">{{ day_dispatched }} boxes dispatched</span>
             </div>
         </div>
 
@@ -251,6 +527,13 @@ td.shipper-cell.continuation {
         <table class="manifest-sheet">
             <thead>
                 <tr>
+                    <th style="width:34px;">
+                        <!-- Pending checkboxes header - ALWAYS visible -->
+                        <span style="font-size:10px;color:var(--text-muted);" title="Select pending boxes for generation">⏳</span>
+                        {% if company.show_manifest_checkboxes != False %}
+                        <span style="font-size:10px;color:#16A34A;margin-left:4px;" title="Select generated boxes for printing">✅</span>
+                        {% endif %}
+                    </th>
                     <th style="width:150px;">Shipper</th>
                     <th style="width:90px;">Manifest ID</th>
                     <th>#</th>
@@ -259,121 +542,643 @@ td.shipper-cell.continuation {
                     <th style="width:70px;text-align:center;">Qty</th>
                     <th style="width:100px;">Item Type</th>
                     <th style="width:140px;">Docket / AWB</th>
-                    <th>Notes</th>
+                    <th style="width:120px;">Carrier Ref</th>
+                    
+                    <th style="width:90px;">Status</th>
                     <th style="width:110px;">Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% set ns2 = namespace(prev_mft_id=None) %}
-                {% for mfst in day_manifests %}
-                    {% set is_new_mft = (mfst.id != ns2.prev_mft_id) %}
-                    {% set ns2.prev_mft_id = mfst.id %}
-
-                    {% if mfst.entries %}
-                        {% for entry in mfst.entries %}
-                        <tr class="data-row {% if loop.first and is_new_mft %}shipper-first-row{% endif %}">
-
-                            {% if loop.first %}
-                                <td class="shipper-cell">{{ mfst.shipper_client_name }}</td>
-                                <td><span class="mft-id">{{ mfst.manifest_id }}</span></td>
-                            {% else %}
-                                <td class="shipper-cell continuation">↳ {{ mfst.shipper_client_name }}</td>
-                                <td></td>
-                            {% endif %}
-
-                            <td style="color:#9CA3AF;font-size:12px;">{{ loop.index }}</td>
-                            <td><span class="courier-pill">{{ entry.courier_name }}</span></td>
-                            <td>
-                                {% set parent = brand_to_supplier.get(entry.courier_name.strip().lower()) %}
-                                {% if parent %}
-                                <span style="font-size:11px;color:#7C3AED;font-weight:600;">{{ parent }}</span>
-                                {% else %}
-                                <span style="color:#D1D5DB;">—</span>
-                                {% endif %}
-                            </td>
-                            <td style="text-align:center;"><span class="boxes-badge">{{ entry.boxes }}</span></td>
-                            <td style="font-size:12px;color:#374151;">{{ entry.item_type or entry.stock_item_name or 'Box' }}</td>
-                            <td style="font-family:monospace;font-size:12px;color:#374151;">
-                                {{ entry.docket_no or '—' }}
-                            </td>
-                            <td style="color:#6B7280;font-size:12px;">{{ entry.notes or '' }}</td>
-
-                            {% if loop.first %}
-                                <td class="action-links" style="vertical-align:top;padding-top:9px;">
-                                    <a href="/manifest/view/{{ mfst.id }}">View</a>
-                                    <a href="/manifest/edit/{{ mfst.id }}">Edit</a>
-                                    <a href="/manifest/delete/{{ mfst.id }}"
-                                       class="del"
-                                       onclick="return confirm('Delete this manifest? Stock will be restored.')">Del</a>
-                                </td>
-                            {% else %}
-                                <td></td>
-                            {% endif %}
-                        </tr>
-                        {% endfor %}
-
-                        <tr class="subtotal-row">
-                            <td colspan="4" style="text-align:right;padding-right:8px;">
-                                Total for {{ mfst.manifest_id }}:
-                            </td>
-                            <td></td>
-                            <td class="sub-val" style="text-align:center;">{{ mfst.total_boxes }} </td>
-                            <td colspan="4"></td>
-                        </tr>
-
-                    {% else %}
-                        <tr class="data-row shipper-first-row">
-                            <td class="shipper-cell">{{ mfst.shipper_client_name }}</td>
-                            <td><span class="mft-id">{{ mfst.manifest_id }}</span></td>
-                            <td colspan="7" style="color:#9CA3AF;font-style:italic;">No entries</td>
-                            <td class="action-links">
-                                <a href="/manifest/view/{{ mfst.id }}">View</a>
-                                <a href="/manifest/edit/{{ mfst.id }}">Edit</a>
-                                <a href="/manifest/delete/{{ mfst.id }}" class="del"
-                                   onclick="return confirm('Delete this manifest? Stock will be restored.')">Del</a>
-                            </td>
-                        </tr>
+    {% set ns2 = namespace(row_counter=0) %}
+    
+    {# First, collect ALL entries from ALL manifests for this day and group by Company #}
+    {% set all_entries = [] %}
+    {% for mfst in day_manifests %}
+        {% set mfst_entries = entries_by_manifest.get(mfst.id, []) %}
+        {% for entry in mfst_entries %}
+            {% set _ = all_entries.append({'entry': entry, 'manifest': mfst}) %}
+        {% endfor %}
+    {% endfor %}
+    
+    {# Group all entries by Company (parent supplier) across all manifests #}
+    {% set ns_global = namespace(groups={}, keys=[]) %}
+    {% for item in all_entries %}
+        {% set entry = item.entry %}
+        {% set parent = brand_to_supplier.get(entry.courier_name.strip().lower()) %}
+        {% set company_key = parent if parent else 'Other' %}
+        {% if company_key in ns_global.keys %}
+            {% set _ = ns_global.groups[company_key].append(item) %}
+        {% else %}
+            {% set _ = ns_global.keys.append(company_key) %}
+            {% set _ = ns_global.groups.update({company_key: [item]}) %}
+        {% endif %}
+    {% endfor %}
+    
+    {# Now display each Company group #}
+    {% for company_name, items in ns_global.groups.items() %}
+        {# Further group items within this company by docket_no (AWB) #}
+        {% set ns_awb = namespace(groups={}, keys=[]) %}
+        {% for item in items %}
+            {% set entry = item.entry %}
+            {% set docket_key = entry.docket_no if entry.docket_no else 'NODOCKET-' ~ entry.id %}
+            {% if docket_key in ns_awb.keys %}
+                {% set _ = ns_awb.groups[docket_key].append(item) %}
+            {% else %}
+                {% set _ = ns_awb.keys.append(docket_key) %}
+                {% set _ = ns_awb.groups.update({docket_key: [item]}) %}
+            {% endif %}
+        {% endfor %}
+        
+        <!-- Company header row -->
+        <tr class="company-header-row">
+    <td colspan="12" style="background:#F0F4FF;padding:6px 12px;font-weight:700;color:#1E3A5F;border-top:2px solid #4F46E5;border-bottom:1px solid #E0E7FF;">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+            <span>
+                🏢 {{ company_name }}
+                <span style="font-weight:400;color:var(--text-muted);font-size:12px;margin-left:8px;">
+                    ({{ items | length }} entries, {{ items | sum(attribute='entry.boxes') }} total boxes)
+                </span>
+            </span>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <span style="font-size:11px;color:var(--text-muted);margin-right:4px;">
+                    <input type="checkbox" class="company-select-all" 
+                           data-company="{{ company_name }}"
+                           onchange="toggleCompanySelection(this, '{{ company_name }}')"
+                           title="Select all pending entries for this company">
+                    Select All
+                </span>
+                <button type="button" class="btn-bulk btn-bulk-generate company-generate-btn" 
+                        data-company="{{ company_name }}"
+                        onclick="generateCompanyEntries('{{ company_name }}')"
+                        style="padding:4px 12px;font-size:12px;background:#D97706;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                    ⚡ Generate
+                </button>
+                <button type="button" class="btn-bulk btn-bulk-print company-print-btn" 
+                        data-company="{{ company_name }}"
+                        onclick="printCompanyEntries('{{ company_name }}', '{{ d }}')"
+                        style="padding:4px 12px;font-size:12px;background:#16A34A;color:#fff;border:none;border-radius:6px;cursor:pointer;">
+                    🖨️ Print
+                </button>
+            </div>
+        </div>
+    </td>
+</tr>
+        
+        <!-- Entries for this company, grouped by AWB -->
+        {% for docket_key, awb_items in ns_awb.groups.items() %}
+            {% set first_item = awb_items[0] %}
+            {% set first_entry = first_item.entry %}
+            {% set first_manifest = first_item.manifest %}
+            {% set awb_boxes = awb_items | sum(attribute='entry.boxes') %}
+            {% set awb_count = awb_items | length %}
+            {% set all_generated = awb_items | selectattr('entry.status', 'equalto', 'Generated') | list | length == awb_items | length %}
+            {% set generated_ids = awb_items | selectattr('entry.status', 'equalto', 'Generated') | map(attribute='entry.id') | list %}
+            {% set pending_ids = awb_items | rejectattr('entry.status', 'equalto', 'Generated') | map(attribute='entry.id') | list %}
+            
+            <tr class="data-row">
+                <td style="text-align:center;vertical-align:top;padding-top:9px;white-space:nowrap;">
+                    <!-- Pending checkboxes - ONE checkbox for all boxes with same AWB -->
+                    {% if pending_ids %}
+                        <input type="checkbox" class="mft-select-child" 
+                               name="entry_ids[]"
+                               value="{{ pending_ids | join(',') }}"
+                               data-awb="{{ first_entry.docket_no }}"
+                               data-boxes="{{ awb_boxes }}"
+                               style="display:inline-block;margin-right:2px;"
+                               title="Select all {{ awb_boxes }} boxes with AWB {{ first_entry.docket_no }} for generation">
                     {% endif %}
-                {% endfor %}
-            </tbody>
+                    
+                    <!-- Generated checkboxes - ONE checkbox for all generated boxes with same AWB -->
+                    {% if company.show_manifest_checkboxes != False %}
+                        {% if all_generated %}
+                            <input type="checkbox" class="mft-select-generated"
+                                   data-boxes="{{ awb_boxes }}"
+                                   data-ids="{{ generated_ids | join(',') }}"
+                                   data-docket="{{ first_entry.docket_no or '' }}"
+                                   data-manifest="{{ first_manifest.manifest_id }}"
+                                   onclick="updatePrintSelection(this)"
+                                   title="Select generated AWB {{ first_entry.docket_no }} for printing"
+                                   style="margin-left:4px;">
+                        {% elif generated_ids %}
+                            {# Mixed status - show checkbox only if all are generated? No, show individually #}
+                            {% for eid in generated_ids %}
+                            <input type="checkbox" class="mft-select-generated"
+                                   data-boxes="1"
+                                   data-ids="{{ eid }}"
+                                   data-docket="{{ first_entry.docket_no or '' }}"
+                                   data-manifest="{{ first_manifest.manifest_id }}"
+                                   onclick="updatePrintSelection(this)"
+                                   title="Select this generated entry for printing"
+                                   style="margin-left:4px;">
+                            {% endfor %}
+                        {% endif %}
+                    {% endif %}
+                </td>
+                
+                <!-- Shipper column - show first shipper name -->
+                <td class="shipper-cell">
+                    {{ first_entry.notes or first_manifest.shipper_client_name }}
+                </td>
+                
+                <!-- Manifest ID - show first manifest -->
+                <td>
+                    <span class="mft-id">{{ first_manifest.manifest_id }}</span>
+                    {% if awb_items | map(attribute='manifest.manifest_id') | unique | list | length > 1 %}
+                        <span style="font-size:9px;color:var(--text-muted);display:block;">+{{ awb_items | map(attribute='manifest.manifest_id') | unique | list | length - 1 }} more</span>
+                    {% endif %}
+                </td>
+                
+                <!-- Row number -->
+                <td style="color:var(--text-muted);font-size:12px;">
+                    {{ ns2.row_counter + loop.index0 + 1 }}
+                </td>
+                
+                <!-- Courier Company -->
+                <td><span class="courier-pill">{{ first_entry.courier_name }}</span></td>
+                
+                <!-- Company (parent supplier) -->
+                <td>
+                    <span style="font-size:11px;color:#7C3AED;font-weight:600;">{{ company_name }}</span>
+                </td>
+                
+                <!-- Qty - total boxes for this AWB -->
+                <td style="text-align:center;">
+                    <span class="boxes-badge">{{ awb_boxes }}</span>
+                </td>
+                
+                <!-- Item Type -->
+                <td style="font-size:12px;color:var(--text-body);">
+                    {{ first_entry.item_type or 'Box' }}
+                </td>
+                
+                <!-- Docket / AWB -->
+                <td style="font-family:monospace;font-size:12px;color:var(--text-body);">
+                    {{ first_entry.docket_no or '—' }}
+                </td>
+                
+                <!-- Carrier Ref -->
+                <td style="font-family:monospace;font-size:12px;color:var(--text-body);">
+                    {% set entry_ship = shipment_data.get(first_entry.id) %}
+                    {{ entry_ship.carrier_ref if entry_ship and entry_ship.carrier_ref else '—' }}
+                </td>
+                
+                <!-- Status -->
+                <td>
+                    {% if all_generated %}
+                        <span class="status-pill status-generated">Generated</span>
+                    {% else %}
+                        <span class="status-pill status-pending">Pending</span>
+                        {% set gen_count = awb_items | selectattr('entry.status', 'equalto', 'Generated') | list | length %}
+                        {% if gen_count %}
+                            <span style="font-size:10px;color:#2563EB;display:block;">({{ gen_count }}/{{ awb_items|length }} sent)</span>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                
+                <!-- Actions -->
+                <td class="action-links" style="vertical-align:top;padding-top:9px;">
+                    {% if loop.first %}
+                        <a href="/manifest/view/{{ first_manifest.id }}">View</a>
+                        
+                        {% if (first_manifest.status or 'Pending') == 'Pending' %}
+                            <a href="/manifest/edit/{{ first_manifest.id }}">Edit</a>
+                        {% endif %}
+                        <a href="/manifest/delete/{{ first_manifest.id }}"
+                           class="del manifest-delete-link"
+                           data-confirm-msg="Delete this manifest? Boxes already Generated on it will NOT have their stock restored — check first.">Del</a>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        
+        <!-- Company subtotal row -->
+        <tr class="subtotal-row">
+            <td colspan="5" style="text-align:right;padding-right:8px;">
+                Total for {{ company_name }}:
+            </td>
+            <td></td>
+            <td class="sub-val" style="text-align:center;">
+                {{ items | sum(attribute='entry.boxes') }}
+            </td>
+            <td colspan="6"></td>
+        </tr>
+        {% set ns2.row_counter = ns2.row_counter + ns_awb.groups | length %}
+    {% endfor %}
+    
+   
+    
+</tbody>
         </table>
         </div>
     </div>
 {% endfor %}
+</form>
 
 {% else %}
 <div class="card card-body empty-state">
     <div class="icon">📋</div>
-    <div style="font-size:16px;font-weight:600;color:#374151;margin-bottom:8px;">No manifests found</div>
+    {% if supplier_id or request.args.get('status') %}
+    <div style="font-size:16px;font-weight:600;color:var(--text-body);margin-bottom:8px;">No manifests match this filter</div>
+    <div style="margin-bottom:16px;">
+        {% if selected_supplier_name %}No manifests found for <strong>{{ selected_supplier_name }}</strong>{% if request.args.get('status') %} with status "{{ request.args.get('status')|capitalize }}"{% endif %}.{% else %}No manifests found for the selected filter.{% endif %}
+        Try a different company or status above, or <a href="/manifest/list">clear the filter</a> to see everything.
+    </div>
+    {% else %}
+    <div style="font-size:16px;font-weight:600;color:var(--text-body);margin-bottom:8px;">No manifests found</div>
     <div style="margin-bottom:16px;">Create your first manifest to start tracking box dispatch.</div>
-    <a href="/manifest/create" class="btn btn-primary">+ New Manifest</a>
+    {% endif %}
 </div>
 {% endif %}
 
 <script>
+// ── Print Selected Generated Entries ──
+let selectedPrintIds = new Set();
+
+function updatePrintSelection(cb) {
+    const ids = (cb.dataset.ids || '').split(',').filter(Boolean);
+    if (cb.checked) {
+        ids.forEach(id => selectedPrintIds.add(id));
+    } else {
+        ids.forEach(id => selectedPrintIds.delete(id));
+    }
+    updatePrintCount();
+}
+
+function toggleAllInPanel(dateStr, checked) {
+    const panel = document.getElementById('panel-' + dateStr);
+    if (!panel) return;
+    panel.querySelectorAll('.mft-select-generated').forEach(cb => {
+        cb.checked = checked;
+        const ids = (cb.dataset.ids || '').split(',').filter(Boolean);
+        if (checked) {
+            ids.forEach(id => selectedPrintIds.add(id));
+        } else {
+            ids.forEach(id => selectedPrintIds.delete(id));
+        }
+    });
+    updatePrintCount();
+}
+
+function toggleSelectAllGenerated(source) {
+    const activePanel = document.querySelector('.day-panel.active');
+    if (!activePanel) return;
+    activePanel.querySelectorAll('.mft-select-generated').forEach(cb => {
+        cb.checked = source.checked;
+        const ids = (cb.dataset.ids || '').split(',').filter(Boolean);
+        if (source.checked) {
+            ids.forEach(id => selectedPrintIds.add(id));
+        } else {
+            ids.forEach(id => selectedPrintIds.delete(id));
+        }
+    });
+    updatePrintCount();
+}
+
+function updatePrintCount() {
+    const count = selectedPrintIds.size;
+    document.getElementById('printSelCount').textContent = count;
+    document.getElementById('printSelectedBtn').disabled = (count === 0);
+    document.getElementById('clearSelectedBtn').style.display = count > 0 ? 'inline-block' : 'none';
+    
+    // Update the select all checkbox state
+    const activePanel = document.querySelector('.day-panel.active');
+    if (activePanel) {
+        const allCbs = activePanel.querySelectorAll('.mft-select-generated');
+        const checkedCbs = activePanel.querySelectorAll('.mft-select-generated:checked');
+        const selectAll = document.getElementById('selectAllGenerated');
+        if (selectAll) {
+            selectAll.checked = allCbs.length > 0 && allCbs.length === checkedCbs.length;
+            selectAll.indeterminate = checkedCbs.length > 0 && checkedCbs.length < allCbs.length;
+        }
+    }
+}
+
+function clearSelectedGenerated() {
+    selectedPrintIds.clear();
+    document.querySelectorAll('.mft-select-generated').forEach(cb => cb.checked = false);
+    updatePrintCount();
+}
+
+function printSelectedGenerated() {
+    if (selectedPrintIds.size === 0) {
+        alert('Please select at least one generated entry to print.');
+        return;
+    }
+    
+    // Build URL with selected entry IDs
+    const ids = Array.from(selectedPrintIds).join(',');
+    let url = '/manifest/print/selected/generated?entry_ids=' + ids;
+    
+    // Add supplier filter if present
+    {% if supplier_id %}
+    url += '&supplier_id={{ supplier_id }}';
+    {% endif %}
+    
+    window.open(url, '_blank');
+}
+
+// ── Existing functions ──
+function printActiveDay() {
+    const activeTab = document.querySelector('.date-tab.active');
+    if (!activeTab) return;
+    const dateStr = activeTab.id.replace('tab-', '');
+    let url = '/manifest/print/day/' + dateStr;
+    
+    url += '?status=generated';
+    
+    {% if supplier_id %}
+    url += '&supplier_id={{ supplier_id }}';
+    {% endif %}
+    
+    window.open(url, '_blank');
+}
+
+function toggleCalendar() {
+    const menu = document.getElementById('calendarMenu');
+    const toggle = document.querySelector('.calendar-toggle');
+    menu.classList.toggle('show');
+    toggle.classList.toggle('active');
+}
+
+function closeCalendar() {
+    document.getElementById('calendarMenu').classList.remove('show');
+    document.querySelector('.calendar-toggle').classList.remove('active');
+}
+
+function goToSelectedDate() {
+    const datePicker = document.getElementById('calendarDatePicker');
+    const selectedDate = datePicker.value;
+    if (selectedDate) {
+        goToDate(selectedDate);
+    }
+}
+
+function goToDate(dateStr) {
+    const availableDates = {{ date_keys|tojson }};
+    if (availableDates.includes(dateStr)) {
+        closeCalendar();
+        switchTab(dateStr);
+        
+        const panel = document.getElementById('panel-' + dateStr);
+        if (panel) {
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    } else {
+        alert('No manifests found for this date. Available dates are shown below.');
+    }
+}
+
+// Close calendar when clicking outside
+document.addEventListener('click', function(e) {
+    const dropdown = document.querySelector('.calendar-dropdown');
+    if (dropdown && !dropdown.contains(e.target)) {
+        closeCalendar();
+    }
+});
+
+// ── Pending checkbox functions (for generation) ──
+function selectedBoxCount() {
+    let total = 0;
+    document.querySelectorAll('.mft-select-child:checked').forEach(cb => {
+        total += 1; // Each checkbox represents 1 box
+    });
+    return total;
+}
+
+function updateSelCount() {
+    const count = selectedBoxCount();
+    document.getElementById('selCount').textContent = count;
+    document.getElementById('generateBtn').disabled = (count === 0);
+}
+
+function toggleSelectAllVisible(source) {
+    const activePanel = document.querySelector('.day-panel.active');
+    if (!activePanel) return;
+    activePanel.querySelectorAll('.mft-select-child').forEach(cb => {
+        cb.checked = source.checked;
+    });
+    updateSelCount();
+}
+
+function confirmGenerate() {
+    const count = selectedBoxCount();
+    return appConfirm(
+        `Generate ${count} box(es)? This deducts stock for exactly these boxes and marks them ` +
+        `Generated — it can't be undone from here. Any AWB you leave unchecked stays Pending.`,
+        { type: 'warning', okLabel: 'Generate', cancelLabel: 'Cancel' }
+    );
+}
+
+document.getElementById('generateForm').addEventListener('submit', async function(e){
+    e.preventDefault();
+    const ok = await confirmGenerate();
+    if (ok) this.submit();
+});
+
+// ── Update count when any pending checkbox changes ──
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('mft-select-child')) {
+        updateSelCount();
+    }
+});
+
+document.querySelectorAll('.manifest-delete-link').forEach(function(link){
+    link.addEventListener('click', async function(e){
+        e.preventDefault();
+        const ok = await appConfirm(link.dataset.confirmMsg, { type: 'danger', okLabel: 'Delete', cancelLabel: 'Cancel' });
+        if (ok) window.location = link.getAttribute('href');
+    });
+});
+
 function switchTab(dateStr) {
-    // Hide all panels and deactivate all tabs
     document.querySelectorAll('.day-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
 
-    // Show selected panel and activate tab
     const panel = document.getElementById('panel-' + dateStr);
     const tab   = document.getElementById('tab-'   + dateStr);
     if (panel) panel.classList.add('active');
     if (tab)   tab.classList.add('active');
+    
+    // Reset selection counts when switching tabs
+    updateSelCount();
+    updatePrintCount();
 }
 
-// On load: activate today's tab if it exists, else first tab
+// On load: set the first tab as active
 document.addEventListener('DOMContentLoaded', function() {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTab = document.getElementById('tab-' + today);
-    if (todayTab) {
-        // Deactivate the default first tab
-        document.querySelectorAll('.day-panel').forEach(p => p.classList.remove('active'));
-        document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
-        switchTab(today);
+    const datePicker = document.getElementById('calendarDatePicker');
+    if (datePicker) {
+        const availableDates = {{ date_keys|tojson }};
+        if (availableDates.length > 0) {
+            datePicker.max = availableDates[0];
+            datePicker.min = availableDates[availableDates.length - 1];
+            datePicker.value = availableDates[0];
+        }
     }
-    // else first tab stays active (set by Jinja loop.first)
+    
+    // Initialize print selection
+    updatePrintCount();
+    updateSelCount();
+});
+
+// ── Company-level selection ──
+function toggleCompanySelection(checkbox, companyName) {
+    // Find all pending checkboxes for this company
+    const panel = document.querySelector('.day-panel.active');
+    if (!panel) return;
+    
+    // Find all rows that belong to this company (look for the company name in the Company column)
+    const rows = panel.querySelectorAll('tr.data-row');
+    const companyRows = [];
+    
+    rows.forEach(row => {
+        const companyCell = row.querySelector('td:nth-child(6)');
+        if (companyCell && companyCell.textContent.trim() === companyName) {
+            companyRows.push(row);
+        }
+    });
+    
+    // Toggle checkboxes in those rows
+    companyRows.forEach(row => {
+        const checkboxes = row.querySelectorAll('.mft-select-child');
+        checkboxes.forEach(cb => {
+            cb.checked = checkbox.checked;
+        });
+        // Also handle the AWB-level checkboxes
+        const awbCheckboxes = row.querySelectorAll('.mft-select-child[data-awb]');
+        awbCheckboxes.forEach(cb => {
+            cb.checked = checkbox.checked;
+        });
+    });
+    
+    // Update counts
+    updateSelCount();
+    updatePrintCount();
+}
+
+// ── Generate entries for a specific company ──
+function generateCompanyEntries(companyName) {
+    const panel = document.querySelector('.day-panel.active');
+    if (!panel) {
+        alert('No active day panel found.');
+        return;
+    }
+    
+    // Find all checked checkboxes for this company
+    const checkedIds = [];
+    const rows = panel.querySelectorAll('tr.data-row');
+    
+    rows.forEach(row => {
+        const companyCell = row.querySelector('td:nth-child(6)');
+        if (companyCell && companyCell.textContent.trim() === companyName) {
+            const checkboxes = row.querySelectorAll('.mft-select-child:checked');
+            checkboxes.forEach(cb => {
+                const val = cb.value;
+                if (val && val.trim()) {
+                    // Handle both single IDs and comma-separated
+                    if (val.includes(',')) {
+                        val.split(',').forEach(id => {
+                            const trimmed = id.trim();
+                            if (trimmed) checkedIds.push(trimmed);
+                        });
+                    } else {
+                        checkedIds.push(val);
+                    }
+                }
+            });
+        }
+    });
+    
+    if (checkedIds.length === 0) {
+        alert(`No pending entries selected for ${companyName}.`);
+        return;
+    }
+    
+    // Confirm before generating
+    if (!confirm(`Generate ${checkedIds.length} box(es) for ${companyName}? This will deduct stock and mark them as Generated.`)) {
+        return;
+    }
+    
+    // Create form and submit
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/manifest/generate/company';
+    
+    const companyInput = document.createElement('input');
+    companyInput.type = 'hidden';
+    companyInput.name = 'company_name';
+    companyInput.value = companyName;
+    form.appendChild(companyInput);
+    
+    const idsInput = document.createElement('input');
+    idsInput.type = 'hidden';
+    idsInput.name = 'entry_ids';
+    idsInput.value = checkedIds.join(',');
+    form.appendChild(idsInput);
+    
+    document.body.appendChild(form);
+    form.submit();
+}
+
+// ── Print generated entries for a specific company ──
+function printCompanyEntries(companyName, dayDate) {
+    const url = `/manifest/print/company/${encodeURIComponent(companyName)}?date=${encodeURIComponent(dayDate)}`;
+    window.open(url, '_blank');
+}
+
+// ── Update count when any pending checkbox changes (modified to handle AWB checkboxes) ──
+function selectedBoxCount() {
+    let total = 0;
+    document.querySelectorAll('.mft-select-child:checked').forEach(cb => {
+        const val = cb.value;
+        if (val && val.includes(',')) {
+            // Count all IDs in the comma-separated string
+            const ids = val.split(',').filter(id => id.trim());
+            total += ids.length;
+        } else {
+            total += 1;
+        }
+    });
+    return total;
+}
+
+// ── Also update the "Select All" checkbox state when individual checkboxes change ──
+document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('mft-select-child')) {
+        updateSelCount();
+        
+        // Update company-level select-all checkbox state
+        const panel = document.querySelector('.day-panel.active');
+        if (!panel) return;
+        
+        const rows = panel.querySelectorAll('tr.data-row');
+        const companyCheckboxes = {};
+        
+        rows.forEach(row => {
+            const companyCell = row.querySelector('td:nth-child(6)');
+            if (companyCell) {
+                const companyName = companyCell.textContent.trim();
+                if (!companyCheckboxes[companyName]) {
+                    companyCheckboxes[companyName] = { total: 0, checked: 0 };
+                }
+                const checkboxes = row.querySelectorAll('.mft-select-child');
+                checkboxes.forEach(cb => {
+                    companyCheckboxes[companyName].total += 1;
+                    if (cb.checked) companyCheckboxes[companyName].checked += 1;
+                });
+            }
+        });
+        
+        // Update each company's select-all checkbox
+        document.querySelectorAll('.company-select-all').forEach(cb => {
+            const companyName = cb.dataset.company;
+            if (companyCheckboxes[companyName]) {
+                const { total, checked } = companyCheckboxes[companyName];
+                cb.checked = total > 0 && total === checked;
+                cb.indeterminate = checked > 0 && checked < total;
+            }
+        });
+    }
 });
 </script>
 

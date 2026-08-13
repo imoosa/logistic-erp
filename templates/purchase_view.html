@@ -35,7 +35,7 @@
 
   /* Items table */
   .items-wrap { overflow-x: auto; }
-  .items-wrap table { width: 100%; border-collapse: collapse; min-width: 700px; }
+  .items-wrap table { width: 100%; border-collapse: collapse; min-width: 820px; }
   .items-wrap th {
     background: #F8FAFC; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
     letter-spacing: .3px; color: #64748B; padding: 9px 12px; border-bottom: 1px solid #E2E8F0; text-align: left; white-space: nowrap;
@@ -204,10 +204,14 @@
             <th>Party Name</th>
             <th>Destination</th>
             <th>Courier</th>
+            <th>Carrier Ref</th>
             <th>Item</th>
             <th style="text-align:right">Qty</th>
             <th style="text-align:right">Weight (Kg)</th>
             <th style="text-align:right">Rate/Kg</th>
+            <th style="text-align:right">Other Charges</th>
+            <th style="text-align:right">Resale Charges</th>
+            <th style="text-align:right">Before GST</th>
             <th>GST %</th>
             <th style="text-align:right">GST Amt</th>
             <th style="text-align:right">Total</th>
@@ -225,6 +229,9 @@
             <td><strong>{{ item.party_name or item.description or '—' }}</strong></td>
             <td style="color:#64748B;">{{ item.destination or '—' }}</td>
             <td style="color:#64748B;">{{ item.courier_name or '—' }}</td>
+            <td style="color:#64748B;font-weight:500;">
+              {{ item.carrier_ref or '—' }}
+            </td>
             <td>{{ item.description or '—' }}</td>
             <td style="text-align:right;font-weight:600;">{{ item.quantity | int if item.quantity == item.quantity|int else item.quantity }}</td>
             <td style="text-align:right;color:#334155;">
@@ -233,11 +240,23 @@
             <td style="text-align:right;color:#334155;">
               {% if item.rate_per_kg %}₹{{ "{:,.2f}".format(item.rate_per_kg) }}{% else %}—{% endif %}
             </td>
+            <td style="text-align:right;color:#D97706;font-weight:600;">  <!-- ← NEW -->
+              {% if item.other_charges %}₹{{ "{:,.2f}".format(item.other_charges) }}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:right;color:#D97706;font-weight:600;">
+              {% if item.resale_charges %}₹{{ "{:,.2f}".format(item.resale_charges) }}{% else %}—{% endif %}
+            </td>
+            <td style="text-align:right;color:#334155;font-weight:600;">
+              ₹{{ "{:,.2f}".format(item.taxable_value or 0) }}
+            </td>
             <td>
               {% if item.gst_percent %}<span class="gst-tag">{{ item.gst_percent | int }}%</span>{% else %}—{% endif %}
             </td>
             <td style="text-align:right;color:#D97706;font-weight:600;">
-              ₹{{ "{:,.2f}".format((item.purchase_rate or 0) * (item.quantity or 0) * (item.gst_percent or 0) / 100) }}
+              {# Was (purchase_rate * quantity * gst%) — wrong base, since qty (boxes) != weight (kg).
+                 GST is charged on the taxable value (weight × rate), which is exactly what's
+                 already stored per-item as cgst/sgst/igst — use that instead of recomputing. #}
+              ₹{{ "{:,.2f}".format((item.cgst_amount or 0) + (item.sgst_amount or 0) + (item.igst_amount or 0)) }}
             </td>
             <td style="text-align:right;"><span class="row-amt">₹{{ "{:,.2f}".format(item.total_amount or 0) }}</span></td>
           </tr>
@@ -308,11 +327,20 @@
           </div>
           <div>
             <label>Payment Mode</label>
-            <select name="pay_mode" style="width:160px;">
+            <select name="pay_mode" id="pvPayMode" style="width:160px;" onchange="pvToggleBank()">
               <option>Cash</option>
               <option>Bank Transfer</option>
               <option>Cheque</option>
               <option>UPI</option>
+            </select>
+          </div>
+          <div id="pvBankWrap" style="display:none;">
+            <label>Bank Account</label>
+            <select name="bank_account_id" id="pvBankAccount" style="width:200px;">
+              <option value="">— Select bank account —</option>
+              {% for acc in bank_accounts %}
+              <option value="{{ acc.id }}">{{ acc.bank_name }} – {{ acc.account_name }}</option>
+              {% endfor %}
             </select>
           </div>
           <div>
@@ -328,6 +356,20 @@
           </button>
         </div>
       </form>
+      <script>
+        function pvToggleBank() {
+          const mode = document.getElementById('pvPayMode').value;
+          const wrap = document.getElementById('pvBankWrap');
+          const select = document.getElementById('pvBankAccount');
+          if (mode.toLowerCase() === 'cash') {
+            wrap.style.display = 'none';
+            select.required = false;
+          } else {
+            wrap.style.display = 'block';
+            select.required = true;
+          }
+        }
+      </script>
       {% endif %}
     </div>
   </div>

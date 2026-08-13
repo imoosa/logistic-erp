@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+{% block title %}Bookings{% endblock %}
+{% block page_title %}Bookings{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  .mode-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    white-space: nowrap;
+  }
+  .bm-air     { background:#EEF2FF; color:#4338CA; }
+  .bm-sea     { background:#E0F2FE; color:#0369A1; }
+  .bm-road    { background:#FEF9C3; color:#92400E; }
+  .bm-courier { background:#F0FDF4; color:#15803D; }
+  .bm-default { background:#F3F4F6; color:#374151; }
+
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .badge-success { background:#DCFCE7; color:#16A34A; }
+  .badge-warning  { background:#FEF9C3; color:#CA8A04; }
+  .badge-danger   { background:#FEE2E2; color:#DC2626; }
+  .badge-draft    { background:#F3F4F6; color:#4B5563; }
+  .badge-completed{ background:#EEF2FF; color:#4338CA; }
+
+  .bt-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+  .bt-cash   { background:#FEF3C7; color:#92400E; }
+  .bt-credit { background:#DBEAFE; color:#1D4ED8; }
+
+  .tab { padding:8px 18px; border-radius:20px; font-size:13px; font-weight:600;
+         color: var(--text-muted); border:1.5px solid var(--border-color); text-decoration:none; transition:all .15s; }
+  .tab:hover { border-color:#012926; color:#F59E0B; }
+  .tab.active { background:#012926; color:#F59E0B; border-color:#012926; }
+
+  .awb-code {
+    font-family:'Courier New',monospace;
+    font-size:13px; font-weight:800; letter-spacing:1px;
+    color:#1E40AF; background:#EEF2FF;
+    padding:4px 10px; border-radius:6px;
+    display:inline-block;
+  }
+  body.dark-theme .awb-code { color:#A5B4FC; background: rgba(79,70,229,0.2); }
+
+  .carrier-pill {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 9px; border-radius:20px;
+    background: var(--bg-table-alt); color: var(--text-body);
+    font-size:11.5px; font-weight:600;
+  }
+
+  /* Frozen header + capped-height scroll box: the horizontal scrollbar
+     lives inside this box (near the top of the viewport), so you never
+     have to scroll the whole page down to reach it. */
+  .table-wrap { overflow:auto; max-height:68vh; border-radius:10px; position:relative; }
+  table { width:100%; border-collapse:collapse; min-width:860px; }
+  thead th {
+    padding:11px 14px; font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.7px;
+    color:#F59E0B; background:#012926;
+    border-bottom:1.5px solid var(--border-color); text-align:left; white-space:nowrap;
+    position:sticky; top:0; z-index:2;
+  }
+  tbody td { padding:13px 14px; border-bottom:1px solid var(--border-color); font-size:13.5px; vertical-align:middle; color: var(--text-body); }
+  tbody tr:hover { background: var(--bg-table-alt); }
+  tbody tr:last-child td { border-bottom:none; }
+
+  /* Row actions dropdown (replaces the old button row + separate Delete column) */
+  .action-menu-btn {
+    display:inline-flex; align-items:center; gap:6px;
+    border:1.5px solid var(--border-color); background:var(--bg-input); color:var(--text-body);
+    border-radius:8px; padding:6px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+  }
+  .action-menu-btn:hover { border-color:#012926; }
+  .action-menu-popup {
+    display:none; position:fixed; min-width:170px;
+    background:var(--bg-modal); border:1px solid var(--border-color); border-radius:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,.18); overflow:hidden; z-index:1100;
+  }
+  .action-menu-popup.open { display:block; }
+  .action-menu-popup a, .action-menu-popup button {
+    display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box;
+    padding:9px 14px; font-size:13px; text-align:left; background:none; border:none;
+    color:var(--text-body); text-decoration:none; cursor:pointer;
+  }
+  .action-menu-popup a:hover, .action-menu-popup button:hover { background:var(--bg-table-alt); }
+  .action-menu-popup .danger { color:#DC2626; }
+  .action-menu-popup .purple { color:#7C3AED; }
+  .action-menu-divider { height:1px; background:var(--border-color); margin:4px 0; }
+
+  .summary-strip {
+    display:flex; gap:24px; flex-wrap:wrap;
+    padding:14px 20px; background: var(--bg-table-alt);
+    border-radius:10px; margin-bottom:18px;
+    border:1px solid var(--border-color);
+  }
+  .s-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color: var(--text-muted); font-weight:700; }
+  .s-val   { font-size:18px; font-weight:800; color: var(--text-body); }
+  .s-val.green { color:#16A34A; }
+  .s-val.red   { color:#DC2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+  <h2 style="margin: 0;">🚚 Booking</h2>
+  <a href="/booking/customer" class="btn btn-primary">+ New Booking</a>
+</div>
+<a href="/booking/deleted-log" class="btn btn-ghost btn-sm">🗑 Deleted Bookings</a>
+{% set completed_invoices = invoices | rejectattr('is_draft') | rejectattr('is_void') | list %}
+{% set total_billed  = completed_invoices | sum(attribute='total') %}
+{% set total_paid    = completed_invoices | sum(attribute='paid') %}
+{% set total_balance = completed_invoices | sum(attribute='balance') %}
+<div class="summary-strip">
+  <div>
+    <div class="s-label">Total Invoices</div>
+    <div class="s-val">{{ invoices | length }}</div>
+  </div>
+  <div>
+    <div class="s-label">Total Billed</div>
+    <div class="s-val">₹{{ "{:,.0f}".format(total_billed) }}</div>
+  </div>
+  <div>
+    <div class="s-label">Amount Received</div>
+    <div class="s-val green">₹{{ "{:,.0f}".format(total_paid) }}</div>
+  </div>
+  <div>
+    <div class="s-label">Balance Pending</div>
+    <div class="s-val red">₹{{ "{:,.0f}".format(total_balance) }}</div>
+  </div>
+</div>
+
+<form method="get" action="/booking/list" style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
+  <input type="hidden" name="status" value="{{ current_status or 'All' }}">
+  <input type="hidden" name="btype" value="{{ current_btype or 'All' }}">
+  <input
+    type="text"
+    name="q"
+    value="{{ request.args.get('q', '') }}"
+    placeholder="🔍 Search by party name, AWB / docket no. or carrier ref no."
+    style="flex:1; min-width:260px; padding:9px 14px; border:1.5px solid var(--border-color); border-radius:20px; font-size:13.5px; outline:none;"
+    onfocus="this.style.borderColor='#4F46E5'"
+    onblur="this.style.borderColor='var(--border-color)'"
+  >
+  <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);font-weight:600;white-space:nowrap;">
+    From
+    <input type="date" name="from_date" value="{{ current_from_date or '' }}"
+           style="padding:8px 10px; border:1.5px solid var(--border-color); border-radius:20px; font-size:13px; outline:none;"
+           onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
+  </label>
+  <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);font-weight:600;white-space:nowrap;">
+    To
+    <input type="date" name="to_date" value="{{ current_to_date or '' }}"
+           style="padding:8px 10px; border:1.5px solid var(--border-color); border-radius:20px; font-size:13px; outline:none;"
+           onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
+  </label>
+  <button type="submit" class="btn btn-primary" style="border-radius:20px; padding:9px 20px; font-size:13px;">Search</button>
+  {% if request.args.get('q') or current_from_date or current_to_date %}
+  <a href="/booking/list?status={{ current_status or 'All' }}&btype={{ current_btype or 'All' }}" class="btn btn-ghost" style="border-radius:20px; padding:9px 16px; font-size:13px;">Clear</a>
+  {% endif %}
+</form>
+
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:18px;">
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    {% for s in ['All', 'paid', 'partial', 'pending', 'draft', 'void'] %}
+    <a href="/booking/list?status={{ s }}&btype={{ current_btype or 'All' }}{% if request.args.get('q') %}&q={{ request.args.get('q') }}{% endif %}{% if current_from_date %}&from_date={{ current_from_date }}{% endif %}{% if current_to_date %}&to_date={{ current_to_date }}{% endif %}"
+       class="tab {% if current_status == s %}active{% endif %}">
+      {% if s == 'All' %}📋 All
+      {% elif s == 'paid' %}✅ Paid
+      {% elif s == 'partial' %}⏳ Partial
+      {% elif s == 'pending' %}⚠️ Pending
+      {% elif s == 'void' %}🚫 Void
+      {% else %}📝 Draft{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    {% for b in ['All', 'cash', 'credit'] %}
+    <a href="/booking/list?status={{ current_status or 'All' }}&btype={{ b }}{% if request.args.get('q') %}&q={{ request.args.get('q') }}{% endif %}{% if current_from_date %}&from_date={{ current_from_date }}{% endif %}{% if current_to_date %}&to_date={{ current_to_date }}{% endif %}"
+       class="tab {% if current_btype == b %}active{% endif %}">
+      {% if b == 'All' %}💰 All Sales
+      {% elif b == 'cash' %}💵 Cash
+      {% else %}💳 Credit{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>AWB / Docket No.</th>
+          <th>Customer Name</th>
+          <th>Dispatch Date</th>
+          <th>Carrier</th>
+          <th>Carrier Ref No.</th>
+          <th>Amount</th>
+          <th>Payment Status</th>
+          <th>Booking Status</th>
+          <th>Cash / Credit</th>
+          <th>Resale</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for inv in invoices %}
+        <tr>
+
+          <!-- AWB / Docket No. -->
+          <td>
+            {% if inv.docket_no %}
+              <span class="awb-code">{{ inv.docket_no }}</span>
+            {% else %}
+              <span style="color:var(--text-muted);font-size:12px;font-style:italic">No AWB</span>
+            {% endif %}
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">{{ inv.id }}</div>
+          </td>
+
+          <!-- Customer / Receiver -->
+          <td>
+            <strong>{{ inv.customer_name }}</strong>
+            {% if inv.receiver_name %}
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px">
+              → {{ inv.receiver_name }}{% if inv.destination %} · <em>{{ inv.destination }}</em>{% endif %}
+            </div>
+            {% endif %}
+          </td>
+
+          <!-- Dispatch Date -->
+          <td style="white-space:nowrap;color:#374151">
+            📅 {{ inv.date.strftime('%d %b %Y') if inv.date else '—' }}
+          </td>
+
+          <!-- Carrier -->
+          <td>
+            {% if inv.carrier %}
+              <span class="carrier-pill">🏷️ {{ inv.carrier }}</span>
+            {% else %}
+              <span style="color:#D1D5DB">—</span>
+            {% endif %}
+            {% if inv.shipment_type %}
+            <div style="font-size:11px;color:var(--text-muted);margin-top:3px">{{ inv.shipment_type }}</div>
+            {% endif %}
+          </td>
+
+          <!-- Carrier Reference No. -->
+          <td>
+            {% if inv.carrier_ref %}
+              <span class="carrier-pill">🔗 {{ inv.carrier_ref }}</span>
+            {% else %}
+              <span style="color:#D1D5DB">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Amount -->
+          <td>
+          <strong style="font-size:14px">₹{{ "{:,.0f}".format(inv.total) }}</strong>
+          {% if inv.balance > 0 %}
+          <div style="font-size:11.5px;color:#DC2626;margin-top:2px">Due: ₹{{ "{:,.0f}".format(inv.balance) }}</div>
+          {% else %}
+          <div style="font-size:11.5px;color:#16A34A;margin-top:2px">Fully Paid ✓</div>
+          {% endif %}
+        </td>
+
+          <!-- Status -->
+          <td>
+            {% if inv.is_void %}
+              <span class="badge badge-draft">🚫 Void</span>
+            {% elif inv.status == 'paid' %}
+              <span class="badge badge-success">✓ Paid</span>
+            {% elif inv.status == 'partial' %}
+              <span class="badge badge-warning">⏳ Partial</span>
+            {% else %}
+              <span class="badge badge-danger">⚠ Pending</span>
+            {% endif %}
+          </td>
+          <td>
+  {% if inv.is_void %}
+    <span class="badge badge-draft">🚫 Void</span>
+  {% elif inv.is_draft %}
+    <span class="badge badge-draft">📝 Draft</span>
+  {% elif inv.has_performa %}
+    <span class="badge badge-completed">✅ Completed</span>
+  {% else %}
+    <span class="badge badge-warning">📋 Perfoma Pending</span>
+  {% endif %}
+</td>
+          <td>
+  {% if inv.is_void %}
+    <span class="badge badge-draft">🚫 Void</span>
+  {% elif inv.booking_type == 'cash' %}
+    <span class="bt-badge bt-cash">💵 Cash</span>
+  {% else %}
+    <span class="bt-badge bt-credit">💳 Credit</span>
+  {% endif %}
+</td>
+          <td>
+  {% if inv.has_resale %}
+    <span style="font-weight:700;color:#DC2626;">₹{{ "%.0f"|format(inv.resale_total or 0) }}</span>
+  {% else %}
+    <span style="color:#D1D5DB;font-size:11px;">—</span>
+  {% endif %}
+</td>
+          
+<td style="white-space:nowrap;text-align:right;">
+  {% set can_delete = not inv.is_void and not inv.is_draft and session['user']['role'] in ['owner', 'super_admin'] %}
+  {% if can_delete %}
+  <form method="POST" action="/booking/hard-delete/{{ inv.id }}" id="deleteForm-{{ inv.id }}" style="display:none"
+        onsubmit="return confirm('PERMANENTLY delete booking {{ inv.invoice_id }}?\n\nThis cannot be undone — unlike Void, the record itself is gone. Only use this for bug-duplicate bookings that were never real.');">
+  </form>
+  {% endif %}
+  <button type="button" class="action-menu-btn" title="Actions"
+    data-actions='{{ {
+      "viewUrl": ("/booking/view/" ~ inv.id),
+      "editUrl": ("/booking/new?edit=" ~ inv.id) if can("invoices", "edit") else "",
+      "cloneUrl": ("/booking/clone/" ~ inv.id),
+      "canVoid": (not inv.is_void and not inv.is_draft),
+      "voidPayload": {
+        "id": inv.id | default("", true),
+        "invoiceId": inv.id | default("", true),
+        "consignor": inv.customer_name | default("—", true),
+        "consignee": inv.receiver_name | default("—", true),
+        "destination": inv.destination | default("", true),
+        "carrier": inv.carrier | default("—", true),
+        "shipmentType": inv.shipment_type | default("", true),
+        "carrierRef": inv.carrier_ref | default("", true),
+        "bookingType": inv.booking_type | default("", true)
+      },
+      "deleteFormId": ("deleteForm-" ~ inv.id) if can_delete else ""
+    } | tojson }}'>
+    Actions ▾
+  </button>
+</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="11" style="text-align:center;padding:48px;color:var(--text-muted)">
+            <div style="font-size:32px;margin-bottom:8px">📭</div>
+            No invoices found for this filter.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Shared row-actions dropdown (single instance, repositioned per click) -->
+<div id="rowActionsMenu" class="action-menu-popup"></div>
+
+<!-- Void confirmation modal (app-themed, replaces window.confirm) -->
+<div id="voidModalOverlay" class="void-modal-overlay">
+  <div class="void-modal">
+    <h3 style="margin:0 0 4px;">🚫 Void Booking <span id="voidModalInvoiceId"></span></h3>
+    <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;">
+      This reverses the stock, manifest, and ledger entries this booking caused, and deletes
+      the linked proforma invoice. The booking itself — items, packages, terms, and totals —
+      stays exactly as it is, just marked Void. This cannot be undone from here.
+    </p>
+
+    <div class="void-modal-section">
+      <div class="void-modal-label">Consignor</div>
+      <div id="voidModalConsignor" class="void-modal-value"></div>
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Consignee</div>
+      <div id="voidModalConsignee" class="void-modal-value"></div>
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Service Details</div>
+      <div id="voidModalService" class="void-modal-value"></div>
+    </div>
+
+    <form id="voidModalForm" method="POST" action="">
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+        <button type="button" class="btn btn-ghost" onclick="closeVoidModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" style="background:#DC2626;border-color:#DC2626;">Void Booking</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+.void-modal-overlay {
+  display:none; position:fixed; inset:0; background:rgba(17,24,39,.5); z-index:1000;
+  align-items:center; justify-content:center;
+}
+.void-modal-overlay.open { display:flex; }
+.void-modal {
+  background: var(--bg-modal); border-radius:16px; width:460px; max-width:90%;
+  padding:24px; max-height:85vh; overflow-y:auto;
+}
+.void-modal-section { margin-bottom:12px; }
+.void-modal-label {
+  font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+  color: var(--text-muted); margin-bottom:3px;
+}
+.void-modal-value { font-size:13.5px; color: var(--text-body); background: var(--bg-table-alt); border:1px solid var(--border-color); border-radius:8px; padding:8px 12px; }
+</style>
+
+<script>
+function openVoidModal(inv) {
+  document.getElementById('voidModalInvoiceId').textContent = inv.invoiceId || inv.id;
+  document.getElementById('voidModalConsignor').textContent = inv.consignor;
+
+  let consignee = inv.consignee;
+  if (inv.destination) consignee += ' · ' + inv.destination;
+  document.getElementById('voidModalConsignee').textContent = consignee;
+
+  const serviceParts = [inv.carrier];
+  if (inv.shipmentType) serviceParts.push(inv.shipmentType);
+  if (inv.carrierRef) serviceParts.push('Ref: ' + inv.carrierRef);
+  if (inv.bookingType) serviceParts.push(inv.bookingType === 'cash' ? 'Cash' : 'Credit');
+  document.getElementById('voidModalService').textContent = serviceParts.filter(Boolean).join(' · ');
+
+  document.getElementById('voidModalForm').action = '/booking/void/' + inv.id;
+  document.getElementById('voidModalOverlay').classList.add('open');
+}
+function closeVoidModal() {
+  document.getElementById('voidModalOverlay').classList.remove('open');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeVoidModal();
+});
+document.getElementById('voidModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeVoidModal();
+});
+document.querySelectorAll('.void-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    const inv = JSON.parse(btn.getAttribute('data-void'));
+    openVoidModal(inv);
+  });
+});
+
+/* ---- Row actions dropdown ---- */
+const rowActionsMenu = document.getElementById('rowActionsMenu');
+let activeActionsBtn = null;
+
+function closeActionsMenu() {
+  rowActionsMenu.classList.remove('open');
+  rowActionsMenu.innerHTML = '';
+  activeActionsBtn = null;
+}
+
+function buildActionsMenuHtml(data) {
+  let html = '<a href="' + data.viewUrl + '">👁️ View</a>';
+  if (data.editUrl) html += '<a href="' + data.editUrl + '">✏️ Edit</a>';
+  html += '<a href="' + data.cloneUrl + '" class="purple">📋 Clone</a>';
+  if (data.canVoid || data.deleteFormId) html += '<div class="action-menu-divider"></div>';
+  if (data.canVoid) html += '<button type="button" class="danger" data-role="void">🚫 Void</button>';
+  if (data.deleteFormId) html += '<button type="button" class="danger" data-role="delete">🗑 Delete</button>';
+  return html;
+}
+
+function positionActionsMenu(btn) {
+  const rect = btn.getBoundingClientRect();
+  const menuHeight = rowActionsMenu.offsetHeight;
+  const menuWidth = rowActionsMenu.offsetWidth;
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const top = (spaceBelow < menuHeight + 8) ? (rect.top - menuHeight - 4) : (rect.bottom + 4);
+  const left = Math.min(rect.right - menuWidth, window.innerWidth - menuWidth - 8);
+  rowActionsMenu.style.top = Math.max(8, top) + 'px';
+  rowActionsMenu.style.left = Math.max(8, left) + 'px';
+}
+
+document.querySelectorAll('.action-menu-btn').forEach(function(btn) {
+  btn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    if (activeActionsBtn === btn) { closeActionsMenu(); return; }
+    const data = JSON.parse(btn.getAttribute('data-actions'));
+    rowActionsMenu.innerHTML = buildActionsMenuHtml(data);
+    rowActionsMenu.classList.add('open');
+    activeActionsBtn = btn;
+    positionActionsMenu(btn);
+
+    const voidBtn = rowActionsMenu.querySelector('[data-role="void"]');
+    if (voidBtn) voidBtn.addEventListener('click', function() {
+      closeActionsMenu();
+      openVoidModal(data.voidPayload);
+    });
+    const deleteBtn = rowActionsMenu.querySelector('[data-role="delete"]');
+    if (deleteBtn) deleteBtn.addEventListener('click', function() {
+      closeActionsMenu();
+      const form = document.getElementById(data.deleteFormId);
+      if (form) form.requestSubmit();
+    });
+  });
+});
+
+document.addEventListener('click', function(e) {
+  if (rowActionsMenu.classList.contains('open') && !rowActionsMenu.contains(e.target)) {
+    closeActionsMenu();
+  }
+});
+document.querySelector('.table-wrap').addEventListener('scroll', closeActionsMenu);
+window.addEventListener('resize', closeActionsMenu);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeActionsMenu();
+});
+</script>
+
+{% endblock %}

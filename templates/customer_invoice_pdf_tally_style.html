@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tax Invoice - {{ invoice.invoice_number }}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @page { size: A4 portrait; margin: 6mm; }
+
+  body {
+    font-family: 'Helvetica', Arial, sans-serif;
+    font-size: 11px;
+    color: #000;
+    background: #f0f0f0;
+    padding: 15px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  @media print {
+    body { background: #fff; padding: 0; display: block; }
+    .no-print { display: none !important; }
+    .invoice-box { border: 1.5px solid #000 !important; padding: 5mm !important; min-height: 277mm !important; }
+    .bottom-section { margin-top: auto !important; }
+    .topbar { display: none !important; }
+    .main { margin-left: 0 !important; padding: 0 !important; }
+  }
+
+  .no-print {
+    text-align: center;
+    margin-bottom: 15px;
+    width: 100%;
+  }
+
+  .btn-print {
+    padding: 10px 30px;
+    background: #1a237e;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 0 5px;
+  }
+  .btn-print:hover { background: #0d1b5e; }
+  .btn-secondary { background: #6b7280; }
+  .btn-secondary:hover { background: #4b5563; }
+
+  .invoice-wrapper {
+    width: 210mm;
+    max-width: 210mm;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 277mm;
+  }
+
+  .invoice-box {
+    width: 100%;
+    background: #fff;
+    border: 1.5px solid #000;
+    padding: 5mm;
+    display: flex;
+    flex-direction: column;
+    min-height: 277mm;
+    flex: 1;
+  }
+
+  @media print {
+    .invoice-wrapper { width: 100%; max-width: 100%; min-height: 100vh; }
+    .invoice-box { border: 1.5px solid #000; padding: 5mm; min-height: 100vh; }
+  }
+
+  .title {
+    text-align: center;
+    font-size: 22px;
+    font-weight: 800;
+    padding: 6px 0 8px;
+    border-bottom: 2px solid #000;
+    margin-bottom: 10px;
+    background: #f5f5f5;
+    letter-spacing: 2px;
+    width: 100%;
+  }
+
+  .company-section {
+    text-align: center;
+    padding-bottom: 8px;
+    border-bottom: 1.5px solid #000;
+    margin-bottom: 8px;
+    width: 100%;
+  }
+  .company-name { font-size: 20px; font-weight: 800; }
+  .company-address { font-size: 11px; color: #333; margin-top: 2px; }
+  .company-meta { font-size: 11px; margin-top: 3px; }
+  .company-meta span { margin: 0 6px; }
+
+  .info-row {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 8px;
+  }
+  .info-row .col {
+    display: table-cell;
+    vertical-align: top;
+    border: 1.5px solid #000;
+    padding: 8px 10px;
+  }
+  .info-row .col-bill { width: 55%; }
+  .info-row .col-details { width: 45%; }
+
+  .bill-label { font-weight: 700; font-size: 11px; text-transform: uppercase; color: #555; }
+  .bill-name { font-weight: 800; font-size: 16px; margin-top: 3px; }
+  .bill-details { font-size: 12px; line-height: 1.5; margin-top: 3px; }
+
+  .detail-row {
+    display: table;
+    width: 100%;
+    padding: 2px 0;
+  }
+  .detail-row .label {
+    display: table-cell;
+    font-weight: 600;
+    color: #555;
+    font-size: 11px;
+    width: 38%;
+  }
+  .detail-row .value {
+    display: table-cell;
+    font-weight: 700;
+    text-align: right;
+    font-size: 12px;
+  }
+
+  .items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4px 0;
+    font-size: 11px;
+  }
+  .items-table th {
+    border: 1.5px solid #000;
+    padding: 5px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    text-align: left;
+    background: #f0f0f0;
+  }
+  .items-table td {
+    border: 1.5px solid #000;
+    padding: 4px 6px;
+    font-size: 11px;
+    vertical-align: middle;
+  }
+  .items-table .text-right { text-align: right; }
+  .items-table .text-center { text-align: center; }
+  .items-table .text-left { text-align: left; }
+
+  .awb-badge {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    color: #1a237e;
+    background: #eef2ff;
+    padding: 2px 8px;
+    border-radius: 3px;
+    display: inline-block;
+  }
+
+  .bottom-section {
+    border: 1.5px solid #000;
+    margin-top: auto;
+    flex-shrink: 0;
+    width: 100%;
+  }
+
+  .words {
+    border: none;
+    border-bottom: 1.5px solid #000;
+    padding: 6px 10px;
+    font-weight: 700;
+    font-size: 13px;
+    background: #fafafa;
+    width: 100%;
+  }
+  .words .label { font-weight: 400; font-size: 11px; color: #555; }
+
+  .tax-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .tax-table th, .tax-table td {
+    border: 1.5px solid #000;
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .tax-table th { background: #f0f0f0; font-weight: 700; text-align: center; }
+  .tax-table .text-right { text-align: right; }
+  .tax-table .text-center { text-align: center; }
+
+  .grand-total-row {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .grand-total-row .col {
+    display: table-cell;
+    border: none;
+    border-top: 1.5px solid #000;
+    padding: 8px 10px;
+    font-weight: 700;
+    background: #f5f5f5;
+  }
+  .grand-total-row .col-label { width: 70%; text-align: right; font-size: 15px; }
+  .grand-total-row .col-value { width: 30%; text-align: right; font-size: 18px; color: #1a237e; }
+
+  .footer-row {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    border-top: 1.5px solid #000;
+    background: #fafafa;
+  }
+  .footer-row .col {
+    display: table-cell;
+    padding: 8px 10px;
+    vertical-align: bottom;
+  }
+  .footer-row .col-decl {
+    width: 60%;
+    border-right: 1.5px solid #000;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .footer-row .col-decl strong { font-size: 12px; }
+  .footer-row .col-sig {
+    width: 40%;
+    text-align: right;
+    font-size: 12px;
+  }
+  .footer-row .col-sig .for-company {
+    font-weight: 700;
+    display: block;
+    margin-bottom: 15px;
+    font-size: 13px;
+  }
+
+  .generated {
+    text-align: center;
+    font-size: 10px;
+    padding: 4px 0;
+    border: none;
+    border-top: 1.5px solid #000;
+    background: #fafafa;
+    color: #555;
+    width: 100%;
+  }
+
+  @media screen and (max-width: 768px) {
+    .invoice-wrapper { width: 100%; max-width: 100%; min-height: auto; }
+    .invoice-box { padding: 4mm; min-height: auto; }
+    .info-row .col { display: block; width: 100% !important; }
+    .info-row .col-bill { border-bottom: none; }
+    .company-meta span { display: inline-block; margin: 2px 4px; }
+    .grand-total-row .col { display: block; width: 100% !important; text-align: left !important; }
+    .grand-total-row .col-value { text-align: left !important; }
+    .footer-row .col { display: block; width: 100% !important; text-align: left !important; border-right: none !important; border-bottom: 1.5px solid #000; }
+    .footer-row .col:last-child { border-bottom: none; }
+    .footer-row .col-sig { text-align: left !important; }
+  }
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button onclick="window.print()" class="btn-print">🖨️ Print / Save PDF</button>
+  <a href="{{ url_for('customer_invoice_view', cust_inv_id=invoice.id) }}" class="btn-print btn-secondary" style="text-decoration:none; display:inline-block;">&larr; Back to Invoice</a>
+  <button onclick="downloadPDF()" class="btn-print btn-secondary">📄 Download PDF</button>
+</div>
+
+<div class="invoice-wrapper">
+  <div class="invoice-box" id="invoice">
+
+    <div class="title">TAX INVOICE</div>
+
+    <div class="company-section">
+      <div class="company-name">{{ company.company_name if company else 'Company Name' }}</div>
+      <div class="company-address">{% if company and company.address %}{{ company.address | replace('\n', ', ') | safe }}{% endif %}</div>
+      <div class="company-meta">
+        {% if company and company.is_gst_registered and company.gst_number %}<span>GSTIN: {{ company.gst_number }}</span>{% endif %}
+        {% if company and company.state %}<span>State: {{ company.state }}</span>{% endif %}
+        {% if company and company.email %}<span>Email: {{ company.email }}</span>{% endif %}
+        {% if company and company.phone %}<span>Phone: {{ company.phone }}</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="info-row">
+      <div class="col col-bill">
+        <div class="bill-label">Bill To</div>
+        <div class="bill-name">{{ invoice.client_name or '—' }}</div>
+        <div class="bill-details">
+          {% if client %}
+            {% if client.address_line1 %}{{ client.address_line1 }}{% if client.address_line2 %}, {{ client.address_line2 }}{% endif %}{% endif %}
+            {% if client.city or client.state %}<br>{{ client.city }}{% if client.city and client.state %}, {% endif %}{{ client.state }} {{ client.pincode or '' }}{% endif %}
+            {% if client.phone %}<br>Phone: {{ client.phone }}{% endif %}
+            {% if client.gst_number %}<br>GSTIN: {{ client.gst_number }}{% endif %}
+          {% else %}<span style="color:#999;">No client details available</span>{% endif %}
+        </div>
+      </div>
+      <div class="col col-details">
+        <div class="detail-row">
+          <span class="label">Invoice No.</span>
+          <span class="value">{{ invoice.invoice_number }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Invoice Date</span>
+          <span class="value">{{ invoice.invoice_date.strftime('%d-%b-%Y') if invoice.invoice_date else '' }}</span>
+        </div>
+        {% if invoice.due_date %}
+        <div class="detail-row">
+          <span class="label">Due Date</span>
+          <span class="value">{{ invoice.due_date.strftime('%d-%b-%Y') if invoice.due_date else '' }}</span>
+        </div>
+        {% endif %}
+        <div class="detail-row">
+          <span class="label">Type</span>
+          <span class="value">{{ invoice.invoice_type.title() if invoice.invoice_type else 'Credit' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:20px;" class="text-center">#</th>
+          <th style="width:18%;">Description</th>
+          <th style="width:13%;">AWB / Docket</th>
+          <th>Receiver</th>
+          <th>Destination</th>
+          <th style="width:40px;" class="text-right">Weight</th>
+          <th style="width:45px;" class="text-right">Rate/kg</th>
+          <th style="width:60px;" class="text-right">Taxable</th>
+          <th style="width:45px;" class="text-right">GST</th>
+          <th style="width:60px;" class="text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td class="text-center">{{ loop.index }}</td>
+          <td class="text-left">{{ item.item_description or '—' }}</td>
+          <td>
+            {% if item.docket_no %}
+              <span class="awb-badge">{{ item.docket_no }}</span>
+            {% else %}
+              <span style="color:#999;">—</span>
+            {% endif %}
+          </td>
+          <td>{{ item.receiver_name or '—' }}</td>
+          <td>{{ item.destination or '—' }}</td>
+          <td class="text-right">{{ "%.2f"|format(item.weight_kg or 0) }}</td>
+          <td class="text-right">{{ "%.2f"|format(item.rate_per_kg or 0) }}</td>
+          <td class="text-right">{{ "%.2f"|format(item.taxable_amount or 0) }}</td>
+          <td class="text-right">{{ "%.2f"|format((item.cgst_amount or 0) + (item.sgst_amount or 0) + (item.igst_amount or 0)) }}</td>
+          <td class="text-right">{{ "%.2f"|format(item.total_amount or 0) }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" style="text-align:center;padding:15px;color:#999;">No items found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div style="flex:1; min-height:10px;"></div>
+
+    <div class="bottom-section">
+      <div class="words">
+        <span class="label">Amount Chargeable (in words) :</span>
+        INR {{ invoice.grand_total|round(0)|int|wordize|upper if invoice.grand_total else 'Zero' }} Only
+      </div>
+
+      <table class="tax-table">
+        <thead>
+          <tr>
+            <th style="width:20%;">Description</th>
+            <th style="width:20%;" class="text-right">Taxable Value</th>
+            {% if invoice.igst_total %}
+            <th style="width:15%;" class="text-center">IGST Rate</th>
+            <th style="width:23%;" class="text-right">IGST Amt</th>
+            {% else %}
+            <th style="width:10%;" class="text-center">CGST Rate</th>
+            <th style="width:12%;" class="text-right">CGST Amt</th>
+            <th style="width:10%;" class="text-center">SGST Rate</th>
+            <th style="width:12%;" class="text-right">SGST Amt</th>
+            {% endif %}
+            <th style="width:21%;" class="text-right">Total Tax</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Freight &amp; Logistics</td>
+            <td class="text-right">{{ "%.2f"|format(invoice.subtotal or 0) }}</td>
+            {% if invoice.igst_total %}
+            <td class="text-center">{{ items[0].gst_percent|round(1) if items and items[0].gst_percent else '—' }}{% if items and items[0].gst_percent %}%{% endif %}</td>
+            <td class="text-right">{{ "%.2f"|format(invoice.igst_total or 0) }}</td>
+            {% else %}
+            <td class="text-center">{{ (items[0].gst_percent / 2)|round(1) if items and items[0].gst_percent else '—' }}{% if items and items[0].gst_percent %}%{% endif %}</td>
+            <td class="text-right">{{ "%.2f"|format(invoice.cgst_total or 0) }}</td>
+            <td class="text-center">{{ (items[0].gst_percent / 2)|round(1) if items and items[0].gst_percent else '—' }}{% if items and items[0].gst_percent %}%{% endif %}</td>
+            <td class="text-right">{{ "%.2f"|format(invoice.sgst_total or 0) }}</td>
+            {% endif %}
+            <td class="text-right"><strong>{{ "%.2f"|format(invoice.tax_amount or 0) }}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="grand-total-row">
+        <div class="col col-label"><strong>GRAND TOTAL</strong></div>
+        <div class="col col-value"><strong>₹ {{ "%.2f"|format(invoice.grand_total or 0) }}</strong></div>
+      </div>
+
+      <div class="footer-row">
+        <div class="col col-decl">
+          <strong>Declaration</strong><br>
+          We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.
+        </div>
+        <div class="col col-sig">
+          <span class="for-company">for {{ company.company_name if company else 'Company Name' }}</span>
+          Authorised Signatory
+        </div>
+      </div>
+
+      <div class="generated">
+        This is a Computer Generated Invoice &mdash; Generated on {{ today }}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+  function downloadPDF() {
+    const el = document.getElementById('invoice');
+    html2pdf().set({ margin: 5, filename: 'invoice-{{ invoice.invoice_number }}.pdf', image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } }).from(el).save();
+  }
+  document.addEventListener('DOMContentLoaded', function() { {% if action == 'print' %} setTimeout(window.print, 500); {% endif %} });
+</script>
+</body>
+</html>

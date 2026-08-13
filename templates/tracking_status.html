@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if company %}{{ company.company_name }} — Track Shipment{% else %}Track Shipment{% endif %}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f5f7; margin: 0; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; box-sizing: border-box; }
+    .card { background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); padding: 40px 32px; width: 100%; max-width: 420px; }
+    h1 { font-size: 20px; margin: 0 0 6px; color: #1a1a1a; }
+    p.sub { font-size: 13px; color: #666; margin: 0 0 24px; }
+    input[type="text"] { width: 100%; padding: 12px 14px; font-size: 15px; border: 1px solid #d6d8dc; border-radius: 8px; box-sizing: border-box; margin-bottom: 14px; }
+    button, a.btn { display: block; width: 100%; padding: 12px; font-size: 15px; font-weight: 600; color: #fff; background: #1a1a1a; border: none; border-radius: 8px; cursor: pointer; text-align: center; text-decoration: none; box-sizing: border-box; }
+    button:hover, a.btn:hover { background: #333; }
+    .error { background: #fdecea; color: #b3261e; font-size: 13px; padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; }
+    .timeline { list-style: none; padding: 0; margin: 0 0 24px; }
+    .timeline li { position: relative; padding: 0 0 20px 28px; font-size: 14px; color: #999; }
+    .timeline li:last-child { padding-bottom: 0; }
+    .timeline li::before { content: ""; position: absolute; left: 0; top: 2px; width: 14px; height: 14px; border-radius: 50%; background: #d6d8dc; border: 2px solid #d6d8dc; }
+    .timeline li::after { content: ""; position: absolute; left: 6px; top: 18px; width: 2px; height: calc(100% - 10px); background: #e5e6e9; }
+    .timeline li:last-child::after { display: none; }
+    .timeline li.done { color: #1a1a1a; font-weight: 600; }
+    .timeline li.done::before { background: #1a7f37; border-color: #1a7f37; }
+    .timeline li .ts { display: block; font-weight: 400; font-size: 12px; color: #999; margin-top: 2px; }
+    .docket { font-size: 13px; color: #666; margin-bottom: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>{% if company %}{{ company.company_name }}{% else %}Track your shipment{% endif %}</h1>
+    {% if not status %}
+      <p class="sub">Enter your docket / tracking number below.</p>
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+      <form method="POST">
+        <input type="text" name="docket_no" placeholder="e.g. 42525922180" required autofocus>
+        <button type="submit">Track Shipment</button>
+      </form>
+    {% else %}
+      <p class="docket">Docket: <strong>{{ status.docket_no }}</strong></p>
+      <ul class="timeline">
+        {% for stage in status.stages %}
+          <li class="{{ 'done' if stage.done else '' }}">
+            {{ stage.label }}
+            {% if stage.at %}<span class="ts">{{ stage.at.strftime('%d %b %Y, %I:%M %p') }}</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+      {% if status.carrier_redirect_url %}
+        <a class="btn" href="{{ status.carrier_redirect_url }}" target="_blank" rel="noopener">Track live with {{ status.courier_name }} →</a>
+      {% else %}
+        <p class="sub" style="margin-bottom:0;">Live carrier tracking will appear here once your shipment is dispatched.</p>
+      {% endif %}
+    {% endif %}
+  </div>
+</body>
+</html>

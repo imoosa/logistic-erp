@@ -5,49 +5,61 @@
 
 {% block extra_style %}
 <style>
-  .rp-header { background: linear-gradient(135deg, #16A34A, #15803D);
-    border-radius: 16px; padding: 24px 32px; margin-bottom: 28px; color: #fff; }
+  .rp-header {
+    background: linear-gradient(135deg, #16A34A, #15803D);
+    border-radius: 16px; padding: 24px 32px; margin-bottom: 28px; color: #fff;
+  }
+  body.dark-theme .rp-header {
+    background: linear-gradient(135deg, #15803D, #065F46);
+  }
   .rp-header h2 { font-size: 22px; margin-bottom: 4px; }
   .rp-header p  { opacity: .85; font-size: 13px; }
 
   .section-label { font-size: 11px; font-weight: 700; text-transform: uppercase;
-                   letter-spacing: .6px; color: var(--gray-400); margin-bottom: 12px; }
+                   letter-spacing: .6px; color: var(--text-muted); margin-bottom: 12px; }
 
   .mode-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
-  .mode-tab  { flex: 1; padding: 14px; border: 2px solid var(--gray-200); border-radius: 12px;
+  .mode-tab  { flex: 1; padding: 14px; border: 2px solid var(--border-color); border-radius: 12px;
                text-align: center; cursor: pointer; font-weight: 600; font-size: 13px;
-               color: var(--gray-500); transition: all .15s; text-decoration: none; display: block; }
+               color: var(--text-muted); transition: all .15s; text-decoration: none; display: block;
+               background: var(--bg-card); }
   .mode-tab.active-receipt { border-color: #16A34A; background: #DCFCE7; color: #16A34A; }
+  body.dark-theme .mode-tab.active-receipt { border-color: #34D399; background: rgba(5,150,105,0.15); color: #34D399; }
   .mode-tab:hover { border-color: var(--gray-400); }
 
-  .invoice-picker { border: 1.5px solid var(--gray-200); border-radius: 12px; overflow: hidden; margin-top: 8px; }
-  .invoice-picker-header { background: var(--gray-50); padding: 10px 16px; font-size: 11px;
+  .invoice-picker { border: 1.5px solid var(--border-color); border-radius: 12px; overflow: hidden; margin-top: 8px; }
+  .invoice-picker-header { background: var(--bg-table-alt); padding: 10px 16px; font-size: 11px;
                            font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
-                           color: var(--gray-500); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px; }
+                           color: var(--text-muted); display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px; }
   .inv-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 40px; gap: 8px;
-             align-items: center; padding: 12px 16px; border-top: 1px solid var(--gray-100);
+             align-items: center; padding: 12px 16px; border-top: 1px solid var(--border-color);
              transition: background .15s; }
   .inv-row:hover { background: var(--gray-50); }
+  body.dark-theme .inv-row:hover { background: rgba(255,255,255,0.03); }
   .inv-ref  { font-weight: 600; font-size: 13px; color: var(--primary); }
-  .inv-date { font-size: 12px; color: var(--gray-500); }
-  .inv-amt  { font-weight: 700; font-size: 13px; }
+  .inv-date { font-size: 12px; color: var(--text-muted); }
+  .inv-amt  { font-weight: 700; font-size: 13px; color: var(--text-body); }
   .inv-bal  { font-weight: 700; font-size: 13px; color: #DC2626; }
+  body.dark-theme .inv-bal { color: #F87171; }
   .inv-chk  { width: 18px; height: 18px; cursor: pointer; accent-color: #16A34A; }
+  body.dark-theme .inv-chk { accent-color: #34D399; }
 
   .pay-input-wrap { position: relative; }
   .pay-input-wrap .currency-sym { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
-                                   font-weight: 700; color: var(--gray-500); font-size: 15px; }
+                                   font-weight: 700; color: var(--text-muted); font-size: 15px; }
   .pay-input-wrap input { padding-left: 28px !important; font-size: 20px !important; font-weight: 700; }
 
   .method-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-top: 6px; }
-  .method-card { border: 2px solid var(--gray-200); border-radius: 10px; padding: 12px 8px;
-                 text-align: center; cursor: pointer; transition: all .15s; }
+  .method-card { border: 2px solid var(--border-color); border-radius: 10px; padding: 12px 8px;
+                 text-align: center; cursor: pointer; transition: all .15s; background: var(--bg-card); }
   .method-card input[type=radio] { display: none; }
   .method-card:has(input:checked) { border-color: #16A34A; background: #DCFCE7; color: #16A34A; }
+  body.dark-theme .method-card:has(input:checked) { border-color: #34D399; background: rgba(5,150,105,0.15); color: #34D399; }
   .method-icon { font-size: 22px; margin-bottom: 4px; }
-  .method-lbl  { font-size: 11px; font-weight: 600; }
+  .method-lbl  { font-size: 11px; font-weight: 600; color: var(--text-body); }
+  .method-card:has(input:checked) .method-lbl { color: #16A34A; }
+  body.dark-theme .method-card:has(input:checked) .method-lbl { color: #34D399; }
 
-  /* Bank account selector */
   .bank-selector-wrap {
     margin-top: 16px;
     padding: 16px;
@@ -56,21 +68,48 @@
     border-radius: 12px;
     display: none;
   }
+  body.dark-theme .bank-selector-wrap {
+    background: rgba(59,130,246,0.08);
+    border-color: rgba(59,130,246,0.3);
+  }
   .bank-selector-wrap.visible { display: block; }
+
+  .party-search { position: relative; }
+  .party-search-input { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border-color);
+                         border-radius: 8px; font-size: 14px; background: var(--bg-input);
+                         color: var(--text-body); }
+  .party-search-input:focus { outline: none; border-color: #16A34A; }
+  body.dark-theme .party-search-input:focus { border-color: #34D399; }
+  .party-dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; 
+                     border: 1.5px solid var(--border-color); border-radius: 10px; max-height: 240px;
+                     overflow-y: auto; z-index: 50; display: none; 
+                     background: var(--bg-dropdown); color: var(--text-body);
+                     box-shadow: var(--shadow-dropdown); }
+  .party-dropdown.open { display: block; }
+  .party-dropdown-item { padding: 9px 14px; font-size: 13.5px; cursor: pointer; }
+  .party-dropdown-item:hover, .party-dropdown-item.active { background: var(--gray-50); }
+  body.dark-theme .party-dropdown-item:hover, body.dark-theme .party-dropdown-item.active { background: rgba(255,255,255,0.05); }
+  .party-dropdown-empty { padding: 12px 14px; font-size: 13px; color: var(--text-muted); }
   .bank-option-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
   .bank-option-card {
     border: 2px solid #BFDBFE;
     border-radius: 10px;
     padding: 12px 14px;
     cursor: pointer;
-    background: white;
+    background: var(--bg-card);
     transition: all .15s;
   }
+  body.dark-theme .bank-option-card {
+    border-color: rgba(59,130,246,0.3);
+    background: var(--bg-card);
+  }
   .bank-option-card:has(input:checked) { border-color: #16A34A; background: #DCFCE7; }
+  body.dark-theme .bank-option-card:has(input:checked) { border-color: #34D399; background: rgba(5,150,105,0.12); }
   .bank-option-card input[type=radio] { display: none; }
-  .bank-option-name { font-weight: 700; font-size: 13px; color: #1E3A5F; }
-  .bank-option-sub  { font-size: 11px; color: #6B7280; margin-top: 2px; }
+  .bank-option-name { font-weight: 700; font-size: 13px; color: var(--text-body); }
+  .bank-option-sub  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .bank-option-bal  { font-size: 12px; font-weight: 700; color: #16A34A; margin-top: 6px; }
+  body.dark-theme .bank-option-bal { color: #34D399; }
   .no-bank-warning {
     padding: 12px 16px;
     background: #FEF3C7;
@@ -80,52 +119,151 @@
     color: #92400E;
     margin-top: 10px;
   }
+  body.dark-theme .no-bank-warning {
+    background: rgba(217,119,6,0.15);
+    border-color: rgba(217,119,6,0.3);
+    color: #FBBF24;
+  }
+  .no-bank-warning a { color: #92400E; }
+  body.dark-theme .no-bank-warning a { color: #FBBF24; }
 
-  .summary-strip { background: var(--gray-50); border: 1.5px solid var(--gray-200);
+  .summary-strip { background: var(--bg-table-alt); border: 1.5px solid var(--border-color);
                    border-radius: 12px; padding: 16px 20px; display: flex;
                    justify-content: space-between; align-items: center; margin: 20px 0; }
   .summary-strip .s-item { text-align: center; }
-  .summary-strip .s-val  { font-size: 18px; font-weight: 800; }
-  .summary-strip .s-lbl  { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+  .summary-strip .s-val  { font-size: 18px; font-weight: 800; color: var(--text-body); }
+  .summary-strip .s-lbl  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
   .submit-bar { display: flex; gap: 12px; justify-content: flex-end; padding-top: 8px; }
-  .no-invoices { text-align: center; padding: 40px; color: var(--gray-400); font-size: 14px; }
+  .no-invoices { text-align: center; padding: 40px; color: var(--text-muted); font-size: 14px; }
 
-  .date-filter-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
-    margin-bottom: 14px; padding: 12px 14px; background: var(--gray-50); border-radius: 8px; }
-  .date-filter-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--gray-600); font-weight: 600; }
-  .date-filter-bar input[type="date"] { padding: 6px 8px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 13px; }
+  /* ── Date Tabs ── */
+  .date-tabs-wrap {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0;
+  }
+  .date-tab-group {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .date-tab {
+    padding: 8px 16px;
+    border-radius: 8px 8px 0 0;
+    border: 1px solid var(--border-color);
+    border-bottom: none;
+    background: var(--bg-table-alt);
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    position: relative;
+    bottom: -2px;
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .date-tab:hover { background: #EEF2FF; color: #4F46E5; }
+  body.dark-theme .date-tab:hover { background: rgba(59,130,246,0.1); color: #60A5FA; }
+  .date-tab.active {
+    background: #012926;
+    color: #F59E0B;
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-card);
+    z-index: 1;
+  }
+  body.dark-theme .date-tab.active {
+    background: #011A18;
+    color: #F59E0B;
+    border-bottom-color: var(--bg-card);
+  }
+  .date-tab .tab-count {
+    display: inline-block;
+    background: #E0E7FF;
+    color: #000;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 6px;
+    margin-left: 4px;
+  }
+  body.dark-theme .date-tab .tab-count {
+    background: rgba(59,130,246,0.2);
+    color: #60A5FA;
+  }
+  .date-tab.active .tab-count { background: #012926; color: #F59E0B; }
+  body.dark-theme .date-tab.active .tab-count { background: #011A18; color: #F59E0B; }
+  .date-tab-calendar-btn {
+    padding: 8px 12px;
+    border-radius: 8px 8px 0 0;
+    border: 1px dashed var(--border-color);
+    border-bottom: none;
+    background: var(--bg-table-alt);
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    bottom: -2px;
+    transition: all 0.15s;
+  }
+  .date-tab-calendar-btn:hover { background: #EEF2FF; color: #4F46E5; border-color: #4F46E5; }
+  body.dark-theme .date-tab-calendar-btn:hover { background: rgba(59,130,246,0.1); color: #60A5FA; border-color: #60A5FA; }
+  .date-tab-calendar-input {
+    width: 1px; height: 1px;
+    padding: 0; border: none;
+    opacity: 0; pointer-events: none;
+  }
 
-  /* History table */
-  .history-section { margin-top: 32px; }
+  .day-panel { display: none; }
+  .day-panel.active { display: block; }
+
+  .history-section { margin-top: 16px; }
   .history-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .history-title { font-size: 16px; font-weight: 700; color: var(--gray-800); }
-  .history-count { font-size: 12px; color: var(--gray-400); background: var(--gray-100);
+  .history-title { font-size: 16px; font-weight: 700; color: var(--text-body); }
+  .history-count { font-size: 12px; color: var(--text-muted); background: var(--gray-100);
                    padding: 3px 10px; border-radius: 20px; }
+  body.dark-theme .history-count { background: rgba(255,255,255,0.05); }
+
   .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .history-table thead th { background: var(--gray-50); padding: 10px 14px; text-align: left;
+  .history-table thead th { background: var(--bg-table-alt); padding: 10px 14px; text-align: left;
                              font-size: 11px; font-weight: 700; text-transform: uppercase;
-                             letter-spacing: .5px; color: var(--gray-500);
-                             border-bottom: 2px solid var(--gray-200); }
-  .history-table tbody tr { border-bottom: 1px solid var(--gray-100); transition: background .12s; }
+                             letter-spacing: .5px; color: var(--text-muted);
+                             border-bottom: 2px solid var(--border-color); }
+  .history-table tbody tr { border-bottom: 1px solid var(--border-color); transition: background .12s; }
   .history-table tbody tr:hover { background: #F0FDF4; }
+  body.dark-theme .history-table tbody tr:hover { background: rgba(5,150,105,0.06); }
   .history-table tbody td { padding: 12px 14px; vertical-align: middle; }
   .ht-ref  { font-weight: 700; color: var(--primary); font-size: 13px; }
-  .ht-desc { font-size: 12px; color: var(--gray-500); margin-top: 2px; max-width: 280px;
+  .ht-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; max-width: 280px;
              white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ht-amt  { font-weight: 800; color: #16A34A; font-size: 14px; }
+  body.dark-theme .ht-amt { color: #34D399; }
   .mode-badge { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px;
                 font-weight: 700; }
   .mode-cash  { background: #DCFCE7; color: #15803D; }
+  body.dark-theme .mode-cash { background: rgba(5,150,105,0.2); color: #34D399; }
   .mode-bank  { background: #DBEAFE; color: #1D4ED8; }
+  body.dark-theme .mode-bank { background: rgba(59,130,246,0.15); color: #60A5FA; }
   .mode-upi   { background: #EDE9FE; color: #6D28D9; }
+  body.dark-theme .mode-upi { background: rgba(124,58,237,0.15); color: #A78BFA; }
   .mode-cheque{ background: #FEF3C7; color: #B45309; }
-  .no-history { text-align: center; padding: 48px; color: var(--gray-400); }
+  body.dark-theme .mode-cheque { background: rgba(217,119,6,0.15); color: #FBBF24; }
+  .no-history { text-align: center; padding: 48px; color: var(--text-muted); }
   .no-history-icon { font-size: 36px; margin-bottom: 10px; }
-  .search-bar { display: flex; gap: 10px; margin-bottom: 16px; }
-  .search-bar input { flex: 1; padding: 9px 14px; border: 1.5px solid var(--gray-200);
-                      border-radius: 9px; font-size: 13px; outline: none; }
-  .search-bar input:focus { border-color: #16A34A; }
+
+  .date-filter-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 14px; padding: 12px 14px; background: var(--bg-table-alt); border-radius: 8px;
+    border: 1px solid var(--border-color); }
+  .date-filter-bar label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); font-weight: 600; }
+  .date-filter-bar input[type="date"] { padding: 6px 8px; border: 1px solid var(--border-color); 
+                                         border-radius: 6px; font-size: 13px; background: var(--bg-input);
+                                         color: var(--text-body); }
 
   @media(max-width:768px){
     .method-grid{grid-template-columns:repeat(2,1fr);}
@@ -133,12 +271,12 @@
     .inv-row .inv-date,.invoice-picker-header span:nth-child(2){display:none;}
     .history-table .ht-desc { display: none; }
     .bank-option-grid { grid-template-columns: 1fr; }
+    .date-tab { padding: 6px 10px; font-size: 11px; }
   }
 </style>
 {% endblock %}
 
 {% block content %}
-
 <!-- Mode tabs -->
 <div class="mode-tabs">
   <a href="/receipts/new" class="mode-tab active-receipt">
@@ -166,14 +304,19 @@
       <div class="grid-2" style="margin-bottom:20px;">
         <div class="form-group" style="margin-bottom:0">
           <label>Client *</label>
-          <select name="entity_id" id="entitySelect" required onchange="loadInvoices()">
-            <option value="">— Choose —</option>
-            {% for e in entities %}
-            <option value="{{ e.id }}" {{ 'selected' if selected_id == e.id }}>
-              {{ e.name }}{% if e.pending %} — ₹{{ "{:,.0f}".format(e.pending) }} pending{% endif %}
-            </option>
-            {% endfor %}
-          </select>
+          <div class="party-search" id="partySearchWrap">
+            <input type="text" id="entitySearchInput" class="party-search-input"
+                   placeholder="Type to search client…" autocomplete="off">
+            <div id="entityDropdown" class="party-dropdown"></div>
+            <select name="entity_id" id="entitySelect" onchange="loadInvoices()" style="display:none">
+              <option value="">— Choose —</option>
+              {% for e in entities %}
+              <option value="{{ e.id }}" {{ 'selected' if selected_id == e.id }}>
+                {{ e.name }}{% if e.pending %} — ₹{{ "{:,.0f}".format(e.pending) }} pending{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:0">
           <label>Transaction Date *</label>
@@ -296,7 +439,7 @@
   </div>
 </form>
 
-<!-- ── Receipt History ── -->
+<!-- ── Receipt History (Date-wise grouped, newest first) ── -->
 <div class="card history-section">
   <div class="card-body">
     <div class="history-header">
@@ -308,65 +451,127 @@
       {% if selected_id %}<input type="hidden" name="client_id" value="{{ selected_id }}">{% endif %}
       <label>From <input type="date" name="date_from" value="{{ date_from }}"></label>
       <label>To <input type="date" name="date_to" value="{{ date_to }}"></label>
+      <input type="text" name="q" value="{{ search_q }}" placeholder="🔍 Search by reference, client, or amount…" style="flex:1; min-width:200px; padding:7px 12px; border:1.5px solid var(--gray-200); border-radius:8px; font-size:13px;">
       <button type="submit" class="btn btn-ghost" style="padding:6px 14px; font-size:13px;">Filter</button>
-      {% if date_from or date_to %}
+      {% if date_from or date_to or search_q %}
       <a href="/receipts/new{% if selected_id %}?client_id={{ selected_id }}{% endif %}" class="btn btn-ghost" style="padding:6px 14px; font-size:13px;">Clear</a>
       {% endif %}
     </form>
 
     {% if history %}
-    <div class="search-bar">
-      <input type="text" id="histSearch" placeholder="🔍 Search by reference, client, or amount…" oninput="filterHistory()">
+    {# Group history by date, newest first. Grouped and sorted on h.sort_date
+       (the real sortable value) rather than h.date (a display string like
+       "07 Aug 2026") — sorting the display string lexicographically does NOT
+       give chronological order, which was why the latest date wasn't landing
+       first. date_labels keeps the pretty label to show per tab/panel. #}
+    {% set grouped_history = {} %}
+    {% set date_labels = {} %}
+    {% for h in history|sort(attribute='sort_date', reverse=true) %}
+      {% set date_key = h.sort_date %}
+      {% if date_key not in grouped_history %}
+        {% set _ = grouped_history.update({date_key: []}) %}
+        {% set _ = date_labels.update({date_key: h.date}) %}
+      {% endif %}
+      {% set _ = grouped_history[date_key].append(h) %}
+    {% endfor %}
+
+    {% set date_keys = grouped_history.keys()|list|sort(reverse=true) %}
+
+    <!-- Date Tabs — only the 5 most recent days; older ones are reached via
+         the calendar jump button, which re-filters history to that day. -->
+    <div class="date-tabs-wrap">
+      <div class="date-tab-group">
+        {% for d in date_keys[:5] %}
+          {% set day_list = grouped_history[d] %}
+          <div class="date-tab {% if loop.first %}active{% endif %}"
+               onclick="switchTab('{{ d }}')"
+               id="tab-{{ d }}">
+            {{ date_labels[d] }}
+            <span class="tab-count">{{ day_list|length }}</span>
+          </div>
+        {% endfor %}
+      </div>
+      <button type="button" class="date-tab-calendar-btn" title="Jump to a date"
+              onclick="const el=document.getElementById('jumpToDate'); el.showPicker ? el.showPicker() : el.focus();">
+        📅
+      </button>
+      <input type="date" id="jumpToDate" class="date-tab-calendar-input"
+             onchange="jumpToDate(this.value)">
     </div>
-    <div style="overflow-x:auto;">
-      <table class="history-table" id="histTable">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Date</th>
-            <th>Invoice Ref</th>
-            <th>Description</th>
-            <th>Mode</th>
-            <th>Bank / Account</th>
-            <th style="text-align:right;">Amount</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for h in history %}
-          <tr>
-            <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
-            <td style="font-size:12px; color:var(--gray-600); white-space:nowrap;">{{ h.date }}</td>
-            <td><div class="ht-ref">{{ h.reference }}</div></td>
-            <td><div class="ht-desc" title="{{ h.client }}">{{ h.client }}</div></td>
-            <td>
-              {% set m = h.mode|lower %}
-              <span class="mode-badge {% if m == 'cash' %}mode-cash{% elif m == 'upi' %}mode-upi{% elif 'cheque' in m %}mode-cheque{% else %}mode-bank{% endif %}">
-                {{ h.mode }}
-              </span>
-            </td>
-            <td style="font-size:12px; color:var(--gray-600);">{{ h.bank_name or '—' }}</td>
-            <td style="text-align:right;"><span class="ht-amt">₹{{ "{:,.2f}".format(h.amount) }}</span></td>
-            <td style="font-size:12px; color:var(--gray-500);">{{ h.notes }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr style="border-top: 2px solid var(--gray-200); background: var(--gray-50);">
-            <td colspan="6" style="padding:12px 14px; font-weight:700; font-size:13px;">Total Received</td>
-            <td style="text-align:right; padding:12px 14px; font-weight:800; font-size:15px; color:#16A34A;">
-              ₹{{ "{:,.2f}".format(history|sum(attribute='amount')) }}
-            </td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
+
+    <!-- Day Panels -->
+    {% for d in date_keys %}
+      <div class="day-panel {% if loop.first %}active{% endif %}" id="panel-{{ d }}">
+        <div style="padding:8px 0 10px 0; font-weight:700; font-size:14px; color:var(--gray-700); border-bottom:2px solid var(--gray-200); margin-bottom:12px;">
+          📅 {{ date_labels[d] }}
+          <span style="font-weight:400; font-size:12px; color:var(--gray-500); margin-left:10px;">
+            {{ grouped_history[d]|length }} receipt(s) — ₹{{ "{:,.2f}".format(grouped_history[d]|sum(attribute='amount')) }}
+          </span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Invoice Ref</th>
+                <th>Client</th>
+                <th>Description</th>
+                <th>Mode</th>
+                <th>Bank / Account</th>
+                <th style="text-align:right;">Amount</th>
+                <th>Notes</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in grouped_history[d] %}
+              <tr>
+                <td style="color:var(--gray-400); font-size:12px;">{{ loop.index }}</td>
+                <td><div class="ht-ref">{{ h.reference }}</div></td>
+                <td style="font-weight:600; color:var(--gray-800);">{{ h.client }}</td>
+                <td><div class="ht-desc" title="{{ h.description }}">{{ h.description }}</div></td>
+                <td>
+                  {% set m = h.mode|lower %}
+                  <span class="mode-badge {% if m == 'cash' %}mode-cash{% elif m == 'upi' %}mode-upi{% elif 'cheque' in m %}mode-cheque{% else %}mode-bank{% endif %}">
+                    {{ h.mode }}
+                  </span>
+                </td>
+                <td style="font-size:12px; color:var(--gray-600);">{{ h.bank_name or '—' }}</td>
+                <td style="text-align:right;"><span class="ht-amt">₹{{ "{:,.2f}".format(h.amount) }}</span></td>
+                <td style="font-size:12px; color:var(--gray-500);">{{ h.notes }}</td>
+                <td>
+                  <a href="/receipt/delete?id={{ h.id }}&type={{ h.txn_type }}"
+                     onclick="return confirm('Delete this receipt of ₹{{ '{:,.2f}'.format(h.amount) }} from {{ h.client }}? This will reverse it from the invoice and cannot be undone.');"
+                     title="Delete receipt" style="color:#DC2626; font-size:16px; text-decoration:none;">🗑️</a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr style="border-top: 2px solid var(--gray-200); background: var(--gray-50);">
+                <td colspan="5" style="padding:12px 14px; font-weight:700; font-size:13px;">Total for {{ date_labels[d] }}</td>
+                <td style="text-align:right; padding:12px 14px; font-weight:800; font-size:15px; color:#16A34A;">
+                  ₹{{ "{:,.2f}".format(grouped_history[d]|sum(attribute='amount')) }}
+                </td>
+                <td></td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    {% endfor %}
+
     {% else %}
     <div class="no-history">
       <div class="no-history-icon">📭</div>
+      {% if search_q or date_from or date_to %}
+      <div style="font-weight:600; color:var(--gray-600); margin-bottom:4px;">No receipts match this search / filter</div>
+      <div style="font-size:13px;">Try a different reference, name, amount, or date range.</div>
+      {% else %}
       <div style="font-weight:600; color:var(--gray-600); margin-bottom:4px;">No receipts recorded yet</div>
       <div style="font-size:13px;">Receipts you save above will appear here.</div>
+      {% endif %}
     </div>
     {% endif %}
   </div>
@@ -383,7 +588,6 @@
     const wrap = document.getElementById('bankSelectorWrap');
     if (mode !== 'Cash') {
       wrap.classList.add('visible');
-      // make bank_account_id required only if we have bank accounts
       if (HAS_BANK_ACCOUNTS) {
         document.querySelectorAll('input[name="bank_account_id"]').forEach(r => r.required = true);
       }
@@ -450,16 +654,102 @@
     document.getElementById('submitBtn').disabled = (paying <= 0);
   }
 
-  function filterHistory(){
-    const q = document.getElementById('histSearch').value.toLowerCase();
-    document.querySelectorAll('#histTable tbody tr').forEach(row => {
-      row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  function initPartySearch(selectId, inputId, dropdownId, wrapId){
+    const select   = document.getElementById(selectId);
+    const input    = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+
+    const options = Array.from(select.options)
+      .filter(o => o.value !== '')
+      .map(o => ({ value: o.value, label: o.textContent.trim() }));
+
+    let filtered = options;
+    let activeIndex = -1;
+
+    if (select.value) {
+      const sel = options.find(o => o.value === select.value);
+      if (sel) input.value = sel.label;
+    }
+
+    function render(){
+      if (filtered.length === 0) {
+        dropdown.innerHTML = '<div class="party-dropdown-empty">No match found</div>';
+        return;
+      }
+      dropdown.innerHTML = filtered.map((o, i) =>
+        `<div class="party-dropdown-item${i === activeIndex ? ' active' : ''}" data-value="${o.value}">${o.label}</div>`
+      ).join('');
+    }
+    function openDropdown(){
+      filtered = options.filter(o => o.label.toLowerCase().includes(input.value.trim().toLowerCase()));
+      activeIndex = -1;
+      render();
+      dropdown.classList.add('open');
+    }
+    function closeDropdown(){ dropdown.classList.remove('open'); }
+    function choose(opt){
+      select.value = opt.value;
+      input.value = opt.label;
+      closeDropdown();
+      select.dispatchEvent(new Event('change'));
+    }
+
+    input.addEventListener('focus', openDropdown);
+    input.addEventListener('input', openDropdown);
+    input.addEventListener('keydown', function(e){
+      if (!dropdown.classList.contains('open')) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); activeIndex = Math.min(activeIndex + 1, filtered.length - 1); render(); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); activeIndex = Math.max(activeIndex - 1, 0); render(); }
+      else if (e.key === 'Enter') { e.preventDefault(); if (activeIndex >= 0 && filtered[activeIndex]) choose(filtered[activeIndex]); }
+      else if (e.key === 'Escape') { closeDropdown(); }
+    });
+    dropdown.addEventListener('mousedown', function(e){
+      const item = e.target.closest('.party-dropdown-item');
+      if (!item) return;
+      const opt = filtered.find(o => String(o.value) === item.dataset.value);
+      if (opt) choose(opt);
+    });
+    document.addEventListener('click', function(e){
+      if (!e.target.closest('#' + wrapId)) closeDropdown();
     });
   }
 
+  // ── Date tab switching ──
+  function switchTab(dateStr) {
+    document.querySelectorAll('.day-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.date-tab').forEach(t => t.classList.remove('active'));
+
+    const panel = document.getElementById('panel-' + dateStr);
+    const tab   = document.getElementById('tab-'   + dateStr);
+    if (panel) panel.classList.add('active');
+    if (tab)   tab.classList.add('active');
+  }
+
+  // ── Jump to an older date via the calendar picker ──
+  // Only the 5 most recent days get a tab; anything older isn't in the page
+  // at all, so this re-requests the page filtered to that single day (same
+  // date_from/date_to filter the "From/To" bar above already uses) rather
+  // than trying to reveal a panel that was never rendered.
+  function jumpToDate(dateStr) {
+    if (!dateStr) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('date_from', dateStr);
+    url.searchParams.set('date_to', dateStr);
+    window.location.href = url.toString();
+  }
+
   window.addEventListener('DOMContentLoaded', () => {
+    initPartySearch('entitySelect', 'entitySearchInput', 'entityDropdown', 'partySearchWrap');
     if(document.getElementById('entitySelect').value){ loadInvoices(); }
-    onModeChange(); // set initial state
+    onModeChange();
+  });
+
+  document.getElementById('rpForm').addEventListener('submit', function(e){
+    if (!document.getElementById('entitySelect').value) {
+      e.preventDefault();
+      alert('Please select a client.');
+      document.getElementById('entitySearchInput').focus();
+    }
   });
 </script>
 {% endblock %}

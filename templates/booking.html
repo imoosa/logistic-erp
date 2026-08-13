@@ -1,0 +1,3306 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Customer Invoice' if is_edit else 'Customer Invoice' }}{% endblock %}
+{% block page_title %}{{ '✏️ Edit Customer Invoice' if is_edit else '🚚 Customer Invoice' }}{% endblock %}
+{% set active = 'invoice' %}
+
+{% block extra_style %}
+<style>
+  :root {
+    --surface-success-bg: #F0FDF4; --surface-success-text: #15803D; --surface-success-text-strong: #16A34A;
+    --surface-danger-bg: #FEF2F2; --surface-danger-text: #DC2626; --surface-danger-text-strong: #991B1B;
+    --surface-info-bg: #EEF2FF; --surface-info-text: #4338CA; --surface-info-text-strong: #4F46E5;
+    --surface-warning-bg: #FFFBEB; --surface-warning-bg-strong: #FEF3C7; --surface-warning-text: #92400E; --surface-warning-text-strong: #78350F;
+  }
+  body.dark-theme {
+    --surface-success-bg: rgba(5,150,105,0.15); --surface-success-text: #34D399; --surface-success-text-strong: #34D399;
+    --surface-danger-bg: rgba(220,38,38,0.12); --surface-danger-text: #F87171; --surface-danger-text-strong: #F87171;
+    --surface-info-bg: rgba(79,70,229,0.18); --surface-info-text: #A5B4FC; --surface-info-text-strong: #A5B4FC;
+    --surface-warning-bg: rgba(217,119,6,0.15); --surface-warning-bg-strong: rgba(217,119,6,0.2); --surface-warning-text: #FBBF24; --surface-warning-text-strong: #FBBF24;
+  }
+  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border-color); }
+  .billing-box { background:var(--bg-table-alt); border-radius:10px; padding:18px; margin-top:16px; }
+  .billing-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
+  .billing-row.grand { font-size:17px; font-weight:800; border-top:2px solid var(--border-color); margin-top:8px; padding-top:12px; }
+  .del-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:18px; padding:4px 8px; border-radius:6px; }
+  .del-btn:hover { color:#DC2626; background:#FEE2E2; }
+
+  /* Package table */
+  .pkg-table { width:100%; border-collapse:collapse; }
+  .pkg-table th { padding:10px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#16A34A; text-align:left; }
+  .pkg-table td { padding:6px; border-top:1px solid var(--border-color); }
+  .pkg-totals { display:flex; gap:24px; margin-top:14px; padding:12px 16px; background:#DCFCE7; border-radius:10px; font-size:13px; }
+  .pkg-totals span { font-weight:700; color:#15803D; }
+
+  /* Payment tabs */
+  .pay-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .pay-tab { padding:8px 18px; border-radius:20px; border:1.5px solid var(--border-color); font-size:13px; font-weight:600; cursor:pointer; background:var(--bg-input); color:var(--text-muted); transition:all .15s; user-select:none; }
+  .pay-tab.active { border-color:#4F46E5; background:#EEF2FF; color:#4F46E5; }
+
+  /* Laptop screens (1024–1440px, where a sidebar usually eats the width first) */
+  @media (max-width:1440px) and (min-width:1025px) {
+    .pay-tab { padding:6px 12px; font-size:12px; }
+    .perf-tab-btn { padding:5px 10px; font-size:11px; }
+  }
+  @media (max-width:1024px) {
+    .pay-tab { padding:5px 10px; font-size:11.5px; }
+    .perf-tab-btn { padding:4px 9px; font-size:10.5px; }
+  }
+
+  /* UPI grid */
+  .upi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; margin-top:10px; }
+  .upi-chip { display:flex; flex-direction:column; align-items:center; gap:5px; padding:10px 8px; border:1.5px solid var(--border-color); border-radius:10px; cursor:pointer; font-size:11.5px; font-weight:600; color:var(--text-muted); transition:all .15s; background:var(--bg-input); text-align:center; user-select:none; }
+  .upi-chip:hover { border-color:#4F46E5; background:#EEF2FF; }
+  .upi-chip.selected { border-color:#4F46E5; background:#EEF2FF; color:#4F46E5; }
+  .upi-icon { font-size:22px; display:block; margin-bottom:2px; }
+
+  /* Errors */
+  .error-banner { background:#FEF2F2; border:1px solid #FECACA; border-radius:10px; padding:14px 18px; margin-bottom:16px; display:none; }
+  .error-banner ul { margin:6px 0 0 18px; color:#DC2626; font-size:13px; }
+  .error-banner .error-title { font-weight:700; color:#DC2626; font-size:14px; }
+  input.field-error, select.field-error { border-color:#DC2626 !important; background:#FFF5F5; }
+  
+  /* Searchable customer / credit-account dropdown */
+  .cust-search-wrap { position:relative; }
+  .cust-search-input { width:100%; padding:7px 10px; border:1.5px solid #0D9488; border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .cust-search-list { display:none; position:absolute; z-index:40; top:calc(100% + 4px); left:0; right:0; max-height:240px; overflow-y:auto; background:var(--bg-input); border:1.5px solid #0D9488; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,.12); }
+  .cust-search-list.open { display:block; }
+  .cust-search-item { padding:8px 12px; font-size:13px; cursor:pointer; color:var(--text-body); border-bottom:1px solid var(--border-color); }
+  .cust-search-item:last-child { border-bottom:none; }
+  .cust-search-item .csi-code { color:var(--text-muted); font-size:11px; margin-left:6px; }
+  .cust-search-item:hover, .cust-search-item.hi { background:#EEF2FF; color:#4338CA; }
+  .cust-search-empty { padding:10px 12px; font-size:12.5px; color:var(--text-muted); }
+
+  /* Address fields */
+  .address-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .address-grid .full-width { grid-column:1 / -1; }
+  .address-grid .half-width { grid-column:span 1; }
+  @media(max-width:600px){ .address-grid { grid-template-columns:1fr; } .address-grid .full-width, .address-grid .half-width { grid-column:1; } }
+
+  /* Three-panel inline layout responsive collapse */
+  @media(max-width:1100px){
+    .three-panel-grid { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media(max-width:700px){
+    .three-panel-grid { grid-template-columns: 1fr !important; }
+  }
+  /* Force all inputs/selects inside panels to respect column width */
+  .three-panel-grid input,
+  .three-panel-grid select { width:100%; min-width:0; box-sizing:border-box; }
+
+  /* Dark blue input borders + tighter spacing across the invoice form */
+  #custInvForm input[type="text"],
+  #custInvForm input[type="number"],
+  #custInvForm input[type="date"],
+  #custInvForm input[type="email"],
+  #custInvForm select,
+  #custInvForm textarea { border:1.5px solid #0D9488; border-radius:6px; }
+  #custInvForm input[disabled] { border-color:var(--border-color); }
+  #custInvForm input[type="text"]:focus,
+  #custInvForm input[type="number"]:focus,
+  #custInvForm input[type="date"]:focus,
+  #custInvForm select:focus { border-color:#0D9488; outline:none; box-shadow:0 0 0 2px rgba(13,148,136,.15); }
+  #custInvForm .form-group { margin-bottom:8px; }
+  #custInvForm .grid-2, #custInvForm .grid-3 { gap:8px; }
+  #custInvForm .address-grid { gap:8px; }
+  #custInvForm .card-body { padding-top:14px; padding-bottom:14px; }
+  #custInvForm .section-title { margin-bottom:8px; padding-bottom:6px; }
+
+  /* Compact readonly weight chips shown in Service Details (moved from Packages) */
+  .svc-weight-chip { border:1.5px solid #0D9488; border-radius:6px; padding:6px 10px; font-size:13px; font-weight:700; color:#0D9488; background:#F0FDFA; }
+  .svc-weight-chip .svc-weight-lbl { display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px; letter-spacing:.3px; }
+
+  /* Packages section collapse (mirrors Performa Invoice collapse) */
+  .pkg-collapsed-bar { background:#012926; border-radius:6px; padding:16px 22px; font-size:14.5px; color:#F59E0B; cursor:pointer; font-weight:700; display:none;}
+  .pkg-collapsed-bar:hover { background:#C7CBD1; }
+  .pkg-section.pkg-collapsed .pkg-collapsed-bar { display:block; }
+  .pkg-section.pkg-collapsed .pkg-body-wrap { display:none; }
+  .pkg-entry-grid { display:grid; grid-template-columns: minmax(100px,1.1fr) minmax(80px,0.9fr) minmax(55px,0.6fr) minmax(55px,0.6fr) minmax(55px,0.6fr) minmax(55px,0.6fr) minmax(70px,0.7fr) minmax(70px,0.75fr) minmax(85px,0.9fr) minmax(130px,1.3fr) minmax(85px,0.9fr) auto; gap:8px; align-items:end; }
+  .pkg-entry-grid label { font-size:10.5px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:3px; white-space:nowrap; }
+  .pkg-entry-grid input, .pkg-entry-grid select { width:100%; padding:6px 7px; border:1.5px solid #0D9488; border-radius:6px; font-size:12.5px; box-sizing:border-box; }
+  @media(max-width:1200px){ .pkg-entry-grid { grid-template-columns:repeat(4,1fr); } }
+  @media(max-width:700px){ .pkg-entry-grid { grid-template-columns:repeat(2,1fr); } }
+
+  /* Performa Invoice collapse */
+  .perf-header { cursor:pointer; user-select:none; }
+  .perf-header:hover .perf-toggle-icon { color:#4338CA; }
+  .perf-toggle-icon { font-size:13px; color:var(--text-muted); transition:transform .2s ease; display:inline-block; }
+  .perf-collapsed .perf-toggle-icon { transform:rotate(-90deg); }
+  .perf-body-wrap { overflow:hidden; }
+  .perf-collapsed .perf-body-wrap { display:none; }
+  .perf-collapsed-summary { display:none; font-size:12px; color:var(--text-muted); }
+  .perf-collapsed .perf-collapsed-summary { display:inline; }
+  .perf-collapsed-summary-bar { display:none; }
+  .perf-collapsed .perf-collapsed-summary-bar { display:block; }
+
+  /* Performa Invoice table */
+  .performa-table { width:100%; border-collapse:collapse; }
+  .performa-table th { padding:10px 8px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#4F46E5; text-align:left; }
+  .performa-table td { padding:6px 8px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+  .performa-table tfoot td { background:var(--bg-table-alt); font-weight:700; }
+  .performa-totals { display:flex; justify-content:flex-end; margin-top:14px; }
+  .performa-totals-box { background:#EEF2FF; border-radius:10px; padding:14px 20px; min-width:260px; }
+  .performa-total-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
+  .performa-total-row.grand { font-size:16px; font-weight:800; border-top:2px solid #C7D2FE; margin-top:6px; padding-top:10px; color:#4338CA; }
+
+  /* Performa — manifest-style header (matches reference layout) */
+  .perf-collapsed-bar { background:#012926; border-radius:6px; padding:16px 22px; font-size:14.5px; color:#F59E0B; cursor:pointer; font-weight:700; }
+  .perf-collapsed-bar:hover { background:#C7CBD1; }
+
+  .manifest-badge { display:inline-block; background:#1E293B; color:#fff; font-size:11px; font-weight:700; letter-spacing:.3px; padding:6px 16px; border-radius:20px; margin-bottom:16px; }
+  .perf-meta-grid { display:grid; grid-template-columns:1fr 1fr auto 1fr; gap:16px; margin-bottom:16px; align-items:end; }
+  .perf-meta-grid.row2 { grid-template-columns:1fr 1fr 1fr 1fr; }
+  .perf-meta-grid label, .perf-entry-grid label { font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px; }
+  .perf-meta-grid select, .perf-meta-grid input { width:100%; padding:8px 10px; border:1.5px solid var(--border-color); border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .perf-meta-grid input[readonly] { background:var(--bg-input-disabled); color:var(--text-muted); }
+  .yn-toggle { display:flex; border-radius:6px; overflow:hidden; border:1.5px solid var(--border-color); width:fit-content; }
+  .yn-btn { padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer; background:var(--bg-input); color:var(--text-muted); user-select:none; }
+  .yn-btn.active { background:#16A34A; color:#fff; }
+  .perf-entry-panel { background:var(--bg-table-alt); border:1px solid var(--border-color); border-radius:10px; padding:14px; margin-bottom:14px; }
+  .perf-entry-grid { display:grid; grid-template-columns:90px 1.8fr 110px 80px 80px 110px 100px 100px; gap:10px; align-items:end; }
+  .perf-entry-grid select, .perf-entry-grid input { width:100%; padding:7px 8px; border:1.5px solid var(--border-color); border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .perf-entry-row { margin-bottom:8px; padding-bottom:8px; border-bottom:1px dashed var(--border-color); }
+  .perf-entry-row .perf-box-no { padding:7px 8px; font-size:13px; color:#4338CA; font-weight:700; background:#EEF2FF; border-radius:6px; text-align:center; }
+  .btn-add-perf { background:#1E293B; color:#fff; border:none; border-radius:6px; padding:8px 16px; font-weight:700; font-size:13px; cursor:pointer; white-space:nowrap; height:36px; }
+  .btn-add-perf:hover { background:#334155; }
+  .perf-tabs-bar { display:none; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .perf-tabs-bar.show { display:flex; }
+  .perf-tab-btn { padding:6px 14px; border-radius:16px; border:1.5px solid #C7D2FE; font-size:12px; font-weight:700; cursor:pointer; background:var(--bg-input); color:#4338CA; user-select:none; }
+  .perf-tab-btn:hover { background:#EEF2FF; }
+  .perf-tab-btn.active { background:#4338CA; color:#fff; border-color:#4338CA; }
+  .perf-tab-btn.filled:not(.active)::after { content:" ✓"; color:#16A34A; }
+  .perf-tabs-hint { font-size:11.5px; color:var(--text-muted); margin-top:8px; }
+  @media(max-width:1100px){ .perf-entry-grid { grid-template-columns:repeat(2,1fr); } .perf-meta-grid, .perf-meta-grid.row2 { grid-template-columns:1fr 1fr; } }
+
+  /* Print buttons bar */
+  .print-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+  .print-btn { display:flex; align-items:center; gap:7px; padding:10px 18px; border-radius:8px; border:1.5px solid; font-size:13px; font-weight:600; cursor:pointer; background:var(--bg-input); transition:all .15s; }
+  .print-btn:hover { filter:brightness(0.95); transform:translateY(-1px); }
+  .print-btn-invoice { border-color:#16A34A; color:#16A34A; }
+  .print-btn-invoice:hover { background:#DCFCE7; }
+  .print-btn-performa { border-color:#4F46E5; color:#4F46E5; }
+  .print-btn-performa:hover { background:#EEF2FF; }
+  .print-btn-docket { border-color:#DC2626; color:#DC2626; }
+  .print-btn-docket:hover { background:#FEE2E2; }
+  .print-btn-box { border-color:#D97706; color:#D97706; }
+  .print-btn-box:hover { background:#FEF3C7; }
+
+  /* Dark-theme overrides for pastel accent surfaces */
+  body.dark-theme .pkg-totals { background: rgba(5,150,105,0.15); }
+  body.dark-theme .pkg-totals span { color: #34D399; }
+  body.dark-theme .pay-tab.active,
+  body.dark-theme .upi-chip:hover,
+  body.dark-theme .upi-chip.selected,
+  body.dark-theme .cust-search-item:hover,
+  body.dark-theme .cust-search-item.hi,
+  body.dark-theme .performa-totals-box,
+  body.dark-theme .perf-entry-row .perf-box-no,
+  body.dark-theme .perf-tab-btn:hover { background: rgba(79,70,229,0.18); }
+  body.dark-theme .svc-weight-chip { background: rgba(13,148,136,0.15); }
+  body.dark-theme .error-banner { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.3); }
+  input.field-error, select.field-error { background: #FFF5F5; }
+  body.dark-theme input.field-error, body.dark-theme select.field-error { background: rgba(220,38,38,0.12); }
+  body.dark-theme .print-btn-invoice:hover { background: rgba(5,150,105,0.15); }
+  body.dark-theme .print-btn-performa:hover { background: rgba(79,70,229,0.18); }
+  body.dark-theme .print-btn-docket:hover { background: rgba(220,38,38,0.15); }
+  body.dark-theme .print-btn-box:hover { background: rgba(217,119,6,0.18); }
+
+  /* ── PRINT STYLES ────────────────────────────────────────────── */
+  @media print {
+    body * { visibility: hidden !important; }
+    #printArea, #printArea * { visibility: visible !important; }
+    #printArea { position: fixed; top:0; left:0; width:100%; }
+    .no-print { display:none !important; }
+  }
+
+  /* Print layouts - hidden on screen */
+  #printCustomerInvoice, #printPerformaInvoice, #printDocket, #printBoxLabel { display:none; }
+
+  /* Customer invoice print */
+  .pi-page { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#111; max-width:210mm; margin:0 auto; padding:20px; }
+  .pi-logo-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:14px; border-bottom:3px solid #16A34A; }
+  .pi-company-name { font-size:22px; font-weight:900; color:#16A34A; letter-spacing:-0.5px; }
+  .pi-sub { font-size:11px; color:#6B7280; }
+  .pi-title { font-size:18px; font-weight:800; color:#1F2937; text-align:right; }
+  .pi-inv-no { font-size:13px; color:#4B5563; text-align:right; }
+  .pi-party-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:18px; }
+  .pi-party-box { background:#F9FAFB; border-radius:8px; padding:12px 14px; border-left:3px solid #16A34A; }
+  .pi-party-label { font-size:9px; text-transform:uppercase; font-weight:800; color:#6B7280; letter-spacing:1px; margin-bottom:6px; }
+  .pi-party-name { font-size:13px; font-weight:700; color:#111; margin-bottom:3px; }
+  .pi-party-addr { font-size:11px; color:#4B5563; line-height:1.5; }
+  .pi-meta-row { display:flex; gap:20px; margin-bottom:16px; }
+  .pi-meta-item { flex:1; background:#F3F4F6; border-radius:6px; padding:8px 12px; }
+  .pi-meta-label { font-size:9px; text-transform:uppercase; font-weight:700; color:#6B7280; letter-spacing:.8px; }
+  .pi-meta-val { font-size:13px; font-weight:700; color:#111; }
+  .pi-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+  .pi-table th { background:#16A34A; color:#fff; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.6px; text-align:left; }
+  .pi-table td { padding:8px 10px; border-bottom:1px solid #E5E7EB; font-size:11px; }
+  .pi-table tr:nth-child(even) td { background:#F9FAFB; }
+  .pi-totals { display:flex; justify-content:flex-end; }
+  .pi-totals-box { min-width:260px; }
+  .pi-total-row { display:flex; justify-content:space-between; padding:5px 10px; font-size:12px; border-bottom:1px solid #F3F4F6; }
+  .pi-grand { font-size:15px; font-weight:800; background:#16A34A; color:#fff; border-radius:6px; padding:10px 10px; margin-top:4px; display:flex; justify-content:space-between; }
+  .pi-footer { margin-top:30px; padding-top:14px; border-top:1px solid #E5E7EB; display:flex; justify-content:space-between; font-size:10px; color:#6B7280; }
+  .pi-sig-box { text-align:right; }
+  .pi-sig-line { border-top:1px solid #9CA3AF; width:140px; margin-top:40px; padding-top:4px; font-size:10px; color:#6B7280; }
+
+  /* Performa invoice print */
+  .pf-page { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#111; max-width:210mm; margin:0 auto; padding:20px; }
+  .pf-header { background:linear-gradient(135deg,#4F46E5,#7C3AED); color:#fff; border-radius:10px; padding:18px 22px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; }
+  .pf-company { font-size:20px; font-weight:900; }
+  .pf-type-label { font-size:24px; font-weight:900; opacity:0.9; }
+  .pf-party-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+  .pf-party-box { border:1.5px solid #E5E7EB; border-radius:8px; padding:12px 14px; }
+  .pf-party-label { font-size:9px; font-weight:800; text-transform:uppercase; color:#4F46E5; letter-spacing:1px; margin-bottom:5px; }
+  .pf-party-name { font-size:13px; font-weight:700; margin-bottom:3px; }
+  .pf-table { width:100%; border-collapse:collapse; margin-bottom:14px; }
+  .pf-table th { background:#4F46E5; color:#fff; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.5px; text-align:left; }
+  .pf-table td { padding:8px 10px; border-bottom:1px solid #E5E7EB; font-size:11px; }
+  .pf-table tr:nth-child(even) td { background:#F5F3FF; }
+  .pf-grand-box { background:#4F46E5; color:#fff; border-radius:8px; padding:12px 18px; display:flex; justify-content:space-between; align-items:center; font-size:16px; font-weight:800; margin-top:10px; }
+  .pf-note { margin-top:16px; padding:10px 14px; background:#F5F3FF; border-radius:6px; font-size:10px; color:#4B5563; border-left:3px solid #4F46E5; }
+
+  /* Docket print */
+  .dk-page { font-family:'Courier New',monospace; font-size:12px; color:#111; max-width:190mm; margin:0 auto; border:2px solid #111; }
+  .dk-header { background:#1F2937; color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+  .dk-co { font-size:18px; font-weight:900; letter-spacing:1px; }
+  .dk-awb-big { font-size:28px; font-weight:900; letter-spacing:3px; color:#FCD34D; }
+  .dk-body { padding:16px 20px; }
+  .dk-parties { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:16px; border-bottom:2px dashed #9CA3AF; padding-bottom:16px; }
+  .dk-party-label { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid #111; margin-bottom:6px; padding-bottom:3px; }
+  .dk-party-name { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .dk-party-addr { font-size:11px; line-height:1.6; color:#374151; }
+  .dk-meta-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; padding-bottom:14px; border-bottom:2px dashed #9CA3AF; }
+  .dk-meta-cell { border:1px solid #D1D5DB; padding:8px; border-radius:4px; }
+  .dk-meta-label { font-size:9px; text-transform:uppercase; font-weight:700; color:#6B7280; display:block; margin-bottom:3px; }
+  .dk-meta-val { font-size:13px; font-weight:800; }
+  .dk-pkg-table { width:100%; border-collapse:collapse; margin-bottom:12px; }
+  .dk-pkg-table th { border:1px solid #374151; background:#374151; color:#fff; padding:6px 8px; font-size:10px; text-transform:uppercase; }
+  .dk-pkg-table td { border:1px solid #D1D5DB; padding:6px 8px; font-size:11px; }
+  .dk-barcode-row { text-align:center; padding:14px; border-top:2px dashed #9CA3AF; font-size:22px; letter-spacing:6px; font-weight:900; }
+  .dk-sig { display:flex; justify-content:space-between; margin-top:12px; font-size:10px; color:#6B7280; border-top:1px solid #D1D5DB; padding-top:10px; }
+  .dk-sig-line { border-top:1px solid #9CA3AF; width:120px; margin-top:30px; }
+
+  /* Box label print - PXC style */
+  .bx-page { font-family:'Arial',sans-serif; font-size:11px; color:#000; }
+  .bx-label { border:2px solid #000; margin:0 auto 20px; max-width:200mm; page-break-inside:avoid; }
+  /* Header row */
+  .bx-header { display:grid; grid-template-columns:auto 1fr auto; align-items:center; border-bottom:2px solid #000; padding:10px 14px; gap:12px; }
+  .bx-logo-area { display:flex; align-items:center; gap:8px; }
+  .bx-logo-icon { font-size:28px; }
+  .bx-company-name { font-size:16px; font-weight:900; line-height:1.1; }
+  .bx-company-sub { font-size:8px; color:#444; font-weight:400; }
+  .bx-page-count { font-size:20px; font-weight:900; text-align:right; }
+  /* Meta grid row */
+  .bx-meta-top { display:grid; grid-template-columns:repeat(6,1fr); border-bottom:1px solid #000; }
+  .bx-meta-cell { padding:5px 8px; border-right:1px solid #000; }
+  .bx-meta-cell:last-child { border-right:none; }
+  .bx-meta-lbl { font-size:8px; font-weight:700; text-transform:uppercase; color:#555; display:block; }
+  .bx-meta-val { font-size:12px; font-weight:800; display:block; }
+  /* Party rows */
+  .bx-party-row { display:grid; grid-template-columns:130px 1fr 1fr; border-bottom:1px solid #000; }
+  .bx-party-tag { background:#000; color:#fff; font-size:11px; font-weight:900; padding:6px 10px; display:flex; align-items:center; }
+  .bx-party-block { padding:6px 10px; border-right:1px solid #000; }
+  .bx-party-block:last-child { border-right:none; }
+  .bx-party-label { font-size:8px; font-weight:700; text-transform:uppercase; color:#555; display:block; margin-bottom:2px; }
+  .bx-party-name-val { font-size:13px; font-weight:800; display:block; }
+  .bx-party-addr-val { font-size:10px; color:#222; line-height:1.4; }
+  /* Details grid */
+  .bx-details { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; border-bottom:1px solid #000; }
+  .bx-detail-cell { padding:6px 10px; border-right:1px solid #000; }
+  .bx-detail-cell:last-child { border-right:none; }
+  /* Barcode row */
+  .bx-barcode-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:#f9f9f9; }
+  .bx-awb-big { font-size:26px; font-weight:900; letter-spacing:2px; }
+  .bx-barcode-img { font-size:40px; letter-spacing:4px; }
+  /* AWB number above label */
+  .bx-awb-top { text-align:center; font-size:11px; font-weight:700; margin-bottom:4px; }
+  /* BOX LABEL stamp */
+  .bx-box-label-stamp { font-size:20px; font-weight:900; border:3px solid #000; padding:4px 12px; display:inline-block; letter-spacing:2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>{{ '✏️ Edit Customer Invoice' if is_edit else '🚚 Customer Invoice' }}</h2>
+    <p style="color:var(--text-muted);font-size:13px;">{% if is_edit %}Update shipment billing information{% else %}Shipment billing to end customer · automatically added to Debtors{% endif %}</p>
+  </div>
+  <a href="/booking/list" class="btn btn-ghost">← Back to Bookings</a>
+</div>
+
+{% if form_data.status and form_data.status|lower == 'void' %}
+<div style="background:var(--surface-danger-bg);border:1px solid #FCA5A5;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+  <span style="font-size:20px;">🚫</span>
+  <div>
+    <div style="font-weight:700;color:var(--surface-danger-text-strong);font-size:14px;">This booking is Void</div>
+    <div style="color:var(--surface-danger-text-strong);font-size:12.5px;">Stock, manifest, and ledger entries for this booking have been reversed. Details below are kept for reference only.</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="error-banner" id="errorBanner">
+  <div class="error-title">⚠️ Please fix the following before saving:</div>
+  <ul id="errorList"></ul>
+</div>
+
+<form method="POST" action="{{ '/booking/customer/update' if is_edit else '/booking/customer/save' }}" id="custInvForm" enctype="multipart/form-data" onsubmit="return validateCustForm(event)" onkeydown="return handleFormEnter(event)">
+  <input type="hidden" name="payment_mode" id="paymentModeHidden" value="{{ form_data.payment_mode or 'cash' }}">
+  <input type="hidden" name="upi_app" id="upiAppHidden" value="{{ form_data.upi_app or '' }}">
+  <input type="hidden" name="submit_token" id="submitTokenField" value="">
+  {% if is_edit and invoice_id %}
+  <input type="hidden" name="edit_invoice_id" value="{{ invoice_id }}">
+  {% endif %}
+
+  <!-- Invoice Meta -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Invoice Details</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Invoice Date *</label>
+        <input type="date" name="invoice_date" value="{{ invoice_date or today }}" required>
+      </div>
+      <div class="form-group">
+        <label>Docket / AWB No.</label>
+        <input type="text" name="docket_no" value="{{ docket_no or form_data.docket_no or '' }}" 
+               readonly
+               style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;letter-spacing:.5px;cursor:not-allowed;"
+               title="Auto-assigned AWB number — not editable">
+      </div>
+    </div>
+  </div>
+
+  <!-- Three-column inline layout: Consignor | Consignee | Shipment Details -->
+  <div class="three-panel-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px;align-items:stretch;">
+
+  <!-- Customer / Consignor -->
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
+    <div class="section-title">📤 Consignor (Shipper) Details</div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Booking Type *</label>
+      <select id="bookingTypeSelect" name="booking_type" onchange="onBookingTypeChange(this.value)">
+        <option value="credit" {% if (form_data.booking_type or 'credit') == 'credit' %}selected{% endif %}>Credit (existing customer)</option>
+        <option value="cash" {% if (form_data.booking_type or 'credit') == 'cash' %}selected{% endif %}>Cash (walk-in / one-off)</option>
+      </select>
+    </div>
+    <div class="grid-2" id="customerFieldsGrid">
+      <div class="form-group" id="customerSelectWrap">
+        <label>Customer / Company *</label>
+        <div class="cust-search-wrap" id="customerSearchWrap">
+          <input type="text" id="customerSearchBox" class="cust-search-input" placeholder="Type to search customer / company..."
+                 autocomplete="off" oninput="filterCustomerSearch(this.value)" onfocus="openCustomerSearch()"
+                 onkeydown="customerSearchKeydown(event)">
+          <div id="customerSearchList" class="cust-search-list"></div>
+        </div>
+        <select name="customer_id" id="customerSelect" onchange="onCustomerChange(this)" style="display:none;">
+          <option value="">— Select Customer —</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}"
+            data-phone="{{ c.phone or '' }}"
+            data-name="{{ c.name }}"
+            data-contact="{{ c.contact_person or '' }}"
+            data-code="{{ c.client_id or '' }}"
+            data-address1="{{ c.address_line1 or '' }}"
+            data-address2="{{ c.address_line2 or '' }}"
+            data-city="{{ c.city or '' }}"
+            data-state="{{ c.state or '' }}"
+            data-pincode="{{ c.pincode or '' }}"
+            data-country="{{ c.country or 'India' }}"
+            data-pan="{{ c.pan_number or '' }}"
+            data-aadhar="{{ c.aadhar_number or '' }}"
+            data-aadhar-front-url="{{ url_for('static', filename='client_docs/' + c.aadhar_front_file) if c.aadhar_front_file else '' }}"
+            data-aadhar-back-url="{{ url_for('static', filename='client_docs/' + c.aadhar_back_file) if c.aadhar_back_file else '' }}"
+            data-pan-front-url="{{ url_for('static', filename='client_docs/' + c.pan_front_file) if c.pan_front_file else '' }}"
+            data-pan-back-url="{{ url_for('static', filename='client_docs/' + c.pan_back_file) if c.pan_back_file else '' }}"
+            {% if form_data.customer_id|string == c.id|string %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" id="clientCodeWrap">
+        <label>Client Code</label>
+        <input type="text" name="client_code" id="clientCodeField" value="{{ form_data.client_code or '' }}" placeholder="Auto-filled from Customer" readonly style="background:var(--bg-table-alt);color:var(--text-body);font-weight:600;">
+      </div>
+      <div class="form-group" id="manualCompanyWrap" style="display:none;grid-column:1 / -1;">
+        <label>Company / Customer Name *</label>
+        <input type="text" id="manualCompanyName"
+               value="{{ form_data.shipper_name or '' if (form_data.booking_type or 'credit') == 'cash' else '' }}"
+               placeholder="Type company or customer name (cash booking — no client record)"
+               oninput="onManualCompanyInput(this)">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group" style="grid-column:1 / -1;">
+        <label>Name (person at company)</label>
+        <input type="text" name="shipper_contact_name" id="shipperContactName" value="{{ form_data.shipper_contact_name or '' }}" placeholder="Contact person's name">
+      </div>
+    </div>
+    <!-- Hidden: company name, auto-filled from Customer/Company select above -->
+    <input type="hidden" name="shipper_name" id="shipperNameHidden" value="{{ form_data.shipper_name or '' }}">
+
+    <!-- Consignor Address Fields -->
+    <div class="address-grid">
+      <div class="form-group full-width">
+        <label>Address Line 1</label>
+        <input type="text" name="shipper_address1" id="shipperAddress1" value="{{ form_data.shipper_address1 or '' }}" placeholder="Street address, building, apartment">
+      </div>
+      <div class="form-group full-width">
+        <label>Address Line 2</label>
+        <input type="text" name="shipper_address2" id="shipperAddress2" value="{{ form_data.shipper_address2 or '' }}" placeholder="Landmark, area, locality">
+      </div>
+      <div class="form-group half-width">
+        <label>City / Town</label>
+        <input type="text" name="shipper_city" id="shipperCity" value="{{ form_data.shipper_city or '' }}" placeholder="City">
+      </div>
+      <div class="form-group half-width">
+        <label>State</label>
+        <input type="text" name="shipper_state" id="shipperState" value="{{ form_data.shipper_state or '' }}" placeholder="State" oninput="calcInvoiceTotal()">
+      </div>
+      <div class="form-group half-width">
+        <label>Pincode</label>
+        <input type="text" name="shipper_pincode" id="shipperPincode" value="{{ form_data.shipper_pincode or '' }}" placeholder="Pincode">
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <input type="text" name="customer_phone" id="custPhone" value="{{ form_data.customer_phone or '' }}" placeholder="10-digit mobile">
+      </div>
+      <div class="form-group half-width">
+        <label>Country</label>
+        <input type="text" name="shipper_country" id="shipperCountry" value="{{ form_data.shipper_country or 'India' }}" placeholder="Country">
+      </div>
+      <div class="form-group half-width">
+        <label>Document Type</label>
+        <select name="shipper_doc_type" id="shipperDocType" onchange="fillShipperDocNo()">
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID', 'GST', 'IC Certificate'] %}
+          <option value="{{ d }}" {% if (form_data.shipper_doc_type or 'Aadhaar Number') == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document No.</label>
+        <input type="text" name="shipper_doc_no" id="shipperDocNo" value="{{ form_data.shipper_doc_no or '' }}" placeholder="Document number">
+      </div>
+    </div>
+
+    <!-- Cash/walk-in only: no client record to hold these, so they're uploaded
+         straight onto the booking. Hidden entirely for credit bookings. -->
+    <div id="cashIdDocsSection" style="display:{{ 'grid' if (form_data.booking_type or 'credit') == 'cash' else 'none' }};grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+      <div class="form-group half-width">
+        <label>Upload Aadhaar — Front</label>
+        <input type="file" name="shipper_aadhar_front_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_aadhar_front_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_aadhar_front_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group half-width">
+        <label>Upload Aadhaar — Back</label>
+        <input type="file" name="shipper_aadhar_back_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_aadhar_back_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_aadhar_back_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group half-width">
+        <label>Upload PAN — Front</label>
+        <input type="file" name="shipper_pan_front_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_pan_front_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_pan_front_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group half-width">
+        <label>Upload PAN — Back</label>
+        <input type="file" name="shipper_pan_back_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_pan_back_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_pan_back_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Credit only: docs come from the client's own record, not this booking. -->
+    <div id="creditIdDocsPanel" style="display:{{ 'block' if (form_data.booking_type or 'credit') == 'credit' else 'none' }};margin-top:4px;padding:10px 14px;background:var(--bg-table-alt);border-radius:8px;font-size:12.5px;">
+      <span id="creditIdDocsText">Select a customer to see their ID documents on file.</span>
+    </div>
+  </div>
+
+  <!-- Receiver / Consignee -->
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
+    <div class="section-title">📥 Consignee (Receiver) Details</div>
+    <div class="form-group">
+      <label>Destination *</label>
+      <div class="cust-search-wrap" id="destinationSearchWrap">
+        <input type="text" id="destinationSearchBox" class="cust-search-input" placeholder="Type to search country..."
+               autocomplete="off" oninput="filterDestinationSearch(this.value)" onfocus="openDestinationSearch()"
+               onkeydown="destinationSearchKeydown(event)">
+        <div id="destinationSearchList" class="cust-search-list"></div>
+      </div>
+      <select name="destination" id="destinationInput" onchange="onDestinationChange()" style="display:none;">
+        <option value="">— Select Destination Country —</option>
+      </select>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Receiver Name *</label>
+        <input type="text" name="receiver_name" id="receiverName" value="{{ form_data.receiver_name or '' }}" placeholder="Recipient full name">
+      </div>
+      <div class="form-group">
+        <label>Receiver Company Name</label>
+        <input type="text" name="receiver_company" id="receiverCompany" value="{{ form_data.receiver_company or '' }}" placeholder="Recipient's company (if any)">
+      </div>
+    </div>
+     
+    
+    <!-- Consignee Address Fields -->
+    <div class="address-grid">
+      <div class="form-group full-width">
+        <label>Address Line 1 *</label>
+        <input type="text" name="receiver_address1" id="receiverAddress1" value="{{ form_data.receiver_address1 or '' }}" placeholder="Street address, building, apartment">
+      </div>
+      <div class="form-group full-width">
+        <label>Address Line 2</label>
+        <input type="text" name="receiver_address2" value="{{ form_data.receiver_address2 or '' }}" placeholder="Landmark, area, locality">
+      </div>
+      <div class="form-group half-width">
+        <label>City / Town *</label>
+        <input type="text" name="receiver_city" id="receiverCity" value="{{ form_data.receiver_city or '' }}" placeholder="City">
+      </div>
+      <div class="form-group half-width">
+        <label>State</label>
+        <input type="text" name="receiver_state" value="{{ form_data.receiver_state or '' }}" placeholder="State" oninput="calcInvoiceTotal()">
+      </div>
+      <div class="form-group half-width">
+        <label>Pincode *</label>
+        <input type="text" name="receiver_pincode" id="receiverPincode" value="{{ form_data.receiver_pincode or '' }}" placeholder="Pincode">
+      </div>
+      <div class="form-group half-width">
+         <label>Receiver Phone *</label>
+        <input type="text" name="receiver_phone" id="receiverPhone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
+      </div>
+      <div class="form-group half-width">
+        <label>Additional Phone</label>
+        <input type="text" name="receiver_phone_alt" id="receiverPhoneAlt" value="{{ form_data.receiver_phone_alt or '' }}" placeholder="Optional alternate number">
+      </div>
+    
+      <div class="form-group half-width">
+        <label>Country</label>
+        <select name="receiver_country" id="receiverCountry">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document Type</label>
+        <select name="receiver_doc_type">
+          <option value="">— Select —</option>
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID'] %}
+          <option value="{{ d }}" {% if form_data.receiver_doc_type == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document No.</label>
+        <input type="text" name="receiver_doc_no" value="{{ form_data.receiver_doc_no or '' }}" placeholder="Document number">
+      </div>
+    </div>
+  </div>
+
+  <!-- Shipment Details -->
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
+    <div class="section-title">Service Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Product</label>
+        <select name="shipment_type">
+          {% for t in ['DOX', 'NDOX'] %}
+          <option value="{{ t }}" {% if form_data.shipment_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+  <label>Vendor</label>
+  <input type="text" name="vendor" value="{{ form_data.vendor or (company.company_name if company else '') }}" placeholder="e.g. Pacific Express">
+</div>
+      <div class="form-group">
+        <label>Courier Company *</label>
+        <select name="courier_company_id" id="courierCompanySelect" onchange="onCourierCompanyChange(this)">
+          <option value="">— Select —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if form_data.courier_company_id|string == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Service *</label>
+        <select name="carrier" id="carrierSelect" onchange="syncRateLookupInputs()">
+          <option value="">— Select —</option>
+          {% for car in ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'] %}
+          <option value="{{ car }}" {% if form_data.carrier == car %}selected{% endif %}>{{ car }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1 / -1;">
+        <label>Reference No.</label>
+        <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="Reference Number">
+      </div>
+      <div class="form-group" style="grid-column:1 / -1;">
+  <label>Tracking Number</label>
+  <input type="text" name="tracking_number" id="trackingNumber" value="{{ form_data.tracking_number or '' }}" placeholder="Tracking number / consignment number">
+</div>
+      <div class="form-group">
+        <label>Pickup Date *</label>
+        <input type="date" name="pickup_date" id="pickup" value="{{ form_data.pickup_date or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Expected Delivery Date *</label>
+        <input type="date" name="expected_delivery" id="expectedDelivery" value="{{ form_data.expected_delivery or '' }}">
+      </div>
+    </div>
+    <!-- Weight summary (auto-computed from Packages) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;">
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Volumetric Weight</span><span id="volWt">0.00</span> kg
+      </div>
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Actual Weight</span><span id="actualWt">0.00</span> kg
+      </div>
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Chargeable Weight</span><span id="chgWtTotal">0.00</span> kg
+      </div>
+    </div>
+    <span id="totalVol" style="display:none;">0.0000</span>
+  </div>
+
+  </div><!-- /end 3-col inline grid -->
+
+
+
+  <!-- Packages -->
+  {% set pkg_items_initial = packages if packages and packages|length > 0 else [] %}
+  <div class="pkg-section{{ '' if pkg_items_initial else ' pkg-collapsed' }}" id="pkgSection" style="margin-bottom:16px;">
+
+    <!-- Collapsed state: flat gray bar (click to expand) -->
+    <div class="pkg-collapsed-bar" onclick="togglePkgSection()">
+      Click here to enter Package details
+    </div>
+
+    <div class="card card-body pkg-body-wrap">
+      <div class="section-title" style="cursor:pointer;" onclick="togglePkgSection()">📦 Packages <span style="font-weight:400;font-size:11px;color:var(--text-muted);margin-left:8px">— These items will be added to your inventory/stock</span></div>
+
+      <!-- Entry panel: one line, starting from Measurement Unit -->
+      <div style="background:var(--bg-table-alt);border:1px solid var(--border-color);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div class="pkg-entry-grid">
+          <div>
+            <label>Unit</label>
+            <select id="pkgEntryUnit" onchange="livePkgCalc()">
+              <option value="cm">Centimeter</option>
+              <option value="in">Inch</option>
+            </select>
+          </div>
+          <div>
+            <label>Actual Weight</label>
+            <input type="number" id="pkgEntryWt" step="0.01" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          
+          <div>
+            <label>Pieces</label>
+            <input type="number" id="pkgEntryQty" min="1" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Length</label>
+            <input type="number" id="pkgEntryL" step="0.1" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Width</label>
+            <input type="number" id="pkgEntryW" step="0.1" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Height</label>
+            <input type="number" id="pkgEntryH" step="0.1" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Division</label>
+            <input type="number" id="pkgEntryDivision" step="1" min="1" value="5000" disabled title="Fixed at 5000" style="background:var(--bg-table-alt);color:var(--text-body);font-weight:700;cursor:not-allowed;">
+          </div>
+          <div>
+            <label>Vol Weight</label>
+            <input type="text" id="pkgEntryVolWt" value="0.000" readonly style="background:var(--bg-table-alt);color:var(--text-body);font-weight:700;">
+          </div>
+          <div>
+            <label>Chrg Weight</label>
+            <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:var(--surface-info-bg);color:var(--surface-info-text);font-weight:800;">
+          </div>
+          <div>
+            <label title="Type the final weight you want to show on AWB copies. Never shown to the customer.">Discounted Wt (final)</label>
+            <input type="number" id="pkgEntryDiscWt" step="0.01" min="0" value="" placeholder="Actual wt" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Rate (₹)</label>
+            <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
+          </div>
+          <button type="button" class="btn btn-success btn-sm" onclick="addPkgRow()" style="height:32px;white-space:nowrap;">+ Add</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="pkg-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>actual Weight</th>
+              <th>Pieces</th>
+              <th>Length</th>
+              <th>Breadth</th>
+              <th>Height</th>
+              <th>Volumetric Wt</th>
+              <th>Chrg Weight</th>
+              <th title="Auto-calculated: Actual Weight − Discounted weight. AWB copies only — never shown to the customer">Disc. Wt (AWB)</th>
+              <th>Discounted weight</th>
+              <th>Rate (₹)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="pkgBody">
+            {% if packages and packages|length > 0 %}
+              {% for pkg in packages %}
+              <tr>
+                <td>
+                  {{ pkg.name }} <span style="color:var(--text-muted);font-size:11px;">({{ pkg.type or 'Box' }})</span>
+                  <input type="hidden" name="pkg_name[]" value="{{ pkg.name }}">
+                  <input type="hidden" name="pkg_type[]" value="{{ pkg.type or 'Box' }}">
+                  <input type="hidden" name="pkg_unit[]" value="{{ pkg.unit or 'cm' }}">
+                </td>
+                <td>{{ '%.2f'|format(pkg.weight or 0) }}<input type="hidden" name="pkg_wt[]" value="{{ pkg.weight or 0 }}"></td>
+                <td>{{ pkg.qty|int }}<input type="hidden" name="pkg_qty[]" value="{{ pkg.qty }}"></td>
+                <td>{{ pkg.length or 0 }}<input type="hidden" name="pkg_l[]" value="{{ pkg.length or 0 }}"></td>
+                <td>{{ pkg.width or 0 }}<input type="hidden" name="pkg_w[]" value="{{ pkg.width or 0 }}"></td>
+                <td>{{ pkg.height or 0 }}<input type="hidden" name="pkg_h[]" value="{{ pkg.height or 0 }}"><input type="hidden" name="pkg_division[]" value="{{ pkg.division or 5000 }}"><input type="hidden" name="pkg_discount[]" value="{{ pkg.discount or 0 }}"></td>
+                <td>{{ '%.3f'|format(pkg.vol_weight or 0) }}<input type="hidden" name="pkg_volwt[]" value="{{ pkg.vol_weight or 0 }}"></td>
+                <td style="font-weight:700;color:var(--surface-info-text);">{{ '%.3f'|format(pkg.chg_weight or 0) }}<input type="hidden" name="pkg_chgwt[]" value="{{ pkg.chg_weight or 0 }}"></td>
+                <td>{{ '%.2f'|format(pkg.discount_wt or 0) }}<input type="hidden" name="pkg_discwt[]" value="{{ pkg.discount_wt or 0 }}"></td>
+                 <td style="font-weight:700;color:var(--surface-danger-text);">{{ '%.2f'|format((pkg.weight or 0) - (pkg.discount_wt or 0)) }}<input type="hidden" name="pkg_weight_after_discount[]" value="{{ (pkg.weight or 0) - (pkg.discount_wt or 0) }}"></td>
+                <td>₹<span class="pkg-rate-display">{{ '%.2f'|format(pkg.rate or 0) }}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="{{ pkg.rate or 0 }}"></td>
+                <td>
+                  <button type="button" class="del-btn" onclick="editPkgRow(this)" title="Edit">✎</button>
+                  <button type="button" class="del-btn" onclick="removePkgRow(this)" title="Delete">×</button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<!-- ── PERFORMA INVOICE SECTION ─────────────────────────────────────── -->
+  {% set perf_items_initial = form_data.performa_items if form_data and form_data.performa_items else [] %}
+  <div class="perf-section{{ '' if perf_items_initial else ' perf-collapsed' }}" id="perfSection" style="margin-bottom:16px;">
+
+    <!-- Collapsed state: flat gray bar (click to expand) -->
+    <div class="perf-collapsed-bar perf-collapsed-summary-bar" onclick="togglePerfSection()">
+      Click here to enter performa details
+    </div>
+
+    <div class="card card-body perf-body-wrap" style="border:2px solid #E5E7EB;">
+      <span class="manifest-badge" onclick="togglePerfSection()" style="cursor:pointer;">Manifest GST Detail</span>
+
+      <!-- Meta row 1: CSB Type | Term of Invoice | GST Invoice toggle | Invoice No -->
+      <div class="perf-meta-grid">
+        <div>
+          <label>CSB_Type</label>
+          <select name="csb_type" id="csbType" onchange="updateDepartmentNo()">
+            {% for c in ['CSB 1','CSB 3','CSB 4','CSB 5','CSB 7'] %}
+            <option value="{{ c }}" {% if (form_data.csb_type or 'CSB 4') == c %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Term Of Invoice</label>
+          <select name="term_of_invoice" id="termOfInvoice">
+            {% for t in ['Delivered at Place(DAP)','Free on Board(FOB)','Cost Insurance Freight(CIF)','Ex Works(EXW)','Delivered Duty Paid(DDP)'] %}
+            <option value="{{ t }}" {% if (form_data.term_of_invoice or 'Delivered at Place(DAP)') == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>GST Invoice</label>
+          <div class="yn-toggle">
+            <div class="yn-btn {{ 'active' if form_data.gst_invoice_flag == 'yes' }}" id="gstYnYes" onclick="setGstInvoice('yes')">Yes</div>
+            <div class="yn-btn {{ 'active' if form_data.gst_invoice_flag != 'yes' }}" id="gstYnNo" onclick="setGstInvoice('no')">No</div>
+          </div>
+          <input type="hidden" name="gst_invoice_flag" id="gstInvoiceFlag" value="{{ form_data.gst_invoice_flag or 'no' }}">
+        </div>
+        <div>
+          <label>Invoice No</label>
+          <input type="text" name="docket_no" value="{{ docket_no or form_data.docket_no or '' }}" 
+               readonly
+               style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;letter-spacing:.5px;cursor:not-allowed;"
+               title="Auto-assigned AWB number — not editable">
+        </div>
+      </div>
+
+      <!-- Meta row 2: Invoice Date | Department No | Export Reason | Format -->
+      <div class="perf-meta-grid row2">
+        <div>
+          <label>Invoice Date</label>
+          <input type="date" name="performa_invoice_date" id="performaInvoiceDate" value="{{ form_data.performa_invoice_date or invoice_date or today }}" onchange="updateDepartmentNo()">
+        </div>
+        <div>
+          <label>Department No</label>
+          <input type="text" name="department_no" id="departmentNo" value="{{ form_data.department_no or '' }}" readonly title="Auto-generated from CSB Type, GST status &amp; invoice date">
+        </div>
+        <div>
+          {% set standard_export_reasons = ['Gift','Sample','Commercial Sale','Return / Repair','Personal Effects','Other'] %}
+          {% set custom_export_reason = form_data.export_reason and form_data.export_reason not in standard_export_reasons %}
+          <label>Export Reason</label>
+          <select name="export_reason" id="exportReason" onchange="toggleExportReasonOther(this)">
+            <option value="">— Select —</option>
+            {% for r in standard_export_reasons %}
+            <option value="{{ r }}" {% if form_data.export_reason == r or (custom_export_reason and r == 'Other') %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" name="export_reason_other" id="exportReasonOther"
+                 placeholder="Type reason if different from list above"
+                 value="{{ form_data.export_reason if custom_export_reason else '' }}"
+                 style="margin-top:6px;width:100%;display:{{ 'block' if (form_data.export_reason == 'Other' or custom_export_reason) else 'none' }};">
+        </div>
+        <div>
+          <label>Format</label>
+          <select name="performa_format" id="performaFormat">
+            {% for f in ['performainv','commercialinv'] %}
+            <option value="{{ f }}" {% if (form_data.performa_format or 'performainv') == f %}selected{% endif %}>{{ f }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <!-- Item entry panel: ONE row at a time. Box No is a dropdown built from unused box
+           labels (empty → "— Select —" until the Packages section above has boxes). Add
+           pushes that single box into the table below, then the row resets and the
+           dropdown auto-advances to the next free box. -->
+      <div class="perf-entry-panel">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <label style="margin:0;">Add Box</label>
+          <span style="font-size:11.5px;color:var(--text-muted);">Pick a Box No, fill in its details, then Add — the next box is selected automatically.</span>
+        </div>
+        <div id="perfEntryRowsHead" class="perf-entry-grid" style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;display:none;">
+          <div>Box No</div><div>Description</div><div>HSN Code</div><div>Qty</div><div>Weight</div><div>Unit</div><div>Rate</div><div>Amount</div>
+        </div>
+        <div id="perfEntryRows"></div>
+        <button type="button" class="btn-add-perf" onclick="addPerfItemRow()" style="margin-top:10px;" title="Adds this box into the table below.">✓ Add Box</button>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="performa-table">
+          <thead>
+            <tr>
+              <th width="4%">#</th>
+              <th width="10%">Box No.</th>
+              <th width="30%">Description of Goods</th>
+              <th width="10%">HSN Code</th>
+              <th width="8%">Qty</th>
+              <th width="8%">Weight</th>
+              <th width="8%">Unit</th>
+              <th width="8%">Rate (₹)</th>
+              <th width="10%">Amount (₹)</th>
+              <th width="4%"></th>
+            </tr>
+          </thead>
+          <tbody id="perfBody">
+            {% set perf_items = form_data.performa_items if form_data and form_data.performa_items else [] %}
+            {% for item in perf_items %}
+            <tr class="perf-row">
+              <td style="color:var(--text-muted);font-size:12px;text-align:center;">{{ loop.index }}</td>
+              <td><input type="hidden" name="perf_box[]" value="{{ item.box or '' }}">{{ item.box or '—' }}</td>
+              <td><input type="hidden" name="perf_desc[]" value="{{ item.description }}">{{ item.description }}</td>
+              <td><input type="hidden" name="perf_hsn[]" value="{{ item.hsn or '' }}">{{ item.hsn or '—' }}</td>
+              <td style="text-align:center;"><input type="hidden" name="perf_qty[]" value="{{ item.qty }}">{{ item.qty }}</td>
+              <td style="text-align:center;"><input type="hidden" name="perf_weight_item[]" value="{{ item.weight or 0 }}">{{ item.weight or 0 }}</td>
+              <td style="text-align:center;"><input type="hidden" name="perf_unit[]" value="{{ item.unit or 'PCS' }}">{{ item.unit or 'PCS' }}</td>
+              <td style="text-align:right;"><input type="hidden" name="perf_rate[]" value="{{ item.rate }}">{{ '%.2f'|format(item.rate or 0) }}</td>
+              <td class="perf-amt" style="font-weight:600;color:var(--surface-info-text);text-align:right;padding-right:10px;"><input type="hidden" name="perf_amt[]" value="{{ '%.2f'|format((item.qty or 0)|float * (item.rate or 0)|float) }}">{{ '%.2f'|format((item.qty or 0)|float * (item.rate or 0)|float) }}</td>
+              <td style="white-space:nowrap;">
+              <button type="button" class="del-btn" onclick="editPerfRow(this)" title="Edit this row" style="color:var(--surface-info-text-strong);">✏️</button>
+              <button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;align-items:center;margin-top:12px;">
+        <div style="background:var(--surface-info-bg);border-radius:10px;padding:12px 18px;min-width:240px;">
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13.5px;"><span>Sub-total</span><span id="perfSubtotal">₹0.00</span></div>
+          <div style="display:flex;justify-content:space-between;padding:5px 0;font-size:16px;font-weight:800;color:var(--surface-info-text);border-top:2px solid #C7D2FE;margin-top:6px;padding-top:10px;"><span>Total (INR)</span><span id="perfTotal">₹0.00</span></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;background:var(--surface-info-bg);border-radius:8px;">
+        <span style="font-size:12px;color:var(--surface-info-text);font-weight:600;">📦 Chargeable Weight:</span>
+        <input type="number" name="perf_weight" id="perfWeight" step="0.01" min="0"
+               value="{{ form_data.perf_weight or '' }}" placeholder="e.g. 2.50"
+               style="width:100px;padding:5px 10px;border:1.5px solid #C7D2FE;border-radius:6px;font-weight:700;">
+        <span style="font-size:12px;color:var(--text-muted);">kg</span>
+      </div>
+    </div><!-- /perf-body-wrap -->
+  </div>
+
+
+  <!-- Freight & Charges -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Freight &amp; Charges</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Chargeable Weight (kg) *</label>
+        <input type="number" name="freight_weight" id="freightWeight" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_weight or '0' }}" readonly
+          style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed;"
+          title="Auto-synced from Packages — not editable">
+        
+      </div>
+      <div class="form-group">
+        <label>Rate per kg (₹) *</label>
+        <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()">
+        <!-- Auto-fetch status from the sale price list (set by autoFetchSaleRate()).
+             Field above stays editable so a manual rate can still be typed when
+             no price list match is found. -->
+        <div id="freightRateNote" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:14px;display:none;"></div>
+      </div>
+      <div class="form-group">
+        <label>Total Freight (₹)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" name="freight_amount" id="freightAmt" step="0.01" min="0" placeholder="0.00"
+            value="{{ form_data.freight or '0' }}" readonly
+            style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed">
+        </div>
+        <div id="freightBreakdown" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:16px"></div>
+        <!-- Rounded rate-card slab weight used for the freight money calc (set by
+             autoFetchSaleRate()). Freight Weight above stays the actual/display
+             weight; this field is what Total Freight is actually multiplied by
+             when a rate was auto-fetched from the sale price list. Empty/0 = no
+             match was found, so calcFreight() falls back to the actual weight. -->
+        <input type="hidden" name="freight_billing_weight" id="freightBillingWeight" value="{{ form_data.freight_billing_weight or '0' }}">
+      </div>
+    </div>
+    <div class="grid-3" style="margin-top:4px">
+      <div class="form-group">
+        <label>Fuel Surcharge (₹)</label>
+        <input type="number" name="fuel_surcharge" id="fuelCharge" step="0.01" value="{{ form_data.fuel or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label>Other Charges (₹)</label>
+        <input type="number" name="other_charges" id="otherCharges" step="0.01" value="{{ form_data.other or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+        <input type="text" name="other_charges_reason" style="margin-top:6px" value="{{ form_data.other_charges_reason or '' }}" placeholder="Reason (e.g. Remote Area Surcharge)">
+      </div>
+      <div class="form-group">
+        <label>Discount (₹)</label>
+        <input type="number" name="discount_amount" id="discountAmt" step="0.01" value="{{ form_data.discount or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+    </div>
+    <div class="grid-3" style="margin-top:4px">
+      <div class="form-group">
+        <label>Resale Charge (₹)</label>
+        <input type="number" name="resale_amount" id="resaleCharges" step="0.01" min="0"
+          value="{{ (form_data.resale_charges if form_data else 0) or '0' }}" oninput="calcInvoiceTotal()" placeholder="0.00">
+        <!-- Always submitted true; backend only treats resale as active when
+             resale_amount > 0 as well (see invoice save route), so a stray
+             0-amount submission is a no-op there. Keeps this a plain 3-field
+             row instead of needing JS to toggle an active/inactive flag. -->
+        <input type="hidden" name="resale_active" value="true">
+      </div>
+      <div class="form-group">
+        <label>Resale Date</label>
+        <input type="date" name="resale_date" id="resaleDate" value="{{ (form_data.resale_date if form_data else '') or today }}">
+      </div>
+      <div class="form-group">
+        <label>Resale Reason</label>
+        <select name="resale_reason" id="resaleReason">
+          <option value="">— Select Reason —</option>
+          <option value="Return to Office" {% if form_data and form_data.resale_reason == 'Return to Office' %}selected{% endif %}>Return to Office</option>
+          <option value="Wrong Address" {% if form_data and form_data.resale_reason == 'Wrong Address' %}selected{% endif %}>Wrong Address</option>
+          <option value="No One Available" {% if form_data and form_data.resale_reason == 'No One Available' %}selected{% endif %}>No One Available</option>
+          <option value="Refused by Receiver" {% if form_data and form_data.resale_reason == 'Refused by Receiver' %}selected{% endif %}>Refused by Receiver</option>
+          <option value="Failed Delivery Attempt" {% if form_data and form_data.resale_reason == 'Failed Delivery Attempt' %}selected{% endif %}>Failed Delivery Attempt</option>
+          <option value="Customer Requested Return" {% if form_data and form_data.resale_reason == 'Customer Requested Return' %}selected{% endif %}>Customer Requested Return</option>
+          <option value="Damaged Parcel" {% if form_data and form_data.resale_reason == 'Damaged Parcel' %}selected{% endif %}>Damaged Parcel</option>
+          <option value="Custom Duty Unpaid" {% if form_data and form_data.resale_reason == 'Custom Duty Unpaid' %}selected{% endif %}>Custom Duty Unpaid</option>
+          <option value="Other" {% if form_data and form_data.resale_reason == 'Other' %}selected{% endif %}>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="billing-box">
+      <div class="billing-row"><span>Freight</span><span id="dispFreight">₹0</span></div>
+      <div class="billing-row"><span>Fuel Surcharge</span><span id="dispFuel">₹0</span></div>
+      <div class="billing-row"><span>Other Charges</span><span id="dispOther">₹0</span></div>
+      <div class="billing-row" id="discountRow" style="display:none"><span>Discount</span><span id="dispDiscount" style="color:var(--surface-danger-text)">−₹0</span></div>
+      <div class="billing-row" id="resaleRow" style="display:none"><span>Resale Charges</span><span id="dispResaleTotal">₹0</span></div>
+
+      {% if is_gst_registered %}
+      <div class="billing-row" id="cgstRow"><span>CGST (9%)</span><span id="dispCGST">₹0</span></div>
+      <div class="billing-row" id="sgstRow"><span>SGST (9%)</span><span id="dispSGST">₹0</span></div>
+      <div class="billing-row" id="igstRow" style="display:none"><span>IGST (18%)</span><span id="dispIGST">₹0</span></div>
+      {% endif %}
+      <div class="billing-row" id="roundOffRow"><span>Round Off</span><span id="dispRoundOff">₹0</span></div>
+
+      <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <span style="font-weight:700">Balance Due</span>
+          <span id="balanceDue" style="color:var(--surface-danger-text);font-weight:800;font-size:16px">₹0</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Amount Paid is recorded in the Payment Mode section below.</div>
+      </div>
+    </div>
+  </div>
+
+  
+  <!-- Payment Mode -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Payment Mode</div>
+
+    <div class="form-group" style="max-width:260px;margin-bottom:14px;">
+      <label>Amount Paid (₹)</label>
+      <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="{{ form_data.amount_paid or '0' }}" oninput="calcBalance()" min="0">
+    </div>
+
+    <div class="pay-tabs">
+      <div class="pay-tab {% if form_data.payment_mode == 'cash' or not form_data.payment_mode %}active{% endif %}" id="tab-cash"   onclick="setPayMode('cash')">💵 Cash</div>
+      <div class="pay-tab {% if form_data.payment_mode == 'online' %}active{% endif %}" id="tab-online" onclick="setPayMode('online')">📱 Online / UPI</div>
+      <div class="pay-tab {% if form_data.payment_mode == 'cheque' %}active{% endif %}" id="tab-cheque" onclick="setPayMode('cheque')">🏦 Cheque</div>
+      <div class="pay-tab {% if form_data.payment_mode == 'credit' %}active{% endif %}" id="tab-credit" onclick="setPayMode('credit')">💳 Credit</div>
+    </div>
+
+    <!-- UPI section -->
+    <div id="upiSection" style="display: {{ 'block' if form_data.payment_mode == 'online' else 'none' }}">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">Select UPI / Online payment app:</p>
+      <div class="upi-grid">
+        {% set upi_apps = [
+          ('gpay',         '🟢', 'Google Pay'),
+          ('phonepe',      '🟣', 'PhonePe'),
+          ('paytm',        '🔵', 'Paytm'),
+          ('bhim',         '🇮🇳', 'BHIM UPI'),
+          ('amazonpay',    '🟠', 'Amazon Pay'),
+          ('mobikwik',     '💜', 'MobiKwik'),
+          ('freecharge',   '🟡', 'FreeCharge'),
+          ('airtel',       '🔴', 'Airtel Pay'),
+          ('jiopay',       '🔷', 'JioPay'),
+          ('neft',         '🏛️', 'NEFT/RTGS'),
+          ('bank_transfer','🏦', 'Bank Transfer')
+        ] %}
+        {% for app_id, icon, label in upi_apps %}
+        <div class="upi-chip {% if form_data.upi_app == app_id %}selected{% endif %}" onclick="selectUPI(this,'{{ app_id }}')">
+          <span class="upi-icon">{{ icon }}</span>{{ label }}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="form-group" style="margin-top:12px">
+        <label>Transaction / UTR Reference No.</label>
+        <input type="text" name="upi_ref" id="upiRef" value="{{ form_data.upi_ref or '' }}" placeholder="Enter transaction reference number">
+      </div>
+    </div>
+
+    <!-- Cheque section -->
+    <div id="chequeSection" style="display: {{ 'grid' if form_data.payment_mode == 'cheque' else 'none' }}" class="grid-2">
+      <div class="form-group">
+        <label>Cheque Number</label>
+        <input type="text" name="cheque_no" value="{{ form_data.cheque_no or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Cheque Date</label>
+        <input type="date" name="cheque_date" value="{{ form_data.cheque_date or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Bank Name</label>
+        <input type="text" name="cheque_bank" value="{{ form_data.cheque_bank or '' }}" placeholder="e.g. HDFC Bank">
+      </div>
+    </div>
+
+    <!-- Credit note -->
+    <div id="creditNote" style="display: {{ 'block' if form_data.payment_mode == 'credit' else 'none' }};padding:10px 14px;background:var(--surface-warning-bg-strong);border-radius:8px;font-size:12.5px;color:var(--surface-warning-text);font-weight:500">
+      ⚠️ This invoice will be recorded in <strong>Debtors</strong> as an outstanding balance for this customer.
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="card card-body" style="margin-bottom:20px">
+    <div class="section-title">Notes / Terms</div>
+    <div class="form-group">
+      <textarea name="notes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #E5E7EB" placeholder="Delivery terms, payment terms, special instructions...">{{ form_data.notes or '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:12px">
+    <button type="submit" name="action" value="draft" id="btnSaveDraft" class="btn btn-ghost" formnovalidate>💾 Save Draft</button>
+    <button type="submit" name="action" value="final" id="btnGenerateInvoice" class="btn btn-success">{{ '✓ Update Invoice' if is_edit else '✓ Generate Customer Invoice' }}</button>
+  </div>
+</form>
+
+<!-- ── PRINT BUTTONS ────────────────────────────────────────────────────── -->
+{% if is_edit %}
+<div class="card card-body no-print" style="margin-top:20px;margin-bottom:30px;">
+  <div class="section-title">🖨️ Print Options</div>
+  <div class="print-bar">
+    <button type="button" class="print-btn print-btn-invoice" onclick="triggerPrint('invoice')">🧾 Customer Invoice</button>
+    <button type="button" class="print-btn print-btn-performa" onclick="triggerPrint('performa')">📋 Performa Invoice</button>
+    <button type="button" class="print-btn print-btn-docket" onclick="triggerPrint('docket')">🗂️ Docket / AWB</button>
+    <button type="button" class="print-btn print-btn-box" onclick="triggerPrint('box')">📦 Box Labels</button>
+    <button type="button" class="print-btn" style="border-color:#0891B2;color:#0891B2;" onclick="triggerPrint('awblabel')">🏷️ AWB Label</button>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── HIDDEN PRINT AREAS ─────────────────────────────────────────────── -->
+<div id="printArea" style="display:none;">
+
+  <!-- ① CUSTOMER INVOICE -->
+  <div id="printCustomerInvoice">
+    <div class="pi-page">
+      <div class="pi-logo-row">
+        <div>
+          <div class="pi-company-name"
+               data-logo-url="{{ company_logo_url or '' }}"
+               data-website="{{ (company.website if company else '') or '' }}"
+               data-email="{{ (company.email if company else '') or '' }}">{{ company.company_name if company else 'Your Company' }}</div>
+          <div class="pi-sub">Freight &amp; Courier Services</div>
+        </div>
+        <div>
+          <div class="pi-title">CUSTOMER INVOICE</div>
+          <div class="pi-inv-no" style="font-weight:700;color:#16A34A;font-size:16px;">Client ID: {{ client_display_id or '—' }}</div>
+          <div class="pi-inv-no">Date: {{ form_data.invoice_date or today }}</div>
+          <div class="pi-inv-no">AWB: <strong>{{ form_data.docket_no or docket_no or '' }}</strong></div>
+        </div>
+      </div>
+      <div class="pi-party-grid">
+        <div class="pi-party-box">
+          <div class="pi-party-label">📤 Consignor (Shipper)</div>
+          <div class="pi-party-name">{{ form_data.shipper_name or '' }}</div>
+          <div class="pi-party-addr">
+            {{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}, {{ form_data.shipper_address2 }}{% endif %}<br>
+            {{ form_data.shipper_city or '' }}{% if form_data.shipper_state %}, {{ form_data.shipper_state }}{% endif %} {{ form_data.shipper_pincode or '' }}<br>
+            Ph: {{ form_data.customer_phone or '' }}
+          </div>
+        </div>
+        <div class="pi-party-box" style="border-left-color:#4F46E5;">
+          <div class="pi-party-label" style="color:#4F46E5;">📥 Consignee (Receiver)</div>
+          <div class="pi-party-name">{{ form_data.receiver_name or '' }}</div>
+          <div class="pi-party-addr">
+            {{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}<br>
+            {{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} {{ form_data.receiver_pincode or '' }}<br>
+            Ph: {{ form_data.receiver_phone or '' }}
+          </div>
+        </div>
+      </div>
+      <div class="pi-meta-row">
+        <div class="pi-meta-item"><div class="pi-meta-label">Shipment Type</div><div class="pi-meta-val">{{ form_data.shipment_type or 'NON DC' }}</div></div>
+        <div class="pi-meta-item"><div class="pi-meta-label">Mode</div><div class="pi-meta-val">{{ form_data.mode or 'COURIER' }}</div></div>
+        <div class="pi-meta-item"><div class="pi-meta-label">Carrier</div><div class="pi-meta-val">{{ form_data.carrier or '—' }}</div></div>
+        <div class="pi-meta-item"><div class="pi-meta-label">Destination</div><div class="pi-meta-val">{{ form_data.destination or '—' }}</div></div>
+      </div>
+      <table class="pi-table">
+        <thead><tr><th>#</th><th>Description</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Freight ({{ form_data.freight_weight or 0 }} kg × ₹{{ form_data.freight_rate_per_kg or 0 }}/kg)</td><td style="text-align:right;">{{ "%.2f"|format(form_data.freight|float if form_data.freight else 0) }}</td></tr>
+          {% if form_data.fuel and form_data.fuel|float > 0 %}<tr><td>2</td><td>Fuel Surcharge</td><td style="text-align:right;">{{ "%.2f"|format(form_data.fuel|float) }}</td></tr>{% endif %}
+          {% if form_data.other and form_data.other|float > 0 %}<tr><td>3</td><td>Other Charges{% if form_data.other_charges_reason %} — {{ form_data.other_charges_reason }}{% endif %}</td><td style="text-align:right;">{{ "%.2f"|format(form_data.other|float) }}</td></tr>{% endif %}
+          {% if form_data.discount and form_data.discount|float > 0 %}<tr><td>4</td><td>Discount</td><td style="text-align:right;color:#DC2626;">−{{ "%.2f"|format(form_data.discount|float) }}</td></tr>{% endif %}
+        </tbody>
+      </table>
+      <div class="pi-totals">
+        <div class="pi-totals-box">
+          {% set _pre_discount = (form_data.freight|float if form_data.freight else 0) + (form_data.fuel|float if form_data.fuel else 0) + (form_data.other|float if form_data.other else 0) %}
+          {% set _discount = form_data.discount|float if form_data.discount else 0 %}
+          {% set _base = [_pre_discount - _discount, 0]|max %}
+          {% set _shipper_state = (form_data.shipper_state or '')|lower|trim %}
+          {% set _receiver_state = (form_data.receiver_state or '')|lower|trim %}
+          {% set _interstate = (_shipper_state and _receiver_state and _shipper_state != _receiver_state) %}
+          {% set _gst = (_base * 0.18) if is_gst_registered else 0 %}
+          {% set _cgst = (_gst / 2) if (is_gst_registered and not _interstate) else 0 %}
+          {% set _sgst = (_gst - _cgst) if (is_gst_registered and not _interstate) else 0 %}
+          {% set _igst = _gst if (is_gst_registered and _interstate) else 0 %}
+          {% set _pre_round = _base + _gst %}
+          {% set _grand = _pre_round|round(0, 'common') %}
+          {% set _round_off = _grand - _pre_round %}
+          {% if is_gst_registered %}
+          <div class="pi-total-row"><span>Sub-total</span><span>₹{{ "%.2f"|format(_base) }}</span></div>
+          {% if _interstate %}
+          <div class="pi-total-row"><span>IGST (18%)</span><span>₹{{ "%.2f"|format(_igst) }}</span></div>
+          {% else %}
+          <div class="pi-total-row"><span>CGST (9%)</span><span>₹{{ "%.2f"|format(_cgst) }}</span></div>
+          <div class="pi-total-row"><span>SGST (9%)</span><span>₹{{ "%.2f"|format(_sgst) }}</span></div>
+          {% endif %}
+          <div class="pi-total-row"><span>Round Off</span><span>{{ '+' if _round_off >= 0 else '' }}₹{{ "%.2f"|format(_round_off) }}</span></div>
+          {% endif %}
+          <div class="pi-grand"><span>GRAND TOTAL</span><span>₹{{ "%.2f"|format(_grand if is_gst_registered else _base) }}</span></div>
+          <div class="pi-total-row" style="margin-top:8px;"><span>Amount Paid</span><span>₹{{ "%.2f"|format(form_data.amount_paid|float if form_data.amount_paid else 0) }}</span></div>
+          <div class="pi-total-row" style="color:#DC2626;font-weight:700;"><span>Balance Due</span><span>₹{{ "%.2f"|format((_grand if is_gst_registered else _base) - (form_data.amount_paid|float if form_data.amount_paid else 0)) }}</span></div>
+        </div>
+      </div>
+      {% if form_data.notes %}<div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:11px;border-left:3px solid #16A34A;"><strong>Notes:</strong> {{ form_data.notes }}</div>{% endif %}
+      <div class="pi-footer">
+        <div>Payment Mode: <strong>{{ form_data.payment_mode or 'Cash' }}</strong>{% if form_data.upi_app %} via {{ form_data.upi_app }}{% endif %}</div>
+        <div class="pi-sig-box"><div class="pi-sig-line">Authorised Signatory</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② PERFORMA INVOICE -->
+  <div id="printPerformaInvoice">
+    <div class="pf-page">
+      <div class="pf-header">
+        <div>
+          <div class="pf-company">{{ company.company_name if company else 'Your Company' }}</div>
+          <div style="font-size:11px;opacity:0.8;margin-top:3px;">AWB: {{ form_data.docket_no or docket_no or '' }}</div>
+        </div>
+        <div class="pf-type-label">PERFORMA INVOICE</div>
+      </div>
+      <div style="display:flex;gap:14px;margin-bottom:16px;">
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Invoice #</span><strong>{{ invoice_id }}</strong></div>
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Date</span><strong>{{ form_data.invoice_date or today }}</strong></div>
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Destination</span><strong>{{ form_data.destination or '—' }}</strong></div>
+        <div style="flex:1;background:#F5F3FF;border-radius:6px;padding:8px 12px;font-size:12px;"><span style="color:#6B7280;font-size:9px;text-transform:uppercase;font-weight:700;display:block;">Weight (kg)</span><strong id="pfPrintWeight">—</strong></div>
+      </div>
+      <div class="pf-party-grid">
+        <div class="pf-party-box">
+          <div class="pf-party-label">From (Shipper)</div>
+          <div class="pf-party-name">{{ form_data.shipper_name or '' }}</div>
+          <div style="font-size:11px;color:#374151;line-height:1.5;">{{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}, {{ form_data.shipper_address2 }}{% endif %}<br>{{ form_data.shipper_city or '' }}{% if form_data.shipper_state %}, {{ form_data.shipper_state }}{% endif %} {{ form_data.shipper_pincode or '' }}</div>
+          {% if form_data.shipper_doc_type or form_data.shipper_doc_no %}<div style="margin-top:6px;font-size:10px;color:#4F46E5;font-weight:600;">{{ form_data.shipper_doc_type or '' }}: {{ form_data.shipper_doc_no or '' }}</div>{% endif %}
+        </div>
+        <div class="pf-party-box" style="border-color:#4F46E5;">
+          <div class="pf-party-label">To (Consignee)</div>
+          <div class="pf-party-name">{{ form_data.receiver_name or '' }}</div>
+          <div style="font-size:11px;color:#374151;line-height:1.5;">{{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}<br>{{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} {{ form_data.receiver_pincode or '' }}</div>
+          {% if form_data.receiver_doc_type or form_data.receiver_doc_no %}<div style="margin-top:6px;font-size:10px;color:#4F46E5;font-weight:600;">{{ form_data.receiver_doc_type or '' }}: {{ form_data.receiver_doc_no or '' }}</div>{% endif %}
+        </div>
+      </div>
+      <table class="pf-table">
+        <thead><tr><th>#</th><th>Description of Goods</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate (₹)</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+        <tbody id="pfPrintRows"></tbody>
+      </table>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+        <div style="min-width:250px;">
+          <div style="display:flex;justify-content:space-between;padding:5px 10px;font-size:12px;"><span>Sub-total</span><span id="pfPrintSubtotal">₹0.00</span></div>
+          <div class="pf-grand-box"><span>TOTAL (INR)</span><span id="pfPrintTotal">₹0.00</span></div>
+        </div>
+      </div>
+      <div class="pf-note">
+        <strong>Declaration:</strong> I/We hereby declare that this performa invoice shows the true and correct value of the goods being shipped. The contents are for personal/gift use only.
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:24px;font-size:10px;color:#6B7280;border-top:1px solid #E5E7EB;padding-top:12px;">
+        <span>Nexa ERP · {{ today }}</span>
+        <div style="text-align:center;border-top:1px solid #9CA3AF;width:130px;margin-top:24px;padding-top:4px;">Shipper Signature</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ DOCKET / AWB -->
+  <div id="printDocket">
+    <div class="dk-page">
+      <div class="dk-header">
+        <div>
+          <div class="dk-co">{{ company.company_name if company else 'NEXA LOGISTICS' }}</div>
+          <div style="font-size:10px;opacity:0.65;margin-top:3px;">AIR WAYBILL / DOCKET</div>
+        </div>
+        <div class="dk-awb-big">{{ form_data.docket_no or docket_no or 'AWB#' }}</div>
+      </div>
+      <div class="dk-body">
+        <div class="dk-parties">
+          <div>
+            <div class="dk-party-label">FROM (SHIPPER)</div>
+            <div class="dk-party-name">{{ form_data.shipper_name or '' }}</div>
+            <div class="dk-party-addr">
+              {{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}<br>{{ form_data.shipper_address2 }}{% endif %}<br>
+              {{ form_data.shipper_city or '' }}{% if form_data.shipper_state %}, {{ form_data.shipper_state }}{% endif %} – {{ form_data.shipper_pincode or '' }}<br>
+              Ph: {{ form_data.customer_phone or '—' }}
+            </div>
+          </div>
+          <div>
+            <div class="dk-party-label">TO (CONSIGNEE)</div>
+            <div class="dk-party-name">{{ form_data.receiver_name or '' }}</div>
+            <div class="dk-party-addr">
+              {{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}<br>{{ form_data.receiver_address2 }}{% endif %}<br>
+              {{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} – {{ form_data.receiver_pincode or '' }}<br>
+              Ph: {{ form_data.receiver_phone or '—' }}
+            </div>
+          </div>
+        </div>
+        <div class="dk-meta-grid">
+          <div class="dk-meta-cell"><span class="dk-meta-label">Date</span><div class="dk-meta-val">{{ form_data.invoice_date or today }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Mode</span><div class="dk-meta-val">{{ form_data.mode or 'COURIER' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Carrier</span><div class="dk-meta-val">{{ form_data.carrier or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Destination</span><div class="dk-meta-val">{{ form_data.destination or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Weight (kg)</span><div class="dk-meta-val">{{ form_data.freight_weight or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Pieces</span><div class="dk-meta-val" id="dkPiecesCount">—</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Shipment Type</span><div class="dk-meta-val">{{ form_data.shipment_type or 'NON DC' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Carrier Ref</span><div class="dk-meta-val">{{ form_data.carrier_ref or '—' }}</div></div>
+          <div class="dk-meta-cell"><span class="dk-meta-label">Tracking No.</span><div class="dk-meta-val">${trackingNo || '—'}</div></div>
+        </div>
+        <table class="dk-pkg-table">
+          <thead><tr><th>#</th><th>Item / Description</th><th>Qty</th><th>L (cm)</th><th>W (cm)</th><th>H (cm)</th><th>Wt (kg)</th></tr></thead>
+          <tbody id="dkPkgRows"></tbody>
+        </table>
+        <div class="dk-barcode-row">║ {{ form_data.docket_no or docket_no or '▌▌▌▌▌▌▌▌▌' }} ║</div>
+        <div class="dk-sig">
+          <div><div class="dk-sig-line"></div>Shipper Signature</div>
+          <div style="text-align:center;"><div class="dk-sig-line" style="margin:0 auto;"></div>Receiver Signature</div>
+          <div style="text-align:right;"><div class="dk-sig-line" style="margin-left:auto;"></div>Office Seal &amp; Sig</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ BOX LABELS -->
+  <div id="printBoxLabels"></div>
+
+  <!-- ⑤ AWB LABEL (Shipper + Consignee boxes with barcode - matches PXC format) -->
+  <div id="printAwbLabel" style="font-family:Arial,sans-serif;font-size:12px;color:#000;max-width:200mm;margin:0 auto;">
+    <!-- AWB number centered at top -->
+    <div style="text-align:center;font-size:11px;font-weight:700;margin-bottom:4px;letter-spacing:1px;">{{ form_data.docket_no or docket_no or '' }}</div>
+
+    <!-- SHIPPER box -->
+    <div style="border:2px solid #000;margin-bottom:0;">
+      <!-- Shipper header row -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;border-bottom:1px solid #000;">
+        <div style="background:#000;color:#fff;font-weight:900;font-size:13px;padding:8px 10px;display:flex;align-items:center;letter-spacing:0.5px;">SHIPPER</div>
+        <div style="padding:8px 12px;border-right:1px solid #000;">
+          <div style="font-weight:900;font-size:15px;text-decoration:underline;">{{ form_data.shipper_name or '' }}</div>
+        </div>
+        <div style="padding:8px 12px;font-weight:900;font-size:18px;text-align:right;">1 / 1</div>
+      </div>
+      <!-- Shipper body -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;">
+        <!-- Left col: structured fields -->
+        <div style="padding:6px 10px;border-right:1px solid #000;font-size:11px;line-height:2;">
+          <div><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Name</span><span style="font-weight:600;">{{ form_data.shipper_name or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Address</span><span>{{ form_data.shipper_address1 or '' }}{% if form_data.shipper_address2 %}, {{ form_data.shipper_address2 }}{% endif %}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Pincode</span><span>{{ form_data.shipper_pincode or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">City</span><span>{{ form_data.shipper_city or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">State</span><span>{{ form_data.shipper_state or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Country</span><span style="font-weight:900;font-size:12px;">{{ (form_data.shipper_country or 'INDIA')|upper }}</span></div>
+        </div>
+        <!-- Middle col: empty / TEL -->
+        <div style="padding:6px 12px;border-right:1px solid #000;">
+          <span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">TEL NO.</span>
+          <span style="font-size:12px;">{{ form_data.customer_phone or '' }}</span>
+        </div>
+        <!-- Right col: AWB + barcode (spans both shipper and consignee visually via border) -->
+        <div style="padding:6px 10px;text-align:center;">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;letter-spacing:1px;">{{ form_data.docket_no or docket_no or '' }}</div>
+          <div style="font-size:30px;letter-spacing:3px;font-weight:900;line-height:1;writing-mode:horizontal-tb;">▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONSIGNEE box (border-top removed, joined to shipper) -->
+    <div style="border:2px solid #000;border-top:none;margin-bottom:10px;">
+      <!-- Consignee header row -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;border-bottom:1px solid #000;">
+        <div style="background:#000;color:#fff;font-weight:900;font-size:13px;padding:8px 10px;display:flex;align-items:center;letter-spacing:0.5px;">CONSIGNEE</div>
+        <div style="padding:8px 12px;border-right:1px solid #000;">
+          <div style="font-weight:900;font-size:15px;text-decoration:underline;">{{ form_data.receiver_name or '' }}</div>
+        </div>
+        <div style="padding:8px 12px;font-weight:900;font-size:18px;text-align:right;">1 / 1</div>
+      </div>
+      <!-- Consignee body -->
+      <div style="display:grid;grid-template-columns:110px 1fr 180px;">
+        <div style="padding:6px 10px;border-right:1px solid #000;font-size:11px;">
+          <div><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Name</span><span style="font-weight:600;">{{ form_data.receiver_name or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Address</span><span>{{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}{% if form_data.receiver_city %}, {{ form_data.receiver_city }}{% endif %}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %}{% if form_data.receiver_pincode %}, {{ form_data.receiver_pincode }}{% endif %}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Pincode</span><span>{{ form_data.receiver_pincode or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">City</span><span>{{ form_data.receiver_city or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">State</span><span>{{ form_data.receiver_state or '' }}</span></div>
+          <div style="margin-top:4px;"><span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">Country</span><span style="font-weight:900;font-size:12px;">{{ (form_data.receiver_country or '')|upper }}</span></div>
+        </div>
+        <div style="padding:6px 12px;border-right:1px solid #000;">
+          <span style="font-size:8px;font-weight:700;text-transform:uppercase;color:#555;display:block;">TEL NO.</span>
+          <span style="font-size:12px;">{{ form_data.receiver_phone or '' }}</span>
+        </div>
+        <div style="padding:6px 10px;text-align:center;">
+          <div style="font-weight:700;font-size:12px;margin-bottom:6px;letter-spacing:1px;">{{ form_data.docket_no or docket_no or '' }}</div>
+          <div style="font-size:30px;letter-spacing:3px;font-weight:900;line-height:1;">▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center;border-top:2px dashed #2563EB;padding-top:8px;font-size:10px;color:#555;">- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -</div>
+  </div>
+
+</div><!-- end #printArea -->
+
+<script>
+
+/* ── Enter key: move to next field, never submit ── */
+function handleFormEnter(e) {
+  if (e.key !== 'Enter') return true;
+  // Allow Enter in textarea
+  if (e.target.tagName === 'TEXTAREA') return true;
+  e.preventDefault();
+
+  // Packages entry row: Enter on the last editable field (Rate) adds the row
+  // and jumps back to the first field, so rapid multi-package entry never
+  // needs the mouse.
+  const pkgGrid = e.target.closest('.pkg-entry-grid');
+  if (pkgGrid) {
+    const pkgFields = Array.from(pkgGrid.querySelectorAll('input:not([disabled]):not([readonly]), select:not([disabled])'));
+    const pIdx = pkgFields.indexOf(e.target);
+    if (pIdx === pkgFields.length - 1) {
+      addPkgRow();
+      if (pkgFields[0]) pkgFields[0].focus();
+      return false;
+    }
+    if (pIdx > -1 && pIdx < pkgFields.length - 1) { pkgFields[pIdx + 1].focus(); return false; }
+  }
+
+  // Performa entry rows: Enter on a row's Rate field jumps to the next
+  // row's Description field; on the last row's Rate field it triggers Add.
+  const perfRow = e.target.closest('.perf-entry-row');
+  if (perfRow) {
+    const rowFields = Array.from(perfRow.querySelectorAll('input:not([readonly]), select'));
+    const prIdx = rowFields.indexOf(e.target);
+    if (prIdx === rowFields.length - 1) {
+      const allRows = Array.from(document.querySelectorAll('#perfEntryRows .perf-entry-row'));
+      const rowIdx = allRows.indexOf(perfRow);
+      if (rowIdx === allRows.length - 1) {
+        addPerfItemRow();
+        const firstDesc = document.querySelector('#perfEntryRows .perf-entry-row .pe-desc');
+        if (firstDesc) firstDesc.focus();
+      } else {
+        const nextDesc = allRows[rowIdx + 1].querySelector('.pe-desc');
+        if (nextDesc) nextDesc.focus();
+      }
+      return false;
+    }
+    if (prIdx > -1 && prIdx < rowFields.length - 1) { rowFields[prIdx + 1].focus(); return false; }
+  }
+
+  const focusable = Array.from(document.querySelectorAll(
+    '#custInvForm input:not([disabled]):not([readonly]):not([type=hidden]), #custInvForm select:not([disabled]), #custInvForm textarea:not([disabled])'
+  ));
+  const idx = focusable.indexOf(e.target);
+  if (idx > -1 && idx < focusable.length - 1) focusable[idx + 1].focus();
+  return false;
+}
+
+/* ── Destination: full country dropdown ── */
+const DESTINATION_COUNTRIES = ["Afghanistan","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antigua and Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","British Virgin Islands","Brunei","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Cape Verde","Cayman Islands","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo (Brazzaville)","Congo (DRC)","Cook Islands","Costa Rica","Croatia","Cuba","Curacao","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","East Timor","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Falkland Islands","Faroe Islands","Fiji","Finland","France","French Guiana","French Polynesia","Gabon","Gambia","Georgia","Germany","Ghana","Gibraltar","Greece","Greenland","Grenada","Guadeloupe","Guam","Guatemala","Guernsey","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hong Kong","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle of Man","Israel","Italy","Ivory Coast","Jamaica","Japan","Jersey","Jordan","Kazakhstan","Kenya","Kiribati","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Macau","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Martinique","Mauritania","Mauritius","Mayotte","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Montserrat","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Caledonia","New Zealand","Nicaragua","Niger","Nigeria","Niue","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Puerto Rico","Qatar","Reunion","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Sint Maarten","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Turks and Caicos Islands","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","US Virgin Islands","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Wallis and Futuna","Yemen","Zambia","Zimbabwe"];
+
+// Read once on page load — source of truth for a saved booking's destination
+// and receiver country (server-rendered <option selected> is unreliable once
+// the dropdowns are populated dynamically) — same pattern as SAVED_CARRIER below.
+const SAVED_DESTINATION = "{{ (form_data.destination or '')|e }}";
+const SAVED_RECEIVER_COUNTRY = "{{ (form_data.receiver_country or '')|e }}";
+
+function populateCountrySelect(sel, savedValue) {
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select —</option>' +
+    DESTINATION_COUNTRIES.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (savedValue) {
+    const match = DESTINATION_COUNTRIES.find(c => c.toLowerCase() === savedValue.toLowerCase());
+    if (match) {
+      sel.value = match;
+    } else {
+      // Older bookings may have a free-typed city/country string that doesn't
+      // match a country name exactly — preserve it instead of silently
+      // dropping it (same approach used for an unlisted saved Carrier below).
+      const opt = document.createElement('option');
+      opt.value = savedValue;
+      opt.textContent = savedValue + ' (saved)';
+      sel.appendChild(opt);
+      sel.value = savedValue;
+    }
+  }
+}
+
+function populateDestinationSelect() {
+  const destSel = document.getElementById('destinationInput');
+  const recvSel = document.getElementById('receiverCountry');
+  populateCountrySelect(destSel, SAVED_DESTINATION);
+  populateCountrySelect(recvSel, SAVED_RECEIVER_COUNTRY);
+
+  // Pre-fill the destination search box to match the resolved select value.
+  const destBox = document.getElementById('destinationSearchBox');
+  if (destSel && destBox && destSel.value) {
+    const opt = destSel.options[destSel.selectedIndex];
+    if (opt) destBox.value = opt.textContent.trim();
+  }
+  syncRateLookupInputs();
+}
+
+document.addEventListener('DOMContentLoaded', populateDestinationSelect);
+
+/* Fires on any Destination change (search-pick). Keeps the rate-lookup box
+   and the Receiver Country dropdown in sync with the chosen destination —
+   almost every booking ships to the same country it's addressed to, so this
+   saves a redundant second selection while still leaving Receiver Country
+   editable afterward if it genuinely differs. */
+function onDestinationChange() {
+  syncRateLookupInputs();
+  const destSel = document.getElementById('destinationInput');
+  const recvSel = document.getElementById('receiverCountry');
+  if (!destSel || !recvSel || !destSel.value) return;
+  const match = DESTINATION_COUNTRIES.find(c => c.toLowerCase() === destSel.value.toLowerCase());
+  if (match && [...recvSel.options].some(o => o.value === match)) {
+    recvSel.value = match;
+  }
+}
+
+/* ── Searchable Destination country dropdown (same pattern as the Customer
+   search widget below) — the real <select id="destinationInput"> stays the
+   source of truth; this just filters it by typed text. ── */
+let destSearchHi = -1;
+
+function destSearchOptions() {
+  return Array.from(document.getElementById('destinationInput').options).filter(o => o.value !== '');
+}
+
+function renderDestinationSearchList(query) {
+  const list = document.getElementById('destinationSearchList');
+  const q = (query || '').trim().toLowerCase();
+  const opts = destSearchOptions().filter(o => o.textContent.trim().toLowerCase().includes(q));
+  destSearchHi = -1;
+
+  if (!opts.length) {
+    list.innerHTML = '<div class="cust-search-empty">No matching country</div>';
+    return;
+  }
+  list.innerHTML = opts.map(o => `
+    <div class="cust-search-item" data-value="${o.value}" onmousedown="selectDestinationFromSearch('${o.value.replace(/'/g, "\\'")}')">
+      ${o.textContent.trim()}
+    </div>`).join('');
+}
+
+function filterDestinationSearch(query) {
+  renderDestinationSearchList(query);
+  openDestinationSearch();
+}
+
+function openDestinationSearch() {
+  const list = document.getElementById('destinationSearchList');
+  if (!list.innerHTML) renderDestinationSearchList(document.getElementById('destinationSearchBox').value);
+  list.classList.add('open');
+}
+
+function closeDestinationSearch() {
+  document.getElementById('destinationSearchList').classList.remove('open');
+}
+
+function selectDestinationFromSearch(value) {
+  const sel = document.getElementById('destinationInput');
+  sel.value = value;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('destinationSearchBox').value = opt && opt.value ? opt.textContent.trim() : '';
+  closeDestinationSearch();
+  onDestinationChange();
+}
+
+function destinationSearchKeydown(e) {
+  const list = document.getElementById('destinationSearchList');
+  const items = Array.from(list.querySelectorAll('.cust-search-item'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!items.length) return;
+    destSearchHi = Math.min(destSearchHi + 1, items.length - 1);
+    items.forEach(it => it.classList.remove('hi'));
+    items[destSearchHi].classList.add('hi');
+    items[destSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!items.length) return;
+    destSearchHi = Math.max(destSearchHi - 1, 0);
+    items.forEach(it => it.classList.remove('hi'));
+    items[destSearchHi].classList.add('hi');
+    items[destSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (destSearchHi > -1 && items[destSearchHi]) {
+      selectDestinationFromSearch(items[destSearchHi].dataset.value);
+    }
+  } else if (e.key === 'Escape') {
+    closeDestinationSearch();
+  }
+}
+
+document.addEventListener('click', function (e) {
+  const wrap = document.getElementById('destinationSearchWrap');
+  if (wrap && !wrap.contains(e.target)) closeDestinationSearch();
+});
+
+/* ── Performa Invoice ── */
+function togglePerfSection() {
+  document.getElementById('perfSection').classList.toggle('perf-collapsed');
+}
+
+/* ── Packages ── */
+function togglePkgSection() {
+  document.getElementById('pkgSection').classList.toggle('pkg-collapsed');
+}
+
+function setGstInvoice(val) {
+  document.getElementById('gstInvoiceFlag').value = val;
+  document.getElementById('gstYnYes').classList.toggle('active', val === 'yes');
+  document.getElementById('gstYnNo').classList.toggle('active', val === 'no');
+  updateDepartmentNo();
+}
+
+/* Auto-generate Department No from CSB Type + GST flag + invoice date (ddmmyy) */
+function toggleExportReasonOther(sel) {
+  const other = document.getElementById('exportReasonOther');
+  if (other) other.style.display = sel.value === 'Other' ? 'block' : 'none';
+  updateDepartmentNo();
+}
+
+function updateDepartmentNo() {
+  const csb = (document.getElementById('csbType')?.value || '').replace(/\s+/g, '');
+  const gst = document.getElementById('gstInvoiceFlag')?.value === 'yes' ? 'GST' : 'NGST';
+  const dateVal = document.getElementById('performaInvoiceDate')?.value;
+  let ddmmyy = '';
+  if (dateVal) {
+    const [y, m, d] = dateVal.split('-');
+    ddmmyy = d + m + y.slice(2);
+  }
+  const companyCode = (document.querySelector('.pi-company-name')?.textContent || 'ASP').trim().slice(0, 3).toUpperCase() || 'ASP';
+  const el = document.getElementById('departmentNo');
+  if (el) el.value = [csb, companyCode, gst, ddmmyy].filter(Boolean).join('/');
+}
+
+/* Unused now that boxes stay listed after use (see getAvailablePerfBoxLabels
+   below) — kept in case future logic needs to know which boxes already have
+   at least one line item. */
+function getLockedPerfBoxLabels() {
+  const used = new Set();
+  document.querySelectorAll('#perfBody .perf-row').forEach(tr => {
+    const v = tr.querySelector('input[name="perf_box[]"]')?.value;
+    if (v) used.add(v);
+  });
+  return used;
+}
+
+function getPerfBoxPrefix() {
+  return document.querySelector('#pkgBody tr [name="pkg_type[]"]')?.value || 'Box';
+}
+
+/* All box labels implied by the physical Packages section above (Box-1..Box-N,
+   based on total qty across pkg rows). A box that already has one or more line
+   items in the Performa table below stays in this list — a single box can hold
+   multiple items, so it must remain pickable instead of disappearing after its
+   first use. */
+function getAvailablePerfBoxLabels() {
+  const prefix = getPerfBoxPrefix();
+  let totalBoxes = 0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    totalBoxes += parseInt(tr.querySelector('[name="pkg_qty[]"]')?.value) || 1;
+  });
+  const labels = [];
+  for (let i = 1; i <= totalBoxes; i++) {
+    labels.push(`${prefix}-${i}`);
+  }
+  console.log('getAvailablePerfBoxLabels:', labels); // DEBUG
+  return labels;
+}
+
+const PERF_UNIT_OPTIONS = ['PCS','PACKETS','SET','PAIR','BOX','KG','METER','UNIT','BOTTLE'];
+function perfUnitOptionsHtml(selected) {
+  return PERF_UNIT_OPTIONS.map(u => `<option value="${u}"${u === selected ? ' selected' : ''}>${u}</option>`).join('');
+}
+
+function updatePerfRowAmount() {
+  const row = document.querySelector('#perfEntryRows .perf-entry-row');
+  if (!row) return;
+  const qty = parseFloat(row.querySelector('.pe-qty').value) || 0;
+  const rate = parseFloat(row.querySelector('.pe-rate').value) || 0;
+  row.querySelector('.pe-amt').value = (qty * rate).toFixed(2);
+}
+
+function renderPerfEntryRow(preserve, forceBox) {
+  const container = document.getElementById('perfEntryRows');
+  
+  // Agar preserve=true hai aur existing row hai toh usme sirf options update karo
+  if (preserve !== false) {
+    const existingRow = container.querySelector('.perf-entry-row');
+    if (existingRow) {
+      const select = existingRow.querySelector('.pe-box');
+      if (select) {
+        const currentValue = select.value;
+        const available = getAvailablePerfBoxLabels();
+        select.innerHTML = available.length
+          ? available.map(l => `<option value="${l}"${l === currentValue ? ' selected' : ''}>${l}</option>`).join('')
+          : `<option value="">— Select —</option>`;
+        if (available.includes(currentValue)) {
+          select.value = currentValue;
+        }
+      }
+      return;
+    }
+  }
+  
+  // Agar preserve=false hai toh naya row banao (yeh ab sirf tab use hoga jab Packages change ho)
+  const existing = container.querySelector('.perf-entry-row');
+  const d = existing ? {
+    box: existing.querySelector('.pe-box')?.value || '',
+    desc: existing.querySelector('.pe-desc')?.value || '',
+    hsn: existing.querySelector('.pe-hsn')?.value || '',
+    qty: existing.querySelector('.pe-qty')?.value ?? 1,
+    weight: existing.querySelector('.pe-weight')?.value || '',
+    unit: existing.querySelector('.pe-unit')?.value || 'PCS',
+    rate: existing.querySelector('.pe-rate')?.value ?? 0,
+  } : { box: '', desc: '', hsn: '', qty: 1, weight: '', unit: 'PCS', rate: 0 };
+
+  if (forceBox) d.box = forceBox;
+
+  const head = document.getElementById('perfEntryRowsHead');
+  if (head) head.style.display = 'grid';
+
+  const available = getAvailablePerfBoxLabels();
+  const boxOptionsHtml = available.length
+    ? available.map(l => `<option value="${l}"${l === d.box ? ' selected' : ''}>${l}</option>`).join('')
+    : `<option value="">— Select —</option>`;
+
+  const qty = (d.qty !== undefined && d.qty !== '') ? d.qty : 1;
+  const rate = (d.rate !== undefined && d.rate !== '') ? d.rate : 0;
+  const amt = (parseFloat(qty) || 0) * (parseFloat(rate) || 0);
+
+  container.innerHTML = `
+    <div class="perf-entry-row perf-entry-grid">
+      <div><select class="pe-box">${boxOptionsHtml}</select></div>
+      <div><input type="text" class="pe-desc" placeholder="e.g. Electronic Components, Clothing..." value="${d.desc}" onblur="autofillPerfHsn(this)"></div>
+      <div><input type="text" class="pe-hsn" placeholder="HSN code" value="${d.hsn}"></div>
+      <div><input type="number" class="pe-qty" min="0" step="1" value="${qty}" oninput="updatePerfRowAmount()"></div>
+      <div><input type="number" class="pe-weight" min="0" step="0.01" placeholder="kg" value="${d.weight}"></div>
+      <div><select class="pe-unit">${perfUnitOptionsHtml(d.unit)}</select></div>
+      <div><input type="number" class="pe-rate" min="0" step="0.01" value="${rate}" oninput="updatePerfRowAmount()"></div>
+      <div><input type="text" class="pe-amt" readonly value="${amt.toFixed(2)}" style="background:#F3F4F6;color:#374151;font-weight:700;"></div>
+    </div>`;
+}
+
+/* Box dropdown / physical packages sync: call whenever the Packages section
+   above changes (box added/removed) or a Performa row is added/removed, so
+   the dropdown always reflects which boxes actually still need an entry. */
+function refreshPerfBoxOptions() {
+  // Agar already koi row hai toh usme sirf box options update karo, poora row mat badlo
+  const existingRow = document.querySelector('#perfEntryRows .perf-entry-row');
+  if (existingRow) {
+    const select = existingRow.querySelector('.pe-box');
+    if (select) {
+      const currentValue = select.value;
+      const available = getAvailablePerfBoxLabels();
+      select.innerHTML = available.length
+        ? available.map(l => `<option value="${l}"${l === currentValue ? ' selected' : ''}>${l}</option>`).join('')
+        : `<option value="">— Select —</option>`;
+      // Agar current value available hai toh wahi select rahega
+      if (available.includes(currentValue)) {
+        select.value = currentValue;
+      }
+    }
+    return;
+  }
+  // Agar koi row nahi hai toh naya render karo
+  renderPerfEntryRow();
+}
+
+// ── Edit Performa Row ──
+function editPerfRow(btn) {
+    const row = btn.closest('tr');
+    if (row.dataset.editing === 'true') return; // already editing
+    
+    // Store original values
+    const box = row.querySelector('[name="perf_box[]"]')?.value || '';
+    const desc = row.querySelector('[name="perf_desc[]"]')?.value || '';
+    const hsn = row.querySelector('[name="perf_hsn[]"]')?.value || '';
+    const qty = row.querySelector('[name="perf_qty[]"]')?.value || 0;
+    const weight = row.querySelector('[name="perf_weight_item[]"]')?.value || 0;
+    const unit = row.querySelector('[name="perf_unit[]"]')?.value || 'PCS';
+    const rate = row.querySelector('[name="perf_rate[]"]')?.value || 0;
+    const amt = parseFloat(qty) * parseFloat(rate);
+    
+    // Store original data for cancel
+    row.dataset.origBox = box;
+    row.dataset.origDesc = desc;
+    row.dataset.origHsn = hsn;
+    row.dataset.origQty = qty;
+    row.dataset.origWeight = weight;
+    row.dataset.origUnit = unit;
+    row.dataset.origRate = rate;
+    row.dataset.editing = 'true';
+    
+    // Get available box labels
+    const available = getAvailablePerfBoxLabels();
+    const boxOptionsHtml = available.length
+        ? available.map(l => `<option value="${l}"${l === box ? ' selected' : ''}>${l}</option>`).join('')
+        : `<option value="">— Select —</option>`;
+    
+    // Replace row content with editable fields
+    row.innerHTML = `
+        <td style="color:#9CA3AF;font-size:12px;text-align:center;">${row.cells[0].textContent}</td>
+        <td>
+            <select class="edit-pe-box" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;">
+                ${boxOptionsHtml}
+            </select>
+        </td>
+        <td><input type="text" class="edit-pe-desc" value="${desc}" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;"></td>
+        <td><input type="text" class="edit-pe-hsn" value="${hsn}" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;"></td>
+        <td><input type="number" class="edit-pe-qty" value="${qty}" step="1" min="0" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;" oninput="updateEditPerfRowAmount(this)"></td>
+        <td><input type="number" class="edit-pe-weight" value="${weight}" step="0.01" min="0" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;"></td>
+        <td>
+            <select class="edit-pe-unit" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;">
+                ${perfUnitOptionsHtml(unit)}
+            </select>
+        </td>
+        <td><input type="number" class="edit-pe-rate" value="${rate}" step="0.01" min="0" style="width:100%;padding:4px 6px;border:1.5px solid #4F46E5;border-radius:4px;" oninput="updateEditPerfRowAmount(this)"></td>
+        <td class="edit-pe-amt" style="font-weight:700;color:#4338CA;text-align:right;padding-right:10px;">${amt.toFixed(2)}</td>
+        <td style="white-space:nowrap;">
+            <button type="button" class="btn btn-success btn-sm" onclick="savePerfRow(this)" style="padding:2px 10px;font-size:11px;margin-right:4px;">💾</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="cancelPerfRow(this)" style="padding:2px 10px;font-size:11px;">✕</button>
+        </td>
+    `;
+}
+
+function updateEditPerfRowAmount(input) {
+    const row = input.closest('tr');
+    const qty = parseFloat(row.querySelector('.edit-pe-qty')?.value) || 0;
+    const rate = parseFloat(row.querySelector('.edit-pe-rate')?.value) || 0;
+    const amt = qty * rate;
+    const amtEl = row.querySelector('.edit-pe-amt');
+    if (amtEl) amtEl.textContent = amt.toFixed(2);
+}
+
+function savePerfRow(btn) {
+    const row = btn.closest('tr');
+    
+    // Get edited values
+    const box = row.querySelector('.edit-pe-box')?.value || '';
+    const desc = (row.querySelector('.edit-pe-desc')?.value || '').trim();
+    const hsn = row.querySelector('.edit-pe-hsn')?.value || '';
+    const qty = parseFloat(row.querySelector('.edit-pe-qty')?.value) || 0;
+    const weight = parseFloat(row.querySelector('.edit-pe-weight')?.value) || 0;
+    const unit = row.querySelector('.edit-pe-unit')?.value || 'PCS';
+    const rate = parseFloat(row.querySelector('.edit-pe-rate')?.value) || 0;
+    const amt = qty * rate;
+    
+    if (!desc) {
+        alert('Description is required.');
+        row.querySelector('.edit-pe-desc')?.focus();
+        return;
+    }
+    
+    // Restore row with updated values
+    const idx = row.cells[0].textContent;
+    row.dataset.editing = 'false';
+    row.innerHTML = `
+        <td style="color:#9CA3AF;font-size:12px;text-align:center;">${idx}</td>
+        <td><input type="hidden" name="perf_box[]" value="${box}">${box || '—'}</td>
+        <td><input type="hidden" name="perf_desc[]" value="${desc}">${desc}</td>
+        <td><input type="hidden" name="perf_hsn[]" value="${hsn}">${hsn || '—'}</td>
+        <td style="text-align:center;"><input type="hidden" name="perf_qty[]" value="${qty}">${qty}</td>
+        <td style="text-align:center;"><input type="hidden" name="perf_weight_item[]" value="${weight}">${weight}</td>
+        <td style="text-align:center;"><input type="hidden" name="perf_unit[]" value="${unit}">${unit}</td>
+        <td style="text-align:right;"><input type="hidden" name="perf_rate[]" value="${rate}">${rate.toFixed(2)}</td>
+        <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;"><input type="hidden" name="perf_amt[]" value="${amt.toFixed(2)}">${amt.toFixed(2)}</td>
+        <td style="white-space:nowrap;">
+            <button type="button" class="del-btn" onclick="editPerfRow(this)" title="Edit this row" style="color:#4F46E5;">✏️</button>
+            <button type="button" class="del-btn" onclick="removePerfRow(this)" title="Delete this row">×</button>
+        </td>
+    `;
+    
+    calcPerforma();
+}
+
+function cancelPerfRow(btn) {
+    const row = btn.closest('tr');
+    if (!confirm('Discard changes?')) return;
+    
+    // Restore original values
+    const box = row.dataset.origBox || '';
+    const desc = row.dataset.origDesc || '';
+    const hsn = row.dataset.origHsn || '';
+    const qty = parseFloat(row.dataset.origQty) || 0;
+    const weight = parseFloat(row.dataset.origWeight) || 0;
+    const unit = row.dataset.origUnit || 'PCS';
+    const rate = parseFloat(row.dataset.origRate) || 0;
+    const amt = qty * rate;
+    const idx = row.cells[0].textContent;
+    
+    row.dataset.editing = 'false';
+    row.innerHTML = `
+        <td style="color:#9CA3AF;font-size:12px;text-align:center;">${idx}</td>
+        <td><input type="hidden" name="perf_box[]" value="${box}">${box || '—'}</td>
+        <td><input type="hidden" name="perf_desc[]" value="${desc}">${desc}</td>
+        <td><input type="hidden" name="perf_hsn[]" value="${hsn}">${hsn || '—'}</td>
+        <td style="text-align:center;"><input type="hidden" name="perf_qty[]" value="${qty}">${qty}</td>
+        <td style="text-align:center;"><input type="hidden" name="perf_weight_item[]" value="${weight}">${weight}</td>
+        <td style="text-align:center;"><input type="hidden" name="perf_unit[]" value="${unit}">${unit}</td>
+        <td style="text-align:right;"><input type="hidden" name="perf_rate[]" value="${rate}">${rate.toFixed(2)}</td>
+        <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;"><input type="hidden" name="perf_amt[]" value="${amt.toFixed(2)}">${amt.toFixed(2)}</td>
+        <td style="white-space:nowrap;">
+            <button type="button" class="del-btn" onclick="editPerfRow(this)" title="Edit this row" style="color:#4F46E5;">✏️</button>
+            <button type="button" class="del-btn" onclick="removePerfRow(this)" title="Delete this row">×</button>
+        </td>
+    `;
+}
+
+function calcPerforma() {
+  let subtotal = 0;
+  document.querySelectorAll('#perfBody .perf-row').forEach(row => {
+    const qty = parseFloat(row.querySelector('[name="perf_qty[]"]')?.value) || 0;
+    const rate = parseFloat(row.querySelector('[name="perf_rate[]"]')?.value) || 0;
+    subtotal += qty * rate;
+  });
+  const f = n => '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2 });
+  const subtotalEl = document.getElementById('perfSubtotal');
+  const totalEl = document.getElementById('perfTotal');
+  if (subtotalEl) subtotalEl.textContent = f(subtotal);
+  if (totalEl) totalEl.textContent = f(subtotal);
+}
+
+// ── HSN auto-detect: matches the Performa description against your Stock
+// Item master (name/HSN) and fills the HSN field if it finds a match.
+// Never overwrites an HSN you've already typed in manually.
+//
+// IMPORTANT: the actual fill happens SYNCHRONOUSLY off the __stockItemsForHsn
+// cache at "Add" time (see addPerfItemRow below) — not inside the async
+// onblur handler. Reason: onblur fires, then yields at `await fetch(...)`,
+// and the click on "Add" runs synchronously right after — before that
+// fetch resolves — so the row got added with a blank HSN almost every
+// time. The onblur handler below is now just a best-effort early fill for
+// visual feedback; addPerfItemRow() is what actually guarantees it. ──────
+let __stockItemsForHsn = null;
+async function getStockItemsForHsn() {
+  if (__stockItemsForHsn) return __stockItemsForHsn;
+  try {
+    const res = await fetch('/api/stock/items');
+    __stockItemsForHsn = res.ok ? await res.json() : [];
+  } catch (e) {
+    __stockItemsForHsn = [];
+  }
+  return __stockItemsForHsn;
+}
+document.addEventListener('DOMContentLoaded', getStockItemsForHsn); // warm the cache early so it's ready before the user finishes typing
+
+function lookupHsnSync(desc) {
+  if (!__stockItemsForHsn || !desc) return '';
+  const d = desc.trim().toLowerCase();
+  if (!d) return '';
+  // exact name match first, then "contains" either direction as a fallback
+  let match = __stockItemsForHsn.find(it => (it.name || '').toLowerCase() === d);
+  if (!match) {
+    match = __stockItemsForHsn.find(it => {
+      const name = (it.name || '').toLowerCase();
+      return name && (name.includes(d) || d.includes(name));
+    });
+  }
+  return (match && match.hsn) ? match.hsn : '';
+}
+
+async function autofillPerfHsn(descInput) {
+  const row = descInput.closest('.perf-entry-row');
+  const hsnInput = row ? row.querySelector('.pe-hsn') : null;
+  if (!hsnInput || hsnInput.value.trim()) return; // don't clobber a manually-entered HSN
+  await getStockItemsForHsn(); // no-op await if already cached — just belt-and-braces
+  const hsn = lookupHsnSync(descInput.value || '');
+  if (hsn) hsnInput.value = hsn;
+}
+
+function appendPerfRow(boxLabel, desc, hsn, qty, weight, unit, rate) {
+  const tbody = document.getElementById('perfBody');
+  const amt = qty * rate;
+  const idx = tbody.querySelectorAll('.perf-row').length + 1;
+  const tr = document.createElement('tr');
+  tr.className = 'perf-row';
+  tr.innerHTML = `
+    <td style="color:#9CA3AF;font-size:12px;text-align:center;">${idx}</td>
+    <td><input type="hidden" name="perf_box[]" value="${boxLabel}">${boxLabel || '—'}</td>
+    <td><input type="hidden" name="perf_desc[]" value="${desc}">${desc}</td>
+    <td><input type="hidden" name="perf_hsn[]" value="${hsn}">${hsn || '—'}</td>
+    <td style="text-align:center;"><input type="hidden" name="perf_qty[]" value="${qty}">${qty}</td>
+    <td style="text-align:center;"><input type="hidden" name="perf_weight_item[]" value="${weight}">${weight}</td>
+    <td style="text-align:center;"><input type="hidden" name="perf_unit[]" value="${unit}">${unit}</td>
+    <td style="text-align:right;"><input type="hidden" name="perf_rate[]" value="${rate}">${rate.toFixed(2)}</td>
+    <td class="perf-amt" style="font-weight:600;color:#4338CA;text-align:right;padding-right:10px;"><input type="hidden" name="perf_amt[]" value="${amt.toFixed(2)}">${amt.toFixed(2)}</td>
+    <td style="white-space:nowrap;">
+            <button type="button" class="del-btn" onclick="editPerfRow(this)" title="Edit this row" style="color:#4F46E5;">✏️</button>
+            <button type="button" class="del-btn" onclick="removePerfRow(this)">×</button></td>`;
+  tbody.appendChild(tr);
+}
+
+function addPerfItemRow() {
+  const row = document.querySelector('#perfEntryRows .perf-entry-row');
+  if (!row) return;
+
+  const boxLabel = row.querySelector('.pe-box')?.value || '';
+  const desc = (row.querySelector('.pe-desc')?.value || '').trim();
+  const hsnField = row.querySelector('.pe-hsn');
+  // Guaranteed sync fill — do NOT rely on the async onblur handler having
+  // finished by the time this runs (it usually hasn't, see note above).
+  if (hsnField && !hsnField.value.trim()) {
+    const auto = lookupHsnSync(desc);
+    if (auto) hsnField.value = auto;
+  }
+  const hsn = (hsnField?.value || '').trim();
+  const qty = parseFloat(row.querySelector('.pe-qty')?.value) || 0;
+  const weight = parseFloat(row.querySelector('.pe-weight')?.value) || 0;
+  const unit = row.querySelector('.pe-unit')?.value || 'PCS';
+  const rate = parseFloat(row.querySelector('.pe-rate')?.value) || 0;
+
+  if (!boxLabel) {
+    alert('Please add packages in the Packages section above first, then select a Box No.');
+    row.querySelector('.pe-box')?.focus();
+    return;
+  }
+  if (!desc) {
+    alert(`Please enter a description of goods for ${boxLabel}.`);
+    row.querySelector('.pe-desc')?.focus();
+    return;
+  }
+
+  appendPerfRow(boxLabel, desc, hsn, qty, weight, unit, rate);
+  calcPerforma();
+  
+  // ============ YAHI FIX HAI ============
+  // POORA ROW RE-RENDER MAT KARO - sirf fields clear karo
+  const descInput = row.querySelector('.pe-desc');
+  const hsnInput = row.querySelector('.pe-hsn');
+  const qtyInput = row.querySelector('.pe-qty');
+  const weightInput = row.querySelector('.pe-weight');
+  const rateInput = row.querySelector('.pe-rate');
+  const amtInput = row.querySelector('.pe-amt');
+  
+  if (descInput) descInput.value = '';
+  if (hsnInput) hsnInput.value = '';
+  if (qtyInput) qtyInput.value = 1;
+  if (weightInput) weightInput.value = '';
+  if (rateInput) rateInput.value = 0;
+  if (amtInput) amtInput.value = '0.00';
+  
+  // Box dropdown KO MAT CHHEDO - waisa hi rahega
+  // Focus next entry ke liye description pe
+  row.querySelector('.pe-desc')?.focus();
+}
+
+function removePerfRow(btn) {
+  btn.closest('tr').remove();
+  calcPerforma();
+  document.querySelectorAll('#perfBody .perf-row').forEach((r, i) => {
+    r.cells[0].textContent = i + 1;
+  });
+  renderPerfEntryRow(); // the box freed up by this removal becomes selectable again
+}
+
+
+
+/* ── Print trigger ── */
+function triggerPrint(type) {
+  // Build box labels dynamically from package rows
+  if (type === 'box') {
+    const awb = document.querySelector('[name="docket_no"]')?.value || '';
+    const shipperName = document.querySelector('[name="shipper_name"]')?.value || document.getElementById('shipperAddress1')?.value || '';
+    const receiverName = document.querySelector('[name="receiver_name"]')?.value || '';
+    const receiverAddr = [
+      document.querySelector('[name="receiver_address1"]')?.value,
+      document.querySelector('[name="receiver_address2"]')?.value,
+      document.querySelector('[name="receiver_city"]')?.value,
+      document.querySelector('[name="receiver_state"]')?.value,
+      document.querySelector('[name="receiver_pincode"]')?.value,
+    ].filter(Boolean).join(', ');
+    const shipperAddr = [
+      document.getElementById('shipperAddress1')?.value,
+      document.getElementById('shipperAddress2')?.value,
+      document.getElementById('shipperCity')?.value,
+      document.getElementById('shipperState')?.value,
+      document.getElementById('shipperPincode')?.value,
+    ].filter(Boolean).join(', ');
+    const dest = document.querySelector('[name="destination"]')?.value || '';
+    const totalPkg = document.querySelectorAll('#pkgBody tr').length;
+    const trackingNo = document.querySelector('[name="tracking_number"]')?.value || '';
+
+
+    let labelsHtml = '<div class="bx-page">';
+    document.querySelectorAll('#pkgBody tr').forEach((row, idx) => {
+      const name = row.querySelector('[name="pkg_name[]"]')?.value || 'Package';
+      const qty = row.querySelector('[name="pkg_qty[]"]')?.value || '1';
+      const wt = row.querySelector('[name="pkg_wt[]"]')?.value || '—';
+      const l = row.querySelector('[name="pkg_l[]"]')?.value || '';
+      const w = row.querySelector('[name="pkg_w[]"]')?.value || '';
+      const h = row.querySelector('[name="pkg_h[]"]')?.value || '';
+      const dims = (l && w && h) ? `${l}×${w}×${h}` : '—';
+      const volWt = (l && w && h) ? ((parseFloat(l)*parseFloat(w)*parseFloat(h))/5000).toFixed(3) : '—';
+
+      // Get company info from page
+      const companyNameEl = document.querySelector('.pi-company-name');
+      const companyName = companyNameEl?.textContent || 'PXC PACIFIC GLOBAL PVT. LTD.';
+      const companyLogoUrl = companyNameEl?.dataset.logoUrl || '';
+      const companyWebsite = companyNameEl?.dataset.website || '';
+      const companyEmail = companyNameEl?.dataset.email || '';
+      const product = document.querySelector('[name="product"]')?.value || '';
+      const vendor = document.querySelector('[name="vendor"]')?.value || '';
+      const shipperDocType = document.querySelector('[name="shipper_doc_type"]')?.value || '';
+      const shipperDocNo = document.querySelector('[name="shipper_doc_no"]')?.value || '';
+      const receiverDocType = document.querySelector('[name="receiver_doc_type"]')?.value || '';
+      const receiverDocNo = document.querySelector('[name="receiver_doc_no"]')?.value || '';
+      const shipperCity = document.getElementById('shipperCity')?.value || '';
+      const shipperState = document.getElementById('shipperState')?.value || '';
+      const shipperPincode = document.getElementById('shipperPincode')?.value || '';
+      const shipperCountry = document.getElementById('shipperCountry')?.value || '';
+      const receiverCity = document.querySelector('[name="receiver_city"]')?.value || '';
+      const receiverState = document.querySelector('[name="receiver_state"]')?.value || '';
+      const receiverPincode = document.querySelector('[name="receiver_pincode"]')?.value || '';
+      const receiverCountry = document.querySelector('[name="receiver_country"]')?.value || '';
+      const bookingDate = document.querySelector('[name="invoice_date"]')?.value || '';
+      const mode = document.querySelector('[name="mode"]')?.value || '';
+      const carrierRef = document.querySelector('[name="carrier_ref"]')?.value || '';
+
+      const shipperPhone = document.querySelector('[name="customer_phone"]')?.value || '';
+      const receiverPhone = document.querySelector('[name="receiver_phone"]')?.value || '';
+      const totalQty = Array.from(document.querySelectorAll('#pkgBody [name="pkg_qty[]"]')).reduce((s,el)=>s+(parseFloat(el.value)||0),0);
+      const chargeableWt = document.getElementById('freightWeight')?.value || wt;
+
+      labelsHtml += `
+        <div class="bx-awb-top">${awb}</div>
+        <div class="bx-label">
+          <!-- Header: Logo | Company | Page count -->
+          <div class="bx-header">
+            <div class="bx-logo-area">
+              <div class="bx-logo-icon" style="font-size:36px;margin-right:10px;width:64px;height:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="logo" style="width:100%;height:100%;object-fit:contain;">` : '✈'}</div>
+              <div>
+                <div class="bx-company-name" style="font-size:18px;font-weight:900;line-height:1.1;">${companyName}</div>
+                <div class="bx-company-sub">INTERNATIONAL COURIER / FREIGHT FORWARDER</div>
+                ${(companyWebsite || companyEmail) ? `<div class="bx-company-sub">${companyWebsite ? 'WEBSITE: ' + companyWebsite.toUpperCase() : ''}${companyWebsite && companyEmail ? ' &nbsp;|&nbsp; ' : ''}${companyEmail ? 'E-MAIL: ' + companyEmail.toUpperCase() : ''}</div>` : ''}
+              </div>
+            </div>
+            <div></div>
+            <div class="bx-page-count" style="font-size:22px;font-weight:900;text-align:right;white-space:nowrap;">${idx+1} / ${totalPkg}</div>
+          </div>
+
+          <!-- Top meta row: Account | Customer | Origin | Destination | Service | Actual Weight -->
+          <div class="bx-meta-top" style="display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid #000;">
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Account</span><span class="bx-meta-val">${carrierRef || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Customer</span><span class="bx-meta-val">${shipperName}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Origin</span><span class="bx-meta-val">${shipperCity || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Destination</span><span class="bx-meta-val">${dest || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Service</span><span class="bx-meta-val">${product || mode || '—'}</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Actual Weight</span><span class="bx-meta-val">${wt} kg</span></div>
+          </div>
+
+          <!-- Second meta row: Box Weight | Box Vol. Weight | Dimension in CM -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Box Weight</span><span class="bx-meta-val">${wt} kg</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Box Vol. Weight</span><span class="bx-meta-val">${volWt} kg</span></div>
+            <div class="bx-meta-cell"><span class="bx-meta-lbl">Dimension in CM</span><span class="bx-meta-val">${dims}</span></div>
+          </div>
+
+          <!-- Sender's Company row -->
+          <div class="bx-party-row">
+            <div class="bx-party-tag" style="line-height:1.3;">SENDER'S<br>COMPANY</div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Sender's Company</span>
+              <span class="bx-party-name-val">${shipperName}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Recipient's Company</span>
+              <span class="bx-party-name-val">${receiverName}</span>
+            </div>
+          </div>
+
+          <!-- Sender's Name row -->
+          <div class="bx-party-row">
+            <div class="bx-party-tag" style="line-height:1.3;">SENDER'S<br>NAME</div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Sender's Name</span>
+              <span class="bx-party-name-val">${shipperName}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Recipient's Name</span>
+              <span class="bx-party-name-val">${receiverName}</span>
+            </div>
+          </div>
+
+          <!-- Address row -->
+          <div class="bx-party-row">
+            <div class="bx-party-tag">ADDRESS</div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Address</span>
+              <span class="bx-party-addr-val">${document.getElementById('shipperAddress1')?.value || ''}${document.getElementById('shipperAddress2')?.value ? '<br>'+document.getElementById('shipperAddress2').value : ''}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-party-label">Address</span>
+              <span class="bx-party-addr-val">${document.querySelector('[name="receiver_address1"]')?.value || ''}${document.querySelector('[name="receiver_address2"]')?.value ? '<br>'+document.querySelector('[name="receiver_address2"]').value : ''}</span>
+            </div>
+          </div>
+
+          <!-- Pin Code | City | State | Tel No. -->
+          <div style="display:grid;grid-template-columns:130px 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-party-tag" style="font-size:10px;">PIN CODE</div>
+            <div class="bx-party-block"><span class="bx-meta-val">${shipperPincode || '—'}</span></div>
+            <div class="bx-party-block"><span class="bx-meta-val">${receiverPincode || '—'}</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:130px 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-party-tag" style="font-size:10px;">CITY</div>
+            <div class="bx-party-block"><span class="bx-meta-val">${shipperCity || '—'}</span>&nbsp;&nbsp;<span style="font-size:9px;color:#555;">${shipperState}</span></div>
+            <div class="bx-party-block"><span class="bx-meta-val">${receiverCity || '—'}</span>&nbsp;&nbsp;<span style="font-size:9px;color:#555;">${receiverState}</span></div>
+          </div>
+          <div style="display:grid;grid-template-columns:130px 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-party-tag" style="font-size:10px;">TEL NO.</div>
+            <div class="bx-party-block">
+              <span class="bx-meta-lbl">Shipper Tel.</span>
+              <span class="bx-meta-val" style="font-size:12px;">${shipperPhone || '—'}</span>
+            </div>
+            <div class="bx-party-block">
+              <span class="bx-meta-lbl">Consignee Tel.</span>
+              <span class="bx-meta-val" style="font-size:12px;">${receiverPhone || '—'}</span>
+            </div>
+          </div>
+
+          <!-- Description | Pieces | Chargeable WT | Booking Date | Routing Code -->
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;border-bottom:1px solid #000;">
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Description of Goods</span>
+              <span class="bx-meta-val" style="font-size:11px;">${name}</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Pieces</span>
+              <span class="bx-meta-val">${qty}</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Chargeable WT</span>
+              <span class="bx-meta-val">${chargeableWt} kg</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Booking Date</span>
+              <span class="bx-meta-val" style="font-size:11px;">${bookingDate}</span>
+            </div>
+            <div class="bx-detail-cell">
+              <span class="bx-meta-lbl">Routing Code</span>
+              <span class="bx-meta-val" style="font-size:11px;">${mode || '—'}</span>
+            </div>
+          </div>
+
+          <!-- Barcode / AWB row -->
+          <div class="bx-barcode-row" style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;">
+            <div style="max-width:180px;">
+              <div style="font-size:9px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">SHIPPER AGREEMENT</div>
+              <div style="font-size:8px;color:#444;line-height:1.4;">Shipper agrees to PXC Pacific Global Pvt. Ltd. Terms &amp; Conditions. This AWB is non-transferable.<br>No claims for loss if shipper has not physically received the parcel.</div>
+              <div style="margin-top:6px;font-size:8px;font-weight:700;">SHIPPER'S SIGNATURE</div>
+              <div style="border-top:1px solid #000;width:130px;margin-top:18px;"></div>
+            </div>
+            <div style="text-align:center;">
+              <div style="font-size:28px;font-weight:900;letter-spacing:2px;margin-bottom:4px;">${awb}</div>
+              <div style="font-size:38px;letter-spacing:4px;font-weight:900;line-height:1;">▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌▌</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:20px;font-weight:900;border:3px solid #000;padding:6px 14px;letter-spacing:2px;display:inline-block;">BOX LABEL</div>
+            </div>
+          </div>
+
+          <!-- Footer notes -->
+          <div style="padding:6px 14px;border-top:1px solid #000;font-size:7.5px;color:#444;line-height:1.5;">
+            1. No Claims will be entertained for any damage during transit &amp; delay in delivery due to any misuse.<br>
+            2. Maximum claim for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 kgs or the declared value whichever is lower.<br>
+            3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our care.
+          </div>
+        </div>`;
+    });
+    labelsHtml += '</div>';
+    document.getElementById('printBoxLabels').innerHTML = labelsHtml || '<div style="padding:20px;text-align:center;color:#6B7280;">No packages found.</div>';
+  }
+
+  // Fill docket package rows
+  if (type === 'docket') {
+    let rows = '';
+    document.querySelectorAll('#pkgBody tr').forEach((row, idx) => {
+      const name = row.querySelector('[name="pkg_name[]"]')?.value || '';
+      const qty  = row.querySelector('[name="pkg_qty[]"]')?.value  || '';
+      const l    = row.querySelector('[name="pkg_l[]"]')?.value    || '—';
+      const w    = row.querySelector('[name="pkg_w[]"]')?.value    || '—';
+      const h    = row.querySelector('[name="pkg_h[]"]')?.value    || '—';
+      const wt   = row.querySelector('[name="pkg_wt[]"]')?.value   || '—';
+      if (name) rows += `<tr><td>${idx+1}</td><td>${name}</td><td>${qty}</td><td>${l}</td><td>${w}</td><td>${h}</td><td>${wt}</td></tr>`;
+    });
+    const dkBody = document.getElementById('dkPkgRows');
+    if (dkBody) dkBody.innerHTML = rows || '<tr><td colspan="7" style="text-align:center;color:#9CA3AF;">No packages</td></tr>';
+    const pieces = document.querySelectorAll('#pkgBody tr').length;
+    const el = document.getElementById('dkPiecesCount');
+    if (el) el.textContent = pieces;
+  }
+
+  // Fill performa invoice print rows
+  if (type === 'performa') {
+    let rows = '', subtotal = 0;
+    document.querySelectorAll('#perfBody .perf-row').forEach((row, idx) => {
+      const box  = row.querySelector('[name="perf_box[]"]')?.value || '';
+      const desc = row.querySelector('[name="perf_desc[]"]')?.value || '';
+      const hsn  = row.querySelector('[name="perf_hsn[]"]')?.value || '';
+      const qty  = parseFloat(row.querySelector('[name="perf_qty[]"]')?.value) || 0;
+      const unit = row.querySelector('[name="perf_unit[]"]')?.value || '';
+      const rate = parseFloat(row.querySelector('[name="perf_rate[]"]')?.value) || 0;
+      const amt  = qty * rate;
+      subtotal += amt;
+      const descWithMeta = desc + (box ? ` <span style="color:#6B7280;font-size:9px;">(${box}${hsn ? ' · HSN ' + hsn : ''})</span>` : '');
+      if (desc) rows += `<tr><td>${idx+1}</td><td>${descWithMeta}</td><td style="text-align:center;">${qty}${unit ? ' ' + unit : ''}</td><td style="text-align:right;">${rate.toFixed(2)}</td><td style="text-align:right;">${amt.toFixed(2)}</td></tr>`;
+    });
+    const f = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2});
+    ['pfPrintRows'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = rows; });
+    ['pfPrintSubtotal'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = f(subtotal); });
+    ['pfPrintTotal'].forEach(id => { const el = document.getElementById(id); if(el) el.textContent = f(subtotal); });
+    const wt = document.getElementById('perfWeight')?.value || '—';
+    const wEl = document.getElementById('pfPrintWeight');
+    if (wEl) wEl.textContent = wt;
+  }
+
+  // Show correct print area
+  const sections = {
+    invoice:  'printCustomerInvoice',
+    performa: 'printPerformaInvoice',
+    docket:   'printDocket',
+    box:      'printBoxLabels',
+    awblabel: 'printAwbLabel',
+  };
+  // Hide all, show only chosen
+  Object.values(sections).forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const chosen = document.getElementById(sections[type]);
+  if (chosen) {
+    document.getElementById('printArea').style.display = 'block';
+    chosen.style.display = 'block';
+    setTimeout(() => {
+      window.print();
+      // After print, hide again
+      setTimeout(() => {
+        document.getElementById('printArea').style.display = 'none';
+        chosen.style.display = 'none';
+      }, 500);
+    }, 100);
+  }
+}
+
+/* Billing rounding rule for chargeable weight:
+   - 0 < weight <= 10 kg  → round UP to the next 0.5 kg (1.2 → 1.5, 3.1 → 3.5)
+   - weight > 10 kg       → round UP to the next whole 1 kg (11.1 → 12)
+   Applied per package, so each box is billed on its own rounded weight. */
+function roundBillableWeight(w) {
+  if (!w || w <= 0) return 0;
+  if (w <= 10) return Math.ceil(w / 0.5) * 0.5;
+  return Math.ceil(w);
+}
+
+/* ── Package rows ── */
+/* ── Live calc in entry panel ── */
+function livePkgCalc() {
+  const unit = document.getElementById('pkgEntryUnit').value;
+  const factor = unit === 'in' ? 2.54 : 1; // convert to cm
+  const qty = parseFloat(document.getElementById('pkgEntryQty').value) || 0;
+  const wt  = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
+  const l   = (parseFloat(document.getElementById('pkgEntryL').value) || 0) * factor;
+  const w   = (parseFloat(document.getElementById('pkgEntryW').value) || 0) * factor;
+  const h   = (parseFloat(document.getElementById('pkgEntryH').value) || 0) * factor;
+  const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
+
+  const volWtRaw = (l * w * h / division) * qty;
+  const volWt = volWtRaw;
+  const actWt = wt * qty;
+  const chgWt = Math.max(actWt, volWt); // actual chargeable weight — no rounding here, see roundBillableWeight() usage at rate-lookup time
+  // Discount Wt only affects the Actual Weight shown on AWB copies — it never
+  // touches Chargeable Weight, which is what the customer is billed and shown.
+
+  document.getElementById('pkgEntryVolWt').value = volWt.toFixed(3);
+  document.getElementById('pkgEntryChgWt').value = chgWt.toFixed(3);
+}
+
+function addPkgRow() {
+  const name   = 'Box';
+  const type   = 'Box';
+  const unit   = document.getElementById('pkgEntryUnit').value;
+  const qty    = parseFloat(document.getElementById('pkgEntryQty').value) || 1;
+  const wt     = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
+  const l      = parseFloat(document.getElementById('pkgEntryL').value) || 0;
+  const w      = parseFloat(document.getElementById('pkgEntryW').value) || 0;
+  const h      = parseFloat(document.getElementById('pkgEntryH').value) || 0;
+  const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
+  const discount = 0; // Disc% removed from UI; kept as 0 so existing pkg_discount[] field/backend stays compatible
+  // Disc. Weight field now takes the FINAL discounted weight directly (e.g. 15),
+  // not the amount to subtract. Back-calculate the subtract-amount here so the
+  // backend (pkg_discwt[] = actual − discount_wt everywhere in app.py) never changes.
+  const discEntryRaw = document.getElementById('pkgEntryDiscWt').value;
+  const discountedWt = discEntryRaw === '' ? wt : Math.min(parseFloat(discEntryRaw) || 0, wt); // can't discount below 0 or "discount" above actual
+  const discWt = Math.max(wt - discountedWt, 0); // stored subtract-amount, feeds pkg_discwt[]
+  const rate   = parseFloat(document.getElementById('pkgEntryRate').value) || 0;
+
+  livePkgCalc();
+  const volWt = parseFloat(document.getElementById('pkgEntryVolWt').value) || 0;
+  const chgWt = parseFloat(document.getElementById('pkgEntryChgWt').value) || 0;
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${name} <span style="color:#9CA3AF;font-size:11px;">(${type})</span>
+      <input type="hidden" name="pkg_name[]" value="${name}">
+      <input type="hidden" name="pkg_type[]" value="${type}">
+      <input type="hidden" name="pkg_unit[]" value="${unit}">
+    </td>
+    <td>${wt.toFixed(2)}<input type="hidden" name="pkg_wt[]" value="${wt}"></td>
+    <td>${qty}<input type="hidden" name="pkg_qty[]" value="${qty}"></td>
+    <td>${l}<input type="hidden" name="pkg_l[]" value="${l}"></td>
+    <td>${w}<input type="hidden" name="pkg_w[]" value="${w}"></td>
+    <td>${h}<input type="hidden" name="pkg_h[]" value="${h}">
+      <input type="hidden" name="pkg_division[]" value="${division}">
+      <input type="hidden" name="pkg_discount[]" value="${discount}">
+    </td>
+    <td>${volWt.toFixed(3)}<input type="hidden" name="pkg_volwt[]" value="${volWt}"></td>
+    <td style="font-weight:700;color:#4338CA;">${chgWt.toFixed(3)}<input type="hidden" name="pkg_chgwt[]" value="${chgWt}"></td>
+    <td>${discWt.toFixed(2)}<input type="hidden" name="pkg_discwt[]" value="${discWt}"></td>
+    <td style="font-weight:700;color:#DC2626;">${discountedWt.toFixed(2)}<input type="hidden" name="pkg_weight_after_discount[]" value="${discountedWt}"></td>
+    <td>₹<span class="pkg-rate-display">${rate.toFixed(2)}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="${rate}"></td>
+    <td>
+      <button type="button" class="del-btn" onclick="editPkgRow(this)" title="Edit">✎</button>
+      <button type="button" class="del-btn" onclick="removePkgRow(this)" title="Delete">×</button>
+    </td>`;
+  document.getElementById('pkgBody').appendChild(tr);
+
+  // Reset panel for the next piece (keep Unit/Division — usually shared across pieces)
+  document.getElementById('pkgEntryQty').value = 1;
+  document.getElementById('pkgEntryWt').value = 0;
+  document.getElementById('pkgEntryL').value = 0;
+  document.getElementById('pkgEntryW').value = 0;
+  document.getElementById('pkgEntryH').value = 0;
+  document.getElementById('pkgEntryRate').value = 0;
+  document.getElementById('pkgEntryDiscWt').value = '';
+  livePkgCalc();
+
+  calcPkg();
+  refreshPerfBoxOptions();
+}
+
+function removePkgRow(btn) {
+  btn.closest('tr').remove();
+  calcPkg();
+  refreshPerfBoxOptions();
+}
+
+function editPkgRow(btn) {
+  const tr = btn.closest('tr');
+
+  const unit     = tr.querySelector('[name="pkg_unit[]"]')?.value || 'cm';
+  const wt       = tr.querySelector('[name="pkg_wt[]"]')?.value || 0;
+  const qty      = tr.querySelector('[name="pkg_qty[]"]')?.value || 1;
+  const l        = tr.querySelector('[name="pkg_l[]"]')?.value || 0;
+  const w        = tr.querySelector('[name="pkg_w[]"]')?.value || 0;
+  const h        = tr.querySelector('[name="pkg_h[]"]')?.value || 0;
+  const division = tr.querySelector('[name="pkg_division[]"]')?.value || 5000;
+  const rate     = tr.querySelector('.pkg-rate-input')?.value || 0;
+  const discWt   = parseFloat(tr.querySelector('[name="pkg_discwt[]"]')?.value) || 0; // stored subtract-amount
+  const discountedWt = Math.max((parseFloat(wt) || 0) - discWt, 0); // convert back to the "final weight" the user typed
+
+  // Load the row's values back into the entry panel for editing.
+  document.getElementById('pkgEntryUnit').value     = unit;
+  document.getElementById('pkgEntryWt').value       = wt;
+  document.getElementById('pkgEntryQty').value      = qty;
+  document.getElementById('pkgEntryL').value        = l;
+  document.getElementById('pkgEntryW').value        = w;
+  document.getElementById('pkgEntryH').value        = h;
+  document.getElementById('pkgEntryDivision').value = division;
+  document.getElementById('pkgEntryRate').value     = rate;
+  document.getElementById('pkgEntryDiscWt').value   = discWt > 0 ? discountedWt : '';
+
+  // Pull the row out of the table — click "+ Add" again to save the edit back in.
+  tr.remove();
+  livePkgCalc();
+  calcPkg();
+  refreshPerfBoxOptions();
+
+  document.getElementById('pkgEntryWt').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function calcPkg() {
+  let volWt = 0, vol = 0, actWt = 0, chgWt = 0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('[name="pkg_qty[]"]')?.value) || 0;
+    const l   = parseFloat(tr.querySelector('[name="pkg_l[]"]')?.value) || 0;
+    const w   = parseFloat(tr.querySelector('[name="pkg_w[]"]')?.value) || 0;
+    const h   = parseFloat(tr.querySelector('[name="pkg_h[]"]')?.value) || 0;
+    const wt  = parseFloat(tr.querySelector('[name="pkg_wt[]"]')?.value) || 0;
+    const rowVolWt = parseFloat(tr.querySelector('[name="pkg_volwt[]"]')?.value) || 0;
+    const rowChgWt = parseFloat(tr.querySelector('[name="pkg_chgwt[]"]')?.value) || 0;
+    const cbm = (l * w * h) / 1000000;
+    vol   += cbm;
+    volWt += rowVolWt;
+    actWt += wt * qty;
+    chgWt += rowChgWt;
+  });
+  document.getElementById('volWt').textContent      = volWt.toFixed(2);
+  document.getElementById('totalVol').textContent   = vol.toFixed(4);
+  document.getElementById('actualWt').textContent   = actWt.toFixed(2);
+  document.getElementById('chgWtTotal').textContent = chgWt.toFixed(2);
+
+  // Freight & Charges "Chargeable Weight" is permanently locked (readonly in markup,
+  // same as the AWB/docket number field) and always mirrors the live package total —
+  // including 0.00 when there are no package rows. There is no manual-entry fallback.
+  const freightWtEl = document.getElementById('freightWeight');
+  if (freightWtEl) {
+    freightWtEl.value = chgWt.toFixed(2);
+    calcFreight();
+  }
+
+  // Auto-fetch rate should always track the live package chargeable weight too.
+  syncRateLookupInputs();
+}
+
+/* ── Freight per-kg calculator ── */
+function calcFreight() {
+  const weight = parseFloat(document.getElementById('freightWeight').value)||0;
+  const rate   = parseFloat(document.getElementById('freightRatePerKg').value)||0;
+  // Bill on the rounded slab weight when an auto-fetched rate set one; otherwise
+  // (rate typed in manually, no auto-fetch match) weight and rate already agree,
+  // so fall back to the actual weight.
+  const billingWeight = parseFloat(document.getElementById('freightBillingWeight')?.value) || weight;
+  const total  = billingWeight * rate;
+  document.getElementById('freightAmt').value = total.toFixed(2);
+  const bd = document.getElementById('freightBreakdown');
+  if (weight > 0 && rate > 0) {
+    bd.textContent = weight + ' kg (billed at ' + billingWeight + ' kg) × ₹' + rate + '/kg = ₹' + total.toLocaleString('en-IN', {maximumFractionDigits:2});
+  } else {
+    bd.textContent = '';
+  }
+  calcInvoiceTotal();
+}
+
+/* ── Auto-fetch Rate from Sale Price List (Consignor Carrier / Destination / Packages) ──
+   Replaces the old manual Rate Lookup card + "Apply to Freight" button: the
+   moment carrier, destination, and package weight are all known, this fires
+   the same /api/rate-lookup the old card used and writes the result straight
+   into Rate per kg — no lookup click, no apply click. Rate per kg stays a
+   normal editable input, so if no price list match is found the user can
+   still type a rate manually. */
+function syncRateLookupInputs() {
+    const carrierEl = document.getElementById('carrierSelect');
+    const destEl = document.getElementById('destinationInput');
+    if (!carrierEl || !destEl) return;
+
+    const courier = (carrierEl.value || '').trim();
+    const destination = (destEl.value || '').trim();
+
+    // Weight always mirrors the live package chargeable weight (0 when there
+    // are no package rows yet) — rounded to the slab weight the price list
+    // actually prices against.
+    const pkgChgWt = parseFloat(document.getElementById('chgWtTotal')?.textContent) || 0;
+    const weight = roundBillableWeight(pkgChgWt);
+
+    const noteEl = document.getElementById('freightRateNote');
+    if (!courier || !destination || !weight || weight <= 0) {
+        if (noteEl) { noteEl.style.display = 'none'; noteEl.textContent = ''; }
+        return;
+    }
+    autoFetchSaleRate(courier, destination, weight);
+}
+
+/* ── Rate auto-fetch ── */
+let rateFetchToken = 0; // guards against a slower earlier request overwriting a newer one
+
+function autoFetchSaleRate(courier, destination, weight) {
+    const noteEl = document.getElementById('freightRateNote');
+    const myToken = ++rateFetchToken;
+
+    if (noteEl) {
+        noteEl.style.display = 'block';
+        noteEl.style.color = 'var(--text-muted)';
+        noteEl.textContent = '⏳ Fetching rate from price list…';
+    }
+
+    fetch(`/api/rate-lookup?courier=${encodeURIComponent(courier)}&destination=${encodeURIComponent(destination)}&weight=${weight}`)
+        .then(response => response.json())
+        .then(data => {
+            if (myToken !== rateFetchToken) return; // superseded by a newer fetch
+
+            if (data.error || !data.rate) {
+                if (noteEl) {
+                    noteEl.style.color = 'var(--surface-danger-text)';
+                    noteEl.textContent = '⚠️ ' + (data.error || 'No sale price list rate found — enter manually');
+                }
+                return;
+            }
+
+            // Backend already computes the per-kg figure (rate ÷ the slab
+            // weight_used it actually priced against) — no division here.
+            const ratePerKg = data.rate_per_kg;
+
+            document.getElementById('freightRatePerKg').value = ratePerKg.toFixed(2);
+            const billingWtEl = document.getElementById('freightBillingWeight');
+            if (billingWtEl) billingWtEl.value = data.weight_used;
+
+            // Push the per-kg rate into every package row's Rate field too
+            document.querySelectorAll('#pkgBody tr').forEach(tr => {
+                const display = tr.querySelector('.pkg-rate-display');
+                const input = tr.querySelector('.pkg-rate-input');
+                if (display) display.textContent = ratePerKg.toFixed(2);
+                if (input) input.value = ratePerKg.toFixed(2);
+            });
+            // Also default the entry-panel Rate field so the next added package uses it too
+            const entryRateEl = document.getElementById('pkgEntryRate');
+            if (entryRateEl) entryRateEl.value = ratePerKg.toFixed(2);
+
+            if (noteEl) {
+                noteEl.style.color = 'var(--surface-success-text)';
+                noteEl.textContent = `✅ Auto-fetched from sale price list — ${data.country_matched}, ${data.weight_used}kg`;
+            }
+
+            calcFreight();
+        })
+        .catch(error => {
+            if (myToken !== rateFetchToken) return;
+            if (noteEl) {
+                noteEl.style.color = 'var(--surface-danger-text)';
+                noteEl.textContent = '⚠️ Error fetching rate — enter manually';
+            }
+            console.error('Rate auto-fetch error:', error);
+        });
+}
+
+/* ── Totals ── */
+const fmt = n => '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+
+// IMPORTANT: Get GST status from server (passed from Flask)
+const IS_GST_REGISTERED = {{ 'true' if is_gst_registered else 'false' }};
+
+function calcInvoiceTotal() {
+  const freight = parseFloat(document.getElementById('freightAmt').value)||0;
+  const fuel    = parseFloat(document.getElementById('fuelCharge').value)||0;
+  const other   = parseFloat(document.getElementById('otherCharges').value)||0;
+  const discount = parseFloat(document.getElementById('discountAmt').value)||0;
+  const base = freight + fuel + other;
+
+  // ── Get resale charges ────────────────────────────────────────────────────
+  const resaleAmount = parseFloat(document.getElementById('resaleCharges').value) || 0;
+
+  // Taxable value is freight+fuel+other+resale-discount, taxed together
+  // (mirrors the server) — discount comes off before GST, clamped at 0.
+  const taxable = Math.max(0, base + resaleAmount - discount);
+  const gstTotal = IS_GST_REGISTERED ? (taxable * 0.18) : 0;
+
+  // CGST+SGST for intrastate (same shipper/receiver state), IGST for interstate -
+  // this is how GST actually works, a flat "18% GST" line item is not correct.
+  const shipperState  = (document.querySelector('[name="shipper_state"]')?.value || '').trim().toLowerCase();
+  const receiverState = (document.querySelector('[name="receiver_state"]')?.value || '').trim().toLowerCase();
+  const isInterstate = !!(shipperState && receiverState && shipperState !== receiverState);
+
+  let cgst = 0, sgst = 0, igst = 0;
+  if (IS_GST_REGISTERED) {
+    if (isInterstate) {
+      igst = gstTotal;
+    } else {
+      cgst = Math.round((gstTotal / 2) * 100) / 100;
+      sgst = Math.round((gstTotal - cgst) * 100) / 100;
+    }
+  }
+
+  const preRound = taxable + gstTotal;
+  const grand = Math.round(preRound); // round to nearest whole rupee
+  const roundOff = Math.round((grand - preRound) * 100) / 100;
+
+  document.getElementById('dispFreight').textContent = fmt(freight);
+  document.getElementById('dispFuel').textContent    = fmt(fuel);
+  document.getElementById('dispOther').textContent   = fmt(other);
+
+  const discountRow = document.getElementById('discountRow');
+  if (discountRow) {
+    if (discount > 0) {
+      discountRow.style.display = 'flex';
+      document.getElementById('dispDiscount').textContent = '−' + fmt(discount);
+    } else {
+      discountRow.style.display = 'none';
+    }
+  }
+
+  // Show/hide resale row
+  const resaleRow = document.getElementById('resaleRow');
+  if (resaleRow) {
+    if (resaleAmount > 0) {
+      resaleRow.style.display = 'flex';
+      document.getElementById('dispResaleTotal').textContent = fmt(resaleAmount);
+    } else {
+      resaleRow.style.display = 'none';
+    }
+  }
+
+  // Only update GST display if the elements exist (for GST-registered companies)
+  const cgstRow = document.getElementById('cgstRow');
+  const sgstRow = document.getElementById('sgstRow');
+  const igstRow = document.getElementById('igstRow');
+  if (cgstRow && sgstRow && igstRow) {
+    if (isInterstate) {
+      cgstRow.style.display = 'none';
+      sgstRow.style.display = 'none';
+      igstRow.style.display = 'flex';
+      document.getElementById('dispIGST').textContent = fmt(igst);
+    } else {
+      cgstRow.style.display = 'flex';
+      sgstRow.style.display = 'flex';
+      igstRow.style.display = 'none';
+      document.getElementById('dispCGST').textContent = fmt(cgst);
+      document.getElementById('dispSGST').textContent = fmt(sgst);
+    }
+  }
+
+  const roundOffRow = document.getElementById('roundOffRow');
+  if (roundOffRow) {
+    document.getElementById('dispRoundOff').textContent = (roundOff >= 0 ? '+' : '') + fmt(roundOff);
+  }
+
+  document.getElementById('dispGrand').textContent = fmt(grand);
+  calcBalance();
+}
+function calcBalance() {
+  const grand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,''))||0;
+  const paid  = parseFloat(document.getElementById('amountPaid')?.value)||0;
+  document.getElementById('balanceDue').textContent = fmt(grand-paid);
+}
+
+/* ── Payment mode ── */
+function setPayMode(mode) {
+  document.querySelectorAll('.pay-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+mode).classList.add('active');
+  document.getElementById('paymentModeHidden').value = mode;
+  document.getElementById('upiSection').style.display    = mode==='online' ? 'block':'none';
+  document.getElementById('chequeSection').style.display = mode==='cheque' ? 'grid':'none';
+  document.getElementById('creditNote').style.display    = mode==='credit' ? 'block':'none';
+  if (mode!=='online'){ document.getElementById('upiAppHidden').value=''; document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected')); }
+}
+
+/* ── Booking Type (Cash / Credit) — controls whether the Consignor uses a
+   real Customer/Company record or a one-off typed name. Deliberately its
+   own dropdown, separate from the Payment Mode tabs below (cash/online/
+   cheque/credit), which is about how the freight gets paid, not whether
+   this booking is tied to a client record. ── */
+function onBookingTypeChange(mode) {
+  const custWrap    = document.getElementById('customerSelectWrap');
+  const codeWrap    = document.getElementById('clientCodeWrap');
+  const manualWrap  = document.getElementById('manualCompanyWrap');
+  const custSel     = document.getElementById('customerSelect');
+  const codeField   = document.getElementById('clientCodeField');
+  const manualName  = document.getElementById('manualCompanyName');
+  const cashDocs    = document.getElementById('cashIdDocsSection');
+  const creditDocs  = document.getElementById('creditIdDocsPanel');
+
+  if (mode === 'cash') {
+    custWrap.style.display   = 'none';
+    codeWrap.style.display   = 'none';
+    manualWrap.style.display = 'block';
+    custSel.value    = '';
+    codeField.value  = '';
+    document.getElementById('shipperNameHidden').value = manualName.value || '';
+    cashDocs.style.display   = 'grid';
+    creditDocs.style.display = 'none';
+  } else {
+    custWrap.style.display   = 'block';
+    codeWrap.style.display   = 'block';
+    manualWrap.style.display = 'none';
+    manualName.value = '';
+    cashDocs.style.display   = 'none';
+    creditDocs.style.display = 'block';
+    updateCreditIdDocsPanel();
+  }
+}
+
+// Reflects the selected credit customer's ID docs on file — or a warning if
+// they don't have any yet — since credit bookings don't upload their own.
+function updateCreditIdDocsPanel() {
+  const custSel = document.getElementById('customerSelect');
+  const opt = custSel.options[custSel.selectedIndex];
+  const textEl = document.getElementById('creditIdDocsText');
+  if (!opt || !opt.value) {
+    textEl.innerHTML = 'Select a customer to see their ID documents on file.';
+    return;
+  }
+  const docs = [
+    ['Aadhaar Front', opt.dataset.aadharFrontUrl],
+    ['Aadhaar Back',  opt.dataset.aadharBackUrl],
+    ['PAN Front',     opt.dataset.panFrontUrl],
+    ['PAN Back',      opt.dataset.panBackUrl],
+  ].filter(([, url]) => url);
+
+  if (!docs.length) {
+    textEl.innerHTML = '⚠️ No ID documents on file for this customer. ' +
+      '<a href="/clients/' + custSel.value + '/edit" target="_blank">Add them on the client profile</a>.';
+  } else {
+    textEl.innerHTML = '📎 Using ID documents on file: ' +
+      docs.map(([label, url]) => `<a href="${url}" target="_blank">${label}</a>`).join(' · ');
+  }
+}
+
+function onManualCompanyInput(input) {
+  document.getElementById('shipperNameHidden').value = input.value;
+}
+
+function selectUPI(el, app) {
+  document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('upiAppHidden').value=app;
+}
+
+/* ── Customer autofill ── */
+/* ── Searchable Customer / Company dropdown ──
+   The real <select id="customerSelect"> stays in the DOM (hidden) as the
+   single source of truth for the submitted value and for onCustomerChange's
+   data-* lookups. This widget just reads its <option>s, lets the user filter
+   by typing, and on pick sets select.value + fires the existing change logic. */
+let custSearchHi = -1;
+
+function custSearchOptions() {
+  return Array.from(document.getElementById('customerSelect').options).filter(o => o.value !== '');
+}
+
+function renderCustomerSearchList(query) {
+  const list = document.getElementById('customerSearchList');
+  const q = (query || '').trim().toLowerCase();
+  const opts = custSearchOptions().filter(o => o.textContent.trim().toLowerCase().includes(q));
+  custSearchHi = -1;
+
+  if (!opts.length) {
+    list.innerHTML = '<div class="cust-search-empty">No matching customer</div>';
+    return;
+  }
+  list.innerHTML = opts.map((o, i) => `
+    <div class="cust-search-item" data-idx="${i}" data-value="${o.value}" onmousedown="selectCustomerFromSearch('${o.value}')">
+      ${o.textContent.trim()}${o.dataset.code ? `<span class="csi-code">${o.dataset.code}</span>` : ''}
+    </div>`).join('');
+}
+
+function filterCustomerSearch(query) {
+  renderCustomerSearchList(query);
+  openCustomerSearch();
+}
+
+function openCustomerSearch() {
+  const list = document.getElementById('customerSearchList');
+  if (!list.innerHTML) renderCustomerSearchList(document.getElementById('customerSearchBox').value);
+  list.classList.add('open');
+}
+
+function closeCustomerSearch() {
+  document.getElementById('customerSearchList').classList.remove('open');
+}
+
+function selectCustomerFromSearch(value) {
+  const sel = document.getElementById('customerSelect');
+  sel.value = value;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('customerSearchBox').value = opt && opt.value ? opt.textContent.trim() : '';
+  closeCustomerSearch();
+  onCustomerChange(sel);
+}
+
+function customerSearchKeydown(e) {
+  const list = document.getElementById('customerSearchList');
+  const items = Array.from(list.querySelectorAll('.cust-search-item'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!items.length) return;
+    custSearchHi = Math.min(custSearchHi + 1, items.length - 1);
+    items.forEach(it => it.classList.remove('hi'));
+    items[custSearchHi].classList.add('hi');
+    items[custSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!items.length) return;
+    custSearchHi = Math.max(custSearchHi - 1, 0);
+    items.forEach(it => it.classList.remove('hi'));
+    items[custSearchHi].classList.add('hi');
+    items[custSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (custSearchHi > -1 && items[custSearchHi]) {
+      selectCustomerFromSearch(items[custSearchHi].dataset.value);
+    }
+  } else if (e.key === 'Escape') {
+    closeCustomerSearch();
+  }
+}
+
+document.addEventListener('click', function (e) {
+  const wrap = document.getElementById('customerSearchWrap');
+  if (wrap && !wrap.contains(e.target)) closeCustomerSearch();
+});
+
+// Pre-fill the search box with the saved customer's name on page load (edit mode / draft reload).
+document.addEventListener('DOMContentLoaded', function () {
+  const sel = document.getElementById('customerSelect');
+  const box = document.getElementById('customerSearchBox');
+  if (sel && box && sel.value) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt) box.value = opt.textContent.trim();
+  }
+  if (document.getElementById('creditIdDocsPanel').style.display !== 'none') {
+    updateCreditIdDocsPanel();
+  }
+});
+
+function onCustomerChange(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (opt.value) {
+    document.getElementById('custPhone').value = opt.dataset.phone || '';
+    document.getElementById('shipperNameHidden').value = opt.dataset.name || '';
+    document.getElementById('clientCodeField').value = opt.dataset.code || '';
+    if (!document.getElementById('shipperContactName').value) {
+      document.getElementById('shipperContactName').value = opt.dataset.contact || '';
+    }
+    if (!document.querySelector('[name="shipper_address1"]').value) {
+      document.getElementById('shipperAddress1').value = opt.dataset.address1 || '';
+      document.getElementById('shipperAddress2').value = opt.dataset.address2 || '';
+      document.getElementById('shipperCity').value = opt.dataset.city || '';
+      document.getElementById('shipperState').value = opt.dataset.state || '';
+      document.getElementById('shipperPincode').value = opt.dataset.pincode || '';
+      document.getElementById('shipperCountry').value = opt.dataset.country || 'India';
+    }
+    // A newly (re)selected sender always starts on Aadhaar Number, auto-filled
+    // from that client's record — no need to touch Document Type by hand.
+    document.getElementById('shipperDocType').value = 'Aadhaar Number';
+    lastAutoDocValue = '';
+    document.getElementById('shipperDocNo').value = '';
+    fillShipperDocNo();
+  } else {
+    document.getElementById('clientCodeField').value = '';
+  }
+  updateCreditIdDocsPanel();
+}
+
+// Doc Type → client's Aadhar/PAN, if that client has one on file. Overwrites
+// on every customer/doc-type change UNLESS the user has typed something of
+// their own — tracked via lastAutoDocValue so switching Aadhaar → PAN → back
+// keeps updating, but a manual edit still wins and won't get clobbered.
+let lastAutoDocValue = '';
+
+function fillShipperDocNo() {
+  const custSel = document.getElementById('customerSelect');
+  const opt = custSel.options[custSel.selectedIndex];
+  const docNoField = document.getElementById('shipperDocNo');
+  if (!opt || !opt.value) return;
+  if (docNoField.value && docNoField.value !== lastAutoDocValue) return; // user typed their own
+
+  const docType = document.getElementById('shipperDocType').value;
+  let val = '';
+  if (docType === 'Aadhaar Number') val = opt.dataset.aadhar || '';
+  else if (docType === 'PAN Card') val = opt.dataset.pan || '';
+  // Other document types (Passport, Driving License, Voter ID, GST, IC
+  // Certificate) have no matching field on the client record, so they
+  // simply come up blank for manual entry — same as Aadhaar/PAN would if
+  // that client has none on file.
+
+  docNoField.value = val;
+  lastAutoDocValue = val;
+}
+
+/* ── Courier Company → Carrier (brand) dependent dropdown ──
+   Mirrors onSupplierChange() in purchase_new.html: when a Courier Company
+   is picked, Carrier only shows that company's registered brands. With
+   nothing selected, Carrier falls back to the full static list.
+
+   The saved carrier name can be spelled differently across the app ("Blue
+   Dart" here, "Bluedart" in Supplier > Brands, "BLUE_DART" in an uploaded
+   price list) — SAVED_CARRIER + normalizeCarrier() below make sure the
+   dropdown still resolves to the right option instead of silently going
+   blank when the spelling doesn't match exactly. */
+const CARRIER_FALLBACK_LIST = ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'];
+
+// Read once on page load. This — not whatever the server-rendered <select>
+// happened to pre-select — is the source of truth for what carrier this
+// invoice was actually saved with.
+let SAVED_CARRIER = "{{ (form_data.carrier or '')|e }}";
+
+function normalizeCarrier(s) {
+  return (s || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+}
+
+function selectCarrierValue(carrierSel, wanted) {
+  if (!wanted) { carrierSel.value = ''; return; }
+  let opt = Array.from(carrierSel.options).find(o => o.value === wanted);
+  if (!opt) {
+    const wantedNorm = normalizeCarrier(wanted);
+    opt = Array.from(carrierSel.options).find(o => normalizeCarrier(o.value) === wantedNorm);
+  }
+  if (opt) {
+    carrierSel.value = opt.value;
+  } else {
+    // Preserve the saved value even if it's not in this company's brand list —
+    // silently dropping it on load is worse than showing an "unlisted" entry.
+    const newOpt = document.createElement('option');
+    newOpt.value = wanted;
+    newOpt.textContent = wanted + ' (unlisted)';
+    carrierSel.appendChild(newOpt);
+    carrierSel.value = wanted;
+  }
+}
+
+async function onCourierCompanyChange(sel) {
+  const carrierSel = document.getElementById('carrierSelect');
+  const wanted = SAVED_CARRIER || carrierSel.value;
+  const supplierId = sel.value;
+
+  let brands = CARRIER_FALLBACK_LIST;
+  if (supplierId) {
+    try {
+      const res = await fetch(`/api/supplier/${supplierId}/brands`);
+      const data = await res.json();
+      brands = (data.brands && data.brands.length) ? data.brands : CARRIER_FALLBACK_LIST;
+    } catch (err) {
+      console.error('Failed to load courier company brands, falling back to full list:', err);
+    }
+  }
+
+  carrierSel.innerHTML = '<option value="">— Select —</option>' +
+    brands.map(b => `<option value="${b}">${b}</option>`).join('');
+
+  selectCarrierValue(carrierSel, wanted);
+  // Once resolved, stop overriding — a manual change afterward should stick.
+  SAVED_CARRIER = '';
+  syncRateLookupInputs();
+}
+
+// On page load (edit mode): resolve the Carrier dropdown against the saved
+// value every time, whether or not a Courier Company / supplier is linked —
+// the static server-rendered <option selected> match is unreliable whenever
+// the saved spelling doesn't exactly match the hardcoded fallback list.
+document.addEventListener('DOMContentLoaded', function () {
+  const courierCompanySel = document.getElementById('courierCompanySelect');
+  const carrierSel = document.getElementById('carrierSelect');
+  if (courierCompanySel && courierCompanySel.value) {
+    onCourierCompanyChange(courierCompanySel);
+  } else if (carrierSel && SAVED_CARRIER) {
+    selectCarrierValue(carrierSel, SAVED_CARRIER);
+    SAVED_CARRIER = '';
+    syncRateLookupInputs();
+  }
+});
+
+/* ── Double-submit guard ──────────────────────────────────────────────
+   Generates a fresh one-time token the server checks (see submitTokenField).
+   Disabling the buttons alone isn't enough — a double-click, an Enter-key
+   repeat, or a slow network can still fire two submit events before the
+   first disable paints — the server-side token is the real backstop. ── */
+const SUBMIT_BUTTON_IDS = ['btnSaveDraft', 'btnGenerateInvoice'];
+
+function generateSubmitToken() {
+  const field = document.getElementById('submitTokenField');
+  if (!field) return;
+  field.value = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID()
+    : 'tok-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+}
+
+function disableSubmitButtons() {
+  SUBMIT_BUTTON_IDS.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn || btn.disabled) return;
+    btn.dataset.originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  });
+}
+
+function reenableSubmitButtons() {
+  SUBMIT_BUTTON_IDS.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = false;
+    if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
+  });
+}
+
+document.addEventListener('DOMContentLoaded', generateSubmitToken);
+
+/* ── Validation ── */
+function validateCustForm(e) {
+  const errors=[], banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
+  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+  banner.style.display='none'; errList.innerHTML='';
+
+  // Which button was clicked? Only enforce mandatory (*) fields on Final invoice generation.
+  const submitter = e.submitter || document.activeElement;
+  const actionVal = submitter && submitter.name === 'action' ? submitter.value : 'final';
+  const isFinal = actionVal !== 'draft';
+
+  // Already mid-submit (double click / Enter repeat) — ignore the repeat click outright.
+  if (submitter && submitter.disabled) { e.preventDefault(); return false; }
+  disableSubmitButtons();
+
+  const custSel=document.getElementById('customerSelect');
+
+  const mode = document.getElementById('paymentModeHidden').value;
+  const bookingType = document.getElementById('bookingTypeSelect').value;
+
+  if (isFinal) {
+    // Required (*) fields — only enforced when generating the final invoice, not on Save Draft.
+    // Customer/Company is only mandatory for credit bookings — a cash
+    // booking fills the company name directly on the invoice and doesn't
+    // need a client record.
+    if (bookingType === 'credit' && !custSel.value){ errors.push('Please select a Customer / Company (required for credit bookings).'); custSel.classList.add('field-error'); }
+    if (bookingType === 'cash') {
+      const manualName = document.getElementById('manualCompanyName');
+      if (!manualName.value.trim()) { errors.push('Please type a Company / Customer Name (required for cash bookings).'); manualName.classList.add('field-error'); }
+    }
+    const requiredFields = [
+      { id:'custPhone',        label:'Sender / Shipper Phone' },
+      { id:'receiverName',     label:'Receiver Name' },
+      { id:'receiverPhone',    label:'Receiver Phone' },
+      { id:'receiverAddress1', label:'Receiver Address Line 1' },
+      { id:'receiverCity',     label:'Receiver City / Town' },
+      { id:'receiverPincode',  label:'Receiver Pincode' },
+      { id:'expectedDelivery', label:'Expected Delivery Date' },
+      { id:'pickup',           label:'pickup' },
+      { id:'courierCompanySelect', label:'courierCompanySelect' },
+      { id:'carrierSelect', label:'carrierSelect' },
+    ];
+    requiredFields.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el && !el.value.trim()) {
+        errors.push(f.label + ' is required.');
+        el.classList.add('field-error');
+      }
+    });
+
+    const freight=parseFloat(document.getElementById('freightAmt').value)||0;
+    if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
+
+    if (mode==='online' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI / Online payment app.');
+  }
+
+  if (errors.length){
+    errors.forEach(err=>{const li=document.createElement('li');li.textContent=err;errList.appendChild(li);});
+    banner.style.display='block'; banner.scrollIntoView({behavior:'smooth',block:'start'});
+    e.preventDefault(); reenableSubmitButtons(); return false;
+  }
+
+  // ── Credit limit popup ────────────────────────────────────────────────
+  // Only relevant when actually generating (not Save Draft) and a client
+  // is selected — matches the same condition the server uses.
+  if (isFinal && custSel && custSel.value && !e.target.dataset.creditLimitConfirmed) {
+    e.preventDefault();
+    runCreditLimitCheck(e.target, custSel.value);
+    return false;
+  }
+
+  // Clear the flag so a later real submit (e.g. after fixing something and
+  // clicking Generate again) re-runs the check instead of skipping it.
+  delete e.target.dataset.creditLimitConfirmed;
+  return true;
+}
+
+async function runCreditLimitCheck(form, clientId) {
+  const amtEl = document.getElementById('previewGrandTotal');
+  const amount = amtEl ? parseFloat((amtEl.textContent || '0').replace(/[^0-9.]/g, '')) || 0 : 0;
+
+  let data;
+  try {
+    const resp = await fetch('/booking/customer/check-credit-limit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ client_id: clientId, amount: amount })
+    });
+    if (!resp.ok) throw new Error('check-credit-limit returned ' + resp.status);
+    data = await resp.json();
+  } catch (err) {
+    // Fail CLOSED, not open. We can't say the bill is within limit if the
+    // check itself couldn't run — silently letting it through here is what
+    // made "stop generating" look broken before: any hiccup in this call
+    // (bad response, permission redirect coming back as HTML instead of
+    // JSON, network blip) used to fall straight through to form.submit().
+    console.error('Credit limit check failed:', err);
+    await window.alert(
+      'Could not verify the credit limit right now, so this bill was not generated. Please try again.',
+      'danger'
+    );
+    reenableSubmitButtons();
+    return;
+  }
+
+  if (data.blocked) {
+    await window.alert(data.message || 'This booking exceeds the customer\'s credit limit and cannot be generated.', 'danger');
+    reenableSubmitButtons();
+    return; // stop — do not submit
+  }
+  if (data.message) {
+    const ok = await window.appConfirm(data.message + '\n\nGenerate this bill anyway?', { type: 'warning', okLabel: 'Generate anyway' });
+    if (!ok) { reenableSubmitButtons(); return; } // user chose No/Cancel — stop
+  }
+
+  // Confirmed (or nothing to confirm) — submit for real, skipping this
+  // check on the way back through validateCustForm.
+  form.dataset.creditLimitConfirmed = '1';
+  form.requestSubmit ? form.requestSubmit() : form.submit();
+}
+
+// ── Field-level permission gating (owner-configured, Settings → Access) ──────
+// Only bites on the edit screen — create flow is untouched. Backend re-checks
+// all of this independently on save (permissions.py / invoice_edit route),
+// so disabling here is UX only, not the actual security boundary.
+const FIELD_EDIT_PERMS = {
+  is_edit: {{ 'true' if is_edit else 'false' }},
+  sender: {{ 'true' if (can_edit_field('invoice_customer') and can_edit_field('invoice_sender')) else 'false' }},
+  receiver: {{ 'true' if can_edit_field('invoice_receiver') else 'false' }},
+  service: {{ 'true' if can_edit_field('invoice_service') else 'false' }},
+  charges: {{ 'true' if can_edit_field('invoice_charges') else 'false' }},
+  packages_actual_weight: {{ 'true' if can_edit_field('invoice_packages_actual_weight') else 'false' }}
+};
+
+function applyFieldEditPermissions() {
+  if (!FIELD_EDIT_PERMS.is_edit) return; // creating a fresh invoice: no field locks
+
+  const groups = {
+    sender: ['shipper_name', 'shipper_contact_name', 'customer_phone', 'shipper_address1',
+             'shipper_address2', 'shipper_city', 'shipper_state', 'shipper_pincode',
+             'shipper_country', 'shipper_doc_type', 'shipper_doc_no', 'client_code'],
+    receiver: ['receiver_name', 'receiver_company', 'receiver_phone', 'receiver_address1',
+               'receiver_address2', 'receiver_city', 'receiver_state', 'receiver_pincode',
+               'receiver_country', 'receiver_doc_type', 'receiver_doc_no'],
+    service: ['destination', 'shipment_type', 'mode', 'vendor', 'courier_company_id',
+              'carrier', 'tracking_number', 'carrier_ref', 'pickup_date', 'expected_delivery'],
+    charges: ['freight_amount', 'freight_weight', 'freight_rate_per_kg', 'fuel_surcharge',
+              'other_charges', 'discount_amount', 'other_charges_reason'],
+  };
+
+  Object.keys(groups).forEach(group => {
+    if (FIELD_EDIT_PERMS[group]) return; // allowed to edit — leave enabled
+    groups[group].forEach(fieldName => {
+      document.querySelectorAll(`[name="${fieldName}"]`).forEach(el => {
+        el.disabled = true;
+        el.title = "You don't have permission to edit this field";
+      });
+    });
+  });
+
+  // Actual weight is a hard lock — entered in the package add-panel, not a
+  // named form field, so it's disabled separately from the groups above.
+  if (!FIELD_EDIT_PERMS.packages_actual_weight) {
+    const wtInput = document.getElementById('pkgEntryWt');
+    if (wtInput) {
+      wtInput.disabled = true;
+      wtInput.title = "You don't have permission to edit actual weight";
+    }
+  }
+}
+document.addEventListener('DOMContentLoaded', applyFieldEditPermissions);
+
+document.addEventListener('DOMContentLoaded', () => { 
+  calcFreight();
+  calcPkg();
+  livePkgCalc();
+  syncRateLookupInputs();
+  calcPerforma();
+  
+  refreshPerfBoxOptions();
+
+  updateDepartmentNo();
+  
+  const paymentMode = document.getElementById('paymentModeHidden').value || 'cash';
+  if (paymentMode !== 'cash') {
+    setPayMode(paymentMode);
+  }
+
+  onBookingTypeChange(document.getElementById('bookingTypeSelect').value);
+});
+</script>
+{% endblock %}

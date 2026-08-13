@@ -1,41 +1,110 @@
 {% extends "base.html" %}
-{% block title %}Shipper Invoice · {{ estimate.id }}{% endblock %}
-{% block page_title %}Booking Invoice View{% endblock %}
+{% block title %}Estimate · {{ estimate.id }}{% endblock %}
+{% block page_title %}Estimate View{% endblock %}
 {% set active = 'estimate' %}
 
 {% block extra_style %}
 <style>
   /* ── Screen styles ─────────────────────────────────── */
   .inv-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
-  .inv-header h2 { font-size:20px; font-weight:800; color:var(--gray-900); }
-  .inv-header p  { font-size:13px; color:var(--gray-500); margin-top:3px; }
+  .inv-header h2 { font-size:20px; font-weight:800; color:var(--text-body); }
+  .inv-header p  { font-size:13px; color:var(--text-muted); margin-top:3px; }
   .btn-group { display:flex; gap:10px; flex-wrap:wrap; }
+
+  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .badge-success { background:#DCFCE7; color:#16A34A; }
+  .badge-warning  { background:#FEF9C3; color:#CA8A04; }
+  .badge-danger   { background:#FEE2E2; color:#DC2626; }
+  .badge-draft    { background:#F3F4F6; color:#4B5563; }
+  .badge-converted{ background:#D1FAE5; color:#065F46; }
+  .badge-not-converted{ background:#FEF3C7; color:#92400E; }
+
+  /* Dark theme overrides for badges */
+  body.dark-theme .badge-success { background:rgba(5,150,105,0.2); color:#34D399; }
+  body.dark-theme .badge-warning { background:rgba(217,119,6,0.2); color:#FBBF24; }
+  body.dark-theme .badge-danger { background:rgba(220,38,38,0.2); color:#F87171; }
+  body.dark-theme .badge-draft { background:rgba(75,85,99,0.25); color:#9CA3AF; }
+  body.dark-theme .badge-converted { background:rgba(5,150,105,0.2); color:#34D399; }
+  body.dark-theme .badge-not-converted { background:rgba(217,119,6,0.2); color:#FBBF24; }
 
   /* summary card */
   .meta-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
   @media(max-width:768px){ .meta-grid{ grid-template-columns:1fr 1fr; } }
-  .meta-card { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:16px; }
-  .meta-card .label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--gray-500); margin-bottom:4px; }
-  .meta-card .value { font-size:15px; font-weight:700; color:var(--gray-900); }
-  .meta-card .sub   { font-size:12px; color:var(--gray-500); margin-top:2px; }
+  .meta-card { 
+    background:var(--bg-card); 
+    border:1px solid var(--border-color); 
+    border-radius:12px; 
+    padding:16px;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .meta-card .label { 
+    font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.6px; 
+    color:var(--text-muted); margin-bottom:4px; 
+  }
+  .meta-card .value { 
+    font-size:15px; font-weight:700; color:var(--text-body); 
+  }
+  .meta-card .sub   { 
+    font-size:12px; color:var(--text-muted); margin-top:2px; 
+  }
 
-  .section-card { background:#fff; border:1px solid var(--gray-200); border-radius:12px; padding:20px; margin-bottom:16px; }
-  .section-card h4 { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; color:var(--gray-500); margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--gray-100); }
+  .section-card { 
+    background:var(--bg-card); 
+    border:1px solid var(--border-color); 
+    border-radius:12px; 
+    padding:20px; 
+    margin-bottom:16px;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+  .section-card h4 { 
+    font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px; 
+    color:var(--text-muted); margin-bottom:14px; padding-bottom:10px; 
+    border-bottom:1px solid var(--border-color); 
+  }
 
   .detail-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
   .detail-row  { display:flex; flex-direction:column; }
-  .detail-row .dl { font-size:11px; color:var(--gray-500); }
-  .detail-row .dv { font-size:14px; font-weight:600; color:var(--gray-900); }
+  .detail-row .dl { font-size:11px; color:var(--text-muted); }
+  .detail-row .dv { font-size:14px; font-weight:600; color:var(--text-body); }
 
   .items-table { width:100%; border-collapse:collapse; }
-  .items-table th { padding:10px 8px; font-size:11px; font-weight:700; text-transform:uppercase; background:var(--gray-900); color:#fff; text-align:left; }
-  .items-table td { padding:9px 8px; border-bottom:1px solid var(--gray-100); font-size:13px; }
-  .items-table tfoot td { font-weight:700; background:var(--gray-50); }
+  .items-table th { 
+    padding:10px 8px; font-size:11px; font-weight:700; text-transform:uppercase; 
+    background:#012926; color:#F59E0B; text-align:left; 
+  }
+  body.dark-theme .items-table th { background:#011A18; }
+  .items-table td { 
+    padding:9px 8px; border-bottom:1px solid var(--border-color); 
+    font-size:13px; color:var(--text-body);
+  }
+  .items-table tfoot td { 
+    font-weight:700; background:var(--bg-table-alt); 
+    color:var(--text-body);
+  }
 
-  .grand-total-bar { background:var(--primary); color:#fff; border-radius:10px; padding:16px 20px; display:flex; justify-content:space-between; align-items:center; margin-top:16px; }
+  .grand-total-bar { 
+    background:var(--primary); color:#fff; border-radius:10px; 
+    padding:16px 20px; display:flex; justify-content:space-between; 
+    align-items:center; margin-top:16px; 
+  }
   .grand-total-bar .amt { font-size:24px; font-weight:800; }
 
-  /* ── PRINT STYLES (shared base) ───────────────────────────────── */
+  /* Status info bar */
+  .status-info-bar {
+    display:flex; align-items:center; gap:12px;
+    padding:12px 18px; border-radius:10px; margin-bottom:16px;
+    font-size:13px; font-weight:500;
+    transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+  .status-info-bar.converted { background:#DCFCE7; color:#065F46; border:1px solid #86EFAC; }
+  .status-info-bar.pending { background:#FEF3C7; color:#92400E; border:1px solid #FDE68A; }
+  .status-info-bar.draft { background:#F3F4F6; color:#4B5563; border:1px solid #D1D5DB; }
+  body.dark-theme .status-info-bar.converted { background:rgba(5,150,105,0.2); color:#34D399; border-color:rgba(5,150,105,0.3); }
+  body.dark-theme .status-info-bar.pending { background:rgba(217,119,6,0.2); color:#FBBF24; border-color:rgba(217,119,6,0.3); }
+  body.dark-theme .status-info-bar.draft { background:rgba(75,85,99,0.2); color:#9CA3AF; border-color:rgba(75,85,99,0.3); }
+  .status-info-bar .status-icon { font-size:20px; }
+
+  /* ── PRINT STYLES ───────────────────────────────── */
   @media print {
     @page { margin:6mm; size:A4; }
     body { background:#fff; font-family: Arial, sans-serif; }
@@ -43,19 +112,16 @@
     .main { margin-left:0 !important; padding:0 !important; }
     .content { padding:0 !important; }
 
-    /* Performa invoice print */
     .print-performa .slip-copy   { display:none !important; }
     .print-performa .box-label   { display:none !important; }
     .print-performa .screen-view { display:none !important; }
     .print-performa .performa-doc{ display:block !important; }
 
-    /* Box label print */
     .print-box .performa-doc  { display:none !important; }
     .print-box .slip-copy     { display:none !important; }
     .print-box .screen-view   { display:none !important; }
     .print-box .box-label     { display:block !important; }
 
-    /* AWB slip (3 copies) print */
     .print-slip .performa-doc { display:none !important; }
     .print-slip .box-label    { display:none !important; }
     .print-slip .screen-view  { display:none !important; }
@@ -175,6 +241,28 @@
   .slip-sign-cell:first-child { border-right:1.5px solid #000; }
   .sign-line { border-top:1px solid #aaa; margin-top:16px; padding-top:2px; }
   .slip-terms { border-top:1.5px solid #000; font-size:7.5px; color:#555; padding:4px 8px; }
+
+  /* Dark theme overrides for buttons */
+  body.dark-theme .btn-ghost {
+    background:var(--bg-card);
+    color:var(--text-body);
+    border-color:var(--border-color);
+  }
+  body.dark-theme .btn-ghost:hover {
+    background:var(--bg-table-alt);
+  }
+  
+  /* Dark theme overrides for section cards */
+  body.dark-theme .section-card {
+    background:var(--bg-card);
+    border-color:var(--border-color);
+  }
+  
+  /* Dark theme overrides for meta cards */
+  body.dark-theme .meta-card {
+    background:var(--bg-card);
+    border-color:var(--border-color);
+  }
 </style>
 {% endblock %}
 
@@ -188,46 +276,92 @@
   <!-- Header -->
   <div class="inv-header">
     <div>
-      <h2>📦 {{ estimate.id }}</h2>
-      <p>Booking Date: {{ estimate.date }} &nbsp;|&nbsp; AWB: <strong>{{ estimate.docket_no or '—' }}</strong></p>
+      <h2>📋 Estimate #{{ estimate.id }}</h2>
+      <p>
+        Date: 
+        {% if estimate.date %}
+          {% if estimate.date is string %}
+            {{ estimate.date }}
+          {% else %}
+            {{ estimate.date.strftime('%d %b %Y') }}
+          {% endif %}
+        {% else %}
+          —
+        {% endif %}
+      </p>
     </div>
     <div class="btn-group no-print">
       <a href="/estimate/list" class="btn btn-ghost btn-sm">← Back</a>
+      {% if estimate.status != 'Paid' and estimate.status != 'Void' and not estimate.converted_to %}
       <a href="/estimate/edit/{{ estimate.id }}" class="btn btn-ghost btn-sm">✏️ Edit</a>
-      <button onclick="triggerPrint('performa')" class="btn btn-primary btn-sm">🖨️ Print Invoice</button>
-      <button onclick="triggerPrint('box')"      class="btn btn-ghost btn-sm" style="border-color:#059669;color:#059669">📦 Print Box Info</button>
-      <button onclick="triggerPrint('slip')"     class="btn btn-ghost btn-sm" style="border-color:#7C3AED;color:#7C3AED">🗒️ Print AWB Copies</button>
+      <form method="POST" action="/estimate/convert/{{ estimate.id }}" style="display:inline-block;"
+            onsubmit="return confirm('Convert this estimate to a booking? A new AWB will be assigned on today\'s date and a booking invoice will be created.');">
+        <button type="submit" class="btn btn-success btn-sm" style="background:#16A34A;color:white;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;">🔄 Convert to Booking</button>
+      </form>
+      {% endif %}
+      <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print</button>
     </div>
+  </div>
+
+  <!-- Status Info Bar -->
+  <div class="status-info-bar 
+    {% if estimate.converted_to %}converted
+    {% elif estimate.status == 'Draft' %}draft
+    {% else %}pending{% endif %}">
+    <span class="status-icon">
+      {% if estimate.converted_to %}✅
+      {% elif estimate.status == 'Draft' %}📝
+      {% else %}⏳{% endif %}
+    </span>
+    <span>
+      {% if estimate.converted_to %}
+        <strong>Converted to Booking #{{ estimate.converted_to }}</strong> — This estimate has been converted to a booking. Stock, manifest, and ledger entries have been created.
+      {% elif estimate.status == 'Draft' %}
+        <strong>Draft</strong> — This is a draft estimate. It can be edited or deleted.
+      {% else %}
+        <strong>Pending Conversion</strong> — This estimate is ready to be converted to a booking.
+      {% endif %}
+    </span>
   </div>
 
   <!-- Meta cards -->
   <div class="meta-grid">
     <div class="meta-card">
-      <div class="label">AWB / Docket</div>
-      <div class="value">{{ estimate.docket_no or '—' }}</div>
-      <div class="sub">{{ estimate.shipment_type or 'Courier' }}</div>
+      <div class="label">Status</div>
+      <div class="value">
+        {% if estimate.converted_to %}
+          <span class="badge badge-converted">✅ Converted</span>
+        {% elif estimate.status == 'Draft' %}
+          <span class="badge badge-draft">📝 Draft</span>
+        {% else %}
+          <span class="badge badge-not-converted">⏳ Pending</span>
+        {% endif %}
+      </div>
+      {% if estimate.converted_to %}
+      <div class="sub">Booking: #{{ estimate.converted_to }}</div>
+      {% endif %}
     </div>
     <div class="meta-card">
-      <div class="label">Shipper</div>
+      <div class="label">Customer</div>
       <div class="value">{{ estimate.client_name }}</div>
       <div class="sub">{{ estimate.phone or '' }}</div>
     </div>
     <div class="meta-card">
       <div class="label">Destination</div>
       <div class="value">{{ estimate.destination or '—' }}</div>
-      <div class="sub">{{ estimate.receiver_name }}</div>
+      <div class="sub">{{ estimate.receiver_name or '' }}</div>
     </div>
     <div class="meta-card">
-      <div class="label">Weight (Chargeable)</div>
-      <div class="value">{{ estimate.weight }} Kg</div>
+      <div class="label">Chargeable Weight</div>
+      <div class="value">{{ "%.2f"|format(estimate.weight or 0) }} Kg</div>
     </div>
     <div class="meta-card">
-      <div class="label">Status</div>
-      <div class="value">{{ estimate.status }}</div>
+      <div class="label">Valid Until</div>
+      <div class="value">{{ estimate.valid_until or '—' }}</div>
     </div>
     <div class="meta-card">
-      <div class="label">Invoice Total</div>
-      <div class="value" style="color:var(--primary)">₹{{ "%.2f"|format(estimate.grand_total) }}</div>
+      <div class="label">Estimate Total</div>
+      <div class="value" style="color:var(--primary);">₹{{ "%.2f"|format(estimate.grand_total) }}</div>
     </div>
   </div>
 
@@ -253,61 +387,46 @@
     </div>
   </div>
 
-  <!-- Items -->
+  <!-- Packages -->
   <div class="section-card" style="margin-bottom:16px">
-    <h4>📋 Consignment Items</h4>
+    <h4>📦 Packages</h4>
     <table class="items-table">
       <thead>
         <tr>
-          <th>#</th>
           <th>Description</th>
+          <th style="text-align:right">Weight (kg)</th>
           <th style="text-align:right">Qty</th>
+          <th style="text-align:right">L (cm)</th>
+          <th style="text-align:right">W (cm)</th>
+          <th style="text-align:right">H (cm)</th>
+          <th style="text-align:right">Chrg. Wt (kg)</th>
           <th style="text-align:right">Rate (₹)</th>
           <th style="text-align:right">Amount (₹)</th>
         </tr>
       </thead>
       <tbody>
-        {% for item in estimate.line_items %}
+        {% for pkg in estimate.packages %}
         <tr>
-          <td>{{ loop.index }}</td>
-          <td>{{ item.desc }}</td>
-          <td style="text-align:right">{{ item.qty }}</td>
-          <td style="text-align:right">{{ "%.2f"|format(item.rate) }}</td>
-          <td style="text-align:right">{{ "%.2f"|format(item.amount) }}</td>
+          <td>{{ pkg.desc }}</td>
+          <td style="text-align:right">{{ "%.2f"|format(pkg.weight) }}</td>
+          <td style="text-align:right">{{ pkg.qty }}</td>
+          <td style="text-align:right">{{ pkg.length or '—' }}</td>
+          <td style="text-align:right">{{ pkg.width or '—' }}</td>
+          <td style="text-align:right">{{ pkg.height or '—' }}</td>
+          <td style="text-align:right;font-weight:700;color:var(--text-body);">{{ "%.2f"|format(pkg.chg_weight) }}</td>
+          <td style="text-align:right">{{ "%.2f"|format(pkg.rate) }}</td>
+          <td style="text-align:right">{{ "%.2f"|format(pkg.amount) }}</td>
         </tr>
         {% endfor %}
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="4" style="text-align:right;padding:10px 8px">Total</td>
-          <td style="text-align:right;padding:10px 8px">{{ "%.2f"|format(estimate.grand_total) }}</td>
+          <td colspan="8" style="text-align:right;padding:10px 8px">Packages Sub-total</td>
+          <td style="text-align:right;padding:10px 8px">{{ "%.2f"|format(estimate.packages|sum(attribute='amount')) }}</td>
         </tr>
       </tfoot>
     </table>
   </div>
-
-  <!-- Dimensions -->
-  {% if estimate.dimensions %}
-  <div class="section-card" style="margin-bottom:16px">
-    <h4>📐 Package Dimensions</h4>
-    <table class="items-table">
-      <thead>
-        <tr><th>Box</th><th>L (cm)</th><th>W (cm)</th><th>H (cm)</th><th>Weight (kg)</th></tr>
-      </thead>
-      <tbody>
-        {% for d in estimate.dimensions %}
-        <tr>
-          <td>{{ d.label or 'Box' }}</td>
-          <td>{{ d.l or '—' }}</td>
-          <td>{{ d.w or '—' }}</td>
-          <td>{{ d.h or '—' }}</td>
-          <td>{{ d.wt or '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
 
   <!-- Grand total bar -->
   <div class="grand-total-bar no-print">
@@ -330,11 +449,21 @@
 
   <div class="pf-meta">
     <div>
-      <div><strong>Invoice No:</strong> {{ estimate.id }}</div>
+      <div><strong>Estimate No:</strong> {{ estimate.id }}</div>
       <div><strong>AWB / Docket:</strong> {{ estimate.docket_no or '—' }}</div>
     </div>
     <div class="pf-meta-box">
-      <div><strong>Date:</strong> {{ estimate.date }}</div>
+      <div><strong>Date:</strong> 
+        {% if estimate.date %}
+          {% if estimate.date is string %}
+            {{ estimate.date }}
+          {% else %}
+            {{ estimate.date.strftime('%d %b %Y') }}
+          {% endif %}
+        {% else %}
+          —
+        {% endif %}
+      </div>
       <div><strong>Destination:</strong> {{ estimate.destination or '—' }}</div>
     </div>
   </div>
@@ -485,7 +614,17 @@
       </div>
       <div class="bl-info-cell">
         <div class="bl-label">Date</div>
-        <div class="bl-val-sm">{{ estimate.date }}</div>
+        <div class="bl-val-sm">
+          {% if estimate.date %}
+            {% if estimate.date is string %}
+              {{ estimate.date }}
+            {% else %}
+              {{ estimate.date.strftime('%d %b %Y') }}
+            {% endif %}
+          {% else %}
+            —
+          {% endif %}
+        </div>
       </div>
       <div class="bl-info-cell">
         <div class="bl-label">Description</div>
@@ -594,7 +733,17 @@
             </div>
             <div>
               <div class="slip-field-lbl">Booking Date</div>
-              <div class="slip-field-val">{{ estimate.date }}</div>
+              <div class="slip-field-val">
+                {% if estimate.date %}
+                  {% if estimate.date is string %}
+                    {{ estimate.date }}
+                  {% else %}
+                    {{ estimate.date.strftime('%d %b %Y') }}
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </div>
             </div>
           </div>
 
@@ -684,13 +833,9 @@
 <!-- ═══════════════════════════════════════════════════════ -->
 <script>
 function triggerPrint(mode) {
-  // Remove previous mode classes
   document.body.classList.remove('print-performa','print-box','print-slip');
-  // Add the requested one
   document.body.classList.add('print-' + mode);
-  // Print after a short tick so the class applies
   setTimeout(function(){ window.print(); }, 80);
-  // Clean up after print dialog closes
   window.addEventListener('afterprint', function cleanup(){
     document.body.classList.remove('print-performa','print-box','print-slip');
     window.removeEventListener('afterprint', cleanup);

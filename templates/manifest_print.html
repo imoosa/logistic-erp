@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Manifest {{ manifest.manifest_id }}</title>
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        color: #111827;
+        margin: 0;
+        padding: 24px 32px;
+        background: #F3F4F6;
+    }
+    .sheet {
+        max-width: 960px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 28px 36px 36px;
+        border: 1px solid #E5E7EB;
+    }
+    .toolbar {
+        max-width: 960px;
+        margin: 0 auto 12px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .toolbar button, .toolbar a {
+        font-size: 13px;
+        font-weight: 600;
+        padding: 7px 14px;
+        border-radius: 6px;
+        border: 1px solid #D1D5DB;
+        background: #fff;
+        color: #374151;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    .toolbar button:hover, .toolbar a:hover { background: #F9FAFB; }
+
+    h1.title {
+        text-align: center;
+        font-size: 22px;
+        letter-spacing: 2px;
+        margin: 0 0 6px;
+        padding-bottom: 14px;
+        border-bottom: 2px solid #111827;
+    }
+
+    .header-grid {
+        display: grid;
+        grid-template-columns: 1.3fr 1.3fr 1fr;
+        gap: 20px;
+        padding: 18px 0 20px;
+        border-bottom: 1px solid #D1D5DB;
+        margin-bottom: 18px;
+    }
+    .header-grid .label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        color: #374151;
+        margin-bottom: 4px;
+    }
+    .header-grid .value { font-size: 13px; color: #111827; }
+    .kv-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        padding: 2px 0;
+        gap: 10px;
+    }
+    .kv-row .k { color: #374151; }
+    .kv-row .v { font-weight: 700; text-align: right; }
+
+    table.manifest-doc {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11.5px;
+    }
+    table.manifest-doc th {
+        border: 1px solid #9CA3AF;
+        background: #F3F4F6;
+        padding: 6px 6px;
+        text-align: left;
+        font-size: 10.5px;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+    table.manifest-doc td {
+        border: 1px solid #D1D5DB;
+        padding: 6px 6px;
+        vertical-align: top;
+    }
+    table.manifest-doc tr.total-row td {
+        font-weight: 700;
+        background: #F9FAFB;
+        border-top: 2px solid #111827;
+    }
+    .muted { color: #9CA3AF; }
+
+    .footer-note {
+        margin-top: 18px;
+        font-size: 11px;
+        color: #6B7280;
+    }
+
+    @media print {
+        body { background: #fff; padding: 0; margin: 0; }
+        .toolbar { display: none !important; }
+        .sheet { border: none; padding: 0; max-width: none; }
+    }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+    <a href="{{ url_for('manifest_list') }}">← Back</a>
+    <button onclick="window.print()">🖨️ Print</button>
+</div>
+
+<div class="sheet">
+
+    <h1 class="title">MANIFEST</h1>
+
+    <div class="header-grid" style="grid-template-columns: 1.6fr 1fr;">
+        <div>
+            <div class="label">FROM,</div>
+            <div class="value">{{ from_company_name or '—' }}</div>
+        </div>
+        <div>
+            <div class="kv-row"><span class="k">DATE :</span><span class="v">{{ manifest.date.strftime('%d/%m/%Y') if manifest.date else '—' }}</span></div>
+            <div class="kv-row"><span class="k">TOTAL PCS :</span><span class="v">{{ manifest.total_boxes }}</span></div>
+            <div class="kv-row"><span class="k">TOTAL WEIGHT :</span><span class="v">{{ '%.3f'|format(total_weight) if total_weight else '—' }}</span></div>
+            <div class="kv-row"><span class="k">MANIFEST # :</span><span class="v">{{ manifest.manifest_id }}</span></div>
+            <div class="kv-row"><span class="k">COLOADER :</span><span class="v muted">—</span></div>
+            <div class="kv-row"><span class="k">PAYMENT TYPE :</span><span class="v muted">—</span></div>
+        </div>
+    </div>
+
+    <table class="manifest-doc">
+        <thead>
+            <tr>
+                <th>SR<br>NO</th>
+                <th>AWB NO.</th>
+                <th>PCS</th>
+                <th>CHARGE<br>WEIGHT</th>
+                <th>BOX<br>ACTUAL<br>WEIGHT</th>
+                <th>L</th>
+                <th>B</th>
+                <th>H</th>
+                <th>BOX<br>VOL<br>WEIGHT</th>
+                <th>DEST</th>
+                <th>SHIPPER</th>
+                <th>RECEIVER</th>
+                <th>COURIER COMPANY</th>
+                <th>COMPANY</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if manifest.entries %}
+                {% for entry in manifest.entries %}
+                {% set parent = brand_to_supplier.get(entry.courier_name.strip().lower()) %}
+                {% set ship = shipment_data.get(entry.id) %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ entry.docket_no or '—' }}</td>
+                    <td>{{ entry.boxes }}</td>
+                    <td>{{ '%.3f'|format(ship.charge_weight) if ship and ship.charge_weight else '—' }}</td>
+                    <td>{{ '%.3f'|format(ship.actual_weight) if ship and ship.actual_weight else '—' }}</td>
+                    <td>{{ ship.length if ship and ship.length else '—' }}</td>
+                    <td>{{ ship.width if ship and ship.width else '—' }}</td>
+                    <td>{{ ship.height if ship and ship.height else '—' }}</td>
+                    <td>{{ '%.3f'|format(ship.vol_weight) if ship and ship.vol_weight else '—' }}</td>
+                    <td>{{ ship.destination if ship and ship.destination else '—' }}</td>
+                    <td>{{ manifest.shipper_client_name }}</td>
+                    <td>{{ ship.receiver if ship and ship.receiver else '—' }}</td>
+                    <td>{{ entry.courier_name }}</td>
+                    <td>{{ parent or '—' }}</td>
+                </tr>
+                {% endfor %}
+                <tr class="total-row">
+                    <td colspan="2" style="text-align:right;">TOTAL</td>
+                    <td>{{ manifest.total_boxes }}</td>
+                    <td colspan="11"></td>
+                </tr>
+            {% else %}
+                <tr><td colspan="14" class="muted" style="text-align:center;padding:16px;">No entries on this manifest.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+
+    <div class="footer-note">
+        Charge weight, box weight, dimensions, volumetric weight, destination and receiver are pulled from the
+        matching customer invoice by AWB/docket number where available, shown as “—” otherwise. Coloader and
+        payment type are not captured by this manifest type. Generated {{ manifest.created_at.strftime('%d %b %Y, %I:%M %p') if manifest.created_at else '' }}.
+    </div>
+
+</div>
+
+</body>
+</html>

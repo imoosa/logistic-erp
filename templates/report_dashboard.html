@@ -15,11 +15,11 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 20px;
     padding: 8px;
     margin-bottom: 24px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     box-shadow: 0 1px 3px rgba(0,0,0,.04);
   }
   .tab-btn {
@@ -31,14 +31,14 @@
     transition: all 0.2s;
     background: transparent;
     border: none;
-    color: #64748B;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     gap: 10px;
   }
   .tab-btn:hover {
-    background: #F1F5F9;
-    color: #1E293B;
+    background: var(--border-color);
+    color: var(--text-body);
   }
   .tab-btn.active {
     background: #2563EB;
@@ -68,10 +68,10 @@
   .kpi-grid-6 { grid-template-columns: repeat(6, 1fr); }
   
   .kpi-card {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 18px;
     padding: 18px 20px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     transition: all 0.2s;
     position: relative;
     overflow: hidden;
@@ -93,17 +93,17 @@
   .kpi-card.teal::before { background: linear-gradient(90deg, #0D9488, #2DD4BF); }
   
   .kpi-icon { font-size: 28px; margin-bottom: 10px; opacity: 0.7; }
-  .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #64748B; }
-  .kpi-value { font-size: 28px; font-weight: 800; color: #0F172A; margin-top: 5px; line-height: 1.2; }
-  .kpi-sub { font-size: 11px; color: #94A3B8; margin-top: 6px; }
+  .kpi-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+  .kpi-value { font-size: 28px; font-weight: 800; color: var(--text-body); margin-top: 5px; line-height: 1.2; }
+  .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
 
   /* Filter Bar */
   .filter-bar {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px;
     padding: 16px 20px;
     margin-bottom: 24px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     display: flex;
     flex-wrap: wrap;
     gap: 14px;
@@ -119,16 +119,16 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    color: #64748B;
+    color: var(--text-muted);
   }
   .fg input, .fg select {
     padding: 8px 12px;
     border-radius: 10px;
-    border: 1.5px solid #E2E8F0;
+    border: 1.5px solid var(--border-color);
     font-size: 13px;
     min-width: 140px;
     font-family: inherit;
-    background: #fff;
+    background: var(--bg-card);
   }
   .fg input:focus, .fg select:focus {
     outline: none;
@@ -149,10 +149,10 @@
     margin-bottom: 24px;
   }
   .chart-card {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 18px;
     padding: 18px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
   }
   .chart-header {
     display: flex;
@@ -160,12 +160,12 @@
     align-items: center;
     margin-bottom: 16px;
     padding-bottom: 10px;
-    border-bottom: 1px solid #F1F5F9;
+    border-bottom: 1px solid var(--border-color);
   }
   .chart-title {
     font-size: 14px;
     font-weight: 700;
-    color: #0F172A;
+    color: var(--text-body);
     display: flex;
     align-items: center;
     gap: 8px;
@@ -174,15 +174,15 @@
 
   /* Data Table */
   .data-table-card {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 18px;
-    border: 1px solid #E2E8F0;
+    border: 1px solid var(--border-color);
     overflow: hidden;
     margin-top: 24px;
   }
   .data-table-header {
     padding: 16px 20px;
-    border-bottom: 1px solid #F1F5F9;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -190,7 +190,7 @@
   .data-table-title {
     font-size: 14px;
     font-weight: 700;
-    color: #0F172A;
+    color: var(--text-body);
   }
   .data-table {
     width: 100%;
@@ -202,18 +202,18 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    color: #64748B;
-    background: #F8FAFC;
+    color: var(--text-muted);
+    background: var(--border-color);
     text-align: left;
-    border-bottom: 1px solid #E2E8F0;
+    border-bottom: 1px solid var(--border-color);
   }
   .data-table td {
     padding: 12px 16px;
     font-size: 13px;
-    color: #334155;
-    border-bottom: 1px solid #F8FAFC;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-color);
   }
-  .data-table tr:hover td { background: #F8FAFC; }
+  .data-table tr:hover td { background: var(--border-color); }
 
   /* Rankings */
   .rank-list {
@@ -226,7 +226,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 12px 0;
-    border-bottom: 1px solid #F1F5F9;
+    border-bottom: 1px solid var(--border-color);
   }
   .rank-item:last-child { border-bottom: none; }
   .rank-name {
@@ -237,19 +237,19 @@
   .rank-number {
     width: 28px;
     height: 28px;
-    background: #F1F5F9;
+    background: var(--border-color);
     border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 12px;
     font-weight: 800;
-    color: #64748B;
+    color: var(--text-muted);
   }
   .rank-number.top1 { background: #FEF3C7; color: #D97706; }
   .rank-number.top2 { background: #EFF6FF; color: #2563EB; }
   .rank-number.top3 { background: #DCFCE7; color: #059669; }
-  .rank-value { font-weight: 700; color: #0F172A; }
+  .rank-value { font-weight: 700; color: var(--text-body); }
 
   @media (max-width: 1200px) {
     .kpi-grid-4, .kpi-grid-5, .kpi-grid-6 { grid-template-columns: repeat(3, 1fr); }
@@ -592,6 +592,20 @@
 <script>
   let charts = {};
 
+  // ── Theme-aware chart colors ──
+  function isDarkMode() { return document.body.classList.contains('dark-theme'); }
+  function chartTextColor() { return isDarkMode() ? '#9CA3AF' : '#64748B'; }
+  function chartGridColor() { return isDarkMode() ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.1)'; }
+  Chart.defaults.color = chartTextColor();
+  Chart.defaults.borderColor = chartGridColor();
+
+  document.addEventListener('themechange', function() {
+    Chart.defaults.color = chartTextColor();
+    Chart.defaults.borderColor = chartGridColor();
+    refreshAllData();
+  });
+
+
   // ==================== TAB SWITCHING ====================
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -833,7 +847,7 @@ async function fetchStockData(fromDate, toDate) {
                     <td><span class="status-badge ${s.status === 'in' ? 'status-delivered' : s.status === 'low' ? 'status-transit' : 'status-pending'}">${s.status_label || '—'}</span></td>
                 </tr>
             `).join('')
-            : '<tr><td colspan="7" style="text-align:center;padding:30px;color:#94A3B8;">No stock items found</td></tr>';
+            : '<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-muted);">No stock items found</td></tr>';
             
     } catch(e) { 
         console.error('Stock data error:', e);

@@ -1,0 +1,582 @@
+{% extends "base.html" %}
+{% block title %}{{ entity.client_name }} · Statement{% endblock %}
+{% block page_title %}
+  {% if mode == 'debtor' %}📥 Debtor Statement{% else %}📤 Creditor Statement{% endif %}
+{% endblock %}
+{% set active = 'debtors' if mode == 'debtor' else 'creditors' %}
+
+{% block extra_style %}
+<style>
+  /* Simple, clean bank-statement style */
+  .stmt-sheet {
+    background: #fff;
+    border: 1px solid #000;
+    padding: 24px 28px;
+    font-family: Roboto, system-ui, sans-serif;
+    color: #000;
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  .stmt-letterhead { 
+    text-align: center; 
+    border-bottom: 2px solid #000; 
+    padding-bottom: 10px; 
+    margin-bottom: 10px; 
+  }
+  .stmt-letterhead .co-name { 
+    font-size: 17px; 
+    font-weight: 700; 
+    letter-spacing: .02em; 
+  }
+  .stmt-letterhead .co-meta { 
+    font-size: 12px; 
+    margin-top: 2px; 
+    line-height: 1.5; 
+  }
+  .stmt-letterhead .co-meta a { 
+    color: #000; 
+    text-decoration: underline; 
+  }
+
+  .stmt-entity { 
+    text-align: center; 
+    margin-bottom: 4px; 
+  }
+  .stmt-entity .entity-title { 
+    font-size: 16px; 
+    font-weight: 700; 
+  }
+  .stmt-entity .entity-sub { 
+    font-size: 12px; 
+    margin-top: 3px; 
+  }
+  .stmt-entity .code-tag { 
+    display: none;
+  }
+
+  .stmt-range { 
+    text-align: center; 
+    font-size: 11.5px; 
+    margin: 6px 0 14px; 
+  }
+
+  .stmt-table { 
+    width: 100%; 
+    border-collapse: collapse; 
+    font-size: 12px; 
+  }
+  .stmt-table th, .stmt-table td {
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+    border: none;
+  }
+  .stmt-table thead th {
+    border-bottom: 2px solid #000;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .stmt-table td.num, .stmt-table th.num { 
+    text-align: right; 
+    white-space: nowrap; 
+  }
+  .stmt-table tr.closing td { 
+    border-top: 2px solid #000; 
+    font-weight: 700; 
+  }
+  .stmt-table td.mono { 
+    font-variant-numeric: tabular-nums; 
+  }
+  
+  /* Payment mode badge */
+  .pmt-badge {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .pmt-cash {
+    background: #DCFCE7;
+    color: #15803D;
+  }
+  .pmt-cheque {
+    background: #FEF3C7;
+    color: #B45309;
+  }
+  .pmt-online {
+    background: #DBEAFE;
+    color: #1D4ED8;
+  }
+  .pmt-bank {
+    background: #E5E7EB;
+    color: #4B5563;
+  }
+  .pmt-upi {
+    background: #EDE9FE;
+    color: #5B21B6;
+  }
+  .pmt-default {
+    background: #F3F4F6;
+    color: #6B7280;
+  }
+
+  .stmt-footer-note { 
+    text-align: right; 
+    font-size: 10.5px; 
+    margin-top: 6px; 
+  }
+
+  .print-btn {
+    background: #fff;
+    color: #000;
+    border: 1px solid #000;
+    padding: 7px 16px;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .print-btn:hover { 
+    background: #000; 
+    color: #fff; 
+  }
+
+  .ref-sub {
+    font-size: 10px;
+    color: #555;
+    display: block;
+    margin-top: 1px;
+  }
+  .particulars-main {
+    font-weight: 600;
+  }
+  .particulars-sub {
+    font-size: 10px;
+    color: #555;
+    display: block;
+    margin-top: 1px;
+  }
+  .status-tag {
+    font-size: 9px;
+    font-weight: 600;
+    color: #B45309;
+    background: #FEF3C7;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 4px;
+  }
+
+  /* Date filter bar */
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+  .filter-bar label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 0;
+  }
+  .filter-bar input[type="date"] {
+    padding: 6px 10px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 12px;
+    width: 140px;
+    font-family: inherit;
+  }
+  .filter-bar input[type="date"]:focus {
+    border-color: var(--primary);
+    outline: none;
+  }
+  .filter-bar .btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .filter-bar .preset-btn {
+    padding: 4px 12px;
+    font-size: 11px;
+    border-radius: 20px;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    color: #475569;
+    transition: all 0.15s;
+  }
+  .filter-bar .preset-btn:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+    color: var(--primary-dark);
+  }
+  .filter-bar .preset-btn.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+  }
+
+  @media print {
+    .sidebar, .topbar, .no-print { display: none !important; }
+    .main { margin-left: 0 !important; }
+    .content { padding: 0 !important; }
+    .stmt-sheet { border: none; max-width: 100%; }
+    body { font-size: 11px; }
+    .pmt-badge { border: 1px solid #000; }
+    .ref-sub, .particulars-sub { color: #000; }
+    .filter-bar { display: none !important; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back / print bar -->
+<div class="no-print" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+  <a href="{{ back_url }}" class="btn btn-ghost btn-sm">← Back to {{ 'Debtors' if mode == 'debtor' else 'Creditors' }}</a>
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <button onclick="window.print()" class="print-btn">🖨️ Print Statement</button>
+  </div>
+</div>
+
+{% if archived %}
+<div class="no-print" style="margin-bottom:16px; padding:10px 16px; background:#FFFBEB; border:1px solid #FDE68A; border-radius:8px; font-size:12.5px; color:#92400E; font-weight:600;">
+  📦 This is an archived statement, closed on {{ archived_at.strftime('%d %b %Y, %I:%M %p') if archived_at else '' }}. It's frozen and won't reflect any changes made afterward.
+</div>
+{% endif %}
+
+<!-- Date Filter Bar -->
+<div class="no-print filter-bar">
+  <label>📅 Period:</label>
+  <button class="preset-btn" data-days="7">1 Week</button>
+  <button class="preset-btn" data-days="30">1 Month</button>
+  <button class="preset-btn" data-days="90">3 Months</button>
+  <button class="preset-btn" data-days="180">6 Months</button>
+  <button class="preset-btn" data-days="365">1 Year</button>
+  <button class="preset-btn active" data-days="all">All</button>
+  
+  <span style="color:#94a3b8; font-size:12px;">|</span>
+  
+  <label>From:</label>
+  <input type="date" id="fromDate" value="{{ from_date if from_date else '' }}">
+  <label>To:</label>
+  <input type="date" id="toDate" value="{{ to_date if to_date else today }}">
+  <button class="btn btn-primary btn-sm" id="applyDateFilter">Apply</button>
+  <button class="btn btn-ghost btn-sm" id="resetDateFilter">Reset</button>
+</div>
+
+<div class="stmt-sheet" id="statementContent">
+
+  <!-- Letterhead -->
+  <div class="stmt-letterhead">
+    <div class="co-name">{{ company.company_name if company else '' }}</div>
+    <div class="co-meta">
+      {% if company and company.address %}{{ company.address }}<br>{% endif %}
+      {% if company %}
+        {% if company.phone %}Tel # {{ company.phone }}{% endif %}
+        {% if company.mobile %}{{ ', ' + company.mobile if company.phone else company.mobile }}{% endif %}
+        {% if company.email %}<br><a href="mailto:{{ company.email }}">{{ company.email }}</a>{% endif %}
+        {% if company.gst_number %}<br>GSTIN: {{ company.gst_number }}{% endif %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Entity being statement'd -->
+  <div class="stmt-entity">
+    <div class="entity-title">
+      {{ entity.client_name }}
+      {% if entity.client_id %}<span class="code-tag">({{ entity.client_id }})</span>{% endif %}
+    </div>
+    <div class="entity-sub">
+      {% if mode == 'debtor' %}Debtor Account Statement{% else %}Creditor Account Statement{% endif %}
+    </div>
+    <div class="entity-sub">
+      {% if entity.phone %}Tel: {{ entity.phone }}{% endif %}
+      {% if entity.email %} &nbsp;·&nbsp; {{ entity.email }}{% endif %}
+      {% if entity.city %}<br>{{ entity.city }}{% if entity.state %}, {{ entity.state }}{% endif %}{% endif %}
+    </div>
+  </div>
+
+  <div class="stmt-range">
+    Statement period: 
+    <span id="displayFromDate">{{ from_date if from_date else ledger[0].date.strftime('%d-%b-%y') if ledger and ledger[0].date is not string else '' }}</span>
+    to 
+    <span id="displayToDate">{{ to_date if to_date else today if today is defined else '' }}</span>
+  </div>
+
+  <!-- Simple Statement Table -->
+  <table class="stmt-table">
+    <thead>
+      <tr>
+        <th style="width:12%;">Date</th>
+        <th style="width:30%;">Particulars</th>
+        <th style="width:20%;">Reference</th>
+        <th style="width:13%;" class="num">Debit (₹)</th>
+        <th style="width:13%;" class="num">Credit (₹)</th>
+        <th style="width:12%;" class="num">Balance (₹)</th>
+      </tr>
+    </thead>
+    <tbody id="statementBody">
+      {% for row in ledger %}
+      <tr class="stmt-row" data-date="{{ row.date.strftime('%Y-%m-%d') if row.date and row.date is not string else '' }}">
+        <td style="white-space:nowrap;">
+          {% if row.date %}
+            {% if row.date is string %}{{ row.date }}
+            {% else %}{{ row.date.strftime('%d-%b-%y') }}{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if row.type == 'Invoice' %}
+            <span class="particulars-main">Sales Invoice</span>
+            {% if row.ref and row.ref != '—' %}
+              <span class="particulars-sub">#{{ row.ref }}</span>
+            {% endif %}
+            
+          {% elif row.type == 'Purchase Invoice' %}
+            <span class="particulars-main">Purchase Invoice</span>
+            {% if row.ref and row.ref != '—' %}
+              <span class="particulars-sub">#{{ row.ref }}</span>
+            {% endif %}
+            {% if row.status and row.status not in ['Paid', ''] %}
+              <span class="status-tag">{{ row.status }}</span>
+            {% endif %}
+          {% elif row.type == 'Payment Received' %}
+            <span class="particulars-main">Payment Received</span>
+            {% if row.ref and row.ref != '—' %}
+              <span class="particulars-sub">Against #{{ row.ref }}</span>
+            {% endif %}
+          {% elif row.type == 'Payment Made' %}
+            <span class="particulars-main">Payment Made</span>
+            {% if row.ref and row.ref != '—' %}
+              <span class="particulars-sub">Against #{{ row.ref }}</span>
+            {% endif %}
+          {% elif row.type == 'Opening Balance' %}
+            <span class="particulars-main">Opening Balance</span>
+          {% else %}
+            {{ row.type }}
+          {% endif %}
+        </td>
+        <td>
+          {% if row.payment_mode and row.payment_mode != '' %}
+            {% set pmt = row.payment_mode|lower %}
+            {% if 'cash' in pmt %}
+              <span class="pmt-badge pmt-cash">💵 Cash</span>
+            {% elif 'cheque' in pmt or 'check' in pmt %}
+              <span class="pmt-badge pmt-cheque">📝 Cheque</span>
+              {% if row.ref and row.ref != '—' %}
+                <span class="ref-sub">{{ row.ref }}</span>
+              {% endif %}
+            {% elif 'upi' in pmt %}
+              <span class="pmt-badge pmt-upi">📱 UPI</span>
+              {% if row.ref and row.ref != '—' %}
+                <span class="ref-sub">{{ row.ref }}</span>
+              {% endif %}
+            {% elif 'online' in pmt %}
+              <span class="pmt-badge pmt-online">💻 Online</span>
+              {% if row.ref and row.ref != '—' %}
+                <span class="ref-sub">{{ row.ref }}</span>
+              {% endif %}
+            {% elif 'bank' in pmt %}
+              <span class="pmt-badge pmt-bank">🏦 Bank</span>
+              {% if row.ref and row.ref != '—' %}
+                <span class="ref-sub">{{ row.ref }}</span>
+              {% endif %}
+            {% else %}
+              <span class="pmt-badge pmt-default">{{ row.payment_mode }}</span>
+              {% if row.ref and row.ref != '—' %}
+                <span class="ref-sub">{{ row.ref }}</span>
+              {% endif %}
+            {% endif %}
+          {% else %}
+            {% if row.type not in ['Opening Balance'] %}
+              <span style="color:#9CA3AF; font-size:11px;">—</span>
+            {% endif %}
+          {% endif %}
+        </td>
+        <td class="num mono">
+          {% if row.debit and row.debit > 0 %}{{ "{:,.2f}".format(row.debit) }}{% else %}—{% endif %}
+        </td>
+        <td class="num mono">
+          {% if row.credit and row.credit > 0 %}{{ "{:,.2f}".format(row.credit) }}{% else %}—{% endif %}
+        </td>
+        <td class="num mono">
+          {{ "{:,.2f}".format(row.balance|abs) }}
+          {% if row.balance > 0 %}Dr{% elif row.balance < 0 %}Cr{% else %}Nil{% endif %}
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="6" style="text-align:center; padding:32px;">No transactions found.</td></tr>
+      {% endfor %}
+
+      {% if ledger %}
+      <tr class="closing">
+        <td colspan="3" class="num" style="text-align:right;">Closing Balance</td>
+        <td class="num mono">{{ "{:,.2f}".format(total_debit) }}</td>
+        <td class="num mono">{{ "{:,.2f}".format(total_credit) }}</td>
+        <td class="num mono">
+          {{ "{:,.2f}".format(closing_balance|abs) }}
+          {% if closing_balance > 0 %}Dr{% elif closing_balance < 0 %}Cr{% else %}Nil{% endif %}
+        </td>
+      </tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <div class="stmt-footer-note">Generated on {{ today if today is defined else '' }}</div>
+</div>
+
+<script>
+(function() {
+  const fromDateInput = document.getElementById('fromDate');
+  const toDateInput = document.getElementById('toDate');
+  const applyBtn = document.getElementById('applyDateFilter');
+  const resetBtn = document.getElementById('resetDateFilter');
+  const displayFrom = document.getElementById('displayFromDate');
+  const displayTo = document.getElementById('displayToDate');
+  const rows = document.querySelectorAll('.stmt-row');
+  const presetBtns = document.querySelectorAll('.preset-btn');
+
+  // Get today's date
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+
+  // Set default dates if not already set
+  if (!fromDateInput.value) {
+    const firstDate = rows.length > 0 ? rows[0].dataset.date : null;
+    if (firstDate) {
+      fromDateInput.value = firstDate;
+    } else {
+      const d = new Date();
+      d.setMonth(d.getMonth() - 1);
+      fromDateInput.value = d.toISOString().split('T')[0];
+    }
+  }
+  if (!toDateInput.value) {
+    toDateInput.value = todayStr;
+  }
+
+  function filterRows() {
+    const fromDate = fromDateInput.value;
+    const toDate = toDateInput.value;
+    
+    let visibleCount = 0;
+    rows.forEach(function(row) {
+      const rowDate = row.dataset.date;
+      if (!rowDate) {
+        row.style.display = '';
+        visibleCount++;
+        return;
+      }
+      
+      let show = true;
+      if (fromDate && rowDate < fromDate) show = false;
+      if (toDate && rowDate > toDate) show = false;
+      
+      row.style.display = show ? '' : 'none';
+      if (show) visibleCount++;
+    });
+
+    // Update display dates
+    displayFrom.textContent = fromDate ? new Date(fromDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'All';
+    displayTo.textContent = toDate ? new Date(toDate + 'T00:00:00').toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'All';
+
+    // Show/hide no results message
+    const noResults = document.querySelector('.stmt-table tbody tr:not(.closing):not(.stmt-row)');
+    // Actually we need to check if any rows are visible
+    const visibleRows = document.querySelectorAll('.stmt-row[style*="display: none"]');
+    // If all rows are hidden, show a message
+    const allRows = document.querySelectorAll('.stmt-row');
+    const allHidden = allRows.length > 0 && document.querySelectorAll('.stmt-row[style*="display: none"]').length === allRows.length;
+    
+    // Remove existing no-results message if any
+    const existingMsg = document.querySelector('.no-results-msg');
+    if (existingMsg) existingMsg.remove();
+    
+    if (allHidden && allRows.length > 0) {
+      const tbody = document.querySelector('#statementBody');
+      const msg = document.createElement('tr');
+      msg.className = 'no-results-msg';
+      msg.innerHTML = '<td colspan="6" style="text-align:center; padding:32px; color:#9CA3AF;">No transactions found for this period.</td>';
+      // Insert before the closing row if it exists
+      const closingRow = tbody.querySelector('.closing');
+      if (closingRow) {
+        tbody.insertBefore(msg, closingRow);
+      } else {
+        tbody.appendChild(msg);
+      }
+    }
+
+    // Update preset button states
+    presetBtns.forEach(function(btn) {
+      btn.classList.remove('active');
+    });
+    // Check if custom date matches any preset
+    // This is a simple check - mark the active preset if it matches
+    const fromVal = fromDateInput.value;
+    const toVal = toDateInput.value;
+    presetBtns.forEach(function(btn) {
+      const days = btn.dataset.days;
+      if (days === 'all') {
+        if (!fromVal && !toVal) btn.classList.add('active');
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() - parseInt(days));
+        const presetFrom = d.toISOString().split('T')[0];
+        if (fromVal === presetFrom && toVal === todayStr) {
+          btn.classList.add('active');
+        }
+      }
+    });
+  }
+
+  // Preset date buttons
+  presetBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const days = this.dataset.days;
+      if (days === 'all') {
+        fromDateInput.value = '';
+        toDateInput.value = todayStr;
+      } else {
+        const d = new Date();
+        d.setDate(d.getDate() - parseInt(days));
+        fromDateInput.value = d.toISOString().split('T')[0];
+        toDateInput.value = todayStr;
+      }
+      filterRows();
+    });
+  });
+
+  // Apply button
+  applyBtn.addEventListener('click', filterRows);
+
+  // Reset button
+  resetBtn.addEventListener('click', function() {
+    fromDateInput.value = '';
+    toDateInput.value = todayStr;
+    filterRows();
+  });
+
+  // Auto-filter on Enter key in date inputs
+  fromDateInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') filterRows();
+  });
+  toDateInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') filterRows();
+  });
+
+  // Initial filter
+  filterRows();
+})();
+</script>
+
+{% endblock %}

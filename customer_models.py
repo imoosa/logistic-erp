@@ -57,6 +57,8 @@ class CompanyUser(customer_db.Model):
     phone         = customer_db.Column(customer_db.String(20),  nullable=True)
     is_active     = customer_db.Column(customer_db.Boolean,     nullable=False, default=True)
     created_at    = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    field_permissions = customer_db.Column(customer_db.Text, nullable=True)
+    editable_fields = customer_db.Column(customer_db.Text, nullable=True)
     # Per-user permission overrides on top of the role default, e.g.
     # {"purchase": {"view": true, "create": true, "edit": false}}
     # A key present here always wins over the role's default for that
@@ -78,7 +80,8 @@ class CompanyRolePermission(customer_db.Model):
     id               = customer_db.Column(customer_db.Integer,    primary_key=True, autoincrement=True)
     company_id       = customer_db.Column(customer_db.String(20), nullable=False)
     role             = customer_db.Column(customer_db.String(50), nullable=False)  # 'employee' | 'accountant'
-    # JSON: {"clients": {"view": true, "create": false, "edit": false}, ...}
+    permissions_json = customer_db.Column(customer_db.Text, nullable=True)  # Module permissions
+    field_permissions_json = customer_db.Column(customer_db.Text, nullable=True)
     permissions_json = customer_db.Column(customer_db.Text, nullable=True)
     updated_at       = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
 
@@ -91,6 +94,7 @@ class Client(customer_db.Model):
     __tablename__ = "clients"
 
     id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    client_id       = customer_db.Column(customer_db.String(20),  unique=True, nullable=True)
     company_id      = customer_db.Column(customer_db.String(20),  nullable=False)
     name            = customer_db.Column(customer_db.String(200), nullable=False)
     contact_person  = customer_db.Column(customer_db.String(150), nullable=True)
@@ -107,6 +111,15 @@ class Client(customer_db.Model):
     country         = customer_db.Column(customer_db.String(100), nullable=False, default="India")
     gst_number      = customer_db.Column(customer_db.String(20),  nullable=True)
     pan_number      = customer_db.Column(customer_db.String(15),  nullable=True)
+    aadhar_number   = customer_db.Column(customer_db.String(12),  nullable=True)
+    # Scanned ID uploads (front/back), stored as filenames under static/client_docs/.
+    # These back the "credit customer → docs fetched from client record" flow —
+    # cash/walk-in bookings upload their own copies straight onto the invoice instead
+    # (see Invoice.terms shipper_aadhar_front_file etc.), since there's no client row.
+    aadhar_front_file = customer_db.Column(customer_db.String(255), nullable=True)
+    aadhar_back_file  = customer_db.Column(customer_db.String(255), nullable=True)
+    pan_front_file    = customer_db.Column(customer_db.String(255), nullable=True)
+    pan_back_file     = customer_db.Column(customer_db.String(255), nullable=True)
     gst_type        = customer_db.Column(customer_db.String(30),  nullable=False, default="Regular")
     credit_limit    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     credit_days     = customer_db.Column(customer_db.Integer,     nullable=False, default=30)
@@ -116,6 +129,7 @@ class Client(customer_db.Model):
     status          = customer_db.Column(customer_db.String(50),  nullable=False, default="Active")
     notes           = customer_db.Column(customer_db.Text,        nullable=True)
     created_at      = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    statement_cutoff = customer_db.Column(customer_db.DateTime,   nullable=True)
 
     def __repr__(self):
         return f"<Client {self.id} – {self.name}>"
@@ -124,6 +138,7 @@ class Supplier(customer_db.Model):
     __tablename__ = "suppliers"
  
     id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    supplier_id     = customer_db.Column(customer_db.String(20),  unique=True, nullable=True)
     company_id      = customer_db.Column(customer_db.String(20),  nullable=False)
     name            = customer_db.Column(customer_db.String(200), nullable=False)
     supplier_type   = customer_db.Column(customer_db.String(30),  nullable=False, default="Business")  # Business / Individual
@@ -140,6 +155,7 @@ class Supplier(customer_db.Model):
     country         = customer_db.Column(customer_db.String(100), nullable=False, default="India")
     gst_number      = customer_db.Column(customer_db.String(20),  nullable=True)
     pan_number      = customer_db.Column(customer_db.String(15),  nullable=True)
+    aadhar_number   = customer_db.Column(customer_db.String(12),  nullable=True)
     gst_type        = customer_db.Column(customer_db.String(30),  nullable=False, default="Regular")   # Regular / Composition / Unregistered
     credit_limit    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)   # max credit supplier gives us
     credit_days     = customer_db.Column(customer_db.Integer,     nullable=False, default=30)
@@ -149,6 +165,7 @@ class Supplier(customer_db.Model):
     status          = customer_db.Column(customer_db.String(50),  nullable=False, default="Active")    # Active / Inactive / Blacklisted
     notes           = customer_db.Column(customer_db.Text,        nullable=True)
     created_at      = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
+    statement_cutoff = customer_db.Column(customer_db.DateTime,   nullable=True)
 
     brands = customer_db.relationship("SupplierBrand", back_populates="supplier", cascade="all, delete-orphan")
 
@@ -212,6 +229,11 @@ class StockItem(customer_db.Model):
     margin_percent     = customer_db.Column(customer_db.Float,       nullable=True)
     client_id          = customer_db.Column(customer_db.Integer,     nullable=True, default=None)
     item_type          = customer_db.Column(customer_db.String(50),  nullable=True, default=None)
+    # Cash/walk-in bookings never get a client_id (see _get_or_create_cash_client
+    # in app.py) — this is the only thing that keeps two different walk-in
+    # customers' stock of the same item name from merging into one row.
+    # Always NULL for credit bookings, where client_id already does the job.
+    shipper_name       = customer_db.Column(customer_db.String(200), nullable=True, default=None)
 
     def __repr__(self):
         return f"<StockItem {self.code} – {self.name}>"
@@ -243,6 +265,8 @@ class Invoice(customer_db.Model):
     resale_date      = customer_db.Column(customer_db.Date,      nullable=True)
     resale_notes     = customer_db.Column(customer_db.Text,      nullable=True)
     has_resale       = customer_db.Column(customer_db.Boolean,   nullable=False, default=False)
+    docket_no      = Column(String(50), nullable=True, index=True)
+    submit_token     = customer_db.Column(customer_db.String(64), nullable=True, unique=True, index=True)
 
     items = customer_db.relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
 
@@ -257,6 +281,91 @@ class Invoice(customer_db.Model):
         if session:
             return session.query(Client).filter_by(id=self.client_id).first()
         return None
+
+class DeletedInvoiceLog(_Base):
+    __tablename__ = "deleted_invoice_log"
+    id            = Column(Integer, primary_key=True)
+    company_id    = Column(String(50), nullable=False)
+    invoice_id    = Column(String(50))       # the invoice_id string, e.g. "INV-0042"
+    awb_no        = Column(String(50))       # the AWB/docket that's now retired
+    client_name   = Column(String(255))      # credit client name, if any
+    shipper_name  = Column(String(255))      # cash/walk-in name, if any
+    grand_total   = Column(Float)
+    deleted_by    = Column(String(255))      # email of whoever clicked delete
+    deleted_at    = Column(DateTime, default=datetime.utcnow)
+    reason        = Column(String(255))      # free text, e.g. "duplicate booking bug"
+
+
+# ── 21. Customer Invoices (aggregate invoices) ──────────────────────────────
+class CustomerInvoice(customer_db.Model):
+    """Customer invoice that aggregates multiple bookings (AWBs)"""
+    __tablename__ = "customer_invoices"
+    
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    invoice_number = customer_db.Column(customer_db.String(30), unique=True, nullable=False)
+    company_id = customer_db.Column(customer_db.String(20), nullable=False)
+    client_id = customer_db.Column(customer_db.Integer, nullable=False)
+    client_name = customer_db.Column(customer_db.String(200), nullable=True)
+    invoice_date = customer_db.Column(customer_db.Date, nullable=False, default=date.today)
+    due_date = customer_db.Column(customer_db.Date, nullable=True)
+    invoice_type = customer_db.Column(customer_db.String(10), nullable=False, default="credit")  # 'cash' or 'credit'
+    status = customer_db.Column(customer_db.String(50), nullable=False, default="Pending")
+    subtotal = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    tax_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    cgst_total = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    sgst_total = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    igst_total = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    grand_total = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    paid_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    balance = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    notes = customer_db.Column(customer_db.Text, nullable=True)
+    created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
+    updated_at = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
+    created_by = customer_db.Column(customer_db.String(50), nullable=True)
+    
+    booking_ids_json = customer_db.Column(customer_db.Text, nullable=True)
+    
+    items = customer_db.relationship("CustomerInvoiceItem", back_populates="customer_invoice", cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f"<CustomerInvoice {self.invoice_number}>"
+
+
+class CustomerInvoiceItem(customer_db.Model):
+    """Individual booking (AWB) line item within a customer invoice"""
+    __tablename__ = "customer_invoice_items"
+    
+    id = customer_db.Column(customer_db.Integer, primary_key=True, autoincrement=True)
+    customer_invoice_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("customer_invoices.id"), nullable=False)
+    
+    # Reference to the original booking (Invoice)
+    booking_invoice_id = customer_db.Column(customer_db.Integer, nullable=False)
+    booking_invoice_ref = customer_db.Column(customer_db.String(30), nullable=True)
+    docket_no = customer_db.Column(customer_db.String(50), nullable=True)
+    
+    # Booking details (denormalized for snapshot)
+    receiver_name = customer_db.Column(customer_db.String(200), nullable=True)
+    destination = customer_db.Column(customer_db.String(150), nullable=True)
+    carrier = customer_db.Column(customer_db.String(100), nullable=True)
+    carrier_ref = customer_db.Column(customer_db.String(100), nullable=True)
+    item_description = customer_db.Column(customer_db.String(300), nullable=True)
+    quantity = customer_db.Column(customer_db.Float, nullable=False, default=1.0)
+    weight_kg = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    rate_per_kg = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    taxable_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    gst_percent = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    cgst_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    sgst_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    igst_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    total_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    
+    # Original booking date for sorting
+    booking_date = customer_db.Column(customer_db.Date, nullable=True)
+    
+    customer_invoice = customer_db.relationship("CustomerInvoice", back_populates="items")
+    
+    def __repr__(self):
+        return f"<CustomerInvoiceItem {self.docket_no}>"
 
 # ── 19. Price Lists (Shipping Rates) ─────────────────────────────────────────
 class PriceList(customer_db.Model):
@@ -425,12 +534,21 @@ class PurchaseInvoiceItem(customer_db.Model):
     total_amount        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
 
     # ── Logistics-specific particulars (added) ───────────────────────────────
-    docket_no       = customer_db.Column(customer_db.String(100), nullable=True)   # AWB number
+    docket_no       = customer_db.Column(customer_db.String(100), nullable=True)
+    carrier_ref     = customer_db.Column(customer_db.String(100), nullable=True)
     party_name      = customer_db.Column(customer_db.String(200), nullable=True)   # client tied to that AWB
+    consignee_name  = customer_db.Column(customer_db.String(200), nullable=True)   # receiver of the shipment (from the booking's receiver_name, when auto-generated)
     destination     = customer_db.Column(customer_db.String(150), nullable=True)
     courier_name    = customer_db.Column(customer_db.String(100), nullable=True)   # Bluedart, DHL, DPD...
     weight_kg       = customer_db.Column(customer_db.Float,       nullable=True, default=0.0)
     rate_per_kg     = customer_db.Column(customer_db.Float,       nullable=True, default=0.0)
+    other_charges       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    resale_charges = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    # ── Auto-generation link (added) ─────────────────────────────────────────
+    # Set only when this line was auto-created from a booking Invoice (see
+    # invoice_customer_save). Prevents duplicate purchase lines if the booking
+    # is ever re-saved, and lets a purchase line trace back to its AWB.
+    source_invoice_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("invoices.id"), nullable=True)
 
     purchase_invoice = customer_db.relationship("PurchaseInvoice", back_populates="items")
 
@@ -464,7 +582,38 @@ class StockPurchaseHistory(customer_db.Model):
     movement_type       = customer_db.Column(customer_db.String(10), nullable=True, default="IN")
     reference           = customer_db.Column(customer_db.String(100), nullable=True)
 
+    # ── Shipment-level detail (populated when the movement comes from a booking) ──
+    awb_no              = customer_db.Column(customer_db.String(50),  nullable=True)
+    source              = customer_db.Column(customer_db.String(100), nullable=True)
+    destination         = customer_db.Column(customer_db.String(100), nullable=True)
+    length              = customer_db.Column(customer_db.Float,       nullable=True)
+    width               = customer_db.Column(customer_db.Float,       nullable=True)
+    height              = customer_db.Column(customer_db.Float,       nullable=True)
+    weight              = customer_db.Column(customer_db.Float,       nullable=True)
+
     purchase_invoice = customer_db.relationship("PurchaseInvoice", back_populates="purchase_history")
+
+
+# ── 11b. Statement Closings (archived old statements when outstanding is
+# cleared or shifted to opening balance) ─────────────────────────────────────
+class StatementClosing(customer_db.Model):
+    __tablename__ = "statement_closings"
+
+    id              = customer_db.Column(customer_db.Integer,     primary_key=True, autoincrement=True)
+    company_id      = customer_db.Column(customer_db.String(20),  nullable=False)
+    entity_type     = customer_db.Column(customer_db.String(20),  nullable=False)   # 'client' | 'supplier'
+    entity_id       = customer_db.Column(customer_db.Integer,     nullable=False)
+    entity_name     = customer_db.Column(customer_db.String(200), nullable=False)
+    action          = customer_db.Column(customer_db.String(20),  nullable=False)   # 'cleared' | 'carried_forward'
+    closing_balance = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    total_debit     = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    total_credit    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    ledger_snapshot = customer_db.Column(customer_db.Text,        nullable=True)    # JSON dump of the frozen ledger rows
+    closed_by       = customer_db.Column(customer_db.String(50),  nullable=True)
+    closed_at       = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<StatementClosing {self.entity_type}:{self.entity_id} {self.action} @ {self.closed_at}>"
 
 
 # ── 12. Cash Transactions ─────────────────────────────────────────────────────
@@ -480,8 +629,22 @@ class CashTransaction(customer_db.Model):
     amount      = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     reference   = customer_db.Column(customer_db.String(100), nullable=True)
     notes       = customer_db.Column(customer_db.Text,        nullable=True)
+    party_name  = customer_db.Column(customer_db.String(200), nullable=True)  # client/supplier name at time of transaction
     created_at  = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     created_by  = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    # ── Structural link back to the invoice this transaction settled ────────
+    # `reference` above is a display string (invoice number / "ADVANCE") and
+    # is NOT reliable for reversal: it's ambiguous (multiple bookings under
+    # one CustomerInvoice share the same reference) and ties parsing logic
+    # to formatting. These columns store the real, unambiguous DB id so a
+    # payment/receipt can be deleted and correctly un-applied.
+    # applied_ref_type: "purchase_invoice" | "invoice" | None (None = advance/unapplied, nothing to reverse)
+    # applied_ref_id:   PK of the PurchaseInvoice or (booking) Invoice actually mutated
+    # applied_ci_id:    PK of the CustomerInvoice to re-sync after reversal (receipts only, nullable)
+    applied_ref_type = customer_db.Column(customer_db.String(20), nullable=True)
+    applied_ref_id   = customer_db.Column(customer_db.Integer,    nullable=True)
+    applied_ci_id    = customer_db.Column(customer_db.Integer,    nullable=True)
 
 
 # ── 13. Bank Accounts ─────────────────────────────────────────────────────────
@@ -519,8 +682,16 @@ class BankTransaction(customer_db.Model):
     reference        = customer_db.Column(customer_db.String(100), nullable=True)
     transaction_mode = customer_db.Column(customer_db.String(30),  nullable=True)
     notes            = customer_db.Column(customer_db.Text,        nullable=True)
+    party_name       = customer_db.Column(customer_db.String(200), nullable=True)  # client/supplier name at time of transaction
     created_at       = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     created_by       = customer_db.Column(customer_db.String(50),  nullable=True)
+
+    # ── Structural link back to the invoice this transaction settled ────────
+    # See CashTransaction above for why this exists — `reference` alone is
+    # not safe to reverse a payment/receipt against.
+    applied_ref_type = customer_db.Column(customer_db.String(20), nullable=True)
+    applied_ref_id   = customer_db.Column(customer_db.Integer,    nullable=True)
+    applied_ci_id    = customer_db.Column(customer_db.Integer,    nullable=True)
 
     bank_account = customer_db.relationship("BankAccount", back_populates="transactions")
 
@@ -602,7 +773,20 @@ class Cheque(customer_db.Model):
     created_at      = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     created_by      = customer_db.Column(customer_db.String(50),  nullable=True)
 
+    # Optional link to the specific bill this cheque is being applied against.
+    # Only one of these is ever set, matching `direction`: invoice_id for a
+    # 'received' cheque (against a client's Invoice), purchase_invoice_id for
+    # a 'paid' cheque (against a Supplier's PurchaseInvoice). Both stay NULL
+    # for a general/advance cheque not tied to any specific bill — the party
+    # still gets picked, it just isn't applied against an invoice balance
+    # until (and unless) the user links it to one later.
+    invoice_id          = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("invoices.id"), nullable=True)
+    purchase_invoice_id = customer_db.Column(customer_db.Integer, customer_db.ForeignKey("purchase_invoices.id"), nullable=True)
+
     bank_account = customer_db.relationship("BankAccount")
+    invoice          = customer_db.relationship("Invoice", foreign_keys=[invoice_id])
+    purchase_invoice = customer_db.relationship("PurchaseInvoice", foreign_keys=[purchase_invoice_id])
+
 
 
 # ── 16. Company Manifest ──────────────────────────────────────────────────────
@@ -616,7 +800,7 @@ class CompanyManifest(customer_db.Model):
     company_id     = customer_db.Column(customer_db.String(20),  nullable=False)
     date           = customer_db.Column(customer_db.Date,        nullable=False, default=date.today)
     # shipper = the customer who brought boxes in (links to Client.id)
-    shipper_client_id   = customer_db.Column(customer_db.Integer, nullable=False)
+    shipper_client_id   = customer_db.Column(customer_db.Integer, nullable=True)
     shipper_client_name = customer_db.Column(customer_db.String(200), nullable=False)
     # stock item whose qty is deducted (box/parcel stock)
     stock_item_id  = customer_db.Column(customer_db.Integer,     nullable=True)
@@ -624,6 +808,10 @@ class CompanyManifest(customer_db.Model):
     notes          = customer_db.Column(customer_db.Text,        nullable=True)
     created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     created_by     = customer_db.Column(customer_db.String(50),  nullable=True)
+    status         = Column(String(20), default='Pending', nullable=False)
+    stock_deducted = Column(Boolean, default=False, nullable=False)
+    generated_at   = Column(DateTime, nullable=True)
+    generated_by   = Column(String(255), nullable=True)
 
     entries = customer_db.relationship(
         "ManifestEntry", back_populates="manifest", cascade="all, delete-orphan"
@@ -648,12 +836,16 @@ class ManifestEntry(customer_db.Model):
     stock_item_name = customer_db.Column(customer_db.String(200), nullable=True) # ← ADD
     notes         = customer_db.Column(customer_db.Text,        nullable=True)
     item_type = customer_db.Column(customer_db.String(50), nullable=True)
+    status        = customer_db.Column(customer_db.String(20),  nullable=False, default='Pending')  # ← ADD: 'Pending' or 'Generated', per box row
+    generated_at  = customer_db.Column(customer_db.DateTime,    nullable=True)  # ← ADD
+    generated_by  = customer_db.Column(customer_db.String(255), nullable=True)  # ← ADD
+    dispatched_at = customer_db.Column(customer_db.DateTime, nullable=True)     # ← ADD: set only by /manifest/entry/<id>/dispatch
+    dispatched_by = customer_db.Column(customer_db.String(255), nullable=True)  # ← ADD
 
     manifest = customer_db.relationship("CompanyManifest", back_populates="entries")
-    
 
     def __repr__(self):
-        return f"<ManifestEntry {self.courier_name} x{self.boxes}>"
+        return f"<ManifestEntry {self.courier_name} x{self.boxes} [{self.status}]>"
 
 
 # Expenses

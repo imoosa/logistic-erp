@@ -17,7 +17,7 @@
 
   .inv-type-grid  { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
   .inv-type-chip  {
-    background:#fff; border:1px solid #E5E7EB; border-radius:10px;
+    background: var(--bg-card); border:1px solid var(--border-color); border-radius:10px;
     padding:10px 16px; display:flex; align-items:center; gap:10px;
     min-width:130px; flex:1;
   }
@@ -27,30 +27,53 @@
     font-size:18px; flex-shrink:0;
   }
   .chip-val { font-size:20px; font-weight:800; line-height:1.1; }
-  .chip-lbl { font-size:11px; color:#6B7280; margin-top:1px; }
+  .chip-lbl { font-size:11px; color: var(--text-muted); margin-top:1px; }
 
   /* ── Party table ── */
   .party-card {
-    background:#fff; border-radius:14px; border:1px solid #E5E7EB;
+    background: var(--bg-card); border-radius:14px; border:1px solid var(--border-color);
     overflow:hidden; margin-bottom:24px;
   }
   .party-card-header {
-    padding:14px 20px; border-bottom:1px solid #F3F4F6;
+    padding:14px 20px; border-bottom:1px solid var(--border-color);
     display:flex; justify-content:space-between; align-items:center;
   }
   .party-table th {
-    background:#F9FAFB; font-size:12px; font-weight:700;
-    color:#374151; padding:10px 14px; text-align:left;
+    background: var(--bg-table-alt); font-size:12px; font-weight:700;
+    color: var(--text-body); padding:10px 14px; text-align:left;
     white-space:nowrap;
   }
-  .party-table td { padding:10px 14px; font-size:13px; border-top:1px solid #F3F4F6; }
-  .party-table tr:hover td { background:#F9FAFB; }
-  .party-name { font-weight:600; color:#111827; }
+  .party-table td { padding:10px 14px; font-size:13px; border-top:1px solid var(--border-color); color: var(--text-body); }
+  .party-table tr:hover td { background: var(--bg-table-alt); }
+  .party-row.active td { background: var(--bg-active) !important; }
+  .party-name { font-weight:600; color: var(--text-body); }
+  .cash-badge {
+    display:inline-block; padding:1px 7px; border-radius:9px;
+    font-size:10px; font-weight:700; background:#FEF3C7; color:#92400E;
+    margin-right:6px; vertical-align:middle;
+  }
   .qty-cell   { text-align:center; font-weight:700; }
-  .qty-zero   { color:#D1D5DB; }
+  .qty-zero   { color: var(--gray-300); }
   .qty-pos    { color:#1D4ED8; }
   .row-total  { font-weight:800; color:#16A34A; text-align:center; }
   .col-total  { background:#F0FDF4; font-weight:800; color:#16A34A; text-align:center; }
+  body.dark-theme .col-total { background: rgba(5,150,105,0.15); color: #34D399; }
+  .inv-search-box {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-input); border: 1.5px solid var(--border-color); border-radius: 9px;
+    padding: 8px 14px; max-width: 360px; margin-bottom: 6px;
+  }
+  .inv-search-box input {
+    border: none; background: none; outline: none; font-size: 13px;
+    font-family: inherit; color: var(--text-body); width: 100%;
+  }
+  .clear-stock-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 6px; border: 1px solid #FCA5A5;
+    background: #FEF2F2; color: #DC2626; font-size: 12px; cursor: pointer;
+    margin-right: 8px; vertical-align: middle; line-height: 1;
+  }
+  .clear-stock-btn:hover { background: #FEE2E2; border-color: #F87171; }
 </style>
 {% endblock %}
 
@@ -92,7 +115,7 @@
       </div>
     </div>
   {% else %}
-    <div style="color:#9CA3AF;font-size:13px;padding:10px;">No inventory data yet.</div>
+    <div style="color:var(--text-muted);font-size:13px;padding:10px;">No inventory data yet.</div>
   {% endfor %}
 </div>
 
@@ -100,10 +123,16 @@
 <div class="party-card">
   <div class="party-card-header">
     <strong>🏢 Party-wise Stock Breakdown</strong>
-    <span style="font-size:12px;color:#6B7280;">{{ party_stock|length }} parties</span>
+    <span style="font-size:12px;color:var(--text-muted);">{{ party_stock|length }} parties</span>
   </div>
 
   {% if party_stock %}
+  <div style="padding:14px 20px 0;">
+    <div class="inv-search-box">
+      <span style="font-size:13px;">🔍</span>
+      <input type="text" id="partySearchInput" placeholder="Search party name…" oninput="filterPartyStock()">
+    </div>
+  </div>
   <div style="overflow-x:auto;">
     <table class="party-table" style="width:100%;border-collapse:collapse;">
       <thead>
@@ -112,18 +141,24 @@
           {% for itype in all_types %}
             <th style="min-width:90px;text-align:center;">{{ itype }}</th>
           {% endfor %}
-          <th style="min-width:90px;background:#F0FDF4;color:#16A34A;">Total</th>
+          <th class="col-total" style="min-width:90px;">Total</th>
         </tr>
       </thead>
       <tbody>
         {% for party_name, type_qtys in party_stock.items()|sort %}
           {% set row_total = type_qtys.values()|sum %}
-          <tr>
-            <td class="party-name">{{ party_name }}</td>
+          <tr class="party-row" data-party="{{ party_name }}" onclick="filterPackageLog('{{ party_name }}')" style="cursor:pointer;">
+            <td class="party-name">
+              <button type="button" class="clear-stock-btn" title="Clear all stock for this party (manual admin adjustment)"
+                      data-party="{{ party_name }}"
+                      data-cash="{{ '1' if party_is_cash.get(party_name) else '0' }}"
+                      data-client-id="{{ party_client_ids.get(party_name) or '' }}"
+                      onclick="event.stopPropagation(); clearPartyStock(this);">🗑</button>
+              {% if party_is_cash.get(party_name) %}<span class="cash-badge">CASH</span>{% endif %}{{ party_name }}
+            </td>
             {% for itype in all_types %}
               {% set q = type_qtys.get(itype, 0) %}
-              <td class="qty-cell {% if q > 0 %}qty-pos{% else %}qty-zero{% endif %}">
-                {{ q if q > 0 else '—' }}
+              <td class="qty-cell {% if q > 0 %}qty-pos{% else %}qty-zero{% endif %}">                {{ q if q > 0 else '—' }}
               </td>
             {% endfor %}
             <td class="row-total">{{ row_total }}</td>
@@ -131,7 +166,7 @@
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr style="border-top:2px solid #E5E7EB;">
+        <tr style="border-top:2px solid var(--border-color);">
           <td style="font-weight:700;padding:10px 14px;font-size:13px;">Column Total</td>
           {% set grand = namespace(total=0) %}
           {% for itype in all_types %}
@@ -144,11 +179,179 @@
       </tfoot>
     </table>
   </div>
+  <div id="partyNoResults" style="display:none;text-align:center;padding:40px;color:var(--text-muted);font-weight:600;">
+    No parties match your search.
+  </div>
   {% else %}
-    <div style="text-align:center;padding:48px;color:#9CA3AF;">
+    <div style="text-align:center;padding:48px;color:var(--text-muted);">
       📦 No party-wise stock yet. Stock is assigned when shipments are created.
     </div>
   {% endif %}
 </div>
 
+<!-- ── Package-level shipment log ── -->
+<div class="party-card">
+  <div class="party-card-header">
+    <strong>📋 Package Log</strong>
+    <span style="font-size:12px;color:var(--text-muted);">
+      <span id="pkg-log-filter-label"></span>
+      <span id="pkg-log-count">{{ package_log|length }}</span> packages
+    </span>
+  </div>
+
+  {% if package_log %}
+  <div style="padding:14px 20px 0;">
+    <div class="inv-search-box">
+      <span style="font-size:13px;">🔍</span>
+      <input type="text" id="pkgSearchInput" placeholder="Search AWB, party, item, source, destination…" oninput="filterPkgSearch()">
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="party-table" style="width:100%;border-collapse:collapse;">
+      <thead>
+        <tr>
+          <th>AWB No.</th>
+          <th>Party</th>
+          <th>Item</th>
+          <th>Source</th>
+          <th>Destination</th>
+          <th>Booking Date</th>
+          <th style="text-align:center;">Payment</th>
+          <th style="text-align:center;">Dimensions (L×W×H)</th>
+          <th style="text-align:center;">Weight</th>
+          <th style="text-align:center;">Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for pkg in package_log %}
+        <tr class="pkg-row" data-party="{{ pkg.party_name }}"
+            data-search="{{ (pkg.awb_no or '')|lower }} {{ (pkg.party_name or '')|lower }} {{ (pkg.item_name or '')|lower }} {{ (pkg.source or '')|lower }} {{ (pkg.destination or '')|lower }} {{ (pkg.payment_mode or '')|lower }} {{ (pkg.shipper_name or '')|lower }}">
+          <td class="party-name">{{ pkg.awb_no }}</td>
+          <td>{% if pkg.is_cash %}{% endif %}{{ pkg.party_name }}</td>
+          <td>{{ pkg.item_name }} <span style="color:var(--text-muted);">({{ pkg.item_type }})</span></td>
+          <td>{{ pkg.source }}</td>
+          <td>{{ pkg.destination }}</td>
+          <td>{{ pkg.booking_date }}</td>
+          <td style="text-align:center;">
+            {% if pkg.payment_mode == 'Cash' %}
+              <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#FEF3C7;color:#92400E;">Cash</span>
+            {% elif pkg.payment_mode and pkg.payment_mode != '—' %}
+              <span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;background:#DBEAFE;color:#1D4ED8;">{{ pkg.payment_mode }}</span>
+            {% else %}
+              <span style="color:#D1D5DB;">—</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;">{{ pkg.length }}×{{ pkg.width }}×{{ pkg.height }} cm</td>
+          <td style="text-align:center;">{{ pkg.weight }} kg</td>
+          <td class="qty-cell qty-pos">{{ pkg.qty }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div id="pkgNoResults" style="display:none;text-align:center;padding:40px;color:var(--text-muted);font-weight:600;">
+    No packages match your search.
+  </div>
+  {% else %}
+    <div style="text-align:center;padding:48px;color:var(--text-muted);">
+      📋 No package-level history yet. This fills in as new bookings are made.
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block extra_script %}
+<script>
+let currentPartyFilter = null;
+let pkgSearchQuery = '';
+
+function applyPkgVisibility() {
+  let visibleCount = 0;
+  document.querySelectorAll('.pkg-row').forEach(row => {
+    const matchesParty = !currentPartyFilter || row.dataset.party === currentPartyFilter;
+    const matchesSearch = !pkgSearchQuery || row.dataset.search.includes(pkgSearchQuery);
+    const show = matchesParty && matchesSearch;
+    row.style.display = show ? '' : 'none';
+    if (show) visibleCount++;
+  });
+
+  const count = document.getElementById('pkg-log-count');
+  if (count) count.textContent = visibleCount;
+  const noResults = document.getElementById('pkgNoResults');
+  if (noResults) noResults.style.display = (visibleCount === 0) ? 'block' : 'none';
+
+  return visibleCount;
+}
+
+function filterPackageLog(partyName) {
+  const isSameFilter = (currentPartyFilter === partyName);
+  currentPartyFilter = isSameFilter ? null : partyName;
+
+  // Toggle active highlight on party rows
+  document.querySelectorAll('.party-row').forEach(row => {
+    row.classList.toggle('active', !isSameFilter && row.dataset.party === partyName);
+  });
+
+  applyPkgVisibility();
+
+  const label = document.getElementById('pkg-log-filter-label');
+  label.textContent = currentPartyFilter ? `— ${currentPartyFilter} · ` : '';
+
+  // Scroll the package log into view so the filtered result is obvious
+  if (currentPartyFilter) {
+    document.getElementById('pkg-log-count').closest('.party-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function filterPkgSearch() {
+  pkgSearchQuery = document.getElementById('pkgSearchInput').value.toLowerCase();
+  applyPkgVisibility();
+}
+
+function clearPartyStock(btn) {
+  const partyName = btn.dataset.party;
+  const isCash    = btn.dataset.cash === '1';
+  const clientId  = btn.dataset.clientId;
+
+  const confirmed = confirm(
+    `Clear ALL inventory stock for "${partyName}"?\n\n` +
+    `This zeroes every item-type quantity currently held for this party and logs an OUT adjustment for each. ` +
+    `Use this only when you know the on-hand stock is wrong (e.g. a manifest generated without deducting it) ` +
+    `— it cannot be undone from this screen.`
+  );
+  if (!confirmed) return;
+
+  const form = document.createElement('form');
+  form.method = 'POST';
+  form.action = '/inventory/clear_party_stock';
+  form.style.display = 'none';
+
+  const addField = (name, value) => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = name;
+    inp.value = value == null ? '' : value;
+    form.appendChild(inp);
+  };
+  addField('party_name', partyName);
+  addField('is_cash', isCash ? '1' : '0');
+  addField('client_id', clientId);
+
+  document.body.appendChild(form);
+  form.submit();
+}
+
+function filterPartyStock() {
+  const q = document.getElementById('partySearchInput').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.party-row').forEach(row => {
+    const match = !q || (row.dataset.party || '').toLowerCase().includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const noResults = document.getElementById('partyNoResults');
+  if (noResults) noResults.style.display = (visible === 0) ? 'block' : 'none';
+}
+</script>
 {% endblock %}

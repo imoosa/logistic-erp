@@ -1,0 +1,1686 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Estimate' if is_edit else 'New Estimate' }}{% endblock %}
+{% block page_title %}{{ '✏️ Edit Estimate' if is_edit else '📋 New Estimate' }}{% endblock %}
+{% set active = 'estimate' %}
+
+{% block extra_style %}
+<style>
+  :root {
+    --surface-success-bg: #F0FDF4; --surface-success-text: #15803D; --surface-success-text-strong: #16A34A;
+    --surface-danger-bg: #FEF2F2; --surface-danger-text: #DC2626; --surface-danger-text-strong: #991B1B;
+    --surface-info-bg: #EEF2FF; --surface-info-text: #4338CA; --surface-info-text-strong: #4F46E5;
+    --surface-warning-bg: #FFFBEB; --surface-warning-bg-strong: #FEF3C7; --surface-warning-text: #92400E; --surface-warning-text-strong: #78350F;
+  }
+  body.dark-theme {
+    --surface-success-bg: rgba(5,150,105,0.15); --surface-success-text: #34D399; --surface-success-text-strong: #34D399;
+    --surface-danger-bg: rgba(220,38,38,0.12); --surface-danger-text: #F87171; --surface-danger-text-strong: #F87171;
+    --surface-info-bg: rgba(79,70,229,0.18); --surface-info-text: #A5B4FC; --surface-info-text-strong: #A5B4FC;
+    --surface-warning-bg: rgba(217,119,6,0.15); --surface-warning-bg-strong: rgba(217,119,6,0.2); --surface-warning-text: #FBBF24; --surface-warning-text-strong: #FBBF24;
+  }
+  .section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); margin-bottom:14px; padding-bottom:10px; border-bottom:1px solid var(--border-color); }
+  .billing-box { background:var(--bg-table-alt); border-radius:10px; padding:18px; margin-top:16px; }
+  .billing-row { display:flex; justify-content:space-between; padding:5px 0; font-size:13.5px; }
+  .billing-row.grand { font-size:17px; font-weight:800; border-top:2px solid var(--border-color); margin-top:8px; padding-top:12px; }
+  .del-btn { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:18px; padding:4px 8px; border-radius:6px; }
+  .del-btn:hover { color:#DC2626; background:#FEE2E2; }
+
+  /* Package table */
+  .pkg-table { width:100%; border-collapse:collapse; }
+  .pkg-table th { padding:10px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#16A34A; text-align:left; }
+  .pkg-table td { padding:6px; border-top:1px solid var(--border-color); }
+  .pkg-totals { display:flex; gap:24px; margin-top:14px; padding:12px 16px; background:#DCFCE7; border-radius:10px; font-size:13px; }
+  .pkg-totals span { font-weight:700; color:#15803D; }
+
+  /* Laptop screens */
+  @media (max-width:1440px) and (min-width:1025px) {
+    .perf-tab-btn { padding:5px 10px; font-size:11px; }
+  }
+  @media (max-width:1024px) {
+    .perf-tab-btn { padding:4px 9px; font-size:10.5px; }
+  }
+
+  /* Errors */
+  .error-banner { background:#FEF2F2; border:1px solid #FECACA; border-radius:10px; padding:14px 18px; margin-bottom:16px; display:none; }
+  .error-banner ul { margin:6px 0 0 18px; color:#DC2626; font-size:13px; }
+  .error-banner .error-title { font-weight:700; color:#DC2626; font-size:14px; }
+  input.field-error, select.field-error { border-color:#DC2626 !important; background:#FFF5F5; }
+  
+  /* Searchable customer dropdown */
+  .cust-search-wrap { position:relative; }
+  .cust-search-input { width:100%; padding:7px 10px; border:1.5px solid #0D9488; border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .cust-search-list { display:none; position:absolute; z-index:40; top:calc(100% + 4px); left:0; right:0; max-height:240px; overflow-y:auto; background:var(--bg-input); border:1.5px solid #0D9488; border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,.12); }
+  .cust-search-list.open { display:block; }
+  .cust-search-item { padding:8px 12px; font-size:13px; cursor:pointer; color:var(--text-body); border-bottom:1px solid var(--border-color); }
+  .cust-search-item:last-child { border-bottom:none; }
+  .cust-search-item .csi-code { color:var(--text-muted); font-size:11px; margin-left:6px; }
+  .cust-search-item:hover, .cust-search-item.hi { background:#EEF2FF; color:#4338CA; }
+  .cust-search-empty { padding:10px 12px; font-size:12.5px; color:var(--text-muted); }
+
+  /* Address fields */
+  .address-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .address-grid .full-width { grid-column:1 / -1; }
+  .address-grid .half-width { grid-column:span 1; }
+  @media(max-width:600px){ .address-grid { grid-template-columns:1fr; } .address-grid .full-width, .address-grid .half-width { grid-column:1; } }
+
+  /* Three-panel inline layout responsive collapse */
+  @media(max-width:1100px){
+    .three-panel-grid { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media(max-width:700px){
+    .three-panel-grid { grid-template-columns: 1fr !important; }
+  }
+  /* Force all inputs/selects inside panels to respect column width */
+  .three-panel-grid input,
+  .three-panel-grid select { width:100%; min-width:0; box-sizing:border-box; }
+
+  /* Dark blue input borders + tighter spacing across the invoice form */
+  #estForm input[type="text"],
+  #estForm input[type="number"],
+  #estForm input[type="date"],
+  #estForm input[type="email"],
+  #estForm select,
+  #estForm textarea { border:1.5px solid #0D9488; border-radius:6px; }
+  #estForm input[disabled] { border-color:var(--border-color); }
+  #estForm input[type="text"]:focus,
+  #estForm input[type="number"]:focus,
+  #estForm input[type="date"]:focus,
+  #estForm select:focus { border-color:#0D9488; outline:none; box-shadow:0 0 0 2px rgba(13,148,136,.15); }
+  #estForm .form-group { margin-bottom:8px; }
+  #estForm .grid-2, #estForm .grid-3 { gap:8px; }
+  #estForm .address-grid { gap:8px; }
+  #estForm .card-body { padding-top:14px; padding-bottom:14px; }
+  #estForm .section-title { margin-bottom:8px; padding-bottom:6px; }
+
+  /* Compact readonly weight chips */
+  .svc-weight-chip { border:1.5px solid #0D9488; border-radius:6px; padding:6px 10px; font-size:13px; font-weight:700; color:#0D9488; background:#F0FDFA; }
+  .svc-weight-chip .svc-weight-lbl { display:block; font-size:10px; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px; letter-spacing:.3px; }
+
+  /* Packages section collapse */
+  .pkg-collapsed-bar { background:#012926; border-radius:6px; padding:16px 22px; font-size:14.5px; color:#F59E0B; cursor:pointer; font-weight:700; display:none;}
+  .pkg-collapsed-bar:hover { background:#C7CBD1; }
+  .pkg-section.pkg-collapsed .pkg-collapsed-bar { display:block; }
+  .pkg-section.pkg-collapsed .pkg-body-wrap { display:none; }
+  .pkg-entry-grid { display:grid; grid-template-columns: minmax(100px,1.1fr) minmax(80px,0.9fr) minmax(55px,0.6fr) minmax(55px,0.6fr) minmax(55px,0.6fr) minmax(55px,0.6fr) minmax(70px,0.7fr) minmax(70px,0.75fr) minmax(85px,0.9fr) minmax(130px,1.3fr) minmax(85px,0.9fr) auto; gap:8px; align-items:end; }
+  .pkg-entry-grid label { font-size:10.5px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:3px; white-space:nowrap; }
+  .pkg-entry-grid input, .pkg-entry-grid select { width:100%; padding:6px 7px; border:1.5px solid #0D9488; border-radius:6px; font-size:12.5px; box-sizing:border-box; }
+  @media(max-width:1200px){ .pkg-entry-grid { grid-template-columns:repeat(4,1fr); } }
+  @media(max-width:700px){ .pkg-entry-grid { grid-template-columns:repeat(2,1fr); } }
+
+  /* Print buttons bar */
+  .print-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px; }
+  .print-btn { display:flex; align-items:center; gap:7px; padding:10px 18px; border-radius:8px; border:1.5px solid; font-size:13px; font-weight:600; cursor:pointer; background:var(--bg-input); transition:all .15s; }
+  .print-btn:hover { filter:brightness(0.95); transform:translateY(-1px); }
+  .print-btn-estimate { border-color:#D97706; color:#D97706; }
+  .print-btn-estimate:hover { background:#FEF3C7; }
+
+  /* Dark-theme overrides */
+  body.dark-theme .pkg-totals { background: rgba(5,150,105,0.15); }
+  body.dark-theme .pkg-totals span { color: #34D399; }
+  body.dark-theme .cust-search-item:hover,
+  body.dark-theme .cust-search-item.hi { background: rgba(79,70,229,0.18); }
+  body.dark-theme .svc-weight-chip { background: rgba(13,148,136,0.15); }
+  body.dark-theme .error-banner { background: rgba(220,38,38,0.12); border-color: rgba(220,38,38,0.3); }
+  input.field-error, select.field-error { background: #FFF5F5; }
+  body.dark-theme input.field-error, body.dark-theme select.field-error { background: rgba(220,38,38,0.12); }
+  body.dark-theme .print-btn-estimate:hover { background: rgba(217,119,6,0.18); }
+
+  /* ── PRINT STYLES ────────────────────────────────────────────── */
+  @media print {
+    body * { visibility: hidden !important; }
+    #printArea, #printArea * { visibility: visible !important; }
+    #printArea { position: fixed; top:0; left:0; width:100%; }
+    .no-print { display:none !important; }
+  }
+
+  /* Estimate print layout */
+  #printEstimate { display:none; }
+  .est-page { font-family:'Segoe UI',Arial,sans-serif; font-size:12px; color:#111; max-width:210mm; margin:0 auto; padding:20px; }
+  .est-logo-row { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; padding-bottom:14px; border-bottom:3px solid #D97706; }
+  .est-company-name { font-size:22px; font-weight:900; color:#D97706; letter-spacing:-0.5px; }
+  .est-sub { font-size:11px; color:#6B7280; }
+  .est-title { font-size:18px; font-weight:800; color:#1F2937; text-align:right; }
+  .est-inv-no { font-size:13px; color:#4B5563; text-align:right; }
+  .est-party-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:18px; }
+  .est-party-box { background:#F9FAFB; border-radius:8px; padding:12px 14px; border-left:3px solid #D97706; }
+  .est-party-label { font-size:9px; text-transform:uppercase; font-weight:800; color:#6B7280; letter-spacing:1px; margin-bottom:6px; }
+  .est-party-name { font-size:13px; font-weight:700; color:#111; margin-bottom:3px; }
+  .est-party-addr { font-size:11px; color:#4B5563; line-height:1.5; }
+  .est-meta-row { display:flex; gap:20px; margin-bottom:16px; }
+  .est-meta-item { flex:1; background:#F3F4F6; border-radius:6px; padding:8px 12px; }
+  .est-meta-label { font-size:9px; text-transform:uppercase; font-weight:700; color:#6B7280; letter-spacing:.8px; }
+  .est-meta-val { font-size:13px; font-weight:700; color:#111; }
+  .est-table { width:100%; border-collapse:collapse; margin-bottom:16px; }
+  .est-table th { background:#D97706; color:#fff; padding:8px 10px; font-size:10px; text-transform:uppercase; letter-spacing:.6px; text-align:left; }
+  .est-table td { padding:8px 10px; border-bottom:1px solid #E5E7EB; font-size:11px; }
+  .est-table tr:nth-child(even) td { background:#F9FAFB; }
+  .est-totals { display:flex; justify-content:flex-end; }
+  .est-totals-box { min-width:260px; }
+  .est-total-row { display:flex; justify-content:space-between; padding:5px 10px; font-size:12px; border-bottom:1px solid #F3F4F6; }
+  .est-grand { font-size:15px; font-weight:800; background:#D97706; color:#fff; border-radius:6px; padding:10px 10px; margin-top:4px; display:flex; justify-content:space-between; }
+  .est-footer { margin-top:30px; padding-top:14px; border-top:1px solid #E5E7EB; display:flex; justify-content:space-between; font-size:10px; color:#6B7280; }
+  .est-sig-box { text-align:right; }
+  .est-sig-line { border-top:1px solid #9CA3AF; width:140px; margin-top:40px; padding-top:4px; font-size:10px; color:#6B7280; }
+  .est-validity { background:#FEF3C7; border-radius:6px; padding:8px 14px; font-size:11px; color:#92400E; margin-bottom:12px; border-left:3px solid #D97706; }
+
+  /* Convert to Booking button */
+  .btn-convert { background:#16A34A; color:white; border:none; padding:10px 24px; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; transition:background .15s; }
+  .btn-convert:hover { background:#15803D; }
+  .btn-convert:disabled { background:#9CA3AF; cursor:not-allowed; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:center;">
+  <div>
+    <h2>{{ '✏️ Edit Estimate' if is_edit else '📋 New Estimate' }}</h2>
+    <p style="color:var(--text-muted);font-size:13px;">{% if is_edit %}Update quotation details{% else %}Create a new quotation / proforma estimate{% endif %}</p>
+  </div>
+  <a href="/estimate/list" class="btn btn-ghost">← Back to Estimates</a>
+</div>
+
+{% if form_data.status and form_data.status|lower == 'void' %}
+<div style="background:var(--surface-danger-bg);border:1px solid #FCA5A5;border-radius:10px;padding:12px 18px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+  <span style="font-size:20px;">🚫</span>
+  <div>
+    <div style="font-weight:700;color:var(--surface-danger-text-strong);font-size:14px;">This estimate is Void</div>
+    <div style="color:var(--surface-danger-text-strong);font-size:12.5px;">This estimate has been voided and cannot be converted to a booking.</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="error-banner" id="errorBanner">
+  <div class="error-title">⚠️ Please fix the following before saving:</div>
+  <ul id="errorList"></ul>
+</div>
+
+<form method="POST" action="{{ '/estimate/update' if is_edit else '/estimate/new' }}" id="estForm" onsubmit="return validateEstForm(event)" onkeydown="return handleFormEnter(event)">
+  {% if is_edit and estimate_id %}
+  <input type="hidden" name="edit_estimate_id" value="{{ estimate_id }}">
+  {% endif %}
+
+  <!-- Invoice Meta -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Estimate Details</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Estimate Date *</label>
+        <input type="date" name="estimate_date" value="{{ estimate_date or today }}" required>
+      </div>
+      <div class="form-group">
+        <label>Valid Until</label>
+        <input type="date" name="valid_until" value="{{ valid_until or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Reference No.</label>
+        <input type="text" name="reference" value="{{ form_data.reference or '' }}" placeholder="Optional reference number">
+      </div>
+    </div>
+  </div>
+
+  <!-- Three-column inline layout: Consignor | Consignee | Shipment Details -->
+  <div class="three-panel-grid" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px;align-items:stretch;">
+
+  <!-- Customer / Consignor -->
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
+    <div class="section-title">📤 Consignor (Shipper) Details</div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label>Booking Type *</label>
+      <select id="bookingTypeSelect" name="booking_type" onchange="onBookingTypeChange(this.value)">
+        <option value="credit" {% if (form_data.booking_type or 'credit') == 'credit' %}selected{% endif %}>Credit (existing customer)</option>
+        <option value="cash" {% if (form_data.booking_type or 'credit') == 'cash' %}selected{% endif %}>Cash (walk-in / one-off)</option>
+      </select>
+    </div>
+    <div class="grid-2" id="customerFieldsGrid">
+      <div class="form-group" id="customerSelectWrap">
+        <label>Customer / Company *</label>
+        <div class="cust-search-wrap" id="customerSearchWrap">
+          <input type="text" id="customerSearchBox" class="cust-search-input" placeholder="Type to search customer / company..."
+                 autocomplete="off" oninput="filterCustomerSearch(this.value)" onfocus="openCustomerSearch()"
+                 onkeydown="customerSearchKeydown(event)">
+          <div id="customerSearchList" class="cust-search-list"></div>
+        </div>
+        <select name="customer_id" id="customerSelect" onchange="onCustomerChange(this)" style="display:none;">
+          <option value="">— Select Customer —</option>
+          {% for c in clients %}
+          <option value="{{ c.id }}"
+            data-phone="{{ c.phone or '' }}"
+            data-name="{{ c.name }}"
+            data-contact="{{ c.contact_person or '' }}"
+            data-code="{{ c.client_id or '' }}"
+            data-address1="{{ c.address_line1 or '' }}"
+            data-address2="{{ c.address_line2 or '' }}"
+            data-city="{{ c.city or '' }}"
+            data-state="{{ c.state or '' }}"
+            data-pincode="{{ c.pincode or '' }}"
+            data-country="{{ c.country or 'India' }}"
+            {% if form_data.customer_id|string == c.id|string %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" id="clientCodeWrap">
+        <label>Client Code</label>
+        <input type="text" name="client_code" id="clientCodeField" value="{{ form_data.client_code or '' }}" placeholder="Auto-filled from Customer" readonly style="background:var(--bg-table-alt);color:var(--text-body);font-weight:600;">
+      </div>
+      <div class="form-group" id="manualCompanyWrap" style="display:none;grid-column:1 / -1;">
+        <label>Company / Customer Name *</label>
+        <input type="text" id="manualCompanyName"
+               value="{{ form_data.shipper_name or '' if (form_data.booking_type or 'credit') == 'cash' else '' }}"
+               placeholder="Type company or customer name (cash booking — no client record)"
+               oninput="onManualCompanyInput(this)">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group" style="grid-column:1 / -1;">
+        <label>Name (person at company)</label>
+        <input type="text" name="contact_person" id="shipperContactName" value="{{ form_data.contact_person or '' }}" placeholder="Contact person's name">
+      </div>
+    </div>
+    <!-- Hidden: company name, auto-filled from Customer/Company select above -->
+    <input type="hidden" name="shipper_name" id="shipperNameHidden" value="{{ form_data.shipper_name or '' }}">
+
+    <!-- Consignor Address Fields -->
+    <div class="address-grid">
+      <div class="form-group full-width">
+        <label>Address Line 1</label>
+        <input type="text" name="address1" id="shipperAddress1" value="{{ form_data.address1 or '' }}" placeholder="Street address, building, apartment">
+      </div>
+      <div class="form-group full-width">
+        <label>Address Line 2</label>
+        <input type="text" name="address2" id="shipperAddress2" value="{{ form_data.address2 or '' }}" placeholder="Landmark, area, locality">
+      </div>
+      <div class="form-group half-width">
+        <label>City / Town</label>
+        <input type="text" name="city" id="shipperCity" value="{{ form_data.city or '' }}" placeholder="City">
+      </div>
+      <div class="form-group half-width">
+        <label>State</label>
+        <input type="text" name="state" id="shipperState" value="{{ form_data.state or '' }}" placeholder="State" oninput="calcInvoiceTotal()">
+      </div>
+      <div class="form-group half-width">
+        <label>Pincode</label>
+        <input type="text" name="pincode" id="shipperPincode" value="{{ form_data.pincode or '' }}" placeholder="Pincode">
+      </div>
+      <div class="form-group">
+        <label>Phone *</label>
+        <input type="text" name="customer_phone" id="custPhone" value="{{ form_data.customer_phone or '' }}" placeholder="10-digit mobile">
+      </div>
+      <div class="form-group half-width">
+        <label>Country</label>
+        <input type="text" name="country" id="shipperCountry" value="{{ form_data.country or 'India' }}" placeholder="Country">
+      </div>
+      <div class="form-group half-width">
+        <label>Document Type</label>
+        <select name="shipper_doc_type" id="shipperDocType" onchange="fillShipperDocNo()">
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID', 'GST', 'IC Certificate'] %}
+          <option value="{{ d }}" {% if (form_data.shipper_doc_type or 'Aadhaar Number') == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document No.</label>
+        <input type="text" name="shipper_doc_no" id="shipperDocNo" value="{{ form_data.shipper_doc_no or '' }}" placeholder="Document number">
+      </div>
+    </div>
+
+    <!-- Cash/walk-in only: ID docs upload -->
+    <div id="cashIdDocsSection" style="display:{{ 'grid' if (form_data.booking_type or 'credit') == 'cash' else 'none' }};grid-template-columns:1fr 1fr;gap:12px;margin-top:4px;">
+      <div class="form-group half-width">
+        <label>Upload Aadhaar — Front</label>
+        <input type="file" name="shipper_aadhar_front_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_aadhar_front_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_aadhar_front_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group half-width">
+        <label>Upload Aadhaar — Back</label>
+        <input type="file" name="shipper_aadhar_back_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_aadhar_back_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_aadhar_back_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group half-width">
+        <label>Upload PAN — Front</label>
+        <input type="file" name="shipper_pan_front_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_pan_front_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_pan_front_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+      <div class="form-group half-width">
+        <label>Upload PAN — Back</label>
+        <input type="file" name="shipper_pan_back_file" accept=".jpg,.jpeg,.png">
+        {% if form_data.shipper_pan_back_file %}
+        <div style="margin-top:4px;font-size:11px;">
+          <a href="{{ url_for('static', filename='invoice_docs/' + form_data.shipper_pan_back_file) }}" target="_blank">📎 View current file</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Credit only: docs come from the client's own record -->
+    <div id="creditIdDocsPanel" style="display:{{ 'block' if (form_data.booking_type or 'credit') == 'credit' else 'none' }};margin-top:4px;padding:10px 14px;background:var(--bg-table-alt);border-radius:8px;font-size:12.5px;">
+      <span id="creditIdDocsText">Select a customer to see their ID documents on file.</span>
+    </div>
+  </div>
+
+  <!-- Receiver / Consignee -->
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
+    <div class="section-title">📥 Consignee (Receiver) Details</div>
+    <div class="form-group">
+      <label>Destination *</label>
+      <div class="cust-search-wrap" id="destinationSearchWrap">
+        <input type="text" id="destinationSearchBox" class="cust-search-input" placeholder="Type to search country..."
+               autocomplete="off" oninput="filterDestinationSearch(this.value)" onfocus="openDestinationSearch()"
+               onkeydown="destinationSearchKeydown(event)">
+        <div id="destinationSearchList" class="cust-search-list"></div>
+      </div>
+      <select name="destination" id="destinationInput" onchange="onDestinationChange()" style="display:none;">
+        <option value="">— Select Destination Country —</option>
+      </select>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Receiver Name *</label>
+        <input type="text" name="receiver_name" id="receiverName" value="{{ form_data.receiver_name or '' }}" placeholder="Recipient full name">
+      </div>
+      <div class="form-group">
+        <label>Receiver Company Name</label>
+        <input type="text" name="receiver_company" id="receiverCompany" value="{{ form_data.receiver_company or '' }}" placeholder="Recipient's company (if any)">
+      </div>
+    </div>
+     
+    
+    <!-- Consignee Address Fields -->
+    <div class="address-grid">
+      <div class="form-group full-width">
+        <label>Address Line 1 *</label>
+        <input type="text" name="receiver_address1" id="receiverAddress1" value="{{ form_data.receiver_address1 or '' }}" placeholder="Street address, building, apartment">
+      </div>
+      <div class="form-group full-width">
+        <label>Address Line 2</label>
+        <input type="text" name="receiver_address2" value="{{ form_data.receiver_address2 or '' }}" placeholder="Landmark, area, locality">
+      </div>
+      <div class="form-group half-width">
+        <label>City / Town *</label>
+        <input type="text" name="receiver_city" id="receiverCity" value="{{ form_data.receiver_city or '' }}" placeholder="City">
+      </div>
+      <div class="form-group half-width">
+        <label>State</label>
+        <input type="text" name="receiver_state" value="{{ form_data.receiver_state or '' }}" placeholder="State" oninput="calcInvoiceTotal()">
+      </div>
+      <div class="form-group half-width">
+        <label>Pincode *</label>
+        <input type="text" name="receiver_pincode" id="receiverPincode" value="{{ form_data.receiver_pincode or '' }}" placeholder="Pincode">
+      </div>
+      <div class="form-group half-width">
+         <label>Receiver Phone *</label>
+        <input type="text" name="receiver_phone" id="receiverPhone" value="{{ form_data.receiver_phone or '' }}" placeholder="10-digit mobile">
+      </div>
+      <div class="form-group half-width">
+        <label>Additional Phone</label>
+        <input type="text" name="receiver_phone_alt" id="receiverPhoneAlt" value="{{ form_data.receiver_phone_alt or '' }}" placeholder="Optional alternate number">
+      </div>
+    
+      <div class="form-group half-width">
+        <label>Country</label>
+        <select name="receiver_country" id="receiverCountry">
+          <option value="">— Select —</option>
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document Type</label>
+        <select name="receiver_doc_type">
+          <option value="">— Select —</option>
+          {% for d in ['Aadhaar Number','PAN Card','Passport','Driving License','Voter ID'] %}
+          <option value="{{ d }}" {% if form_data.receiver_doc_type == d %}selected{% endif %}>{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group half-width">
+        <label>Document No.</label>
+        <input type="text" name="receiver_doc_no" value="{{ form_data.receiver_doc_no or '' }}" placeholder="Document number">
+      </div>
+    </div>
+  </div>
+
+  <!-- Shipment Details -->
+  <div class="card card-body" style="margin-bottom:0;width:100%;min-width:0;box-sizing:border-box;overflow:hidden;">
+    <div class="section-title">Service Details</div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label>Product</label>
+        <select name="shipment_type">
+          {% for t in ['DOX', 'NDOX'] %}
+          <option value="{{ t }}" {% if form_data.shipment_type == t %}selected{% endif %}>{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Vendor</label>
+        <input type="text" name="vendor" value="{{ form_data.vendor or (company.company_name if company else '') }}" placeholder="e.g. Pacific Express">
+      </div>
+      <div class="form-group">
+        <label>Courier Company *</label>
+        <select name="courier_company_id" id="courierCompanySelect" onchange="onCourierCompanyChange(this)">
+          <option value="">— Select —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {% if form_data.courier_company_id|string == s.id|string %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Service *</label>
+        <select name="carrier" id="carrierSelect" onchange="syncRateLookupInputs()">
+          <option value="">— Select —</option>
+          {% for car in ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'] %}
+          <option value="{{ car }}" {% if form_data.carrier == car %}selected{% endif %}>{{ car }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:1 / -1;">
+        <label>Reference No.</label>
+        <input type="text" name="carrier_ref" value="{{ form_data.carrier_ref or '' }}" placeholder="Reference Number">
+      </div>
+      <div class="form-group" style="grid-column:1 / -1;">
+        <label>Tracking Number</label>
+        <input type="text" name="tracking_number" id="trackingNumber" value="{{ form_data.tracking_number or '' }}" placeholder="Tracking number / consignment number">
+      </div>
+      <div class="form-group">
+        <label>Pickup Date *</label>
+        <input type="date" name="pickup_date" id="pickup" value="{{ form_data.pickup_date or '' }}">
+      </div>
+      <div class="form-group">
+        <label>Expected Delivery Date *</label>
+        <input type="date" name="expected_delivery" id="expectedDelivery" value="{{ form_data.expected_delivery or '' }}">
+      </div>
+    </div>
+    <!-- Weight summary (auto-computed from Packages) -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;">
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Volumetric Weight</span><span id="volWt">0.00</span> kg
+      </div>
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Actual Weight</span><span id="actualWt">0.00</span> kg
+      </div>
+      <div class="svc-weight-chip">
+        <span class="svc-weight-lbl">Chargeable Weight</span><span id="chgWtTotal">0.00</span> kg
+      </div>
+    </div>
+    <span id="totalVol" style="display:none;">0.0000</span>
+  </div>
+
+  </div><!-- /end 3-col inline grid -->
+
+
+
+  <!-- Packages -->
+  {% set pkg_items_initial = packages if packages and packages|length > 0 else [] %}
+  <div class="pkg-section{{ '' if pkg_items_initial else ' pkg-collapsed' }}" id="pkgSection" style="margin-bottom:16px;">
+
+    <!-- Collapsed state: flat gray bar (click to expand) -->
+    <div class="pkg-collapsed-bar" onclick="togglePkgSection()">
+      Click here to enter Package details
+    </div>
+
+    <div class="card card-body pkg-body-wrap">
+      <div class="section-title" style="cursor:pointer;" onclick="togglePkgSection()">📦 Packages <span style="font-weight:400;font-size:11px;color:var(--text-muted);margin-left:8px">— These items will be added to your inventory/stock</span></div>
+
+      <!-- Entry panel: one line, starting from Measurement Unit -->
+      <div style="background:var(--bg-table-alt);border:1px solid var(--border-color);border-radius:10px;padding:10px 12px;margin-bottom:12px;">
+        <div class="pkg-entry-grid">
+          <div>
+            <label>Unit</label>
+            <select id="pkgEntryUnit" onchange="livePkgCalc()">
+              <option value="cm">Centimeter</option>
+              <option value="in">Inch</option>
+            </select>
+          </div>
+          <div>
+            <label>Actual Weight</label>
+            <input type="number" id="pkgEntryWt" step="0.01" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          
+          <div>
+            <label>Pieces</label>
+            <input type="number" id="pkgEntryQty" min="1" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Length</label>
+            <input type="number" id="pkgEntryL" step="0.1" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Width</label>
+            <input type="number" id="pkgEntryW" step="0.1" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Height</label>
+            <input type="number" id="pkgEntryH" step="0.1" min="0" value="" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Division</label>
+            <input type="number" id="pkgEntryDivision" step="1" min="1" value="5000" disabled title="Fixed at 5000" style="background:var(--bg-table-alt);color:var(--text-body);font-weight:700;cursor:not-allowed;">
+          </div>
+          <div>
+            <label>Vol Weight</label>
+            <input type="text" id="pkgEntryVolWt" value="0.000" readonly style="background:var(--bg-table-alt);color:var(--text-body);font-weight:700;">
+          </div>
+          <div>
+            <label>Chrg Weight</label>
+            <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:var(--surface-info-bg);color:var(--surface-info-text);font-weight:800;">
+          </div>
+          <div>
+            <label title="Type the final weight you want to show on AWB copies. Never shown to the customer.">Discounted Wt (final)</label>
+            <input type="number" id="pkgEntryDiscWt" step="0.01" min="0" value="" placeholder="Actual wt" oninput="livePkgCalc()">
+          </div>
+          <div>
+            <label>Rate (₹)</label>
+            <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
+          </div>
+          <button type="button" class="btn btn-success btn-sm" onclick="addPkgRow()" style="height:32px;white-space:nowrap;">+ Add</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto">
+        <table class="pkg-table">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>actual Weight</th>
+              <th>Pieces</th>
+              <th>Length</th>
+              <th>Breadth</th>
+              <th>Height</th>
+              <th>Volumetric Wt</th>
+              <th>Chrg Weight</th>
+              <th title="Auto-calculated: Actual Weight − Discounted weight. AWB copies only — never shown to the customer">Disc. Wt (AWB)</th>
+              <th>Discounted weight</th>
+              <th>Rate (₹)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="pkgBody">
+            {% if packages and packages|length > 0 %}
+              {% for pkg in packages %}
+              <tr>
+                <td>
+                  {{ pkg.name }} <span style="color:var(--text-muted);font-size:11px;">({{ pkg.type or 'Box' }})</span>
+                  <input type="hidden" name="pkg_name[]" value="{{ pkg.name }}">
+                  <input type="hidden" name="pkg_type[]" value="{{ pkg.type or 'Box' }}">
+                  <input type="hidden" name="pkg_unit[]" value="{{ pkg.unit or 'cm' }}">
+                </td>
+                <td>{{ '%.2f'|format(pkg.weight or 0) }}<input type="hidden" name="pkg_wt[]" value="{{ pkg.weight or 0 }}"></td>
+                <td>{{ pkg.qty|int }}<input type="hidden" name="pkg_qty[]" value="{{ pkg.qty }}"></td>
+                <td>{{ pkg.length or 0 }}<input type="hidden" name="pkg_l[]" value="{{ pkg.length or 0 }}"></td>
+                <td>{{ pkg.width or 0 }}<input type="hidden" name="pkg_w[]" value="{{ pkg.width or 0 }}"></td>
+                <td>{{ pkg.height or 0 }}<input type="hidden" name="pkg_h[]" value="{{ pkg.height or 0 }}"><input type="hidden" name="pkg_division[]" value="{{ pkg.division or 5000 }}"><input type="hidden" name="pkg_discount[]" value="{{ pkg.discount or 0 }}"></td>
+                <td>{{ '%.3f'|format(pkg.vol_weight or 0) }}<input type="hidden" name="pkg_volwt[]" value="{{ pkg.vol_weight or 0 }}"></td>
+                <td style="font-weight:700;color:var(--surface-info-text);">{{ '%.3f'|format(pkg.chg_weight or 0) }}<input type="hidden" name="pkg_chgwt[]" value="{{ pkg.chg_weight or 0 }}"></td>
+                <td>{{ '%.2f'|format(pkg.discount_wt or 0) }}<input type="hidden" name="pkg_discwt[]" value="{{ pkg.discount_wt or 0 }}"></td>
+                 <td style="font-weight:700;color:var(--surface-danger-text);">{{ '%.2f'|format((pkg.weight or 0) - (pkg.discount_wt or 0)) }}<input type="hidden" name="pkg_weight_after_discount[]" value="{{ (pkg.weight or 0) - (pkg.discount_wt or 0) }}"></td>
+                <td>₹<span class="pkg-rate-display">{{ '%.2f'|format(pkg.rate or 0) }}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="{{ pkg.rate or 0 }}"></td>
+                <td>
+                  <button type="button" class="del-btn" onclick="editPkgRow(this)" title="Edit">✎</button>
+                  <button type="button" class="del-btn" onclick="removePkgRow(this)" title="Delete">×</button>
+                </td>
+              </tr>
+              {% endfor %}
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Freight & Charges -->
+  <div class="card card-body" style="margin-bottom:16px">
+    <div class="section-title">Freight &amp; Charges</div>
+    <div class="grid-3">
+      <div class="form-group">
+        <label>Chargeable Weight (kg) *</label>
+        <input type="number" name="freight_weight" id="freightWeight" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_weight or '0' }}" readonly
+          style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed;"
+          title="Auto-synced from Packages — not editable">
+        
+      </div>
+      <div class="form-group">
+        <label>Rate per kg (₹) *</label>
+        <input type="number" name="freight_rate" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
+          value="{{ form_data.freight_rate or '0' }}" oninput="calcFreight()">
+        <div id="freightRateNote" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:14px;display:none;"></div>
+      </div>
+      <div class="form-group">
+        <label>Total Freight (₹)</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" name="freight_amount" id="freightAmt" step="0.01" min="0" placeholder="0.00"
+            value="{{ form_data.freight_amount or '0' }}" readonly
+            style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed">
+        </div>
+        <div id="freightBreakdown" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:16px"></div>
+        <input type="hidden" name="freight_billing_weight" id="freightBillingWeight" value="{{ form_data.freight_billing_weight or '0' }}">
+      </div>
+    </div>
+    <div class="grid-3" style="margin-top:4px">
+      <div class="form-group">
+        <label>Other Charges (₹)</label>
+        <input type="number" name="other_charges" id="otherCharges" step="0.01" value="{{ form_data.other_charges or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+        <input type="text" name="other_reason" style="margin-top:6px" value="{{ form_data.other_reason or '' }}" placeholder="Reason (e.g. Remote Area Surcharge)">
+      </div>
+      <div class="form-group">
+        <label>Discount (₹)</label>
+        <input type="number" name="discount" id="discountAmt" step="0.01" value="{{ form_data.discount or '0' }}" oninput="calcInvoiceTotal()" min="0" placeholder="0.00">
+      </div>
+    </div>
+
+    <div class="billing-box">
+      <div class="billing-row"><span>Freight</span><span id="dispFreight">₹0</span></div>
+      <div class="billing-row"><span>Other Charges</span><span id="dispOther">₹0</span></div>
+      <div class="billing-row" id="discountRow" style="display:none"><span>Discount</span><span id="dispDiscount" style="color:var(--surface-danger-text)">−₹0</span></div>
+
+      {% if is_gst_registered %}
+      <div class="billing-row" id="cgstRow"><span>CGST (9%)</span><span id="dispCGST">₹0</span></div>
+      <div class="billing-row" id="sgstRow"><span>SGST (9%)</span><span id="dispSGST">₹0</span></div>
+      <div class="billing-row" id="igstRow" style="display:none"><span>IGST (18%)</span><span id="dispIGST">₹0</span></div>
+      {% endif %}
+      <div class="billing-row" id="roundOffRow"><span>Round Off</span><span id="dispRoundOff">₹0</span></div>
+
+      <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
+    </div>
+  </div>
+
+  <!-- Notes -->
+  <div class="card card-body" style="margin-bottom:20px">
+    <div class="section-title">Notes / Terms</div>
+    <div class="form-group">
+      <textarea name="notes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #E5E7EB" placeholder="Delivery terms, payment terms, special instructions...">{{ form_data.notes or '' }}</textarea>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;">
+    <button type="submit" name="action" value="draft" id="btnSaveDraft" class="btn btn-ghost" formnovalidate>💾 Save Draft</button>
+    <button type="submit" name="action" value="final" id="btnSaveEstimate" class="btn btn-success" style="background:#D97706;border-color:#D97706;">✓ Save Estimate</button>
+  </div>
+</form>
+
+<!-- ── PRINT BUTTONS ────────────────────────────────────────────────────── -->
+{% if is_edit %}
+<div class="card card-body no-print" style="margin-top:20px;margin-bottom:30px;">
+  <div class="section-title">🖨️ Print Options</div>
+  <div class="print-bar">
+    <button type="button" class="print-btn print-btn-estimate" onclick="triggerPrint('estimate')">📋 Print Estimate</button>
+    {% if form_data.status and form_data.status|lower != 'void' %}
+    <form method="POST" action="/estimate/convert/{{ estimate_id }}" style="display:inline-block;"
+          onsubmit="return confirm('Convert this estimate to a booking? A new AWB will be assigned on today\'s date and a booking invoice will be created.');">
+      <button type="submit" class="btn-convert">🔄 Convert to Booking</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── HIDDEN PRINT AREA ─────────────────────────────────────────────── -->
+<div id="printArea" style="display:none;">
+
+  <!-- ESTIMATE PRINT -->
+  <div id="printEstimate">
+    <div class="est-page">
+      <div class="est-logo-row">
+        <div>
+          <div class="est-company-name"
+               data-logo-url="{{ company_logo_url or '' }}"
+               data-website="{{ (company.website if company else '') or '' }}"
+               data-email="{{ (company.email if company else '') or '' }}">{{ company.company_name if company else 'Your Company' }}</div>
+          <div class="est-sub">Freight &amp; Courier Services</div>
+        </div>
+        <div>
+          <div class="est-title">ESTIMATE / QUOTATION</div>
+          <div class="est-inv-no" style="font-weight:700;color:#D97706;font-size:16px;"># {{ estimate_id or '—' }}</div>
+          <div class="est-inv-no">Date: {{ form_data.estimate_date or today }}</div>
+        </div>
+      </div>
+
+      {% if form_data.valid_until %}
+      <div class="est-validity">
+        ⏳ This estimate is valid until <strong>{{ form_data.valid_until }}</strong>
+      </div>
+      {% endif %}
+
+      <div class="est-party-grid">
+        <div class="est-party-box">
+          <div class="est-party-label">📤 Consignor (Shipper)</div>
+          <div class="est-party-name">{{ form_data.shipper_name or form_data.customer_name or '' }}</div>
+          <div class="est-party-addr">
+            {{ form_data.address1 or '' }}{% if form_data.address2 %}, {{ form_data.address2 }}{% endif %}<br>
+            {{ form_data.city or '' }}{% if form_data.state %}, {{ form_data.state }}{% endif %} {{ form_data.pincode or '' }}<br>
+            Ph: {{ form_data.customer_phone or '' }}
+          </div>
+        </div>
+        <div class="est-party-box" style="border-left-color:#4F46E5;">
+          <div class="est-party-label" style="color:#4F46E5;">📥 Consignee (Receiver)</div>
+          <div class="est-party-name">{{ form_data.receiver_name or '' }}</div>
+          <div class="est-party-addr">
+            {{ form_data.receiver_address1 or '' }}{% if form_data.receiver_address2 %}, {{ form_data.receiver_address2 }}{% endif %}<br>
+            {{ form_data.receiver_city or '' }}{% if form_data.receiver_state %}, {{ form_data.receiver_state }}{% endif %} {{ form_data.receiver_pincode or '' }}<br>
+            Ph: {{ form_data.receiver_phone or '' }}
+          </div>
+        </div>
+      </div>
+
+      <div class="est-meta-row">
+        <div class="est-meta-item"><div class="est-meta-label">Shipment Type</div><div class="est-meta-val">{{ form_data.shipment_type or 'DOC' }}</div></div>
+        <div class="est-meta-item"><div class="est-meta-label">Mode</div><div class="est-meta-val">{{ form_data.mode or 'COURIER' }}</div></div>
+        <div class="est-meta-item"><div class="est-meta-label">Carrier</div><div class="est-meta-val">{{ form_data.carrier or '—' }}</div></div>
+        <div class="est-meta-item"><div class="est-meta-label">Destination</div><div class="est-meta-val">{{ form_data.destination or '—' }}</div></div>
+      </div>
+
+      <table class="est-table">
+        <thead><tr><th>#</th><th>Description</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate (₹)</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+        <tbody>
+          {% set pkg_rows = form_data.get('items', []) if form_data and form_data.items is not none and form_data.items is iterable and not form_data.items is callable else form_data.line_items if form_data and form_data.line_items is iterable and not form_data.line_items is callable else [] %}
+          {% for item in pkg_rows %}
+          <tr>
+            <td>{{ loop.index }}</td>
+            <td>{{ item.description or item.desc or '' }}</td>
+            <td style="text-align:center;">{{ item.qty or 0 }}</td>
+            <td style="text-align:right;">{{ "%.2f"|format(item.rate or 0) }}</td>
+            <td style="text-align:right;">{{ "%.2f"|format((item.qty or 0)|float * (item.rate or 0)|float) }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" style="text-align:center;color:#9CA3AF;">No items added</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="est-totals">
+        <div class="est-totals-box">
+          {% set _base = (form_data.freight_amount|float if form_data.freight_amount else 0) + (form_data.other_charges|float if form_data.other_charges else 0) - (form_data.discount|float if form_data.discount else 0) %}
+          {% set _shipper_state = (form_data.state or '')|lower|trim %}
+          {% set _receiver_state = (form_data.receiver_state or '')|lower|trim %}
+          {% set _interstate = (_shipper_state and _receiver_state and _shipper_state != _receiver_state) %}
+          {% set _gst = (_base * 0.18) if is_gst_registered else 0 %}
+          {% set _cgst = (_gst / 2) if (is_gst_registered and not _interstate) else 0 %}
+          {% set _sgst = (_gst - _cgst) if (is_gst_registered and not _interstate) else 0 %}
+          {% set _igst = _gst if (is_gst_registered and _interstate) else 0 %}
+          {% set _pre_round = _base + _gst %}
+          {% set _grand = _pre_round|round(0, 'common') %}
+          {% set _round_off = _grand - _pre_round %}
+          
+          <div class="est-total-row"><span>Sub-total</span><span>₹{{ "%.2f"|format(_base) }}</span></div>
+          {% if is_gst_registered %}
+            {% if _interstate %}
+            <div class="est-total-row"><span>IGST (18%)</span><span>₹{{ "%.2f"|format(_igst) }}</span></div>
+            {% else %}
+            <div class="est-total-row"><span>CGST (9%)</span><span>₹{{ "%.2f"|format(_cgst) }}</span></div>
+            <div class="est-total-row"><span>SGST (9%)</span><span>₹{{ "%.2f"|format(_sgst) }}</span></div>
+            {% endif %}
+            <div class="est-total-row"><span>Round Off</span><span>{{ '+' if _round_off >= 0 else '' }}₹{{ "%.2f"|format(_round_off) }}</span></div>
+          {% endif %}
+          <div class="est-grand"><span>GRAND TOTAL</span><span>₹{{ "%.2f"|format(_grand if is_gst_registered else _base) }}</span></div>
+        </div>
+      </div>
+
+      {% if form_data.notes %}
+      <div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:11px;border-left:3px solid #D97706;">
+        <strong>Notes:</strong> {{ form_data.notes }}
+      </div>
+      {% endif %}
+
+      <div class="est-footer">
+        <div>This is a quotation only — not an invoice. Subject to terms and conditions.</div>
+        <div class="est-sig-box"><div class="est-sig-line">Authorised Signatory</div></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end #printArea -->
+
+<script>
+
+/* ── Enter key: move to next field, never submit ── */
+function handleFormEnter(e) {
+  if (e.key !== 'Enter') return true;
+  if (e.target.tagName === 'TEXTAREA') return true;
+  e.preventDefault();
+
+  const pkgGrid = e.target.closest('.pkg-entry-grid');
+  if (pkgGrid) {
+    const pkgFields = Array.from(pkgGrid.querySelectorAll('input:not([disabled]):not([readonly]), select:not([disabled])'));
+    const pIdx = pkgFields.indexOf(e.target);
+    if (pIdx === pkgFields.length - 1) {
+      addPkgRow();
+      if (pkgFields[0]) pkgFields[0].focus();
+      return false;
+    }
+    if (pIdx > -1 && pIdx < pkgFields.length - 1) { pkgFields[pIdx + 1].focus(); return false; }
+  }
+
+  const focusable = Array.from(document.querySelectorAll(
+    '#estForm input:not([disabled]):not([readonly]):not([type=hidden]), #estForm select:not([disabled]), #estForm textarea:not([disabled])'
+  ));
+  const idx = focusable.indexOf(e.target);
+  if (idx > -1 && idx < focusable.length - 1) focusable[idx + 1].focus();
+  return false;
+}
+
+/* ── Destination: full country dropdown ── */
+const DESTINATION_COUNTRIES = ["Afghanistan","Albania","Algeria","American Samoa","Andorra","Angola","Anguilla","Antigua and Barbuda","Argentina","Armenia","Aruba","Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium","Belize","Benin","Bermuda","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","British Virgin Islands","Brunei","Bulgaria","Burkina Faso","Burundi","Cambodia","Cameroon","Canada","Cape Verde","Cayman Islands","Central African Republic","Chad","Chile","China","Colombia","Comoros","Congo (Brazzaville)","Congo (DRC)","Cook Islands","Costa Rica","Croatia","Cuba","Curacao","Cyprus","Czech Republic","Denmark","Djibouti","Dominica","Dominican Republic","East Timor","Ecuador","Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Falkland Islands","Faroe Islands","Fiji","Finland","France","French Guiana","French Polynesia","Gabon","Gambia","Georgia","Germany","Ghana","Gibraltar","Greece","Greenland","Grenada","Guadeloupe","Guam","Guatemala","Guernsey","Guinea","Guinea-Bissau","Guyana","Haiti","Honduras","Hong Kong","Hungary","Iceland","India","Indonesia","Iran","Iraq","Ireland","Isle of Man","Israel","Italy","Ivory Coast","Jamaica","Japan","Jersey","Jordan","Kazakhstan","Kenya","Kiribati","Kosovo","Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania","Luxembourg","Macau","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Martinique","Mauritania","Mauritius","Mayotte","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Montserrat","Morocco","Mozambique","Myanmar","Namibia","Nauru","Nepal","Netherlands","New Caledonia","New Zealand","Nicaragua","Niger","Nigeria","Niue","North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama","Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Puerto Rico","Qatar","Reunion","Romania","Russia","Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa","San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone","Singapore","Sint Maarten","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan","Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Taiwan","Tajikistan","Tanzania","Thailand","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Turks and Caicos Islands","Tuvalu","Uganda","Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","US Virgin Islands","Uzbekistan","Vanuatu","Vatican City","Venezuela","Vietnam","Wallis and Futuna","Yemen","Zambia","Zimbabwe"];
+
+const SAVED_DESTINATION = "{{ (form_data.destination or '')|e }}";
+const SAVED_RECEIVER_COUNTRY = "{{ (form_data.receiver_country or '')|e }}";
+
+function populateCountrySelect(sel, savedValue) {
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— Select —</option>' +
+    DESTINATION_COUNTRIES.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  if (savedValue) {
+    const match = DESTINATION_COUNTRIES.find(c => c.toLowerCase() === savedValue.toLowerCase());
+    if (match) {
+      sel.value = match;
+    } else {
+      const opt = document.createElement('option');
+      opt.value = savedValue;
+      opt.textContent = savedValue + ' (saved)';
+      sel.appendChild(opt);
+      sel.value = savedValue;
+    }
+  }
+}
+
+function populateDestinationSelect() {
+  const destSel = document.getElementById('destinationInput');
+  const recvSel = document.getElementById('receiverCountry');
+  populateCountrySelect(destSel, SAVED_DESTINATION);
+  populateCountrySelect(recvSel, SAVED_RECEIVER_COUNTRY);
+
+  const destBox = document.getElementById('destinationSearchBox');
+  if (destSel && destBox && destSel.value) {
+    const opt = destSel.options[destSel.selectedIndex];
+    if (opt) destBox.value = opt.textContent.trim();
+  }
+  syncRateLookupInputs();
+}
+
+document.addEventListener('DOMContentLoaded', populateDestinationSelect);
+
+function onDestinationChange() {
+  syncRateLookupInputs();
+  const destSel = document.getElementById('destinationInput');
+  const recvSel = document.getElementById('receiverCountry');
+  if (!destSel || !recvSel || !destSel.value) return;
+  const match = DESTINATION_COUNTRIES.find(c => c.toLowerCase() === destSel.value.toLowerCase());
+  if (match && [...recvSel.options].some(o => o.value === match)) {
+    recvSel.value = match;
+  }
+}
+
+/* ── Searchable Destination ── */
+let destSearchHi = -1;
+
+function destSearchOptions() {
+  return Array.from(document.getElementById('destinationInput').options).filter(o => o.value !== '');
+}
+
+function renderDestinationSearchList(query) {
+  const list = document.getElementById('destinationSearchList');
+  const q = (query || '').trim().toLowerCase();
+  const opts = destSearchOptions().filter(o => o.textContent.trim().toLowerCase().includes(q));
+  destSearchHi = -1;
+
+  if (!opts.length) {
+    list.innerHTML = '<div class="cust-search-empty">No matching country</div>';
+    return;
+  }
+  list.innerHTML = opts.map(o => `
+    <div class="cust-search-item" data-value="${o.value}" onmousedown="selectDestinationFromSearch('${o.value.replace(/'/g, "\\'")}')">
+      ${o.textContent.trim()}
+    </div>`).join('');
+}
+
+function filterDestinationSearch(query) {
+  renderDestinationSearchList(query);
+  openDestinationSearch();
+}
+
+function openDestinationSearch() {
+  const list = document.getElementById('destinationSearchList');
+  if (!list.innerHTML) renderDestinationSearchList(document.getElementById('destinationSearchBox').value);
+  list.classList.add('open');
+}
+
+function closeDestinationSearch() {
+  document.getElementById('destinationSearchList').classList.remove('open');
+}
+
+function selectDestinationFromSearch(value) {
+  const sel = document.getElementById('destinationInput');
+  sel.value = value;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('destinationSearchBox').value = opt && opt.value ? opt.textContent.trim() : '';
+  closeDestinationSearch();
+  onDestinationChange();
+}
+
+function destinationSearchKeydown(e) {
+  const list = document.getElementById('destinationSearchList');
+  const items = Array.from(list.querySelectorAll('.cust-search-item'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!items.length) return;
+    destSearchHi = Math.min(destSearchHi + 1, items.length - 1);
+    items.forEach(it => it.classList.remove('hi'));
+    items[destSearchHi].classList.add('hi');
+    items[destSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!items.length) return;
+    destSearchHi = Math.max(destSearchHi - 1, 0);
+    items.forEach(it => it.classList.remove('hi'));
+    items[destSearchHi].classList.add('hi');
+    items[destSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (destSearchHi > -1 && items[destSearchHi]) {
+      selectDestinationFromSearch(items[destSearchHi].dataset.value);
+    }
+  } else if (e.key === 'Escape') {
+    closeDestinationSearch();
+  }
+}
+
+document.addEventListener('click', function (e) {
+  const wrap = document.getElementById('destinationSearchWrap');
+  if (wrap && !wrap.contains(e.target)) closeDestinationSearch();
+});
+
+/* ── Packages ── */
+function togglePkgSection() {
+  document.getElementById('pkgSection').classList.toggle('pkg-collapsed');
+}
+
+/* ── Customer autofill ── */
+let custSearchHi = -1;
+
+function custSearchOptions() {
+  return Array.from(document.getElementById('customerSelect').options).filter(o => o.value !== '');
+}
+
+function renderCustomerSearchList(query) {
+  const list = document.getElementById('customerSearchList');
+  const q = (query || '').trim().toLowerCase();
+  const opts = custSearchOptions().filter(o => o.textContent.trim().toLowerCase().includes(q));
+  custSearchHi = -1;
+
+  if (!opts.length) {
+    list.innerHTML = '<div class="cust-search-empty">No matching customer</div>';
+    return;
+  }
+  list.innerHTML = opts.map((o, i) => `
+    <div class="cust-search-item" data-idx="${i}" data-value="${o.value}" onmousedown="selectCustomerFromSearch('${o.value}')">
+      ${o.textContent.trim()}${o.dataset.code ? `<span class="csi-code">${o.dataset.code}</span>` : ''}
+    </div>`).join('');
+}
+
+function filterCustomerSearch(query) {
+  renderCustomerSearchList(query);
+  openCustomerSearch();
+}
+
+function openCustomerSearch() {
+  const list = document.getElementById('customerSearchList');
+  if (!list.innerHTML) renderCustomerSearchList(document.getElementById('customerSearchBox').value);
+  list.classList.add('open');
+}
+
+function closeCustomerSearch() {
+  document.getElementById('customerSearchList').classList.remove('open');
+}
+
+function selectCustomerFromSearch(value) {
+  const sel = document.getElementById('customerSelect');
+  sel.value = value;
+  const opt = sel.options[sel.selectedIndex];
+  document.getElementById('customerSearchBox').value = opt && opt.value ? opt.textContent.trim() : '';
+  closeCustomerSearch();
+  onCustomerChange(sel);
+}
+
+function customerSearchKeydown(e) {
+  const list = document.getElementById('customerSearchList');
+  const items = Array.from(list.querySelectorAll('.cust-search-item'));
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!items.length) return;
+    custSearchHi = Math.min(custSearchHi + 1, items.length - 1);
+    items.forEach(it => it.classList.remove('hi'));
+    items[custSearchHi].classList.add('hi');
+    items[custSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!items.length) return;
+    custSearchHi = Math.max(custSearchHi - 1, 0);
+    items.forEach(it => it.classList.remove('hi'));
+    items[custSearchHi].classList.add('hi');
+    items[custSearchHi].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (custSearchHi > -1 && items[custSearchHi]) {
+      selectCustomerFromSearch(items[custSearchHi].dataset.value);
+    }
+  } else if (e.key === 'Escape') {
+    closeCustomerSearch();
+  }
+}
+
+document.addEventListener('click', function (e) {
+  const wrap = document.getElementById('customerSearchWrap');
+  if (wrap && !wrap.contains(e.target)) closeCustomerSearch();
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+  const sel = document.getElementById('customerSelect');
+  const box = document.getElementById('customerSearchBox');
+  if (sel && box && sel.value) {
+    const opt = sel.options[sel.selectedIndex];
+    if (opt) box.value = opt.textContent.trim();
+  }
+  if (document.getElementById('creditIdDocsPanel').style.display !== 'none') {
+    updateCreditIdDocsPanel();
+  }
+});
+
+function onCustomerChange(sel) {
+  const opt = sel.options[sel.selectedIndex];
+  if (opt.value) {
+    document.getElementById('custPhone').value = opt.dataset.phone || '';
+    document.getElementById('shipperNameHidden').value = opt.dataset.name || '';
+    document.getElementById('clientCodeField').value = opt.dataset.code || '';
+    if (!document.getElementById('shipperContactName').value) {
+      document.getElementById('shipperContactName').value = opt.dataset.contact || '';
+    }
+    if (!document.querySelector('[name="address1"]').value) {
+      document.getElementById('shipperAddress1').value = opt.dataset.address1 || '';
+      document.getElementById('shipperAddress2').value = opt.dataset.address2 || '';
+      document.getElementById('shipperCity').value = opt.dataset.city || '';
+      document.getElementById('shipperState').value = opt.dataset.state || '';
+      document.getElementById('shipperPincode').value = opt.dataset.pincode || '';
+      document.getElementById('shipperCountry').value = opt.dataset.country || 'India';
+    }
+    document.getElementById('shipperDocType').value = 'Aadhaar Number';
+    lastAutoDocValue = '';
+    document.getElementById('shipperDocNo').value = '';
+    fillShipperDocNo();
+  } else {
+    document.getElementById('clientCodeField').value = '';
+  }
+  updateCreditIdDocsPanel();
+}
+
+let lastAutoDocValue = '';
+
+function fillShipperDocNo() {
+  const custSel = document.getElementById('customerSelect');
+  const opt = custSel.options[custSel.selectedIndex];
+  const docNoField = document.getElementById('shipperDocNo');
+  if (!opt || !opt.value) return;
+  if (docNoField.value && docNoField.value !== lastAutoDocValue) return;
+
+  const docType = document.getElementById('shipperDocType').value;
+  let val = '';
+  if (docType === 'Aadhaar Number') val = opt.dataset.aadhar || '';
+  else if (docType === 'PAN Card') val = opt.dataset.pan || '';
+
+  docNoField.value = val;
+  lastAutoDocValue = val;
+}
+
+function updateCreditIdDocsPanel() {
+  const custSel = document.getElementById('customerSelect');
+  const opt = custSel.options[custSel.selectedIndex];
+  const textEl = document.getElementById('creditIdDocsText');
+  if (!opt || !opt.value) {
+    textEl.innerHTML = 'Select a customer to see their ID documents on file.';
+    return;
+  }
+  const docs = [
+    ['Aadhaar Front', opt.dataset.aadharFrontUrl],
+    ['Aadhaar Back',  opt.dataset.aadharBackUrl],
+    ['PAN Front',     opt.dataset.panFrontUrl],
+    ['PAN Back',      opt.dataset.panBackUrl],
+  ].filter(([, url]) => url);
+
+  if (!docs.length) {
+    textEl.innerHTML = '⚠️ No ID documents on file for this customer. ' +
+      '<a href="/clients/' + custSel.value + '/edit" target="_blank">Add them on the client profile</a>.';
+  } else {
+    textEl.innerHTML = '📎 Using ID documents on file: ' +
+      docs.map(([label, url]) => `<a href="${url}" target="_blank">${label}</a>`).join(' · ');
+  }
+}
+
+function onManualCompanyInput(input) {
+  document.getElementById('shipperNameHidden').value = input.value;
+}
+
+function onBookingTypeChange(mode) {
+  const custWrap    = document.getElementById('customerSelectWrap');
+  const codeWrap    = document.getElementById('clientCodeWrap');
+  const manualWrap  = document.getElementById('manualCompanyWrap');
+  const custSel     = document.getElementById('customerSelect');
+  const codeField   = document.getElementById('clientCodeField');
+  const manualName  = document.getElementById('manualCompanyName');
+  const cashDocs    = document.getElementById('cashIdDocsSection');
+  const creditDocs  = document.getElementById('creditIdDocsPanel');
+
+  if (mode === 'cash') {
+    custWrap.style.display   = 'none';
+    codeWrap.style.display   = 'none';
+    manualWrap.style.display = 'block';
+    custSel.value    = '';
+    codeField.value  = '';
+    document.getElementById('shipperNameHidden').value = manualName.value || '';
+    cashDocs.style.display   = 'grid';
+    creditDocs.style.display = 'none';
+  } else {
+    custWrap.style.display   = 'block';
+    codeWrap.style.display   = 'block';
+    manualWrap.style.display = 'none';
+    manualName.value = '';
+    cashDocs.style.display   = 'none';
+    creditDocs.style.display = 'block';
+    updateCreditIdDocsPanel();
+  }
+}
+
+/* ── Courier Company → Carrier ── */
+const CARRIER_FALLBACK_LIST = ['Aramex','DHL','FedEx','UPS','DTDC','Blue Dart','SpeedPost','Other'];
+let SAVED_CARRIER = "{{ (form_data.carrier or '')|e }}";
+
+function normalizeCarrier(s) {
+  return (s || '').replace(/[^a-z0-9]/gi, '').toUpperCase();
+}
+
+function selectCarrierValue(carrierSel, wanted) {
+  if (!wanted) { carrierSel.value = ''; return; }
+  let opt = Array.from(carrierSel.options).find(o => o.value === wanted);
+  if (!opt) {
+    const wantedNorm = normalizeCarrier(wanted);
+    opt = Array.from(carrierSel.options).find(o => normalizeCarrier(o.value) === wantedNorm);
+  }
+  if (opt) {
+    carrierSel.value = opt.value;
+  } else {
+    const newOpt = document.createElement('option');
+    newOpt.value = wanted;
+    newOpt.textContent = wanted + ' (unlisted)';
+    carrierSel.appendChild(newOpt);
+    carrierSel.value = wanted;
+  }
+}
+
+async function onCourierCompanyChange(sel) {
+  const carrierSel = document.getElementById('carrierSelect');
+  const wanted = SAVED_CARRIER || carrierSel.value;
+  const supplierId = sel.value;
+
+  let brands = CARRIER_FALLBACK_LIST;
+  if (supplierId) {
+    try {
+      const res = await fetch(`/api/supplier/${supplierId}/brands`);
+      const data = await res.json();
+      brands = (data.brands && data.brands.length) ? data.brands : CARRIER_FALLBACK_LIST;
+    } catch (err) {
+      console.error('Failed to load courier company brands, falling back to full list:', err);
+    }
+  }
+
+  carrierSel.innerHTML = '<option value="">— Select —</option>' +
+    brands.map(b => `<option value="${b}">${b}</option>`).join('');
+
+  selectCarrierValue(carrierSel, wanted);
+  SAVED_CARRIER = '';
+  syncRateLookupInputs();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  const courierCompanySel = document.getElementById('courierCompanySelect');
+  const carrierSel = document.getElementById('carrierSelect');
+  if (courierCompanySel && courierCompanySel.value) {
+    onCourierCompanyChange(courierCompanySel);
+  } else if (carrierSel && SAVED_CARRIER) {
+    selectCarrierValue(carrierSel, SAVED_CARRIER);
+    SAVED_CARRIER = '';
+    syncRateLookupInputs();
+  }
+});
+
+/* ── Rate auto-fetch ── */
+let rateFetchToken = 0;
+
+function syncRateLookupInputs() {
+    const carrierEl = document.getElementById('carrierSelect');
+    const destEl = document.getElementById('destinationInput');
+    if (!carrierEl || !destEl) return;
+
+    const courier = (carrierEl.value || '').trim();
+    const destination = (destEl.value || '').trim();
+
+    const pkgChgWt = parseFloat(document.getElementById('chgWtTotal')?.textContent) || 0;
+    const weight = roundBillableWeight(pkgChgWt);
+
+    const noteEl = document.getElementById('freightRateNote');
+    if (!courier || !destination || !weight || weight <= 0) {
+        if (noteEl) { noteEl.style.display = 'none'; noteEl.textContent = ''; }
+        return;
+    }
+    autoFetchSaleRate(courier, destination, weight);
+}
+
+function autoFetchSaleRate(courier, destination, weight) {
+    const noteEl = document.getElementById('freightRateNote');
+    const myToken = ++rateFetchToken;
+
+    if (noteEl) {
+        noteEl.style.display = 'block';
+        noteEl.style.color = 'var(--text-muted)';
+        noteEl.textContent = '⏳ Fetching rate from price list…';
+    }
+
+    fetch(`/api/rate-lookup?courier=${encodeURIComponent(courier)}&destination=${encodeURIComponent(destination)}&weight=${weight}`)
+        .then(response => response.json())
+        .then(data => {
+            if (myToken !== rateFetchToken) return;
+
+            if (data.error || !data.rate) {
+                if (noteEl) {
+                    noteEl.style.color = 'var(--surface-danger-text)';
+                    noteEl.textContent = '⚠️ ' + (data.error || 'No sale price list rate found — enter manually');
+                }
+                return;
+            }
+
+            const ratePerKg = data.rate_per_kg;
+
+            document.getElementById('freightRatePerKg').value = ratePerKg.toFixed(2);
+            const billingWtEl = document.getElementById('freightBillingWeight');
+            if (billingWtEl) billingWtEl.value = data.weight_used;
+
+            document.querySelectorAll('#pkgBody tr').forEach(tr => {
+                const display = tr.querySelector('.pkg-rate-display');
+                const input = tr.querySelector('.pkg-rate-input');
+                if (display) display.textContent = ratePerKg.toFixed(2);
+                if (input) input.value = ratePerKg.toFixed(2);
+            });
+            const entryRateEl = document.getElementById('pkgEntryRate');
+            if (entryRateEl) entryRateEl.value = ratePerKg.toFixed(2);
+
+            if (noteEl) {
+                noteEl.style.color = 'var(--surface-success-text)';
+                noteEl.textContent = `✅ Auto-fetched from sale price list — ${data.country_matched}, ${data.weight_used}kg`;
+            }
+
+            calcFreight();
+        })
+        .catch(error => {
+            if (myToken !== rateFetchToken) return;
+            if (noteEl) {
+                noteEl.style.color = 'var(--surface-danger-text)';
+                noteEl.textContent = '⚠️ Error fetching rate — enter manually';
+            }
+            console.error('Rate auto-fetch error:', error);
+        });
+}
+
+/* ── Billing rounding ── */
+function roundBillableWeight(w) {
+  if (!w || w <= 0) return 0;
+  if (w <= 10) return Math.ceil(w / 0.5) * 0.5;
+  return Math.ceil(w);
+}
+
+/* ── Package rows ── */
+function livePkgCalc() {
+  const unit = document.getElementById('pkgEntryUnit').value;
+  const factor = unit === 'in' ? 2.54 : 1;
+  const qty = parseFloat(document.getElementById('pkgEntryQty').value) || 0;
+  const wt  = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
+  const l   = (parseFloat(document.getElementById('pkgEntryL').value) || 0) * factor;
+  const w   = (parseFloat(document.getElementById('pkgEntryW').value) || 0) * factor;
+  const h   = (parseFloat(document.getElementById('pkgEntryH').value) || 0) * factor;
+  const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
+
+  const volWt = (l * w * h / division) * qty;
+  const actWt = wt * qty;
+  const chgWt = Math.max(actWt, volWt);
+
+  document.getElementById('pkgEntryVolWt').value = volWt.toFixed(3);
+  document.getElementById('pkgEntryChgWt').value = chgWt.toFixed(3);
+}
+
+function addPkgRow() {
+  const name   = 'Box';
+  const type   = 'Box';
+  const unit   = document.getElementById('pkgEntryUnit').value;
+  const qty    = parseFloat(document.getElementById('pkgEntryQty').value) || 1;
+  const wt     = parseFloat(document.getElementById('pkgEntryWt').value) || 0;
+  const l      = parseFloat(document.getElementById('pkgEntryL').value) || 0;
+  const w      = parseFloat(document.getElementById('pkgEntryW').value) || 0;
+  const h      = parseFloat(document.getElementById('pkgEntryH').value) || 0;
+  const division = parseFloat(document.getElementById('pkgEntryDivision').value) || 5000;
+  const discEntryRaw = document.getElementById('pkgEntryDiscWt').value;
+  const discountedWt = discEntryRaw === '' ? wt : Math.min(parseFloat(discEntryRaw) || 0, wt);
+  const discWt = Math.max(wt - discountedWt, 0);
+  const rate   = parseFloat(document.getElementById('pkgEntryRate').value) || 0;
+
+  livePkgCalc();
+  const volWt = parseFloat(document.getElementById('pkgEntryVolWt').value) || 0;
+  const chgWt = parseFloat(document.getElementById('pkgEntryChgWt').value) || 0;
+
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${name} <span style="color:#9CA3AF;font-size:11px;">(${type})</span>
+      <input type="hidden" name="pkg_name[]" value="${name}">
+      <input type="hidden" name="pkg_type[]" value="${type}">
+      <input type="hidden" name="pkg_unit[]" value="${unit}">
+    </td>
+    <td>${wt.toFixed(2)}<input type="hidden" name="pkg_wt[]" value="${wt}"></td>
+    <td>${qty}<input type="hidden" name="pkg_qty[]" value="${qty}"></td>
+    <td>${l}<input type="hidden" name="pkg_l[]" value="${l}"></td>
+    <td>${w}<input type="hidden" name="pkg_w[]" value="${w}"></td>
+    <td>${h}<input type="hidden" name="pkg_h[]" value="${h}">
+      <input type="hidden" name="pkg_division[]" value="${division}">
+      <input type="hidden" name="pkg_discount[]" value="0">
+    </td>
+    <td>${volWt.toFixed(3)}<input type="hidden" name="pkg_volwt[]" value="${volWt}"></td>
+    <td style="font-weight:700;color:#4338CA;">${chgWt.toFixed(3)}<input type="hidden" name="pkg_chgwt[]" value="${chgWt}"></td>
+    <td>${discWt.toFixed(2)}<input type="hidden" name="pkg_discwt[]" value="${discWt}"></td>
+    <td style="font-weight:700;color:#DC2626;">${discountedWt.toFixed(2)}<input type="hidden" name="pkg_weight_after_discount[]" value="${discountedWt}"></td>
+    <td>₹<span class="pkg-rate-display">${rate.toFixed(2)}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="${rate}"></td>
+    <td>
+      <button type="button" class="del-btn" onclick="editPkgRow(this)" title="Edit">✎</button>
+      <button type="button" class="del-btn" onclick="removePkgRow(this)" title="Delete">×</button>
+    </td>`;
+  document.getElementById('pkgBody').appendChild(tr);
+
+  document.getElementById('pkgEntryQty').value = 1;
+  document.getElementById('pkgEntryWt').value = 0;
+  document.getElementById('pkgEntryL').value = 0;
+  document.getElementById('pkgEntryW').value = 0;
+  document.getElementById('pkgEntryH').value = 0;
+  document.getElementById('pkgEntryRate').value = 0;
+  document.getElementById('pkgEntryDiscWt').value = '';
+  livePkgCalc();
+
+  calcPkg();
+}
+
+function removePkgRow(btn) {
+  btn.closest('tr').remove();
+  calcPkg();
+}
+
+function editPkgRow(btn) {
+  const tr = btn.closest('tr');
+
+  const unit     = tr.querySelector('[name="pkg_unit[]"]')?.value || 'cm';
+  const wt       = tr.querySelector('[name="pkg_wt[]"]')?.value || 0;
+  const qty      = tr.querySelector('[name="pkg_qty[]"]')?.value || 1;
+  const l        = tr.querySelector('[name="pkg_l[]"]')?.value || 0;
+  const w        = tr.querySelector('[name="pkg_w[]"]')?.value || 0;
+  const h        = tr.querySelector('[name="pkg_h[]"]')?.value || 0;
+  const division = tr.querySelector('[name="pkg_division[]"]')?.value || 5000;
+  const rate     = tr.querySelector('.pkg-rate-input')?.value || 0;
+  const discWt   = parseFloat(tr.querySelector('[name="pkg_discwt[]"]')?.value) || 0;
+  const discountedWt = Math.max((parseFloat(wt) || 0) - discWt, 0);
+
+  document.getElementById('pkgEntryUnit').value     = unit;
+  document.getElementById('pkgEntryWt').value       = wt;
+  document.getElementById('pkgEntryQty').value      = qty;
+  document.getElementById('pkgEntryL').value        = l;
+  document.getElementById('pkgEntryW').value        = w;
+  document.getElementById('pkgEntryH').value        = h;
+  document.getElementById('pkgEntryDivision').value = division;
+  document.getElementById('pkgEntryRate').value     = rate;
+  document.getElementById('pkgEntryDiscWt').value   = discWt > 0 ? discountedWt : '';
+
+  tr.remove();
+  livePkgCalc();
+  calcPkg();
+
+  document.getElementById('pkgEntryWt').scrollIntoView({behavior:'smooth', block:'center'});
+}
+
+function calcPkg() {
+  let volWt = 0, vol = 0, actWt = 0, chgWt = 0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const qty = parseFloat(tr.querySelector('[name="pkg_qty[]"]')?.value) || 0;
+    const l   = parseFloat(tr.querySelector('[name="pkg_l[]"]')?.value) || 0;
+    const w   = parseFloat(tr.querySelector('[name="pkg_w[]"]')?.value) || 0;
+    const h   = parseFloat(tr.querySelector('[name="pkg_h[]"]')?.value) || 0;
+    const wt  = parseFloat(tr.querySelector('[name="pkg_wt[]"]')?.value) || 0;
+    const rowVolWt = parseFloat(tr.querySelector('[name="pkg_volwt[]"]')?.value) || 0;
+    const rowChgWt = parseFloat(tr.querySelector('[name="pkg_chgwt[]"]')?.value) || 0;
+    const cbm = (l * w * h) / 1000000;
+    vol   += cbm;
+    volWt += rowVolWt;
+    actWt += wt * qty;
+    chgWt += rowChgWt;
+  });
+  document.getElementById('volWt').textContent      = volWt.toFixed(2);
+  document.getElementById('totalVol').textContent   = vol.toFixed(4);
+  document.getElementById('actualWt').textContent   = actWt.toFixed(2);
+  document.getElementById('chgWtTotal').textContent = chgWt.toFixed(2);
+
+  const freightWtEl = document.getElementById('freightWeight');
+  if (freightWtEl) {
+    freightWtEl.value = chgWt.toFixed(2);
+    calcFreight();
+  }
+
+  syncRateLookupInputs();
+}
+
+/* ── Freight per-kg calculator ── */
+function calcFreight() {
+  const weight = parseFloat(document.getElementById('freightWeight').value)||0;
+  const rate   = parseFloat(document.getElementById('freightRatePerKg').value)||0;
+  const billingWeight = parseFloat(document.getElementById('freightBillingWeight')?.value) || weight;
+  const total  = billingWeight * rate;
+  document.getElementById('freightAmt').value = total.toFixed(2);
+  const bd = document.getElementById('freightBreakdown');
+  if (weight > 0 && rate > 0) {
+    bd.textContent = weight + ' kg (billed at ' + billingWeight + ' kg) × ₹' + rate + '/kg = ₹' + total.toLocaleString('en-IN', {maximumFractionDigits:2});
+  } else {
+    bd.textContent = '';
+  }
+  calcInvoiceTotal();
+}
+
+/* ── Totals ── */
+const fmt = n => '₹'+Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+const IS_GST_REGISTERED = {{ 'true' if is_gst_registered else 'false' }};
+
+function calcInvoiceTotal() {
+  const freight = parseFloat(document.getElementById('freightAmt').value)||0;
+  const other   = parseFloat(document.getElementById('otherCharges').value)||0;
+  const discount = parseFloat(document.getElementById('discountAmt').value)||0;
+  const base = freight + other;
+
+  const taxable = Math.max(0, base - discount);
+  const gstTotal = IS_GST_REGISTERED ? (taxable * 0.18) : 0;
+
+  const shipperState  = (document.querySelector('[name="state"]')?.value || '').trim().toLowerCase();
+  const receiverState = (document.querySelector('[name="receiver_state"]')?.value || '').trim().toLowerCase();
+  const isInterstate = !!(shipperState && receiverState && shipperState !== receiverState);
+
+  let cgst = 0, sgst = 0, igst = 0;
+  if (IS_GST_REGISTERED) {
+    if (isInterstate) {
+      igst = gstTotal;
+    } else {
+      cgst = Math.round((gstTotal / 2) * 100) / 100;
+      sgst = Math.round((gstTotal - cgst) * 100) / 100;
+    }
+  }
+
+  const preRound = taxable + gstTotal;
+  const grand = Math.round(preRound);
+  const roundOff = Math.round((grand - preRound) * 100) / 100;
+
+  document.getElementById('dispFreight').textContent = fmt(freight);
+  document.getElementById('dispOther').textContent   = fmt(other);
+
+  const discountRow = document.getElementById('discountRow');
+  if (discountRow) {
+    if (discount > 0) {
+      discountRow.style.display = 'flex';
+      document.getElementById('dispDiscount').textContent = '−' + fmt(discount);
+    } else {
+      discountRow.style.display = 'none';
+    }
+  }
+
+  const cgstRow = document.getElementById('cgstRow');
+  const sgstRow = document.getElementById('sgstRow');
+  const igstRow = document.getElementById('igstRow');
+  if (cgstRow && sgstRow && igstRow) {
+    if (isInterstate) {
+      cgstRow.style.display = 'none';
+      sgstRow.style.display = 'none';
+      igstRow.style.display = 'flex';
+      document.getElementById('dispIGST').textContent = fmt(igst);
+    } else {
+      cgstRow.style.display = 'flex';
+      sgstRow.style.display = 'flex';
+      igstRow.style.display = 'none';
+      document.getElementById('dispCGST').textContent = fmt(cgst);
+      document.getElementById('dispSGST').textContent = fmt(sgst);
+    }
+  }
+
+  const roundOffRow = document.getElementById('roundOffRow');
+  if (roundOffRow) {
+    document.getElementById('dispRoundOff').textContent = (roundOff >= 0 ? '+' : '') + fmt(roundOff);
+  }
+
+  document.getElementById('dispGrand').textContent = fmt(grand);
+}
+
+/* ── Print trigger ── */
+function triggerPrint(type) {
+  const chosen = document.getElementById('printEstimate');
+  if (chosen) {
+    document.getElementById('printArea').style.display = 'block';
+    chosen.style.display = 'block';
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        document.getElementById('printArea').style.display = 'none';
+        chosen.style.display = 'none';
+      }, 500);
+    }, 100);
+  }
+}
+
+/* ── Validation ── */
+function validateEstForm(e) {
+  const errors=[], banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
+  document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
+  banner.style.display='none'; errList.innerHTML='';
+
+  const submitter = e.submitter || document.activeElement;
+  const actionVal = submitter && submitter.name === 'action' ? submitter.value : 'final';
+  const isFinal = actionVal !== 'draft';
+
+  if (submitter && submitter.disabled) { e.preventDefault(); return false; }
+  disableSubmitButtons();
+
+  const custSel=document.getElementById('customerSelect');
+  const bookingType = document.getElementById('bookingTypeSelect').value;
+
+  if (isFinal) {
+    if (bookingType === 'credit' && !custSel.value){ errors.push('Please select a Customer / Company (required for credit bookings).'); custSel.classList.add('field-error'); }
+    if (bookingType === 'cash') {
+      const manualName = document.getElementById('manualCompanyName');
+      if (!manualName.value.trim()) { errors.push('Please type a Company / Customer Name (required for cash bookings).'); manualName.classList.add('field-error'); }
+    }
+    const requiredFields = [
+      { id:'custPhone',        label:'Sender / Shipper Phone' },
+      { id:'receiverName',     label:'Receiver Name' },
+      { id:'receiverPhone',    label:'Receiver Phone' },
+      { id:'receiverAddress1', label:'Receiver Address Line 1' },
+      { id:'receiverCity',     label:'Receiver City / Town' },
+      { id:'receiverPincode',  label:'Receiver Pincode' },
+      { id:'expectedDelivery', label:'Expected Delivery Date' },
+      { id:'pickup',           label:'pickup' },
+      { id:'courierCompanySelect', label:'courierCompanySelect' },
+      { id:'carrierSelect', label:'carrierSelect' },
+    ];
+    requiredFields.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (el && !el.value.trim()) {
+        errors.push(f.label + ' is required.');
+        el.classList.add('field-error');
+      }
+    });
+
+    const freight=parseFloat(document.getElementById('freightAmt').value)||0;
+    if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
+  }
+
+  if (errors.length){
+    errors.forEach(err=>{const li=document.createElement('li');li.textContent=err;errList.appendChild(li);});
+    banner.style.display='block'; banner.scrollIntoView({behavior:'smooth',block:'start'});
+    e.preventDefault(); reenableSubmitButtons(); return false;
+  }
+
+  delete e.target.dataset.creditLimitConfirmed;
+  return true;
+}
+
+/* ── Double-submit guard ── */
+const SUBMIT_BUTTON_IDS = ['btnSaveDraft', 'btnSaveEstimate'];
+
+function disableSubmitButtons() {
+  SUBMIT_BUTTON_IDS.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn || btn.disabled) return;
+    btn.dataset.originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  });
+}
+
+function reenableSubmitButtons() {
+  SUBMIT_BUTTON_IDS.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = false;
+    if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
+  });
+}
+
+/* ── Init ── */
+document.addEventListener('DOMContentLoaded', () => { 
+  calcFreight();
+  calcPkg();
+  livePkgCalc();
+  syncRateLookupInputs();
+  
+  const paymentMode = document.getElementById('paymentModeHidden')?.value || 'cash';
+  // No payment tabs in estimate form
+  
+  onBookingTypeChange(document.getElementById('bookingTypeSelect').value);
+});
+</script>
+{% endblock %}
