@@ -28,6 +28,7 @@ Usage in routes
 
 import os
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import PendingRollbackError, OperationalError
 from sqlalchemy.orm import sessionmaker, scoped_session
 from customer_models import customer_db   # exposes .metadata (plain SQLAlchemy Base)
 
@@ -94,7 +95,13 @@ def _get_or_create(company_id: str):
 
         # 2. Build engine pointed at that database
         uri    = _build_uri(company_id)
-        engine = create_engine(uri, pool_pre_ping=True, pool_recycle=3600)
+        engine = create_engine(
+            uri, 
+            pool_pre_ping=True,   
+            pool_recycle=3600,    
+            pool_size=10,
+            max_overflow=20,
+        )
 
         # 3. Create all customer tables if they don't exist yet
         customer_db.metadata.create_all(engine)
@@ -121,6 +128,55 @@ def close_customer_session(company_id: str):
     """Remove the scoped session for this company (call on teardown / after restore)."""
     if company_id in _session_cache:
         _session_cache[company_id].remove()
+
+
+def get_customer_session_with_retry(company_id: str, max_retries: int = 1):
+    """
+    Same as get_customer_session(), but self-heals a session that was left
+    broken by a previous request that never got torn down cleanly — e.g.
+    the gunicorn worker was hard-killed mid-request by --timeout or an OOM
+    kill, so teardown_request never ran and never rolled it back.
+
+    This does one cheap `SELECT 1` on the session to surface a broken
+    transaction or dead connection here, where it can be healed, instead of
+    letting the caller's real query fail deeper in a route.
+
+    - PendingRollbackError (transaction left open and marked invalid):
+      roll back and retry. Nothing has been committed yet at this point,
+      so discarding the transaction is always safe.
+    - OperationalError with a dead-connection code (2006/2013, "MySQL
+      server has gone away"): dispose this company's cached engine and
+      session so the next attempt rebuilds them from scratch, then retry.
+    - Anything else is a real error and is re-raised as-is; this function
+      only recovers from the two specific "session got poisoned by
+      something outside this request" failure modes.
+    """
+    last_error = None
+    for attempt in range(max_retries + 1):
+        session = get_customer_session(company_id)
+        try:
+            session.execute(text("SELECT 1"))
+            return session
+        except PendingRollbackError as e:
+            last_error = e
+            try:
+                session.rollback()
+            except Exception:
+                pass
+        except OperationalError as e:
+            last_error = e
+            if "2006" in str(e) or "2013" in str(e) or "gone away" in str(e):
+                if company_id in _session_cache:
+                    _session_cache[company_id].remove()
+                    del _session_cache[company_id]
+                if company_id in _engine_cache:
+                    _engine_cache[company_id].dispose()
+                    del _engine_cache[company_id]
+            else:
+                raise
+    # Exhausted retries — surface the last real error rather than a fresh
+    # session that we already know is still broken.
+    raise last_error
 
 
 def init_customer_db_for_company(company, platform_session=None):
