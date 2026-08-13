@@ -287,7 +287,7 @@ def json_loads_filter(value, default=None):
 # ── Database Configuration ────────────────────────────────────────────────────
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "mysql+pymysql://root:BadriKhambaty53@localhost/logistic_erp"   # ← change this default
+    "sqlite:///platform.db"   # ← change this default
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}           
