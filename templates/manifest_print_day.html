@@ -204,7 +204,7 @@
                         <td>{{ manifest.manifest_id }}</td>
                         <td>{{ first_entry.docket_no or '—' }}</td>
                         <td>{{ group_boxes }}</td>
-                        <td>{{ '%.3f'|format(first_ship.actual_weight) if first_ship and first_ship.actual_weight else '—' }}</td>
+                        <td>{{ '%.3f'|format(first_ship.company_weight) if first_ship and first_ship.company_weight else '—' }}</td>
                         <td>{{ first_ship.destination if first_ship and first_ship.destination else '—' }}</td>
                         <td>{{ first_ship.carrier_ref if first_ship and first_ship.carrier_ref else '—' }}</td>
                         <td>{{ first_ship.receiver if first_ship and first_ship.receiver else '—' }}</td>

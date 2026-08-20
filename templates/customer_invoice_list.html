@@ -27,7 +27,7 @@
   .tab.active { background:#012926; color:#F59E0B; border-color:#012926; }
   
   .table-wrap { overflow:auto; max-height:68vh; border-radius:10px; position:relative; }
-  table { width:100%; border-collapse:collapse; min-width:720px; }
+  table { width:100%; border-collapse:collapse; min-width:820px; }
   thead th {
     padding:11px 14px; font-size:10.5px; font-weight:700;
     text-transform:uppercase; letter-spacing:.7px;
@@ -37,6 +37,12 @@
   }
   tbody td { padding:13px 14px; border-bottom:1px solid var(--border-color); font-size:13.5px; vertical-align:middle; color: var(--text-body); }
   tbody tr:hover { background: var(--bg-table-alt); }
+
+  .created-by-cell { font-size:12px; color:var(--text-muted); }
+  .created-by-cell .name { color:var(--text-body); font-weight:500; }
+  .edited-by-cell { font-size:12px; color:var(--text-muted); }
+  .edited-by-cell .name { color:var(--text-body); font-weight:500; }
+  .user-email-sub { font-size:10px; color:var(--text-muted); display:block; }
 </style>
 {% endblock %}
 
@@ -69,9 +75,19 @@
   </div>
 </div>
 
+<form method="GET" action="{{ url_for('customer_invoice_list') }}" style="display:flex; gap:8px; margin-bottom:14px;">
+  <input type="hidden" name="status" value="{{ current_status }}">
+  <input type="text" name="q" value="{{ current_search or '' }}" placeholder="🔍 Search by client name..."
+         style="flex:1; max-width:420px; padding:10px 16px; border-radius:10px; border:1.5px solid var(--border-color); font-size:14px; background: var(--bg-table-alt); color: var(--text-body);">
+  <button type="submit" class="btn btn-primary btn-sm">Search</button>
+  {% if current_search %}
+  <a href="?status={{ current_status }}" class="btn btn-ghost btn-sm">✕ Clear</a>
+  {% endif %}
+</form>
+
 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;">
   {% for s in ['All', 'Pending', 'Paid', 'Partial', 'Void'] %}
-  <a href="?status={{ s }}" class="tab {% if current_status == s %}active{% endif %}">
+  <a href="?status={{ s }}{% if current_search %}&q={{ current_search }}{% endif %}" class="tab {% if current_status == s %}active{% endif %}">
     {{ s }}
   </a>
   {% endfor %}
@@ -91,6 +107,8 @@
           <th>GST</th>
           <th>Total</th>
           <th>Status</th>
+          <th>Created By</th>
+          <th>Edited By</th>
           <th style="text-align:right;">Actions</th>
         </tr>
       </thead>
@@ -129,6 +147,33 @@
               <span class="badge badge-danger">⚠ Pending</span>
             {% endif %}
           </td>
+          <!-- Created By -->
+          <td class="created-by-cell">
+            {% set cb = user_names.get(inv.created_by) if user_names else None %}
+            {% if inv.created_by %}
+              <span class="name">{{ cb.name if cb else inv.created_by }}</span>
+              {% if cb and cb.email %}
+                <span class="user-email-sub">{{ cb.email }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px;">—</span>
+            {% endif %}
+          </td>
+          <!-- Edited By -->
+          <td class="edited-by-cell">
+            {% set ub = user_names.get(inv.updated_by) if user_names else None %}
+            {% if inv.updated_by %}
+              <span class="name">{{ ub.name if ub else inv.updated_by }}</span>
+              {% if ub and ub.email %}
+                <span class="user-email-sub">{{ ub.email }}</span>
+              {% endif %}
+              {% if inv.created_by and inv.updated_by != inv.created_by %}
+                <span class="user-email-sub">(edited)</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px;">—</span>
+            {% endif %}
+          </td>
           <td style="text-align:right; white-space:nowrap;">
   <a href="{{ url_for('customer_invoice_view', cust_inv_id=inv.id) }}" class="btn btn-ghost btn-sm">👁️ View</a>
   <a href="{{ url_for('customer_invoice_print', cust_inv_id=inv.id, action='pdf') }}" class="btn btn-primary btn-sm">⬇️ PDF</a>
@@ -143,7 +188,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
+          <td colspan="12" style="text-align:center;padding:48px;color:var(--text-muted)">
             <div style="font-size:32px;margin-bottom:8px">📭</div>
             No customer invoices found.
             <br>

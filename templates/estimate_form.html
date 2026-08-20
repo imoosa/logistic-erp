@@ -166,6 +166,18 @@
   .btn-convert { background:#16A34A; color:white; border:none; padding:10px 24px; border-radius:8px; font-size:14px; font-weight:700; cursor:pointer; transition:background .15s; }
   .btn-convert:hover { background:#15803D; }
   .btn-convert:disabled { background:#9CA3AF; cursor:not-allowed; }
+
+  /* Remove up/down spinner arrows from every number input on this page —
+     without this, an accidental scroll while the cursor is over a focused
+     number field (rate, weight, qty, etc.) silently changes its value. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 </style>
 {% endblock %}
 
@@ -1682,5 +1694,16 @@ document.addEventListener('DOMContentLoaded', () => {
   
   onBookingTypeChange(document.getElementById('bookingTypeSelect').value);
 });
+
+// Prevent accidental mouse-wheel scroll from silently changing the value of
+// ANY focused number input on this page (rate, weight, qty, dimensions,
+// discount, etc.). Scrolling with the cursor over a focused number field
+// blurs it instead of incrementing/decrementing — the page still scrolls
+// normally either way.
+document.addEventListener('wheel', function (e) {
+  if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: true });
 </script>
 {% endblock %}

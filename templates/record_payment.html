@@ -312,7 +312,7 @@
               <option value="">— Choose —</option>
               {% for e in entities %}
               <option value="{{ e.id }}" {{ 'selected' if selected_id == e.id }}>
-                {{ e.name }}{% if e.payable %} — ₹{{ "{:,.0f}".format(e.payable) }} pending{% endif %}
+                {{ e.name }}{% if e.live_payable %} — ₹{{ "{:,.0f}".format(e.live_payable) }} pending{% endif %}
               </option>
               {% endfor %}
             </select>

@@ -105,15 +105,12 @@
 
   .access-hint { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-muted); background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 12px; margin-bottom: 4px; }
 
-  /* Role cards */
-  .role-card { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: var(--card-bg); }
-  .role-card-header { padding: 14px 20px; background: var(--bg-hover); display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-bottom: 1px solid var(--border-color); transition: background 0.15s; }
-  .role-card-header:hover { background: var(--border-color); }
-  .role-card-header .role-name { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
-  .role-card-header .role-name .role-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
-  .role-card-header .role-toggle { font-size: 12px; color: var(--text-muted); transition: transform 0.15s; }
-  .role-card-body { padding: 20px; display: none; }
-  .role-card-body.open { display: block; }
+  /* Employee Access Card - Single Card */
+  .employee-access-card { border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; background: var(--card-bg); }
+  .employee-access-card-header { padding: 14px 20px; background: var(--bg-hover); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
+  .employee-access-card-header .card-title { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .employee-access-card-header .card-title .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+  .employee-access-card-body { padding: 20px; }
 
   /* Permission matrix table */
   .perm-matrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; }
@@ -129,6 +126,13 @@
   .perm-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
   @media(max-width: 640px) { .perm-matrix { font-size: 12px; } .perm-matrix th.perm-col, .perm-matrix td.perm-col { width: auto; } }
 
+  /* Role selector for changing employee's role */
+  .role-selector { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--bg-hover); border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px; flex-wrap: wrap; }
+  .role-selector label { font-weight: 600; font-size: 13px; margin: 0; }
+  .role-selector select { padding: 6px 12px; border-radius: 6px; border: 1.5px solid var(--border-color); background: var(--bg-input); color: var(--text-body); font-size: 13px; font-family: inherit; cursor: pointer; }
+  .role-selector .role-info { font-size: 12px; color: var(--text-muted); }
+  .role-selector .role-info strong { color: var(--text-body); }
+
   /* Booking Invoice field permissions */
   .field-perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); }
   .field-perm-item { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; background: var(--bg-hover); font-size: 12.5px; border: 1px solid transparent; }
@@ -139,6 +143,11 @@
 
   /* ── User overrides ── */
   .user-override { border: 1px solid var(--border-color); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .empaccess-subtabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .empaccess-subtab { padding: 7px 14px; border-radius: 8px; border: 1.5px solid var(--border-color); background: var(--bg-input); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 6px; }
+  .empaccess-subtab .badge { background: var(--bg-hover); color: var(--text-muted); font-weight: 600; }
+  .empaccess-subtab.active { background: var(--accent-color, #2563EB); border-color: var(--accent-color, #2563EB); color: #fff; }
+  .empaccess-subtab.active .badge { background: rgba(255,255,255,0.25); color: #fff; }
   .user-override-header { padding: 10px 16px; background: var(--bg-hover); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s; }
   .user-override-header:hover { background: var(--border-color); }
   .user-override-header .user-name { font-weight: 600; font-size: 14px; }
@@ -436,13 +445,21 @@
 
       <div class="team-table-wrap">
         <table class="team-table">
-          <thead><tr><th>Name</th><th>Email</th>{% for c in owner_companies %}<th>{{ c.company_name }}</th>{% endfor %}<th>Actions</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th>{% for c in owner_companies %}<th>{{ c.company_name }}</th>{% endfor %}<th>Actions</th></tr></thead>
           <tbody>
             {% for email, info in user_access_map.items() %}
             {% set is_owner_row = info.companies | selectattr('role', 'equalto', 'owner') | list %}
+            {% set first_company = info.companies | first %}
             <tr>
               <td><strong>{{ info.full_name }}</strong></td>
               <td>{{ email }}</td>
+              <td>
+                {% if is_owner_row %}
+                  <span class="role-badge owner">Owner</span>
+                {% else %}
+                  <span class="role-badge {{ first_company.role if first_company else 'employee' }}">{{ (first_company.role if first_company else 'employee')|title }}</span>
+                {% endif %}
+              </td>
               {% for c in owner_companies %}
                 {% set access = info.companies | selectattr('company_id', 'equalto', c.company_id) | list %}
                 <td>
@@ -502,117 +519,66 @@
     </div>
   </div>
 
-  <!-- ═══ TAB: ACCESS - SIMPLIFIED ═══ -->
-<div class="settings-tab-content" id="tab-access" style="display:none;">
-  <div class="settings-card">
-    <div class="settings-card-title">🔑 Access Permissions</div>
-    <div class="settings-card-subtitle">Control what each role can view, create, and edit in {{ company.company_name if company else "this company" }}.</div>
+  <!-- ═══ TAB: ACCESS - SINGLE EMPLOYEE CARD ═══ -->
+  <div class="settings-tab-content" id="tab-access" style="display:none;">
+    <div class="settings-card">
+      <div class="settings-card-title">🔑 Employee Access Permissions</div>
+      <div class="settings-card-subtitle">Control what each employee type can view, create, and edit in {{ company.company_name if company else "this company" }}.</div>
 
-    <div class="access-hint">ℹ️ Each role and each person saves independently — hit the save button inside that card.</div>
+      <!-- Employee Access (per-person, editable) — ABOVE, this is what owners actually use -->
+      <div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">👤 Employee Access</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">This is where access is actually granted or changed — per employee, not per role. Each employee starts with their role's default (see "Default Access by Role" below) until you change something for them here.</div>
 
-    <div class="access-container">
-      {% for role, role_label in [("employee", "Sales (Employee)"), ("accountant", "Accounts (Accountant)")] %}
-      <div class="role-card">
-        <div class="role-card-header" onclick="toggleRoleCard(this)">
-          <span class="role-name"><span class="role-dot"></span>{{ role_label }}</span>
-          <span class="role-toggle">▼</span>
+        <!-- Sub-tabs: filter the list below by role. This is grouping only —
+             each person underneath is still edited individually. -->
+        <div class="empaccess-subtabs">
+          <button type="button" class="empaccess-subtab active" data-role="employee" onclick="switchEmployeeAccessTab('employee')">Employee (Sales) <span class="badge badge-primary" id="empCount-employee">0</span></button>
+          <button type="button" class="empaccess-subtab" data-role="accountant" onclick="switchEmployeeAccessTab('accountant')">Accountant <span class="badge badge-primary" id="empCount-accountant">0</span></button>
+          <button type="button" class="empaccess-subtab" data-role="manager" onclick="switchEmployeeAccessTab('manager')">Manager <span class="badge badge-primary" id="empCount-manager">0</span></button>
         </div>
-        <div class="role-card-body">
-          <form method="POST" action="{{ url_for('save_role_permissions', role=role) }}#tab-access">
-            <table class="perm-matrix">
-              <thead>
-                <tr>
-                  <th>Module</th>
-                  <th class="perm-col">View</th>
-                  <th class="perm-col">Create</th>
-                  <th class="perm-col">Edit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for module in perm_modules %}
-                <tr>
-                  <td class="module-label">{{ perm_labels[module] }}</td>
-                  <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__view" {% if role_permissions[role][module]['view'] %}checked{% endif %}></td>
-                  <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__create" {% if role_permissions[role][module]['create'] %}checked{% endif %}></td>
-                  <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__edit" {% if role_permissions[role][module]['edit'] %}checked{% endif %}></td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
 
-            <!-- Booking Invoice Field Permissions -->
-            <div style="font-weight:600;font-size:13px;margin:16px 0 4px;">📄 Booking Invoice Field Access</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:0;">Control which invoice fields this role can view and edit.</div>
-            <div class="field-perm-grid">
-              {% for fkey, fmeta in invoice_fields.items() %}
-              <div class="field-perm-item">
-                <label>{{ fmeta.label }}</label>
-                {% if fmeta.restricted and role == 'employee' %}
-                  <span class="locked">🔒 Locked</span>
-                  <input type="hidden" name="field__{{ fkey }}__view" value="1">
-                  <input type="hidden" name="field__{{ fkey }}__edit" value="0">
-                {% else %}
-                  <select name="field__{{ fkey }}__edit">
-                    <option value="0" {% if not role_field_permissions[role][fkey].view and not role_field_permissions[role][fkey].edit %}selected{% endif %}>No Access</option>
-                    <option value="1" {% if role_field_permissions[role][fkey].view and not role_field_permissions[role][fkey].edit %}selected{% endif %}>View Only</option>
-                    <option value="2" {% if role_field_permissions[role][fkey].view and role_field_permissions[role][fkey].edit %}selected{% endif %}>View + Edit</option>
-                  </select>
-                  <input type="hidden" name="field__{{ fkey }}__view" value="1">
-                {% endif %}
-              </div>
-              {% endfor %}
-            </div>
+        <div class="empaccess-empty" id="empaccess-empty" style="display:none;font-size:13px;color:var(--text-muted);padding:16px 0;">No one with this role yet. Add one from the Team tab.</div>
 
-            <button type="submit" class="btn btn-primary btn-sm mt-12">💾 Save {{ role_label }} Access</button>
-          </form>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
+        {% for u in users %}
+        {% if u.role not in ["owner", "super_admin"] %}
+        <div class="user-override" data-role="{{ u.role }}">
+          <div class="user-override-header" onclick="toggleUserOverride(this)">
+            <span><span class="user-name">{{ u.full_name }}</span> <span class="user-role">({{ u.role|title }})</span></span>
+            <span class="role-toggle">▼</span>
+          </div>
+          <div class="user-override-body">
+            <form method="POST" action="{{ url_for('save_user_permissions', user_id=u.user_id) }}#tab-access">
+              <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-muted);">Module Access for {{ u.full_name }}</div>
+              <table class="perm-matrix">
+                <thead>
+                  <tr>
+                    <th>Module</th>
+                    <th class="perm-col">View</th>
+                    <th class="perm-col">Create</th>
+                    <th class="perm-col">Edit</th>
+                    <th class="perm-col">Delete</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for module in perm_modules %}
+                  <tr>
+                    <td class="module-label">{{ perm_labels[module] }}</td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__view" {% if user_permissions[u.user_id][module]['view'] %}checked{% endif %}></td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__create" {% if user_permissions[u.user_id][module]['create'] %}checked{% endif %}></td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__edit" {% if user_permissions[u.user_id][module]['edit'] %}checked{% endif %}></td>
+                    <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__delete" {% if user_permissions[u.user_id][module]['delete'] %}checked{% endif %}></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Delete is off by default — only check it here if this specific person should have it.</div>
+              <button type="submit" class="btn btn-secondary btn-sm mt-12">💾 Save Access for {{ u.full_name }}</button>
+            </form>
 
-    <!-- Per-User Overrides -->
-    <div style="margin-top:20px;border-top:2px solid var(--border-color);padding-top:20px;">
-      <div style="font-weight:700;font-size:15px;margin-bottom:4px;">👤 Per-Person Overrides</div>
-      <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Give specific users more (or less) than their role's default above.</div>
-
-      {% for u in users %}
-      {% if u.role not in ["owner", "super_admin"] %}
-      <div class="user-override">
-        <div class="user-override-header" onclick="toggleUserOverride(this)">
-          <span><span class="user-name">{{ u.full_name }}</span> <span class="user-role">({{ u.role|title }})</span></span>
-          <span class="role-toggle">▼</span>
-        </div>
-        <div class="user-override-body">
-          <form method="POST" action="{{ url_for('save_user_permissions', user_id=u.user_id) }}#tab-access">
-            <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-muted);">Override Module Access</div>
-            <table class="perm-matrix">
-              <thead>
-                <tr>
-                  <th>Module</th>
-                  <th class="perm-col">View</th>
-                  <th class="perm-col">Create</th>
-                  <th class="perm-col">Edit</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for module in perm_modules %}
-                <tr>
-                  <td class="module-label">{{ perm_labels[module] }}</td>
-                  <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__view" {% if user_permissions[u.user_id][module]['view'] %}checked{% endif %}></td>
-                  <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__create" {% if user_permissions[u.user_id][module]['create'] %}checked{% endif %}></td>
-                  <td class="perm-col"><input class="perm-toggle" type="checkbox" name="perm__{{ module }}__edit" {% if user_permissions[u.user_id][module]['edit'] %}checked{% endif %}></td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-            <button type="submit" class="btn btn-secondary btn-sm mt-12">💾 Save Override for {{ u.full_name }}</button>
-          </form>
-
-          <!-- User Field Permissions -->
-          {% if user_permissions[u.user_id]['invoices']['edit'] %}
-          <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-color);">
+            <!-- Per-employee Booking Invoice Field Access -->
             <form method="POST" action="{{ url_for('save_user_field_permissions', user_id=u.user_id) }}#tab-access">
-              <div style="font-weight:600;font-size:12px;margin-bottom:6px;color:var(--text-muted);">Override Invoice Field Access</div>
+              <div style="font-weight:600;font-size:12px;margin:14px 0 6px;color:var(--text-muted);">Booking Invoice Field Access for {{ u.full_name }}</div>
               <div class="field-perm-grid">
                 {% for fkey, fmeta in invoice_fields.items() %}
                 <div class="field-perm-item">
@@ -620,29 +586,78 @@
                   {% if fmeta.restricted and u.role == 'employee' %}
                     <span class="locked">🔒 Locked</span>
                     <input type="hidden" name="field__{{ fkey }}__view" value="1">
-                    <input type="hidden" name="field__{{ fkey }}__edit" value="0">
+                    <input type="hidden" name="field__{{ fkey }}__edit" value="1">
                   {% else %}
+                    {# This employee's actual effective field permissions (role default + any override already saved for them) #}
+                    {% set perms = user_field_permissions[u.user_id][fkey] if u.user_id in user_field_permissions and fkey in user_field_permissions[u.user_id] else {'view': True, 'edit': False} %}
+                    {% set view_val = perms.view if perms.view is defined else True %}
+                    {% set edit_val = perms.edit if perms.edit is defined else False %}
+                    {% set selected = 2 if view_val and edit_val else (1 if view_val else 0) %}
                     <select name="field__{{ fkey }}__edit">
-                      <option value="0" {% if not user_field_permissions[u.user_id][fkey].view and not user_field_permissions[u.user_id][fkey].edit %}selected{% endif %}>No Access</option>
-                      <option value="1" {% if user_field_permissions[u.user_id][fkey].view and not user_field_permissions[u.user_id][fkey].edit %}selected{% endif %}>View Only</option>
-                      <option value="2" {% if user_field_permissions[u.user_id][fkey].view and user_field_permissions[u.user_id][fkey].edit %}selected{% endif %}>View + Edit</option>
+                      <option value="0" {% if selected == 0 %}selected{% endif %}>No Access</option>
+                      <option value="1" {% if selected == 1 %}selected{% endif %}>View Only</option>
+                      <option value="2" {% if selected == 2 %}selected{% endif %}>View + Edit</option>
                     </select>
                     <input type="hidden" name="field__{{ fkey }}__view" value="1">
                   {% endif %}
                 </div>
                 {% endfor %}
               </div>
-              <button type="submit" class="btn btn-secondary btn-sm mt-12">💾 Save Field Override for {{ u.full_name }}</button>
+              <button type="submit" class="btn btn-secondary btn-sm mt-12">💾 Save Field Access for {{ u.full_name }}</button>
             </form>
           </div>
-          {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+
+      <!-- Default Access by Role — BELOW, reference only, not editable -->
+      <div style="margin-top:24px;border-top:2px solid var(--border-color);padding-top:20px;">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px;">📋 Default Access by Role</div>
+        <div class="access-hint">ℹ️ These are the built-in starting-point permissions for each employee type — reference only, not editable here. Assigning a role to an employee (Team tab) starts them off with this access. To actually change what someone can do, edit that specific employee above.</div>
+
+        <!-- Default-role tabs (read-only preview) -->
+        <div class="empaccess-subtabs" id="defaultRoleTabs">
+          <button type="button" class="empaccess-subtab active" data-role="employee" onclick="switchAccessRole('employee')">Employee (Sales) Default</button>
+          <button type="button" class="empaccess-subtab" data-role="accountant" onclick="switchAccessRole('accountant')">Accountant Default</button>
+          <button type="button" class="empaccess-subtab" data-role="manager" onclick="switchAccessRole('manager')">Manager Default</button>
+        </div>
+
+        <!-- Employee Access Card - Dynamic, READ-ONLY -->
+        <div class="employee-access-card" id="accessCard">
+          <div class="employee-access-card-header">
+            <span class="card-title"><span class="dot"></span> <span id="cardRoleTitle">Employee (Sales)</span> Access (default, read-only)</span>
+          </div>
+          <div class="employee-access-card-body">
+            <div id="accessForm">
+              <table class="perm-matrix">
+                <thead>
+                  <tr>
+                    <th>Module</th>
+                    <th class="perm-col">View</th>
+                    <th class="perm-col">Create</th>
+                    <th class="perm-col">Edit</th>
+                    <th class="perm-col">Delete</th>
+                  </tr>
+                </thead>
+                <tbody id="permMatrixBody">
+                  <!-- Filled by JavaScript -->
+                </tbody>
+              </table>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Delete is never on by default for any role, including Manager. An owner can grant it to a specific employee above.</div>
+
+              <!-- Booking Invoice Field Permissions -->
+              <div style="font-weight:600;font-size:13px;margin:16px 0 4px;">📄 Booking Invoice Field Access</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:0;">What invoice fields this role can view and edit, by default.</div>
+              <div class="field-perm-grid" id="fieldPermGrid">
+                <!-- Filled by JavaScript -->
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-      {% endif %}
-      {% endfor %}
     </div>
   </div>
-</div>
 
   <!-- ═══ TAB: DANGER ═══ -->
   {% if user.role in ['owner', 'super_admin'] %}
@@ -776,7 +791,7 @@
     </div>
   </div>
 
-  <!-- Add User Modal -->
+  <!-- Add User Modal with Role Dropdown -->
   <div class="settings-modal-overlay" id="addUserModal">
     <div class="settings-modal">
       <div class="settings-modal-title">➕ Add / Grant Access</div>
@@ -856,14 +871,6 @@ function toggleGstField(isRegistered) {
   document.getElementById('gstNumberField').style.display = isRegistered ? 'block' : 'none';
 }
 
-// ── Role Card Toggle ──
-function toggleRoleCard(header) {
-  const body = header.nextElementSibling;
-  body.classList.toggle('open');
-  const toggle = header.querySelector('.role-toggle');
-  toggle.textContent = body.classList.contains('open') ? '▲' : '▼';
-}
-
 // ── User Override Toggle ──
 function toggleUserOverride(header) {
   const body = header.nextElementSibling;
@@ -872,15 +879,33 @@ function toggleUserOverride(header) {
   toggle.textContent = body.classList.contains('open') ? '▲' : '▼';
 }
 
-// Open first role card by default
-document.addEventListener('DOMContentLoaded', function() {
-  const firstBody = document.querySelector('.role-card-body');
-  if (firstBody) {
-    firstBody.classList.add('open');
-    const header = firstBody.previousElementSibling;
-    if (header) header.querySelector('.role-toggle').textContent = '▲';
-  }
-});
+// ── Employee Access: filter the per-employee list by role ──
+// Purely a display filter — every card underneath still saves to that one
+// employee (save_user_permissions / save_user_field_permissions). This does
+// not edit or save anything at the role level.
+function switchEmployeeAccessTab(role) {
+  document.querySelectorAll('.empaccess-subtab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.role === role);
+  });
+
+  let visibleCount = 0;
+  document.querySelectorAll('.user-override').forEach(card => {
+    const match = card.dataset.role === role;
+    card.style.display = match ? '' : 'none';
+    if (match) visibleCount++;
+  });
+
+  const empty = document.getElementById('empaccess-empty');
+  if (empty) empty.style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function updateEmployeeAccessCounts() {
+  ['employee', 'accountant', 'manager'].forEach(role => {
+    const count = document.querySelectorAll(`.user-override[data-role="${role}"]`).length;
+    const el = document.getElementById('empCount-' + role);
+    if (el) el.textContent = count;
+  });
+}
 
 // ── Upgrade Modal ──
 function showUpgradeModal(planId, planName) {
@@ -992,14 +1017,109 @@ document.querySelectorAll('.settings-modal-overlay').forEach(overlay => {
   });
 });
 
-// ── Open first role card by default ──
+// ════════════════════════════════════════════════════════════════════════════
+// ── ACCESS TAB: Dynamic Role Switching ──
+// ════════════════════════════════════════════════════════════════════════════
+
+// Data from server (passed as JSON)
+const rolePermissions = {{ role_permissions | tojson | safe }};
+const roleFieldPermissions = {{ role_field_permissions | tojson | safe }};
+const invoiceFields = {{ invoice_fields | tojson | safe }};
+const permModules = {{ perm_modules | tojson | safe }};
+const permLabels = {{ perm_labels | tojson | safe }};
+
+// Role display names
+const roleLabels = {
+  employee: 'Employee (Sales)',
+  accountant: 'Accountant',
+  manager: 'Manager'
+};
+
+// This role card is a READ-ONLY preview of the built-in defaults — it does
+// not submit anywhere. Actual access changes happen per employee above,
+// via the "Employee Access" forms (save_user_permissions /
+// save_user_field_permissions).
+function switchAccessRole(role) {
+  const label = roleLabels[role] || role;
+  document.getElementById('cardRoleTitle').textContent = label;
+
+  const tabs = document.getElementById('defaultRoleTabs');
+  if (tabs) {
+    tabs.querySelectorAll('.empaccess-subtab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.role === role);
+    });
+  }
+
+  renderPermissions(role);
+}
+
+function renderPermissions(role) {
+  const perms = rolePermissions[role] || {};
+  const fieldPerms = roleFieldPermissions[role] || {};
+  
+  // Render module permissions (disabled — reference only)
+  const tbody = document.getElementById('permMatrixBody');
+  tbody.innerHTML = '';
+  
+  for (const module of permModules) {
+    const modPerms = perms[module] || { view: false, create: false, edit: false, delete: false };
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="module-label">${permLabels[module] || module}</td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.view ? 'checked' : ''}></td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.create ? 'checked' : ''}></td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.edit ? 'checked' : ''}></td>
+      <td class="perm-col"><input class="perm-toggle" type="checkbox" disabled ${modPerms.delete ? 'checked' : ''}></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  
+  // Render field permissions (disabled — reference only)
+  const grid = document.getElementById('fieldPermGrid');
+  grid.innerHTML = '';
+
+  for (const [key, meta] of Object.entries(invoiceFields)) {
+    const fPerms = fieldPerms[key] || { view: true, edit: false };
+    const isRestricted = meta.restricted && role === 'employee';
+
+    const div = document.createElement('div');
+    div.className = 'field-perm-item';
+
+    let html = `<label>${meta.label}</label>`;
+
+    if (isRestricted) {
+      html += `<span class="locked">🔒 Locked</span>`;
+    } else {
+      const viewVal = fPerms.view ? true : false;
+      const editVal = fPerms.edit ? true : false;
+      let selectedLabel = 'No Access';
+      if (viewVal && editVal) selectedLabel = 'View + Edit';
+      else if (viewVal) selectedLabel = 'View Only';
+
+      html += `<select disabled><option selected>${selectedLabel}</option></select>`;
+    }
+
+    div.innerHTML = html;
+    grid.appendChild(div);
+  }
+}
+
+
+// Initialize with employee on page load
 document.addEventListener('DOMContentLoaded', function() {
-  const firstBody = document.querySelector('.role-card-body');
-  if (firstBody) {
-    firstBody.classList.add('open');
-    const header = firstBody.previousElementSibling;
+  updateEmployeeAccessCounts();
+  switchEmployeeAccessTab('employee');
+
+  // Open first VISIBLE user override by default
+  const firstOverride = document.querySelector('.user-override[data-role="employee"] .user-override-body');
+  if (firstOverride) {
+    firstOverride.classList.add('open');
+    const header = firstOverride.previousElementSibling;
     if (header) header.querySelector('.role-toggle').textContent = '▲';
   }
+  
+  // Initialize access tab with employee
+  switchAccessRole('employee');
 });
 </script>
 {% endblock %}

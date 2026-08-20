@@ -16,6 +16,7 @@ import io
 import base64
 from flask import url_for
 import base64
+from difflib import SequenceMatcher
 from sqlalchemy import text, func, and_, or_
 from platform_models import db, SubscriptionPlan, RegisteredUser, Company
 import time
@@ -32,13 +33,13 @@ from customer_models import (
 from db_router import get_customer_session, get_customer_session_with_retry, init_customer_db_for_company
 from backup_utils import BACKUP_DESTINATIONS
 import permissions as perms_module
-import permissions as perms_module
 from permissions import (
     get_field_permissions,
     can_edit_field,
     can_view_field,
     INVOICE_FIELDS,
-    DEFAULT_FIELD_PERMISSIONS
+    DEFAULT_FIELD_PERMISSIONS,
+    HARD_LOCKED_EDIT,
 )
 from flask_mail import Mail, Message
 from utils.ai_assistant import LogisticsAIAssistant
@@ -287,7 +288,7 @@ def json_loads_filter(value, default=None):
 # ── Database Configuration ────────────────────────────────────────────────────
 PLATFORM_DB_URI = os.environ.get(
     "PLATFORM_DB_URI",
-    "sqlite:///platform.db"   # ← change this default
+    "mysql+pymysql://root:BadriKhambaty53@localhost/logistic_erp"   # ← change this default
 )
 app.config["SQLALCHEMY_DATABASE_URI"] = PLATFORM_DB_URI
 app.config["SQLALCHEMY_BINDS"] = {}           
@@ -545,6 +546,45 @@ def _company_name_prefix(company_name, chars=3, from_end=False):
 
 def get_current_user():
     return session.get("user", {})
+ 
+ 
+def resolve_user_names(cdb, raw_values):
+    """
+    Map a set of created_by/updated_by strings (normally emails, but a
+    couple of old code paths fell back to storing full_name instead) to
+    {raw_value: {"name": ..., "email": ...}}.
+ 
+    Lookup order: CompanyUser (employees, this company's own db) first,
+    then RegisteredUser (owners, main platform db). Anything that matches
+    neither is shown as-is with no email line (covers deleted users, or
+    rows where a name was stored directly instead of an email).
+    """
+    raw_values = {v for v in raw_values if v}
+    if not raw_values:
+        return {}
+ 
+    name_map = {}
+    remaining = set(raw_values)
+ 
+    emp_rows = cdb.query(CompanyUser.email, CompanyUser.full_name).filter(
+        CompanyUser.email.in_(remaining)
+    ).all()
+    for email, full_name in emp_rows:
+        name_map[email] = {"name": full_name, "email": email}
+        remaining.discard(email)
+ 
+    if remaining:
+        owner_rows = RegisteredUser.query.with_entities(
+            RegisteredUser.email, RegisteredUser.full_name
+        ).filter(RegisteredUser.email.in_(remaining)).all()
+        for email, full_name in owner_rows:
+            name_map[email] = {"name": full_name, "email": email}
+            remaining.discard(email)
+ 
+    for v in remaining:
+        name_map[v] = {"name": v, "email": None}
+ 
+    return name_map
 
 @app.context_processor
 def inject_user():
@@ -996,6 +1036,12 @@ def _manifest_entry_shipment_data(cdb, company_id, docket_no):
     total_actual = sum(p.get("weight") or 0 for p in packages)
     total_vol    = sum(p.get("vol_weight") or 0 for p in packages)
     total_chg    = sum(p.get("chg_weight") or 0 for p in packages)
+    # "Company Weight" = the final weight shown on AWB/manifest copies, i.e.
+    # actual weight minus the per-package discount_wt subtract-amount (see
+    # booking.html pkgEntryDiscWt / pkg_discwt[] — never shown to the customer).
+    total_company = sum(
+        max((p.get("weight") or 0) - (p.get("discount_wt") or 0), 0) for p in packages
+    )
 
     # L/B/H only render cleanly when every box in the shipment is the same
     # size. Mixed sizes fall back to the first package's dims rather than
@@ -1008,6 +1054,7 @@ def _manifest_entry_shipment_data(cdb, company_id, docket_no):
     return {
         "charge_weight": total_chg,
         "actual_weight": total_actual,
+        "company_weight": total_company,
         "length": length,
         "width": width,
         "height": height,
@@ -1340,6 +1387,48 @@ def get_owner_user_stats(owner_email):
     plan = get_plan(companies[0].subscription_plan) if companies else {}
     max_u = plan.get("max_users_per_company", "Unlimited")
     return len(emails), max_u, emails
+
+def _normalize_name_tokens(name):
+    norm = re.sub(r'[^a-z0-9\s]', '', (name or '').lower()).strip()
+    norm = re.sub(r'\s+', ' ', norm)
+    tokens = [t for t in norm.split(' ') if len(t) > 1]
+    return norm, tokens
+
+def _name_similarity_score(name_a, name_b):
+    """Order-independent, typo-tolerant similarity between two client names.
+    Catches word-order swaps ('afsar sheikh mohammed' vs 'mohammed afsar sheikh')
+    and single-letter typos ('shekh' vs 'sheikh', 'apsar' vs 'afsar')."""
+    norm_a, tokens_a = _normalize_name_tokens(name_a)
+    norm_b, tokens_b = _normalize_name_tokens(name_b)
+    if not norm_a or not norm_b:
+        return 0.0
+    full_ratio = SequenceMatcher(None, norm_a, norm_b).ratio()
+    best_token_ratio = 0.0
+    for ta in tokens_a:
+        for tb in tokens_b:
+            r = 1.0 if ta == tb else SequenceMatcher(None, ta, tb).ratio()
+            best_token_ratio = max(best_token_ratio, r)
+    # weight token match slightly lower than full match so a single shared
+    # common word (e.g. only "mohammed") doesn't score as high as a real dupe
+    return max(full_ratio, best_token_ratio * 0.9)
+
+def _find_similar_clients(cdb, company_id, name, exclude_pk=None):
+    if not name or not name.strip():
+        return []
+    q = cdb.query(Client).filter_by(company_id=company_id)
+    if exclude_pk:
+        q = q.filter(Client.id != exclude_pk)
+    matches = []
+    for c in q.all():
+        score = _name_similarity_score(name, c.name)
+        if score >= 0.72:
+            matches.append({
+                "id": c.id, "name": c.name,
+                "phone": c.phone or "", "city": c.city or "",
+                "score": round(score, 2),
+            })
+    matches.sort(key=lambda m: -m["score"])
+    return matches[:8]
 
 def check_company_limit(company_id, user_type="user"):
     company = get_company_by_id(company_id)
@@ -2197,6 +2286,16 @@ def health_check():
         return jsonify({"status": "healthy"})
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
+
+@app.route("/sw.js")
+def service_worker():
+    response = send_from_directory("static", "sw.js")
+    response.headers["Content-Type"] = "application/javascript"
+    # Grants the SW control over "/" and below, even though the file
+    # itself lives under /static — required since scope defaults to
+    # the serving directory otherwise.
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -5253,6 +5352,7 @@ def _sync_auto_manifest_entry(cdb, company_id, shipper_name, carrier_name, actio
             generated_rows = [r for r in existing_rows if r.status == 'Generated']
             pending_count = len(pending_rows)
             generated_count = len(generated_rows)
+
             
             # Calculate how many Pending entries we need
             # Generated entries are locked - we can only add/remove Pending ones
@@ -5355,25 +5455,36 @@ def save_field_permissions(role):
         row = CompanyRolePermission(company_id=company_id, role=role)
         cdb.add(row)
     
-    # Build field permissions from form
     field_perms = {}
     for field_key in INVOICE_FIELDS:
+        edit_val = request.form.get(f"field__{field_key}__edit", "0")
+        try:
+            edit_val = int(edit_val)
+        except ValueError:
+            edit_val = 0
+        
+        view = edit_val >= 1
+        edit = edit_val == 2
+        
         field_perms[field_key] = {
-            "view": request.form.get(f"field__{field_key}__view") == "on",
-            "edit": request.form.get(f"field__{field_key}__edit") == "on"
+            "view": view,
+            "edit": edit
         }
     
-    if role in perms_module.HARD_LOCKED_EDIT:
-        for locked_group in perms_module.HARD_LOCKED_EDIT[role]:
+    # Apply hard-locked restrictions
+    if role in HARD_LOCKED_EDIT:
+        for locked_group in HARD_LOCKED_EDIT[role]:
             if locked_group in field_perms:
                 field_perms[locked_group]["edit"] = False
-
+                field_perms[locked_group]["view"] = True
+    
     row.field_permissions_json = json.dumps(field_perms)
     row.updated_at = datetime.utcnow()
     cdb.commit()
     
     flash(f"Field permissions for {role.title()} updated")
     return redirect(url_for("company_settings"))
+
 
 @app.route("/company/permissions/fields/user/<user_id>", methods=["POST"])
 @login_required
@@ -5391,13 +5502,26 @@ def save_user_field_permissions(user_id):
 
     field_perms = {}
     for field_key in INVOICE_FIELDS:
+        edit_val = request.form.get(f"field__{field_key}__edit", "0")
+        try:
+            edit_val = int(edit_val)
+        except ValueError:
+            edit_val = 0
+        
+        view = edit_val >= 1
+        edit = edit_val == 2
+        
         field_perms[field_key] = {
-            "view": request.form.get(f"field__{field_key}__view") == "on",
-            "edit": request.form.get(f"field__{field_key}__edit") == "on",
+            "view": view,
+            "edit": edit
         }
-    for locked_group in perms_module.HARD_LOCKED_EDIT.get(cu.role, set()):
-        if locked_group in field_perms:
-            field_perms[locked_group]["edit"] = False
+    
+    # Apply hard-locked restrictions
+    if cu.role in HARD_LOCKED_EDIT:
+        for locked_group in HARD_LOCKED_EDIT[cu.role]:
+            if locked_group in field_perms:
+                field_perms[locked_group]["edit"] = False
+                field_perms[locked_group]["view"] = True
 
     cu.field_permissions = json.dumps(field_perms)
     cdb.commit()
@@ -5645,6 +5769,16 @@ def _normalize_client(c, outstanding=None):
         "created_at":      c.created_at,
     }
 
+
+@app.route("/clients/check_similar")
+@login_required
+def client_check_similar():
+    cdb = get_cdb()
+    company_id = get_current_company()
+    name = request.args.get("name", "")
+    exclude_pk = request.args.get("exclude_id", type=int)
+    matches = _find_similar_clients(cdb, company_id, name, exclude_pk=exclude_pk)
+    return jsonify({"matches": matches})
 
 @app.route("/clients")
 @login_required
@@ -5920,9 +6054,9 @@ def _build_client_ledger(cdb, company_id, c, since=None, until=None):
             "chrg_wt": ship["chrg_wt"],
             "act_wt": ship["act_wt"],
             "vol_wt": ship["vol_wt"],
-            "grand_total": grand_total,
+            "grand_total": grand_total - ship["other_charges"],
             "other_charges": ship["other_charges"],
-            "billing_amount": ship["other_charges"] + grand_total,
+            "billing_amount": grand_total,
             "per_kg": ship.get("per_kg", 0),
             "debit": grand_total,
             "credit": 0,
@@ -7325,7 +7459,10 @@ def invoice_list():
     cdb = get_cdb()
     company_id    = get_current_company()
     filter_status = request.args.get("status", "All")
-    filter_btype  = request.args.get("btype", "All")   # All | cash | credit
+    filter_btype  = request.args.get("btype", "All")
+    filter_performa = request.args.get("performa", "All")
+    filter_tstatus = request.args.get("tstatus", "All")
+    
 
     # Map template tab names -> DB status values
     status_map = {
@@ -7459,11 +7596,21 @@ def invoice_list():
             "resale_charges": resale_charges,
             "resale_reason":  getattr(inv, 'resale_reason', ''),
             "resale_date":    getattr(inv, 'resale_date', None),
-            "resale_total":   resale_total,  # ← NEW: total including GST
+            "resale_total":   resale_total,
+            "created_by": getattr(inv, 'created_by', None),
+            "updated_by": getattr(inv, 'updated_by', None),
         })
+
+    if filter_performa == "completed":
+        invoices = [inv for inv in invoices if inv["has_performa"]]
+    elif filter_performa == "pending":
+        invoices = [inv for inv in invoices if not inv["has_performa"]]
 
     if filter_btype in ("cash", "credit"):
         invoices = [inv for inv in invoices if inv["booking_type"] == filter_btype]
+
+    if filter_tstatus != "All":
+            invoices = [inv for inv in invoices if inv["tracking_status"] == filter_tstatus]
 
     search_q = request.args.get("q", "").strip()
     if search_q:
@@ -7500,12 +7647,22 @@ def invoice_list():
         if to_date:
             invoices = [inv for inv in invoices if _inv_date(inv) and _inv_date(inv) <= to_date]
 
+    # Resolve created_by / updated_by (stored as email) -> {name, email}
+    raw_ids = set()
+    for inv in invoices:
+        raw_ids.add(inv.get("created_by"))
+        raw_ids.add(inv.get("updated_by"))
+    user_names = resolve_user_names(cdb, raw_ids)
+
     return render_template("booking_list.html",
                            invoices=invoices,
                            current_status=filter_status,
                            current_btype=filter_btype,
+                           current_performa=filter_performa,
                            current_from_date=from_date_str,
-                           current_to_date=to_date_str)
+                           current_tstatus=filter_tstatus,
+                           current_to_date=to_date_str,
+                           user_names=user_names)
 
 
 @app.route("/booking/list/update-tracking/<invoice_id>", methods=["POST"])
@@ -7864,6 +8021,14 @@ def invoice_new():
         docket_no = request.form.get("docket_no", "")
         action = request.form.get("action", "final")
 
+        # ── Same company-ownership guard as invoice_customer_save/update —
+        # this older route writes invoices with a raw client_id too, so it
+        # needs the same check or it's a bypass around the fix. ────────────
+        if client_id and not cdb.query(Client.id).filter_by(id=client_id, company_id=company_id).first():
+            flash("The selected customer doesn't belong to this company — nothing was saved. "
+                  "Please reopen the booking and reselect the customer.", "danger")
+            return redirect(url_for("invoice_list"))
+
         # ── AWB/docket uniqueness — checked here at save time, not just
         # when _next_awb_number() suggested a value back at form-render
         # time. On edit, exclude the invoice being edited (it's allowed to
@@ -8191,6 +8356,7 @@ def invoice_new():
         packages = [{"name": "Box", "type": "Box", "qty": 1, "length": "", "width": "", "height": "", "weight": "", "rate": 0}]
 
     return render_template("booking.html",
+                           company_id=company_id,
                            clients=clients,
                            suppliers=suppliers,
                            form_data=form_data,
@@ -8314,7 +8480,15 @@ def invoice_customer_update():
     cdb = get_cdb()
     company_id = get_current_company()
     edit_invoice_id = request.form.get("edit_invoice_id")
-    
+
+    # ── Guard against a stale/switched active company (see invoice_customer_save
+    # for the full explanation) ─────────────────────────────────────────────
+    form_company_id = request.form.get("form_company_id")
+    if form_company_id and str(form_company_id) != str(company_id):
+        flash("Your active company changed while this booking was open — "
+              "nothing was saved. Please reopen the booking and try again.", "danger")
+        return redirect(url_for("invoice_list"))
+
     # Find the existing invoice
     invoice = cdb.query(Invoice).filter_by(invoice_id=edit_invoice_id, company_id=company_id).first()
     if not invoice:
@@ -8344,6 +8518,13 @@ def invoice_customer_update():
     invoice_date = request.form.get("invoice_date") or str(today_ist())
     docket_no = request.form.get("docket_no", "")
     action = request.form.get("action", "final")
+
+    # ── Confirm the submitted client_id actually belongs to this company
+    # (see invoice_customer_save for why this matters) ─────────────────────
+    if client_id and not cdb.query(Client.id).filter_by(id=client_id, company_id=company_id).first():
+        flash("The selected customer doesn't belong to this company — nothing was saved. "
+              "Please reopen the booking and reselect the customer.", "danger")
+        return redirect(url_for("invoice_list"))
 
     # ── AWB/docket uniqueness — the field is readonly in the UI, but the
     # server never trusts the client. Someone editing two tabs, resubmitting
@@ -8432,9 +8613,12 @@ def invoice_customer_update():
     # over their limit went through regardless of the "block" setting.
     # Same note as the save route: booking.html confirms via popup before
     # this request is sent, so this is a backstop and only flashes on block.
+    # exclude_amount=invoice.balance backs this booking's own pre-edit
+    # balance out of client.pending first — otherwise every edit double-
+    # counts this same booking (see _check_credit_limit's docstring).
     if action != "draft" and client_id:
         _client_for_limit = cdb.query(Client).filter_by(id=client_id, company_id=company_id).first()
-        _limit_ok, _limit_msg = _check_credit_limit(co, _client_for_limit, grand_total)
+        _limit_ok, _limit_msg = _check_credit_limit(co, _client_for_limit, grand_total, exclude_amount=invoice.balance or 0)
         if not _limit_ok:
             flash(_limit_msg, "danger")
             return redirect(url_for("invoice_edit", invoice_id=edit_invoice_id))
@@ -8663,9 +8847,12 @@ def invoice_customer_update():
     balance = round(grand_total - amount_paid, 2)
 
     # ── Credit limit check (edit path) ───────────────────────────────────────
+    # exclude_amount=invoice.balance backs this booking's own pre-edit
+    # balance out of client.pending first — same reasoning as the first
+    # credit-limit check above in this function.
     if action != "draft" and client_id:
         _client_for_limit = cdb.query(Client).filter_by(id=client_id, company_id=company_id).first()
-        _limit_ok, _limit_msg = _check_credit_limit(co, _client_for_limit, grand_total)
+        _limit_ok, _limit_msg = _check_credit_limit(co, _client_for_limit, grand_total, exclude_amount=invoice.balance or 0)
         if not _limit_ok:
             flash(_limit_msg, "danger")
             return redirect(url_for("invoice_edit", invoice_id=edit_invoice_id))
@@ -8852,6 +9039,7 @@ def invoice_customer_update():
     invoice.resale_reason = resale_reason
     invoice.resale_date = resale_date
     invoice.resale_notes = resale_notes
+    invoice.updated_by = get_current_user().get("email") or get_current_user().get("full_name")
 
     # ── Record any NEW payment collected at this edit as a receipt ──────────
     # Mirrors the "RECORD PAYMENT IN CASH IN HAND OR BANK ACCOUNT" block in
@@ -10299,11 +10487,21 @@ def _next_awb_number(company_id):
     return new_awb
 
 
-def _check_credit_limit(company, client, new_bill_amount):
+def _check_credit_limit(company, client, new_bill_amount, exclude_amount=0):
     """
     Checks a client's credit limit against (current outstanding + this new
     bill). Applies regardless of cash/credit booking type, per how Ibrahim
     wants it — this is a "total exposure" check, not a receivables-only one.
+
+    exclude_amount: when re-checking on an EDIT, client.pending already
+    contains this same booking's own (pre-edit) balance — added there the
+    first time it was saved. Without backing that out first, every edit
+    counts this one booking twice (its old balance sitting inside
+    client.pending, plus its new total being added again as
+    new_bill_amount), so the limit looks blown even when nothing about the
+    client's real exposure changed. Callers editing an existing booking
+    should pass that booking's pre-edit invoice.balance here; create-path
+    callers leave it at 0.
 
     Returns (allowed: bool, message: str or None).
       - allowed=False  -> caller MUST block the save (company is in "block"
@@ -10317,7 +10515,7 @@ def _check_credit_limit(company, client, new_bill_amount):
     limit = client.credit_limit or 0
     if limit <= 0:
         return True, None  # 0 / unset credit_limit == unlimited, matches how it's used everywhere else in this app
-    outstanding = client.pending or 0
+    outstanding = max(0, (client.pending or 0) - (exclude_amount or 0))
     projected = outstanding + (new_bill_amount or 0)
     if projected <= limit:
         return True, None
@@ -10502,26 +10700,39 @@ def customer_invoice_list():
     """List all customer invoices"""
     cdb = get_cdb()
     company_id = get_current_company()
-    
+ 
     status_filter = request.args.get("status", "All")
+    search_query = request.args.get("q", "").strip()
     query = cdb.query(CustomerInvoice).filter_by(company_id=company_id)
-    
+ 
     if status_filter != "All":
         query = query.filter_by(status=status_filter)
-    
+ 
+    if search_query:
+        query = query.filter(CustomerInvoice.client_name.ilike(f"%{search_query}%"))
+ 
     invoices = query.order_by(CustomerInvoice.created_at.desc()).all()
-    
+ 
     # Calculate totals
     total_amount = sum(inv.grand_total for inv in invoices)
     total_paid = sum(inv.paid_amount for inv in invoices)
     total_balance = sum(inv.balance for inv in invoices)
-    
+ 
+    # Resolve created_by / updated_by (stored as email) -> {name, email}
+    raw_ids = set()
+    for inv in invoices:
+        raw_ids.add(inv.created_by)
+        raw_ids.add(inv.updated_by)
+    user_names = resolve_user_names(cdb, raw_ids)
+ 
     return render_template("customer_invoice_list.html",
                          invoices=invoices,
                          total_amount=total_amount,
                          total_paid=total_paid,
                          total_balance=total_balance,
                          current_status=status_filter,
+                         current_search=search_query,
+                         user_names=user_names,
                          active='customer_invoices')
 
 
@@ -10775,8 +10986,9 @@ def customer_invoice_create():
         paid_amount=0,
         balance=0,
         notes=notes,
-        created_by=get_current_user().get("email"),
-        booking_ids_json=json.dumps(booking_ids)
+        booking_ids_json=json.dumps(booking_ids),
+        created_by=get_current_user().get("email") or get_current_user().get("full_name"),
+        updated_by=get_current_user().get("email") or get_current_user().get("full_name"),
     )
     cdb.add(cust_inv)
     cdb.flush()
@@ -11439,6 +11651,7 @@ def invoice_clone(invoice_id):
     
     return render_template(
         "booking.html",
+        company_id=company_id,
         clients=clients,
         suppliers=suppliers,
         form_data=form_data,
@@ -11613,6 +11826,7 @@ def invoice_customer_new():
 
     return render_template(
         "booking.html",
+        company_id=company_id,
         clients=clients,
         suppliers=suppliers,
         invoice_id=invoice_id,
@@ -11637,6 +11851,20 @@ def invoice_customer_save():
     cdb = get_cdb()
     company_id = get_current_company()
 
+    # ── Guard against a stale/switched active company ──────────────────────
+    # booking.html stamps the company it was rendered for into a hidden
+    # form_company_id field. If the session's active company has since
+    # changed (e.g. switched firms in another tab while this form was still
+    # open), company_id here would no longer match what the dropdowns/client
+    # list on screen were built from — and client_id below is a raw numeric
+    # PK that means something completely different in another company's
+    # Client table. Reject rather than silently saving under the wrong firm.
+    form_company_id = request.form.get("form_company_id")
+    if form_company_id and str(form_company_id) != str(company_id):
+        flash("Your active company changed while this booking was open — "
+              "nothing was saved. Please reopen the booking form and try again.", "danger")
+        return redirect(url_for("invoice_customer_new"))
+
     # ← insert here, before anything else
     submit_token = request.form.get("submit_token")
     if submit_token:
@@ -11654,6 +11882,17 @@ def invoice_customer_save():
     invoice_date   = request.form.get("invoice_date") or str(today_ist())
     docket_no      = request.form.get("docket_no", "")
     action         = request.form.get("action", "final")
+
+    # ── client_id is a raw numeric PK submitted from the dropdown — confirm
+    # it actually belongs to this company before it's ever written to an
+    # invoice. Each company has its own independently-incrementing Client
+    # table, so the same numeric id can point to a totally different person
+    # in another firm; this closes that hole even if form_company_id above
+    # was somehow missing or tampered with. ─────────────────────────────────
+    if client_id and not cdb.query(Client.id).filter_by(id=client_id, company_id=company_id).first():
+        flash("The selected customer doesn't belong to this company — nothing was saved. "
+              "Please reopen the booking and reselect the customer.", "danger")
+        return redirect(url_for("invoice_customer_new"))
 
     # ── AWB/docket uniqueness — this is a CREATE-only route, so no invoice
     # to exclude. If the docket_no shown on the form got claimed by someone
@@ -12001,6 +12240,8 @@ def invoice_customer_save():
         paid_amount    = amount_paid,
         balance        = balance,
         submit_token   = submit_token,
+        created_by=get_current_user().get("email") or get_current_user().get("full_name"),
+        updated_by=get_current_user().get("email") or get_current_user().get("full_name"),
     )
     cdb.add(inv)
     try:
@@ -13446,6 +13687,8 @@ def estimate_new():
             grand_total=grand_total,
             terms=terms_data,
             email=notes,
+            created_by=get_current_user().get("email") or get_current_user().get("full_name"),
+            updated_by=get_current_user().get("email") or get_current_user().get("full_name"),
         )
         cdb.add(est)
         cdb.flush()
@@ -13592,7 +13835,7 @@ def estimate_new():
         }
     else:
         # New estimate - default packages
-        packages = [{"name": "Box", "type": "Box", "qty": 1, "length": "", "width": "", "height": "", "weight": "", "rate": 0}]
+        packages = []
         form_data = {
             "booking_type": "credit",
             "items": [],
@@ -13623,9 +13866,12 @@ def estimate_list():
     company_id = get_current_company()
     filter_status = request.args.get("status", "All")
     query = cdb.query(Estimate).filter_by(company_id=company_id)
+    # Exclude proforma invoices auto-created from bookings (estimate_id prefix "SHIP-").
+    # Only true estimates (prefix "EST-") belong in this list.
+    query = query.filter(~Estimate.estimate_id.like("SHIP-%"))
     if filter_status != "All":
         query = query.filter_by(status=filter_status)
-    raw = query.order_by(Estimate.date.desc()).all()
+    raw = query.order_by(Estimate.date.desc(), Estimate.id.desc()).all()
 
     estimates = []
     for est in raw:
@@ -13653,11 +13899,21 @@ def estimate_list():
             "reference": meta.get("reference", ""),
             "weight": meta.get("freight_weight", 0) or 0,
             "converted_to": converted_to,
+            "created_by": getattr(est, 'created_by', None),
+            "updated_by": getattr(est, 'updated_by', None),
         })
+
+    # Resolve created_by / updated_by (stored as email) -> {name, email}
+    raw_ids = set()
+    for est in estimates:
+        raw_ids.add(est.get("created_by"))
+        raw_ids.add(est.get("updated_by"))
+    user_names = resolve_user_names(cdb, raw_ids)
 
     return render_template("estimate_list.html", 
                          estimates=estimates, 
-                         current_status=filter_status)
+                         current_status=filter_status,
+                         user_names=user_names)
 
 @app.route("/estimate/view/<estimate_id>")
 @login_required
@@ -13786,6 +14042,7 @@ def estimate_edit(estimate_id):
 def estimate_update():
     """Update an existing estimate - redirects to estimate_new for processing"""
     estimate_id = request.form.get("edit_estimate_id")
+    est.updated_by = get_current_user().get("email") or get_current_user().get("full_name")
     if estimate_id:
         return redirect(url_for("estimate_new", edit=estimate_id))
     flash("No estimate specified to update.")
@@ -14656,6 +14913,215 @@ def add_expense():
     return redirect(url_for("expenses"))
 
 
+def _reverse_expense_ledger_effect(cdb, company_id, exp, user):
+    """Undo the cash/bank deduction an expense caused, without deleting the
+    expense row itself. Mirrors delete_expense's reversal logic so edit can
+    reuse it before re-applying the (possibly changed) amount/payment mode."""
+    payment_mode = exp.payment_mode.lower() if exp.payment_mode else "cash"
+    amount = exp.amount
+    expense_date = exp.date
+
+    if payment_mode == "cash":
+        cash_txn = CashTransaction(
+            company_id=company_id,
+            type="income",
+            date=expense_date,
+            category="Expense Reversal",
+            description=f"Reversal (edit): {exp.description}",
+            amount=amount,
+            reference=f"REV-EDIT-EXP-{exp.id}",
+            notes=f"Expense edited - {exp.category}",
+            party_name="Expense",
+            created_by=user.get("full_name", user.get("email"))
+        )
+        cdb.add(cash_txn)
+
+    elif payment_mode in ["bank transfer", "online", "upi", "cheque", "card"]:
+        bank_txn = cdb.query(BankTransaction).filter(
+            BankTransaction.company_id == company_id,
+            BankTransaction.type == "debit",
+            BankTransaction.reference == str(exp.id)
+        ).first()
+
+        if not bank_txn:
+            bank_txn = cdb.query(BankTransaction).filter(
+                BankTransaction.company_id == company_id,
+                BankTransaction.type == "debit",
+                BankTransaction.description.like(f"%{exp.description}%"),
+                BankTransaction.amount == amount
+            ).first()
+
+        if bank_txn and bank_txn.bank_account:
+            reverse_txn = BankTransaction(
+                bank_account_id=bank_txn.bank_account_id,
+                company_id=company_id,
+                type="credit",
+                date=expense_date,
+                description=f"Reversal (edit): {exp.description}",
+                amount=amount,
+                reference=f"REV-EDIT-EXP-{exp.id}",
+                transaction_mode=payment_mode.title(),
+                notes=f"Expense edited - {exp.category}",
+                party_name="Expense",
+                created_by=user.get("full_name", user.get("email"))
+            )
+            cdb.add(reverse_txn)
+            bank_txn.bank_account.balance += amount
+            bank_txn.bank_account.updated_at = datetime.utcnow()
+        else:
+            # No bank txn found - reverse as cash fallback (same as delete_expense)
+            cash_txn = CashTransaction(
+                company_id=company_id,
+                type="income",
+                date=expense_date,
+                category="Expense Reversal",
+                description=f"Reversal (edit, fallback): {exp.description}",
+                amount=amount,
+                reference=f"REV-EDIT-EXP-{exp.id}",
+                notes=f"Expense edited - no bank txn found",
+                party_name="Expense",
+                created_by=user.get("full_name", user.get("email"))
+            )
+            cdb.add(cash_txn)
+    else:
+        cash_txn = CashTransaction(
+            company_id=company_id,
+            type="income",
+            date=expense_date,
+            category="Expense Reversal",
+            description=f"Reversal (edit): {exp.description}",
+            amount=amount,
+            reference=f"REV-EDIT-EXP-{exp.id}",
+            notes=f"Expense edited - {exp.category} (via {exp.payment_mode})",
+            party_name="Expense",
+            created_by=user.get("full_name", user.get("email"))
+        )
+        cdb.add(cash_txn)
+
+
+@app.route("/expenses/edit/<int:expense_id>", methods=["POST"])
+@login_required
+@require_permission("expenses", "view", method_actions={'POST': 'edit'})
+def edit_expense(expense_id):
+    company_id = get_current_company()
+    if not company_id:
+        return redirect(url_for('login'))
+    cdb = get_customer_session(company_id)
+    user = get_current_user()
+
+    exp = cdb.query(Expense).filter_by(id=expense_id, company_id=company_id).first()
+    if not exp:
+        flash("Expense not found.", "error")
+        return redirect(url_for("expenses"))
+
+    try:
+        new_date = date.fromisoformat(request.form.get("date", exp.date.isoformat()))
+        new_category = request.form.get("category", exp.category)
+        new_description = request.form.get("description", "").strip()
+        new_amount = float(request.form.get("amount", 0))
+        new_payment_mode = request.form.get("payment_mode", exp.payment_mode)
+        new_reference = request.form.get("reference", "").strip()
+
+        if new_amount <= 0:
+            flash("Amount must be greater than 0.", "error")
+            return redirect(url_for("expenses"))
+
+        # ── 1. UNDO the old cash/bank effect ──
+        _reverse_expense_ledger_effect(cdb, company_id, exp, user)
+
+        # ── 2. UPDATE the expense record ──
+        exp.date = new_date
+        exp.category = new_category
+        exp.description = new_description
+        exp.amount = new_amount
+        exp.payment_mode = new_payment_mode
+        exp.reference = new_reference
+
+        # ── 3. RE-APPLY deduction with the new values ──
+        if new_payment_mode.lower() == "cash":
+            cash_txn = CashTransaction(
+                company_id=company_id,
+                type="expense",
+                date=new_date,
+                category=new_category,
+                description=f"Expense: {new_description}",
+                amount=new_amount,
+                reference=new_reference or f"EXP-{exp.id}",
+                notes=f"Expense recorded - {new_category} (edited)",
+                party_name="Expense",
+                created_by=user.get("full_name", user.get("email"))
+            )
+            cdb.add(cash_txn)
+
+        elif new_payment_mode.lower() in ["bank transfer", "online", "upi", "cheque"]:
+            if not new_reference:
+                flash("Reference/Transaction ID is required for bank payments.", "error")
+                cdb.rollback()
+                return redirect(url_for("expenses"))
+
+            bank_account = None
+            bank_accounts = cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').all()
+            for acc in bank_accounts:
+                if new_reference.lower() in acc.account_number.lower() or new_reference.lower() in acc.bank_name.lower():
+                    bank_account = acc
+                    break
+            if not bank_account:
+                bank_account = cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').first()
+                if not bank_account:
+                    flash("No active bank account found. Please add a bank account first.", "error")
+                    cdb.rollback()
+                    return redirect(url_for("expenses"))
+
+            if bank_account.balance < new_amount:
+                flash(f"Insufficient balance in {bank_account.bank_name} - {bank_account.account_name}. Available: ₹{bank_account.balance:,.2f}", "error")
+                cdb.rollback()
+                return redirect(url_for("expenses"))
+
+            bank_txn = BankTransaction(
+                bank_account_id=bank_account.id,
+                company_id=company_id,
+                type="debit",
+                date=new_date,
+                description=f"Expense: {new_description}",
+                amount=new_amount,
+                reference=new_reference or f"EXP-{exp.id}",
+                transaction_mode=new_payment_mode.title(),
+                notes=f"Expense recorded - {new_category} (edited)",
+                party_name="Expense",
+                created_by=user.get("full_name", user.get("email"))
+            )
+            cdb.add(bank_txn)
+            bank_account.balance -= new_amount
+            bank_account.updated_at = datetime.utcnow()
+
+        else:
+            cash_txn = CashTransaction(
+                company_id=company_id,
+                type="expense",
+                date=new_date,
+                category=new_category,
+                description=f"Expense: {new_description}",
+                amount=new_amount,
+                reference=new_reference or f"EXP-{exp.id}",
+                notes=f"Expense recorded - {new_category} (via {new_payment_mode}, edited)",
+                party_name="Expense",
+                created_by=user.get("full_name", user.get("email"))
+            )
+            cdb.add(cash_txn)
+
+        cdb.commit()
+        flash(f"✅ Expense updated successfully.", "success")
+
+    except Exception as e:
+        cdb.rollback()
+        flash(f"Error updating expense: {str(e)}", "error")
+        print(f"[expense-edit-error] {e}")
+        import traceback
+        traceback.print_exc()
+
+    return redirect(url_for("expenses"))
+
+
 @app.route("/expenses/delete/<int:expense_id>", methods=["POST"])
 @login_required
 @owner_required
@@ -15159,7 +15625,7 @@ def manifest_print_day(date_str):
             shipment_data[entry.id] = _manifest_entry_shipment_data(cdb, company_id, entry.docket_no)
 
     total_weight = sum(
-        (ship.get('charge_weight') or ship.get('actual_weight') or 0)
+        (ship.get('company_weight') or ship.get('actual_weight') or 0)
         for ship in shipment_data.values() if ship
     )
 
@@ -15267,7 +15733,7 @@ def manifest_print_selected():
             shipment_data[entry.id] = _manifest_entry_shipment_data(cdb, company_id, entry.docket_no)
 
     total_weight = sum(
-        (ship.get('charge_weight') or ship.get('actual_weight') or 0)
+        (ship.get('company_weight') or ship.get('actual_weight') or 0)
         for ship in shipment_data.values() if ship
     )
 
@@ -15570,7 +16036,7 @@ def manifest_print_company(company_name):
     from_company_name = reg_company.company_name if reg_company else ''
     
     total_weight = sum(
-        (ship.get('charge_weight') or ship.get('actual_weight') or 0)
+        (ship.get('company_weight') or ship.get('actual_weight') or 0)
         for ship in shipment_data.values() if ship
     )
     
@@ -18570,7 +19036,6 @@ def company_settings():
     company = get_company_by_id(company_id)
     owner_email = get_current_user().get("email", "").strip().lower()
 
-    # Use customer database session to query CompanyUser (this company only, for the users table)
     cdb = get_cdb()
     if not cdb:
         flash("Could not connect to company database")
@@ -18578,14 +19043,9 @@ def company_settings():
 
     users = cdb.query(CompanyUser).filter_by(company_id=company_id).all()
 
-    # All companies this owner has, for the "grant access to" checkbox list
     owner_companies = get_owner_companies(owner_email)
-
-    # Owner-wide seat usage (across ALL of the owner's companies, not just this one)
     owner_user_count, owner_max_users, owner_user_emails = get_owner_user_stats(owner_email)
 
-    # For each distinct user email under this owner, which companies + role do they have?
-    # { email: {"full_name":..., "companies": [{"company_id":, "company_name":, "role":}, ...]} }
     user_access_map = {}
     for c in owner_companies:
         try:
@@ -18603,7 +19063,6 @@ def company_settings():
         except Exception as e:
             print(f"⚠  Could not read users for {c.company_id}: {e}")
 
-    # Fix: Convert plans to a dictionary with proper structure
     plans = {}
     for p in SubscriptionPlan.query.all():
         plans[p.id] = {
@@ -18623,7 +19082,7 @@ def company_settings():
         )
         for role in ("employee", "accountant", "manager")
     }
-    # Per-user overrides: only non-owner users get a row here
+    
     user_permissions = {}
     for u in users:
         if u.role in ("owner", "super_admin"):
@@ -18633,23 +19092,28 @@ def company_settings():
         )
 
     # ── Field-level permissions for the "Access" tab ──────────────────────────
-    # Import INVOICE_FIELDS and DEFAULT_FIELD_PERMISSIONS from permissions module
     from permissions import INVOICE_FIELDS, DEFAULT_FIELD_PERMISSIONS, get_field_permissions
     
     # Get field permissions for each role (role defaults)
-    role_field_permissions = {
-        role: get_field_permissions(role, None, company_id, cdb)
-        for role in ("employee", "accountant", "manager")
-    }
+    role_field_permissions = {}
+    for role in ("employee", "accountant", "manager"):
+        perms = get_field_permissions(role, None, company_id, cdb)
+        # Ensure all fields have view/edit keys
+        for key in INVOICE_FIELDS:
+            if key not in perms:
+                perms[key] = {"view": True, "edit": False}
+        role_field_permissions[role] = perms
     
     # Get field permissions for each user (user overrides)
     user_field_permissions = {}
     for u in users:
         if u.role in ("owner", "super_admin"):
             continue
-        user_field_permissions[u.user_id] = get_field_permissions(
-            u.role, u.user_id, company_id, cdb
-        )
+        perms = get_field_permissions(u.role, u.user_id, company_id, cdb)
+        for key in INVOICE_FIELDS:
+            if key not in perms:
+                perms[key] = {"view": True, "edit": False}
+        user_field_permissions[u.user_id] = perms
 
     # ── API Keys ──────────────────────────────────────────────────────────────
     from platform_models import CompanyApiKey
@@ -18670,10 +19134,10 @@ def company_settings():
                            perm_labels=perms_module.MODULE_LABELS,
                            role_permissions=role_permissions,
                            user_permissions=user_permissions,
-                           invoice_fields=INVOICE_FIELDS,  # ← ADDED
-                           role_field_permissions=role_field_permissions,  # ← ADDED
-                           user_field_permissions=user_field_permissions,  # ← ADDED
-                           api_keys=api_keys,  # ← ADDED
+                           invoice_fields=INVOICE_FIELDS,
+                           role_field_permissions=role_field_permissions,
+                           user_field_permissions=user_field_permissions,
+                           api_keys=api_keys,
                            )
 
 def _read_permission_matrix_from_form():
@@ -19105,7 +19569,7 @@ def manifest_print_selected_generated():
             shipment_data[entry.id] = _manifest_entry_shipment_data(cdb, company_id, entry.docket_no)
 
     total_weight = sum(
-        (ship.get('charge_weight') or ship.get('actual_weight') or 0)
+        (ship.get('company_weight') or ship.get('actual_weight') or 0)
         for ship in shipment_data.values() if ship
     )
 
@@ -20736,6 +21200,33 @@ def payment_new():
     bank_accounts  = cdb.query(BankAccount).filter_by(company_id=company_id, status='Active').all()
     selected_id    = request.args.get("supplier_id", type=int)
     invoices_json  = _build_invoices_json(company_id, all_suppliers, _outstanding_invoices_for_supplier)
+
+    # ── Live-computed payable, not the cached Supplier.payable column ──────
+    # supplier.payable is mutated independently at 15+ call sites across
+    # this file (booking creation, purchase edit, cheque clear, payment
+    # save, courier-split, stock reversal...). Any one of those skipping,
+    # double-firing, or missing entirely leaves it silently wrong forever —
+    # this dropdown showed suppliers ₹4,680-₹18,360 off their real balance
+    # because of exactly that. purchase_invoices (grand_total - paid_amount)
+    # is the actual source of truth, so recompute it fresh here instead of
+    # trusting the cache. One aggregate query for all suppliers, not N+1.
+    live_payable_rows = (
+        cdb.query(
+            PurchaseInvoice.supplier_id,
+            func.sum(PurchaseInvoice.grand_total - PurchaseInvoice.paid_amount)
+        )
+        .filter(
+            PurchaseInvoice.company_id == company_id,
+            PurchaseInvoice.status.notin_(['Cancelled', 'Void']),
+        )
+        .group_by(PurchaseInvoice.supplier_id)
+        .all()
+    )
+    live_payable_by_supplier = {sid: (total or 0) for sid, total in live_payable_rows}
+    for sup in all_suppliers:
+        sup.live_payable = round(
+            (sup.opening_balance or 0) + live_payable_by_supplier.get(sup.id, 0), 2
+        )
 
     # Date-wise filter for history
     date_from_str = request.args.get("date_from", "")

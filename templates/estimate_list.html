@@ -18,7 +18,6 @@
   .bm-courier { background:#F0FDF4; color:#15803D; }
   .bm-default { background:#F3F4F6; color:#374151; }
 
-  /* Dark theme overrides for mode badges */
   body.dark-theme .bm-air     { background:rgba(67,56,202,0.25); color:#818CF8; }
   body.dark-theme .bm-sea     { background:rgba(3,105,161,0.25); color:#38BDF8; }
   body.dark-theme .bm-road    { background:rgba(146,64,14,0.25); color:#FBBF24; }
@@ -34,7 +33,6 @@
   .badge-converted{ background:#D1FAE5; color:#065F46; }
   .badge-not-converted{ background:#FEF3C7; color:#92400E; }
 
-  /* Dark theme overrides for badges */
   body.dark-theme .badge-success { background:rgba(5,150,105,0.2); color:#34D399; }
   body.dark-theme .badge-warning { background:rgba(217,119,6,0.2); color:#FBBF24; }
   body.dark-theme .badge-danger { background:rgba(220,38,38,0.2); color:#F87171; }
@@ -71,9 +69,8 @@
     font-size:11.5px; font-weight:600;
   }
 
-  /* Frozen header + capped-height scroll box */
   .table-wrap { overflow:auto; max-height:68vh; border-radius:10px; position:relative; }
-  table { width:100%; border-collapse:collapse; min-width:860px; }
+  table { width:100%; border-collapse:collapse; min-width:960px; }
   thead th {
     padding:11px 14px; font-size:10.5px; font-weight:700;
     text-transform:uppercase; letter-spacing:.7px;
@@ -87,7 +84,6 @@
   tbody tr:hover { background: var(--bg-table-alt); }
   tbody tr:last-child td { border-bottom:none; }
 
-  /* Row actions dropdown */
   .action-menu-btn {
     display:inline-flex; align-items:center; gap:6px;
     border:1.5px solid var(--border-color); background:var(--bg-input); color:var(--text-body);
@@ -134,11 +130,9 @@
   .s-val.amber { color:#D97706; }
   body.dark-theme .s-val.amber { color:#FBBF24; }
 
-  /* Date display helper */
   .date-display { white-space:nowrap; color:#374151; }
   body.dark-theme .date-display { color:#9CA3AF; }
 
-  /* Search input dark theme */
   input[type="text"], input[type="date"] {
     background: var(--bg-input);
     color: var(--text-body);
@@ -155,7 +149,6 @@
     border-color: #818CF8;
   }
 
-  /* Convert modal dark theme */
   .convert-modal-overlay {
     display:none; position:fixed; inset:0; background:rgba(17,24,39,.5); z-index:1000;
     align-items:center; justify-content:center;
@@ -181,18 +174,19 @@
   .convert-modal h3 { color: var(--text-body); }
   .convert-modal p { color: var(--text-muted); }
 
-  /* Card dark theme */
   .card {
     background: var(--bg-card);
     border-color: var(--border-color);
     transition: background 0.3s ease, border-color 0.3s ease;
   }
 
-  /* Page header dark theme */
   .page-header h2 { color: var(--text-body); }
-
-  /* Empty state dark theme */
   .empty-state-text { color: var(--text-muted); }
+
+  .created-by-cell { font-size:12px; color:var(--text-muted); }
+  .created-by-cell .name { color:var(--text-body); font-weight:500; }
+  .edited-by-cell { font-size:12px; color:var(--text-muted); }
+  .edited-by-cell .name { color:var(--text-body); font-weight:500; }
 </style>
 {% endblock %}
 
@@ -285,6 +279,8 @@
           <th>Amount (₹)</th>
           <th>Status</th>
           <th>Converted To</th>
+          <th>Created By</th>
+          <th>Edited By</th>
           <th style="text-align:right;">Actions</th>
         </tr>
       </thead>
@@ -367,6 +363,35 @@
             {% endif %}
           </td>
 
+          <!-- Created By -->
+          <td class="created-by-cell">
+            {% set cb = user_names.get(est.created_by) if user_names else None %}
+            {% if est.created_by %}
+              <span class="name">{{ cb.name if cb else est.created_by }}</span>
+              {% if cb and cb.email %}
+                <span style="font-size:10px;color:var(--text-muted);display:block;">{{ cb.email }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px;">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Edited By -->
+          <td class="edited-by-cell">
+            {% set ub = user_names.get(est.updated_by) if user_names else None %}
+            {% if est.updated_by %}
+              <span class="name">{{ ub.name if ub else est.updated_by }}</span>
+              {% if ub and ub.email %}
+                <span style="font-size:10px;color:var(--text-muted);display:block;">{{ ub.email }}</span>
+              {% endif %}
+              {% if est.created_by and est.updated_by != est.created_by %}
+                <span style="font-size:10px;color:var(--text-muted);display:block;">(edited)</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px;">—</span>
+            {% endif %}
+          </td>
+
           <!-- Actions -->
           <td style="white-space:nowrap;text-align:right;">
             <button type="button" class="action-menu-btn" title="Actions"
@@ -393,7 +418,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="9" style="text-align:center;padding:48px;color:var(--text-muted)">
+          <td colspan="11" style="text-align:center;padding:48px;color:var(--text-muted)">
             <div style="font-size:32px;margin-bottom:8px">📋</div>
             No estimates found for this filter.
           </td>

@@ -535,6 +535,7 @@ body.dark-theme .company-header-row td {
                         {% endif %}
                     </th>
                     <th style="width:150px;">Shipper</th>
+                    <th style="width:130px;">Receiver</th>
                     <th style="width:90px;">Manifest ID</th>
                     <th>#</th>
                     <th>Courier Company</th>
@@ -543,7 +544,6 @@ body.dark-theme .company-header-row td {
                     <th style="width:100px;">Item Type</th>
                     <th style="width:140px;">Docket / AWB</th>
                     <th style="width:120px;">Carrier Ref</th>
-                    
                     <th style="width:90px;">Status</th>
                     <th style="width:110px;">Actions</th>
                 </tr>
@@ -591,7 +591,7 @@ body.dark-theme .company-header-row td {
         
         <!-- Company header row -->
         <tr class="company-header-row">
-    <td colspan="12" style="background:#F0F4FF;padding:6px 12px;font-weight:700;color:#1E3A5F;border-top:2px solid #4F46E5;border-bottom:1px solid #E0E7FF;">
+    <td colspan="13" style="background:#F0F4FF;padding:6px 12px;font-weight:700;color:#1E3A5F;border-top:2px solid #4F46E5;border-bottom:1px solid #E0E7FF;">
         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
             <span>
                 🏢 {{ company_name }}
@@ -680,6 +680,12 @@ body.dark-theme .company-header-row td {
                     {{ first_entry.notes or first_manifest.shipper_client_name }}
                 </td>
                 
+                <!-- Receiver -->
+                <td style="font-size:12px;color:var(--text-body);">
+                    {% set entry_ship = shipment_data.get(first_entry.id) %}
+                    {{ entry_ship.receiver if entry_ship and entry_ship.receiver else '—' }}
+                </td>
+                
                 <!-- Manifest ID - show first manifest -->
                 <td>
                     <span class="mft-id">{{ first_manifest.manifest_id }}</span>
@@ -760,7 +766,7 @@ body.dark-theme .company-header-row td {
             <td class="sub-val" style="text-align:center;">
                 {{ items | sum(attribute='entry.boxes') }}
             </td>
-            <td colspan="6"></td>
+            <td colspan="7"></td>
         </tr>
         {% set ns2.row_counter = ns2.row_counter + ns_awb.groups | length %}
     {% endfor %}
@@ -1032,7 +1038,7 @@ function toggleCompanySelection(checkbox, companyName) {
     const companyRows = [];
     
     rows.forEach(row => {
-        const companyCell = row.querySelector('td:nth-child(6)');
+        const companyCell = row.querySelector('td:nth-child(7)');
         if (companyCell && companyCell.textContent.trim() === companyName) {
             companyRows.push(row);
         }
@@ -1057,7 +1063,7 @@ function toggleCompanySelection(checkbox, companyName) {
 }
 
 // ── Generate entries for a specific company ──
-function generateCompanyEntries(companyName) {
+async function generateCompanyEntries(companyName) {
     const panel = document.querySelector('.day-panel.active');
     if (!panel) {
         alert('No active day panel found.');
@@ -1069,7 +1075,7 @@ function generateCompanyEntries(companyName) {
     const rows = panel.querySelectorAll('tr.data-row');
     
     rows.forEach(row => {
-        const companyCell = row.querySelector('td:nth-child(6)');
+        const companyCell = row.querySelector('td:nth-child(7)');
         if (companyCell && companyCell.textContent.trim() === companyName) {
             const checkboxes = row.querySelectorAll('.mft-select-child:checked');
             checkboxes.forEach(cb => {
@@ -1094,10 +1100,12 @@ function generateCompanyEntries(companyName) {
         return;
     }
     
-    // Confirm before generating
-    if (!confirm(`Generate ${checkedIds.length} box(es) for ${companyName}? This will deduct stock and mark them as Generated.`)) {
-        return;
-    }
+    // Confirm before generating — themed dialog, same as the top-bar Generate button.
+    const ok = await appConfirm(
+        `Generate ${checkedIds.length} box(es) for ${companyName}? This deducts stock and marks them Generated — it can't be undone from here.`,
+        { type: 'warning', okLabel: 'Generate', cancelLabel: 'Cancel' }
+    );
+    if (!ok) return;
     
     // Create form and submit
     const form = document.createElement('form');
@@ -1121,8 +1129,32 @@ function generateCompanyEntries(companyName) {
 }
 
 // ── Print generated entries for a specific company ──
+// If any of this company's "select for printing" checkboxes are checked,
+// print only those entries. Otherwise, print the whole company manifest for the day.
 function printCompanyEntries(companyName, dayDate) {
-    const url = `/manifest/print/company/${encodeURIComponent(companyName)}?date=${encodeURIComponent(dayDate)}`;
+    const panel = document.querySelector('.day-panel.active');
+    let checkedIds = [];
+
+    if (panel) {
+        const rows = panel.querySelectorAll('tr.data-row');
+        rows.forEach(row => {
+            const companyCell = row.querySelector('td:nth-child(7)');
+            if (companyCell && companyCell.textContent.trim() === companyName) {
+                row.querySelectorAll('.mft-select-generated:checked').forEach(cb => {
+                    const val = cb.dataset.ids || '';
+                    val.split(',').forEach(id => {
+                        const trimmed = id.trim();
+                        if (trimmed) checkedIds.push(trimmed);
+                    });
+                });
+            }
+        });
+    }
+
+    let url = `/manifest/print/company/${encodeURIComponent(companyName)}?date=${encodeURIComponent(dayDate)}`;
+    if (checkedIds.length > 0) {
+        url += `&entry_ids=${checkedIds.join(',')}`;
+    }
     window.open(url, '_blank');
 }
 
@@ -1155,7 +1187,7 @@ document.addEventListener('change', function(e) {
         const companyCheckboxes = {};
         
         rows.forEach(row => {
-            const companyCell = row.querySelector('td:nth-child(6)');
+            const companyCell = row.querySelector('td:nth-child(7)');
             if (companyCell) {
                 const companyName = companyCell.textContent.trim();
                 if (!companyCheckboxes[companyName]) {

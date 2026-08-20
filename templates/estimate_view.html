@@ -165,6 +165,34 @@
   .pf-sign-line { border-top:1px solid #000; margin-top:30px; padding-top:4px; }
   .pf-terms { font-size:9px; color:#666; margin-top:10px; border-top:1px solid #ddd; padding-top:6px; }
 
+  /* ── f3 receipt-style layout (matches customer invoice print) ── */
+  .f3 { font-family:Arial,sans-serif; font-size:10.5px; border:1.5px solid #111; padding:10px 14px 8px; position:relative; }
+  .f3-hdr-row { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1.5px solid #111; padding-bottom:8px; margin-bottom:8px; }
+  .f3-hdr-left { display:flex; gap:10px; align-items:center; }
+  .f3-logo-box { width:78px; height:60px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  .f3-co-name { font-size:16px; font-weight:900; letter-spacing:.4px; line-height:1.1; }
+  .f3-co-sub  { font-size:9px; font-weight:700; color:#333; margin-top:2px; }
+  .f3-co-web  { font-size:9px; color:#111; margin-top:1px; }
+  .f3-no-col { display:flex; flex-direction:column; align-items:flex-end; flex-shrink:0; }
+  .f3-doc-tag { font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:1.5px; text-align:right; }
+  .f3-awb-big { font-family:'Courier New',monospace; font-size:20px; font-weight:900; letter-spacing:1px; text-align:right; margin-top:2px; }
+  .f3-toprow { display:grid; grid-template-columns: 1fr 1.3fr .8fr .95fr 1fr; border-bottom:1.5px solid #111; }
+  .f3-toprow > div { padding:4px 8px; border-right:1px solid #111; }
+  .f3-toprow > div:last-child { border-right:none; }
+  .f3-lbl { font-size:8px; font-weight:800; text-transform:uppercase; color:#333; letter-spacing:.4px; }
+  .f3-val { font-size:12px; font-weight:700; margin-top:2px; }
+  .f3-svc-badge { background:#222; color:#fff; font-size:9.5px; font-weight:800; text-align:center; padding:3px 4px; border-radius:2px; display:inline-block; }
+  .f3-parties { display:grid; grid-template-columns: 1fr 1fr; border-bottom:1.5px solid #111; }
+  .f3-party { padding:6px 10px; border-right:1px solid #111; }
+  .f3-party:last-child { border-right:none; }
+  .f3-party p { font-size:9.5px; margin:1px 0; line-height:1.45; }
+  .f3-party .pname { font-size:10.5px; font-weight:800; }
+  .f3-meta-line { display:flex; gap:14px; margin-top:4px; font-size:9px; flex-wrap:wrap; }
+  .f3-terms { padding:6px 8px 4px; font-size:7.5px; color:#444; line-height:1.5; border-top:1.5px solid #111; margin-top:8px; }
+  .f3-terms-line { display:block; margin-top:3px; }
+  .f3-terms-line:first-child { margin-top:0; }
+  .f3-track-bottom { text-align:center; font-size:9px; font-weight:700; letter-spacing:1px; padding-top:4px; }
+
   /* ─── BOX LABEL ────────────────────────────────────── */
   .box-label {
     font-family: Arial, sans-serif;
@@ -299,7 +327,7 @@
         <button type="submit" class="btn btn-success btn-sm" style="background:#16A34A;color:white;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;">🔄 Convert to Booking</button>
       </form>
       {% endif %}
-      <button onclick="window.print()" class="btn btn-primary btn-sm">🖨️ Print</button>
+      <button onclick="triggerPrint('performa')" class="btn btn-primary btn-sm">🖨️ Print</button>
     </div>
   </div>
 
@@ -441,47 +469,83 @@
 <!-- PERFORMA INVOICE (print only)                         -->
 <!-- ═══════════════════════════════════════════════════════ -->
 <div class="performa-doc">
-  <div class="pf-header">
-    <div class="pf-company">{{ company_name|default('PXC PACIFIC GLOBAL PVT. LTD.') }}</div>
-    <div class="pf-tagline">International Courier &amp; Freight Forwarder</div>
-    <div class="pf-title">Proforma Invoice</div>
-  </div>
+<div class="f3">
 
-  <div class="pf-meta">
-    <div>
-      <div><strong>Estimate No:</strong> {{ estimate.id }}</div>
-      <div><strong>AWB / Docket:</strong> {{ estimate.docket_no or '—' }}</div>
-    </div>
-    <div class="pf-meta-box">
-      <div><strong>Date:</strong> 
-        {% if estimate.date %}
-          {% if estimate.date is string %}
-            {{ estimate.date }}
-          {% else %}
-            {{ estimate.date.strftime('%d %b %Y') }}
-          {% endif %}
+  <div class="f3-hdr-row">
+    <div class="f3-hdr-left">
+      <div class="f3-logo-box">{% if company_logo_url %}<img src="{{ company_logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:contain;">{% else %}📋{% endif %}</div>
+      <div>
+        <div class="f3-co-name">{{ company.company_name if company and company.company_name else company_name|default('PXC PACIFIC GLOBAL PVT. LTD.') }}</div>
+        {% if company and company.slogan %}
+        <div class="f3-co-sub">{{ company.slogan }}</div>
         {% else %}
-          —
+        <div class="f3-co-sub">International Courier &amp; Freight Forwarder</div>
+        {% endif %}
+        {% if company and company.show_address_performa_invoice %}
+        <div class="f3-co-web">{{ company.address }}</div>
+        {% endif %}
+        {% if company and (company.phone or company.mobile or company.email or company.website) %}
+        <div class="f3-co-web">
+          {% if company.phone %}Ph: {{ company.phone }}{% endif %}{% if company.phone and company.mobile %} / {% endif %}{% if company.mobile %}Mob: {{ company.mobile }}{% endif %}{% if (company.phone or company.mobile) and company.email %} &nbsp;•&nbsp; {% endif %}{% if company.email %}Email: {{ company.email }}{% endif %}{% if company.email and company.website %} &nbsp;•&nbsp; {% endif %}{% if company.website %}Website: {{ company.website }}{% endif %}
+        </div>
         {% endif %}
       </div>
-      <div><strong>Destination:</strong> {{ estimate.destination or '—' }}</div>
+    </div>
+    <div class="f3-no-col">
+      <div class="f3-doc-tag">Proforma Invoice</div>
+      <div class="f3-awb-big">{{ estimate.id }}</div>
     </div>
   </div>
 
-  <div class="pf-parties">
-    <div class="pf-party">
-      <strong>Shipper / Sender</strong>
-      <div><strong>{{ estimate.client_name }}</strong></div>
-      <div>{{ estimate.shipper_address or '' }}</div>
-      <div>Ph: {{ estimate.phone or '—' }}</div>
-      {% if estimate.reference %}<div>Ref: {{ estimate.reference }}</div>{% endif %}
+  <div class="f3-toprow">
+    <div>
+      <div class="f3-lbl">Date</div>
+      <div class="f3-val" style="font-size:11px">
+        {% if estimate.date %}
+          {% if estimate.date is string %}{{ estimate.date }}{% else %}{{ estimate.date.strftime('%d %b %Y') }}{% endif %}
+        {% else %}—{% endif %}
+      </div>
     </div>
-    <div class="pf-party">
-      <strong>Consignee / Receiver</strong>
-      <div><strong>{{ estimate.receiver_name }}</strong></div>
-      {% if estimate.receiver_company %}<div>{{ estimate.receiver_company }}</div>{% endif %}
-      <div>{{ estimate.receiver_address or '' }}</div>
-      <div>Ph: {{ estimate.receiver_phone or '—' }}</div>
+    <div>
+      <div class="f3-lbl">Valid Until</div>
+      <div class="f3-val" style="font-size:11px">
+        {% if estimate.valid_until %}
+          {% if estimate.valid_until is string %}{{ estimate.valid_until }}{% else %}{{ estimate.valid_until.strftime('%d %b %Y') }}{% endif %}
+        {% else %}—{% endif %}
+      </div>
+    </div>
+    <div>
+      <div class="f3-lbl">Destination</div>
+      <div class="f3-val" style="font-size:11px">{{ estimate.destination or '—' }}</div>
+    </div>
+    <div>
+      <div class="f3-lbl">Weight</div>
+      <div class="f3-meta-line"><span>Wt: <strong>{{ estimate.weight }} kg</strong></span></div>
+    </div>
+    <div>
+      <div class="f3-lbl">Service</div>
+      <div class="f3-svc-badge">{{ estimate.carrier or estimate.mode or estimate.shipment_type or 'COURIER' }}</div>
+    </div>
+  </div>
+
+  <div class="f3-parties">
+    <div class="f3-party">
+      <div class="f3-lbl">Shipper / Sender</div>
+      <p class="pname">{{ estimate.client_name }}</p>
+      <p>{{ estimate.shipper_address or '—' }}</p>
+      <div class="f3-meta-line">
+        <span>Ph: <strong>{{ estimate.phone or '—' }}</strong></span>
+        {% if estimate.reference %}<span>Ref: <strong>{{ estimate.reference }}</strong></span>{% endif %}
+      </div>
+    </div>
+    <div class="f3-party">
+      <div class="f3-lbl">Consignee / Receiver</div>
+      <p class="pname">{{ estimate.receiver_name or '—' }}</p>
+      {% if estimate.receiver_company %}<p>{{ estimate.receiver_company }}</p>{% endif %}
+      <p>{{ estimate.receiver_address or '—' }}</p>
+      <div class="f3-meta-line">
+        <span>Ph: <strong>{{ estimate.receiver_phone or '—' }}</strong></span>
+      </div>
     </div>
   </div>
 
@@ -545,7 +609,7 @@
   <div class="pf-sign">
     <div class="pf-sign-box">
       <div class="pf-sign-line">Authorised Signatory</div>
-      <div style="font-size:9px;color:#555">For {{ company_name|default('PXC PACIFIC GLOBAL PVT. LTD.') }}</div>
+      <div style="font-size:9px;color:#555">For {{ company.company_name if company and company.company_name else company_name|default('PXC PACIFIC GLOBAL PVT. LTD.') }}</div>
     </div>
     <div class="pf-sign-box">
       <div class="pf-sign-line">Shipper's Signature</div>
@@ -553,11 +617,23 @@
     </div>
   </div>
 
-  <div class="pf-terms">
-    1. No claims will be entertained for any damage during transit &amp; delay in delivery due to any reason.<br>
-    2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 Kgs or the declared value whichever is lower.<br>
-    3. This AWB is for the account holder and it is not transferable. This receipt does not imply we have physically received the parcel in our hub.
+  <div class="f3-terms">
+    <strong>Terms &amp; Conditions:</strong>
+    {% if company is defined and company and company.show_terms_performa_invoice %}
+      {% if company.terms_footer %}
+      <div class="f3-terms-line">{{ company.terms_footer }}</div>
+      {% else %}
+      <div class="f3-terms-line">1. No claims will be entertained for any damage during transit &amp; delay in delivery due to any reason.&nbsp;|&nbsp;
+      2. Maximum claims for loss of parcel would be USD 50 upto 10 Kgs &amp; USD 100 above 10 Kgs or the declared value whichever is lower.&nbsp;|&nbsp;
+      3. This is an estimate only and does not constitute a confirmed booking or AWB.</div>
+      {% endif %}
+      <div class="f3-terms-line">*** Subject to {{ company_jurisdiction if company_jurisdiction is defined else 'Mumbai' }} Jurisdiction ***</div>
+    {% endif %}
   </div>
+
+  <div class="f3-track-bottom">ESTIMATE #{{ estimate.id }} — NOT A TAX INVOICE</div>
+
+</div>
 </div>
 
 

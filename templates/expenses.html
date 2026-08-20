@@ -178,6 +178,17 @@
     border-radius: 99px; overflow: hidden; margin-top: 2px; }
   .cat-bar { height: 100%; border-radius: 99px; }
 
+  /* ── Edit modal ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(15,23,42,.5);
+    z-index: 1000; align-items: center; justify-content: center; padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 18px; padding: 22px 24px;
+    width: 100%; max-width: 560px; box-shadow: 0 20px 50px rgba(0,0,0,.2);
+  }
+
   /* ── Empty state ── */
   .empty-state {
     text-align: center; padding: 48px 20px; color: #94A3B8;
@@ -282,7 +293,60 @@
       </div>
     </form>
   </div>
- 
+
+  <!-- ── Edit Expense Modal ── -->
+  <div class="modal-overlay" id="editExpenseOverlay" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal-box">
+      <div class="panel-hd">
+        <span class="panel-title">Edit Expense</span>
+        <button type="button" onclick="closeEditModal()"
+          style="background:none;border:none;font-size:20px;cursor:pointer;color:#94A3B8;">✕</button>
+      </div>
+      <form method="POST" id="editExpenseForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date *</label>
+            <input type="date" name="date" id="editDate" required />
+          </div>
+          <div class="form-group">
+            <label>Category *</label>
+            <select name="category" id="editCategory" required>
+              {% for cat in categories %}
+                <option value="{{ cat }}">{{ cat }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount (₹) *</label>
+            <input type="number" name="amount" id="editAmount" step="0.01" min="0.01" required />
+          </div>
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select name="payment_mode" id="editPaymentMode">
+              <option value="Cash">Cash</option>
+              <option value="UPI">UPI</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Cheque">Cheque</option>
+              <option value="Card">Card</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Reference / Bill No.</label>
+            <input type="text" name="reference" id="editReference" placeholder="Optional" />
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <input type="text" name="description" id="editDescription" placeholder="What was this expense for?" />
+          </div>
+        </div>
+        <div class="form-row">
+          <button type="button" class="fb" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;"
+            onclick="closeEditModal()">Cancel</button>
+          <button type="submit" class="fb fb-red">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <!-- ── KPI Strip ── -->
   {% set today_total = namespace(v=0) %}
@@ -358,8 +422,18 @@
               <td><span class="mode-badge">{{ e.payment_mode }}</span></td>
               <td style="color:#94A3B8;">{{ e.reference or '—' }}</td>
               <td style="text-align:right;" class="amt-cell">₹{{ "{:,.2f}".format(e.amount) }}</td>
-              <td>
-                <form method="POST"
+              <td style="white-space:nowrap;">
+                <button type="button" class="del-btn" title="Edit"
+                        onclick='openEditModal({{ {
+                          "id": e.id,
+                          "date": e.date.isoformat(),
+                          "category": e.category,
+                          "description": e.description or "",
+                          "amount": e.amount,
+                          "payment_mode": e.payment_mode,
+                          "reference": e.reference or ""
+                        } | tojson }})'>✏️</button>
+                <form method="POST" style="display:inline;"
                       action="{{ url_for('delete_expense', expense_id=e.id) }}"
                       onsubmit="return confirm('Delete this expense?')">
                   <button type="submit" class="del-btn" title="Delete">🗑</button>
@@ -602,6 +676,26 @@ document.querySelector('#addExpenseForm form').addEventListener('submit', functi
   function toggleForm() {
     document.getElementById('addExpenseForm').classList.toggle('open');
   }
+
+  // ── Edit modal ────────────────────────────────────────────────────────────
+  function openEditModal(exp) {
+    document.getElementById('editExpenseForm').action = `/expenses/edit/${exp.id}`;
+    document.getElementById('editDate').value = exp.date;
+    document.getElementById('editCategory').value = exp.category;
+    document.getElementById('editAmount').value = exp.amount;
+    document.getElementById('editPaymentMode').value = exp.payment_mode;
+    document.getElementById('editReference').value = exp.reference;
+    document.getElementById('editDescription').value = exp.description;
+    document.getElementById('editExpenseOverlay').classList.add('open');
+  }
+
+  function closeEditModal() {
+    document.getElementById('editExpenseOverlay').classList.remove('open');
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeEditModal();
+  });
 
   // Enter key moves to next field instead of submitting the form
   (function() {

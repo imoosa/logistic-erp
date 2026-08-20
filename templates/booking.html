@@ -150,7 +150,7 @@
   .perf-meta-grid { display:grid; grid-template-columns:1fr 1fr auto 1fr; gap:16px; margin-bottom:16px; align-items:end; }
   .perf-meta-grid.row2 { grid-template-columns:1fr 1fr 1fr 1fr; }
   .perf-meta-grid label, .perf-entry-grid label { font-size:11px; font-weight:700; color:var(--text-muted); display:block; margin-bottom:4px; }
-  .perf-meta-grid select, .perf-meta-grid input { width:100%; padding:8px 10px; border:1.5px solid var(--border-color); border-radius:6px; font-size:13px; box-sizing:border-box; }
+  .perf-meta-grid select, .perf-meta-grid input, .perf-meta-grid textarea { width:100%; padding:8px 10px; border:1.5px solid var(--border-color); border-radius:6px; font-size:13px; box-sizing:border-box; font-family:inherit; }
   .perf-meta-grid input[readonly] { background:var(--bg-input-disabled); color:var(--text-muted); }
   .yn-toggle { display:flex; border-radius:6px; overflow:hidden; border:1.5px solid var(--border-color); width:fit-content; }
   .yn-btn { padding:8px 18px; font-size:13px; font-weight:700; cursor:pointer; background:var(--bg-input); color:var(--text-muted); user-select:none; }
@@ -316,6 +316,18 @@
   .bx-awb-top { text-align:center; font-size:11px; font-weight:700; margin-bottom:4px; }
   /* BOX LABEL stamp */
   .bx-box-label-stamp { font-size:20px; font-weight:900; border:3px solid #000; padding:4px 12px; display:inline-block; letter-spacing:2px; }
+
+  /* Remove up/down spinner arrows from every number input on this page —
+     without this, an accidental scroll while the cursor is over a focused
+     number field (rate, weight, qty, etc.) silently changes its value. */
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 </style>
 {% endblock %}
 
@@ -348,6 +360,12 @@
   <input type="hidden" name="payment_mode" id="paymentModeHidden" value="{{ form_data.payment_mode or 'cash' }}">
   <input type="hidden" name="upi_app" id="upiAppHidden" value="{{ form_data.upi_app or '' }}">
   <input type="hidden" name="submit_token" id="submitTokenField" value="">
+  <!-- Locks this form to the company it was rendered for. The server compares
+       this against the session's active company at submit time and rejects
+       the save if they've drifted apart (e.g. company switched in another
+       tab while this form was open) instead of silently saving under the
+       wrong firm with a client_id that means something else there. -->
+  <input type="hidden" name="form_company_id" id="formCompanyId" value="{{ company_id }}">
   {% if is_edit and invoice_id %}
   <input type="hidden" name="edit_invoice_id" value="{{ invoice_id }}">
   {% endif %}
@@ -358,14 +376,24 @@
     <div class="grid-3">
       <div class="form-group">
         <label>Invoice Date *</label>
-        <input type="date" name="invoice_date" value="{{ invoice_date or today }}" required>
+        <input type="date" name="invoice_date" value="{{ invoice_date or today }}" required
+          {% if is_edit %}
+          readonly style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed;"
+          title="Invoice date is locked to the date this booking was originally generated"
+          {% endif %}>
       </div>
       <div class="form-group">
         <label>Docket / AWB No.</label>
-        <input type="text" name="docket_no" value="{{ docket_no or form_data.docket_no or '' }}" 
-               readonly
-               style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;letter-spacing:.5px;cursor:not-allowed;"
-               title="Auto-assigned AWB number — not editable">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" name="docket_no" value="{{ docket_no or form_data.docket_no or '' }}" 
+                 readonly
+                 style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;letter-spacing:.5px;cursor:not-allowed;flex:1;"
+                 title="Auto-assigned AWB number — not editable">
+          {% if is_edit and invoice_id %}
+          <a href="/booking/clone/{{ invoice_id }}" title="Clone this booking"
+             style="white-space:nowrap;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:4px;background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;">📋 Clone</a>
+          {% endif %}
+        </div>
       </div>
     </div>
   </div>
@@ -654,7 +682,9 @@
 </div>
       <div class="form-group">
         <label>Pickup Date *</label>
-        <input type="date" name="pickup_date" id="pickup" value="{{ form_data.pickup_date or '' }}">
+        <input type="date" name="pickup_date" id="pickup" value="{{ form_data.pickup_date or today }}" readonly
+          style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed;"
+          title="Pickup date is locked to the date this booking was created and cannot be changed">
       </div>
       <div class="form-group">
         <label>Expected Delivery Date *</label>
@@ -706,7 +736,10 @@
             <label>Actual Weight</label>
             <input type="number" id="pkgEntryWt" step="0.01" min="0" value="" oninput="livePkgCalc()">
           </div>
-          
+          <div>
+            <label title="Type the final weight you want to show on AWB copies. Never shown to the customer.">Company Weight*</label>
+            <input type="number" id="pkgEntryDiscWt" step="0.01" min="0" value=""  oninput="livePkgCalc()">
+          </div>
           <div>
             <label>Pieces</label>
             <input type="number" id="pkgEntryQty" min="1" value="" oninput="livePkgCalc()">
@@ -735,10 +768,7 @@
             <label>Chrg Weight</label>
             <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:var(--surface-info-bg);color:var(--surface-info-text);font-weight:800;">
           </div>
-          <div>
-            <label title="Type the final weight you want to show on AWB copies. Never shown to the customer.">Discounted Wt (final)</label>
-            <input type="number" id="pkgEntryDiscWt" step="0.01" min="0" value="" placeholder="Actual wt" oninput="livePkgCalc()">
-          </div>
+          
           <div>
             <label>Rate (₹)</label>
             <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
@@ -751,6 +781,7 @@
         <table class="pkg-table">
           <thead>
             <tr>
+              <th>Box No.</th>
               <th>Item</th>
               <th>actual Weight</th>
               <th>Pieces</th>
@@ -769,6 +800,7 @@
             {% if packages and packages|length > 0 %}
               {% for pkg in packages %}
               <tr>
+                <td class="pkg-box-no"></td>
                 <td>
                   {{ pkg.name }} <span style="color:var(--text-muted);font-size:11px;">({{ pkg.type or 'Box' }})</span>
                   <input type="hidden" name="pkg_name[]" value="{{ pkg.name }}">
@@ -857,18 +889,20 @@
         </div>
         <div>
           {% set standard_export_reasons = ['Gift','Sample','Commercial Sale','Return / Repair','Personal Effects','Other'] %}
+          {% set default_export_reason_text = "We declaration that invoice shows the actual price of goods described and that all particular's are true & correct." %}
           {% set custom_export_reason = form_data.export_reason and form_data.export_reason not in standard_export_reasons %}
+          {% set is_other_default = not form_data.export_reason %}
           <label>Export Reason</label>
           <select name="export_reason" id="exportReason" onchange="toggleExportReasonOther(this)">
             <option value="">— Select —</option>
             {% for r in standard_export_reasons %}
-            <option value="{{ r }}" {% if form_data.export_reason == r or (custom_export_reason and r == 'Other') %}selected{% endif %}>{{ r }}</option>
+            <option value="{{ r }}" {% if form_data.export_reason == r or (custom_export_reason and r == 'Other') or (is_other_default and r == 'Other') %}selected{% endif %}>{{ r }}</option>
             {% endfor %}
           </select>
           <input type="text" name="export_reason_other" id="exportReasonOther"
                  placeholder="Type reason if different from list above"
-                 value="{{ form_data.export_reason if custom_export_reason else '' }}"
-                 style="margin-top:6px;width:100%;display:{{ 'block' if (form_data.export_reason == 'Other' or custom_export_reason) else 'none' }};">
+                 value="{{ default_export_reason_text if is_other_default else (form_data.export_reason if custom_export_reason else '') }}"
+                 style="margin-top:6px;width:100%;display:{{ 'block' if (form_data.export_reason == 'Other' or custom_export_reason or is_other_default) else 'none' }};">
         </div>
         <div>
           <label>Format</label>
@@ -964,11 +998,21 @@
       </div>
       <div class="form-group">
         <label>Rate per kg (₹) *</label>
-        <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
-          value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
+            value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()" style="flex:1;">
+          {% if is_edit %}
+          <button type="button" id="btnTakeCurrentRate" onclick="syncRateLookupInputs(true)"
+            title="Fetch today's rate from the sale price list and overwrite the locked rate"
+            style="white-space:nowrap;padding:8px 12px;border-radius:8px;font-size:12px;font-weight:700;background:#F5F3FF;color:#7C3AED;border:1px solid #DDD6FE;cursor:pointer;">
+            🔄 Take Current Rate
+          </button>
+          {% endif %}
+        </div>
         <!-- Auto-fetch status from the sale price list (set by autoFetchSaleRate()).
              Field above stays editable so a manual rate can still be typed when
-             no price list match is found. -->
+             no price list match is found. On the edit screen, the rate that was
+             locked in at generation time is left alone — see syncRateLookupInputs(). -->
         <div id="freightRateNote" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:14px;display:none;"></div>
       </div>
       <div class="form-group">
@@ -1280,7 +1324,7 @@
         </div>
       </div>
       <table class="pf-table">
-        <thead><tr><th>#</th><th>Description of Goods</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate (₹)</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
+        <thead><tr><th>#</th><th>Box No.</th><th>Description of Goods</th><th style="text-align:center;">Qty</th><th style="text-align:right;">Rate (₹)</th><th style="text-align:right;">Amount (₹)</th></tr></thead>
         <tbody id="pfPrintRows"></tbody>
       </table>
       <div style="display:flex;justify-content:flex-end;margin-top:10px;">
@@ -1290,7 +1334,7 @@
         </div>
       </div>
       <div class="pf-note">
-        <strong>Declaration:</strong> I/We hereby declare that this performa invoice shows the true and correct value of the goods being shipped. The contents are for personal/gift use only.
+        <strong>Declaration:</strong> We declaration that invoice shows the actual price of goods described and that all particular's are true & correct.
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:24px;font-size:10px;color:#6B7280;border-top:1px solid #E5E7EB;padding-top:12px;">
         <span>Nexa ERP · {{ today }}</span>
@@ -1704,6 +1748,25 @@ function getAvailablePerfBoxLabels() {
   }
   console.log('getAvailablePerfBoxLabels:', labels); // DEBUG
   return labels;
+}
+
+/* Stamps each Packages-table row with the Box No. (range) it covers, e.g.
+   Box-1, or Box-2 to Box-4 for a row with qty=3. Numbering is cumulative and
+   in-order down the table — same numbering the Performa Box No dropdown
+   uses (see getAvailablePerfBoxLabels) — so both sections always agree.
+   Call after any add/remove/edit of a pkg row, and once on page load. */
+function renumberPkgBoxes() {
+  const prefix = getPerfBoxPrefix();
+  let cum = 0;
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const qty = parseInt(tr.querySelector('[name="pkg_qty[]"]')?.value) || 1;
+    const start = cum + 1;
+    const end = cum + qty;
+    const label = end > start ? `${prefix}-${start} to ${prefix}-${end}` : `${prefix}-${start}`;
+    const cell = tr.querySelector('.pkg-box-no');
+    if (cell) cell.textContent = label;
+    cum = end;
+  });
 }
 
 const PERF_UNIT_OPTIONS = ['PCS','PACKETS','SET','PAIR','BOX','KG','METER','UNIT','BOTTLE'];
@@ -2340,8 +2403,8 @@ function triggerPrint(type) {
       const rate = parseFloat(row.querySelector('[name="perf_rate[]"]')?.value) || 0;
       const amt  = qty * rate;
       subtotal += amt;
-      const descWithMeta = desc + (box ? ` <span style="color:#6B7280;font-size:9px;">(${box}${hsn ? ' · HSN ' + hsn : ''})</span>` : '');
-      if (desc) rows += `<tr><td>${idx+1}</td><td>${descWithMeta}</td><td style="text-align:center;">${qty}${unit ? ' ' + unit : ''}</td><td style="text-align:right;">${rate.toFixed(2)}</td><td style="text-align:right;">${amt.toFixed(2)}</td></tr>`;
+      const descWithMeta = desc + (hsn ? ` <span style="color:#6B7280;font-size:9px;">(HSN ${hsn})</span>` : '');
+      if (desc) rows += `<tr><td>${idx+1}</td><td>${box || '—'}</td><td>${descWithMeta}</td><td style="text-align:center;">${qty}${unit ? ' ' + unit : ''}</td><td style="text-align:right;">${rate.toFixed(2)}</td><td style="text-align:right;">${amt.toFixed(2)}</td></tr>`;
     });
     const f = n => '₹' + n.toLocaleString('en-IN', {minimumFractionDigits:2});
     ['pfPrintRows'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = rows; });
@@ -2414,6 +2477,19 @@ function livePkgCalc() {
 }
 
 function addPkgRow() {
+  const discWtInput = document.getElementById('pkgEntryDiscWt');
+
+  // Company Weight is mandatory for every package — block the add instead of
+  // letting an empty value slip into the table and only get caught later at
+  // final-submit time.
+  if (discWtInput.value.trim() === '') {
+    discWtInput.classList.add('field-error');
+    discWtInput.focus();
+    alert('Company Weight is required before adding a package.');
+    return;
+  }
+  discWtInput.classList.remove('field-error');
+
   const name   = 'Box';
   const type   = 'Box';
   const unit   = document.getElementById('pkgEntryUnit').value;
@@ -2427,7 +2503,7 @@ function addPkgRow() {
   // Disc. Weight field now takes the FINAL discounted weight directly (e.g. 15),
   // not the amount to subtract. Back-calculate the subtract-amount here so the
   // backend (pkg_discwt[] = actual − discount_wt everywhere in app.py) never changes.
-  const discEntryRaw = document.getElementById('pkgEntryDiscWt').value;
+  const discEntryRaw = discWtInput.value;
   const discountedWt = discEntryRaw === '' ? wt : Math.min(parseFloat(discEntryRaw) || 0, wt); // can't discount below 0 or "discount" above actual
   const discWt = Math.max(wt - discountedWt, 0); // stored subtract-amount, feeds pkg_discwt[]
   const rate   = parseFloat(document.getElementById('pkgEntryRate').value) || 0;
@@ -2438,6 +2514,7 @@ function addPkgRow() {
 
   const tr = document.createElement('tr');
   tr.innerHTML = `
+    <td class="pkg-box-no"></td>
     <td>${name} <span style="color:#9CA3AF;font-size:11px;">(${type})</span>
       <input type="hidden" name="pkg_name[]" value="${name}">
       <input type="hidden" name="pkg_type[]" value="${type}">
@@ -2462,24 +2539,26 @@ function addPkgRow() {
     </td>`;
   document.getElementById('pkgBody').appendChild(tr);
 
-  // Reset panel for the next piece (keep Unit/Division — usually shared across pieces)
+  // Reset panel for the next piece (keep Unit/Division/Company Weight — usually
+  // shared across pieces; user can overwrite it for a specific box if needed).
   document.getElementById('pkgEntryQty').value = 1;
   document.getElementById('pkgEntryWt').value = 0;
   document.getElementById('pkgEntryL').value = 0;
   document.getElementById('pkgEntryW').value = 0;
   document.getElementById('pkgEntryH').value = 0;
   document.getElementById('pkgEntryRate').value = 0;
-  document.getElementById('pkgEntryDiscWt').value = '';
   livePkgCalc();
 
   calcPkg();
   refreshPerfBoxOptions();
+  renumberPkgBoxes();
 }
 
 function removePkgRow(btn) {
   btn.closest('tr').remove();
   calcPkg();
   refreshPerfBoxOptions();
+  renumberPkgBoxes();
 }
 
 function editPkgRow(btn) {
@@ -2505,13 +2584,14 @@ function editPkgRow(btn) {
   document.getElementById('pkgEntryH').value        = h;
   document.getElementById('pkgEntryDivision').value = division;
   document.getElementById('pkgEntryRate').value     = rate;
-  document.getElementById('pkgEntryDiscWt').value   = discWt > 0 ? discountedWt : '';
+  document.getElementById('pkgEntryDiscWt').value   = discountedWt;
 
   // Pull the row out of the table — click "+ Add" again to save the edit back in.
   tr.remove();
   livePkgCalc();
   calcPkg();
   refreshPerfBoxOptions();
+  renumberPkgBoxes();
 
   document.getElementById('pkgEntryWt').scrollIntoView({behavior:'smooth', block:'center'});
 }
@@ -2576,7 +2656,20 @@ function calcFreight() {
    into Rate per kg — no lookup click, no apply click. Rate per kg stays a
    normal editable input, so if no price list match is found the user can
    still type a rate manually. */
-function syncRateLookupInputs() {
+// Whether this form is editing an already-generated booking. On the edit
+// screen the rate that was locked in at generation time must not silently
+// change just because carrier/destination/weight shift or the price list
+// moved on — only an explicit "Take Current Rate" click (force=true) may
+// refresh it.
+const IS_EDIT_MODE = {{ 'true' if is_edit else 'false' }};
+
+// Baseline weight as saved when this booking was generated/last saved. Used
+// solely to detect "did the package weight itself change" — NOT updated by
+// carrier/destination/other edits, only after a weight-driven rate refetch
+// below, so a subsequent unrelated edit correctly re-locks.
+let EDIT_BASELINE_WEIGHT = {{ (form_data.freight_weight or 0)|float }};
+
+function syncRateLookupInputs(force) {
     const carrierEl = document.getElementById('carrierSelect');
     const destEl = document.getElementById('destinationInput');
     if (!carrierEl || !destEl) return;
@@ -2591,6 +2684,35 @@ function syncRateLookupInputs() {
     const weight = roundBillableWeight(pkgChgWt);
 
     const noteEl = document.getElementById('freightRateNote');
+
+    if (IS_EDIT_MODE && !force) {
+        // Weight itself has moved away from what it was when the rate was
+        // locked in — that's the one thing allowed to refresh the rate
+        // automatically, since the whole point of the lock is to stop the
+        // rate silently drifting when nothing about the shipment changed.
+        const weightChanged = Math.abs(weight - EDIT_BASELINE_WEIGHT) > 0.005;
+
+        if (weightChanged && courier && destination && weight > 0) {
+            if (noteEl) {
+                noteEl.style.display = 'block';
+                noteEl.style.color = 'var(--text-muted)';
+                noteEl.textContent = '⏳ Weight changed — fetching rate for ' + weight + 'kg…';
+            }
+            autoFetchSaleRate(courier, destination, weight, /*isWeightDriven=*/true);
+            return;
+        }
+
+        // Rate stays locked at whatever was saved when this booking was
+        // generated. Nothing else is fetched automatically — the user must
+        // click "Take Current Rate" to pull today's price-list rate on purpose.
+        if (noteEl) {
+            noteEl.style.display = 'block';
+            noteEl.style.color = 'var(--text-muted)';
+            noteEl.textContent = '🔒 Rate locked at generation — click "Take Current Rate" to refresh from the price list';
+        }
+        return;
+    }
+
     if (!courier || !destination || !weight || weight <= 0) {
         if (noteEl) { noteEl.style.display = 'none'; noteEl.textContent = ''; }
         return;
@@ -2601,7 +2723,7 @@ function syncRateLookupInputs() {
 /* ── Rate auto-fetch ── */
 let rateFetchToken = 0; // guards against a slower earlier request overwriting a newer one
 
-function autoFetchSaleRate(courier, destination, weight) {
+function autoFetchSaleRate(courier, destination, weight, isWeightDriven) {
     const noteEl = document.getElementById('freightRateNote');
     const myToken = ++rateFetchToken;
 
@@ -2621,6 +2743,10 @@ function autoFetchSaleRate(courier, destination, weight) {
                     noteEl.style.color = 'var(--surface-danger-text)';
                     noteEl.textContent = '⚠️ ' + (data.error || 'No sale price list rate found — enter manually');
                 }
+                // Rebaseline anyway: this weight has been accounted for (even
+                // though no price-list match was found), so a later unrelated
+                // edit won't re-trigger a fetch attempt for the same weight.
+                EDIT_BASELINE_WEIGHT = weight;
                 return;
             }
 
@@ -2645,8 +2771,14 @@ function autoFetchSaleRate(courier, destination, weight) {
 
             if (noteEl) {
                 noteEl.style.color = 'var(--surface-success-text)';
-                noteEl.textContent = `✅ Auto-fetched from sale price list — ${data.country_matched}, ${data.weight_used}kg`;
+                noteEl.textContent = isWeightDriven
+                    ? `✅ Weight changed — rate re-fetched for ${data.weight_used}kg (${data.country_matched})`
+                    : `✅ Auto-fetched from sale price list — ${data.country_matched}, ${data.weight_used}kg`;
             }
+
+            // Move the baseline to this weight so a later, unrelated edit
+            // doesn't re-trigger another auto-fetch and stays correctly locked.
+            EDIT_BASELINE_WEIGHT = weight;
 
             calcFreight();
         })
@@ -2932,7 +3064,16 @@ document.addEventListener('DOMContentLoaded', function () {
   const box = document.getElementById('customerSearchBox');
   if (sel && box && sel.value) {
     const opt = sel.options[sel.selectedIndex];
-    if (opt) box.value = opt.textContent.trim();
+    if (opt) {
+      box.value = opt.textContent.trim();
+      // client_code is a stored text snapshot (from the saved booking's
+      // terms JSON), not re-derived from the selected client on render —
+      // it can go stale (e.g. after a clone whose customer was then
+      // changed). Re-sync it from the truly-selected option on every load,
+      // same as the search box above, so the two never drift apart again.
+      const codeField = document.getElementById('clientCodeField');
+      if (codeField) codeField.value = opt.dataset.code || '';
+    }
   }
   if (document.getElementById('creditIdDocsPanel').style.display !== 'none') {
     updateCreditIdDocsPanel();
@@ -3162,6 +3303,15 @@ function validateCustForm(e) {
       }
     });
 
+    // Company Weight is enforced at add-time (addPkgRow blocks an empty
+    // value), so the real check here is "does at least one package exist" —
+    // not the transient entry panel, which is empty on the edit screen until
+    // the user adds a new row even though existing rows already have it set.
+    if (document.querySelectorAll('#pkgBody tr').length === 0) {
+      errors.push('Please add at least one package.');
+      document.getElementById('pkgEntryDiscWt').classList.add('field-error');
+    }
+
     const freight=parseFloat(document.getElementById('freightAmt').value)||0;
     if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
 
@@ -3192,13 +3342,18 @@ function validateCustForm(e) {
 async function runCreditLimitCheck(form, clientId) {
   const amtEl = document.getElementById('previewGrandTotal');
   const amount = amtEl ? parseFloat((amtEl.textContent || '0').replace(/[^0-9.]/g, '')) || 0 : 0;
+  // On edit, this booking's own (pre-edit) balance is already sitting inside
+  // the client's outstanding total — tell the server which booking to
+  // exclude so it doesn't count this same booking twice. Absent on create.
+  const editIdEl = form.querySelector('[name="edit_invoice_id"]');
+  const editInvoiceId = editIdEl ? editIdEl.value : '';
 
   let data;
   try {
     const resp = await fetch('/booking/customer/check-credit-limit', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: clientId, amount: amount })
+      body: new URLSearchParams({ client_id: clientId, amount: amount, edit_invoice_id: editInvoiceId })
     });
     if (!resp.ok) throw new Error('check-credit-limit returned ' + resp.status);
     data = await resp.json();
@@ -3292,6 +3447,7 @@ document.addEventListener('DOMContentLoaded', () => {
   calcPerforma();
   
   refreshPerfBoxOptions();
+  renumberPkgBoxes();
 
   updateDepartmentNo();
   
@@ -3302,5 +3458,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   onBookingTypeChange(document.getElementById('bookingTypeSelect').value);
 });
+
+// Prevent accidental mouse-wheel scroll from silently changing the value of
+// ANY focused number input on this page (rate, weight, qty, dimensions,
+// discount, etc.). Scrolling with the cursor over a focused number field
+// blurs it instead of incrementing/decrementing — the page still scrolls
+// normally either way.
+document.addEventListener('wheel', function (e) {
+  if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: true });
 </script>
 {% endblock %}

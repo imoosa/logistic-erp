@@ -364,5 +364,56 @@ document.addEventListener('DOMContentLoaded', () => {
   const a = document.getElementById('aadharInput');
   if (a && a.value) validateAadhar(a);
 });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const g = document.getElementById('gstInput');
+  if (g && g.value) validateGST(g);
+  const a = document.getElementById('aadharInput');
+  if (a && a.value) validateAadhar(a);
+
+  let similarCheckDone = false;
+  const clientForm = document.getElementById('clientForm');
+  clientForm.addEventListener('submit', async function (e) {
+    if (similarCheckDone) return;
+    const nameInput = this.querySelector('input[name="client_name"]');
+    const name = nameInput.value.trim();
+    if (!name) return;
+    e.preventDefault();
+
+    const excludeId = "{{ client.id if client else '' }}";
+    const url = `/clients/check_similar?name=${encodeURIComponent(name)}` +
+                (excludeId ? `&exclude_id=${excludeId}` : '');
+
+    let matches = [];
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      matches = data.matches || [];
+    } catch (err) {
+      similarCheckDone = true;
+      this.submit();
+      return;
+    }
+
+    if (matches.length === 0) {
+      similarCheckDone = true;
+      this.submit();
+      return;
+    }
+
+    const list = matches.map(m =>
+      `• ${m.name}${m.city ? ' (' + m.city + ')' : ''}${m.phone ? ' — ' + m.phone : ''}`
+    ).join('\n');
+
+    const proceed = await appConfirm(
+      `Similar client name(s) already exist:\n\n${list}\n\nCreate "${name}" as a new client anyway?`,
+      { type: 'warning', okLabel: 'Create Anyway', cancelLabel: 'Cancel' }
+    );
+    if (proceed) {
+      similarCheckDone = true;
+      this.submit();
+    }
+  });
+});
 </script>
 {% endblock %}

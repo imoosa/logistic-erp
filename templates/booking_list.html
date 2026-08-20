@@ -28,7 +28,6 @@
   .bt-cash   { background:#FEF3C7; color:#92400E; }
   .bt-credit { background:#DBEAFE; color:#1D4ED8; }
 
-  /* Tracking status dropdown (manual courier-site lookup) */
   .track-status-select {
     -webkit-appearance:none; appearance:none;
     font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px;
@@ -78,11 +77,8 @@
   .inline-track-input.saved { border-color:#16A34A; }
   .inline-track-input.save-error { border-color:#DC2626; }
 
-  /* Frozen header + capped-height scroll box: the horizontal scrollbar
-     lives inside this box (near the top of the viewport), so you never
-     have to scroll the whole page down to reach it. */
   .table-wrap { overflow:auto; max-height:68vh; border-radius:10px; position:relative; }
-  table { width:100%; border-collapse:collapse; min-width:980px; }
+  table { width:100%; border-collapse:collapse; min-width:1100px; }
   thead th {
     padding:11px 14px; font-size:10.5px; font-weight:700;
     text-transform:uppercase; letter-spacing:.7px;
@@ -94,7 +90,6 @@
   tbody tr:hover { background: var(--bg-table-alt); }
   tbody tr:last-child td { border-bottom:none; }
 
-  /* Row actions dropdown (replaces the old button row + separate Delete column) */
   .action-menu-btn {
     display:inline-flex; align-items:center; gap:6px;
     border:1.5px solid var(--border-color); background:var(--bg-input); color:var(--text-body);
@@ -127,6 +122,11 @@
   .s-val   { font-size:18px; font-weight:800; color: var(--text-body); }
   .s-val.green { color:#16A34A; }
   .s-val.red   { color:#DC2626; }
+
+  .created-by-cell { font-size:12px; color:var(--text-muted); }
+  .created-by-cell .name { color:var(--text-body); font-weight:500; }
+  .edited-by-cell { font-size:12px; color:var(--text-muted); }
+  .edited-by-cell .name { color:var(--text-body); font-weight:500; }
 </style>
 {% endblock %}
 
@@ -160,61 +160,90 @@
   </div>
 </div>
 
-<form method="get" action="/booking/list" style="display:flex; gap:8px; align-items:center; margin-bottom:14px; flex-wrap:wrap;">
-  <input type="hidden" name="status" value="{{ current_status or 'All' }}">
-  <input type="hidden" name="btype" value="{{ current_btype or 'All' }}">
+<style>
+  .filter-select {
+    padding:8px 26px 8px 10px; border:1.5px solid var(--border-color); border-radius:16px;
+    font-size:12.5px; font-weight:600; outline:none; background:#fff; cursor:pointer;
+    appearance:none; -webkit-appearance:none; max-width:118px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0l5 6 5-6z' fill='%236B7280'/></svg>");
+    background-repeat:no-repeat; background-position:right 9px center;
+  }
+  .filter-select:focus { border-color:#4F46E5; }
+  .filter-bar {
+    display:flex; gap:6px; align-items:center; margin-bottom:14px;
+    flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px;
+  }
+  .filter-date {
+    padding:8px 8px; border:1.5px solid var(--border-color); border-radius:16px;
+    font-size:12px; outline:none; width:120px; flex-shrink:0;
+  }
+</style>
+
+<form method="get" action="/booking/list" class="filter-bar">
   <input
     type="text"
     name="q"
     value="{{ request.args.get('q', '') }}"
-    placeholder="🔍 Search by party name, AWB / docket no., carrier ref no. or tracking no."
-    style="flex:1; min-width:260px; padding:9px 14px; border:1.5px solid var(--border-color); border-radius:20px; font-size:13.5px; outline:none;"
+    placeholder="🔍 Search AWB, party, tracking no."
+    style="flex:1; min-width:140px; padding:8px 12px; border:1.5px solid var(--border-color); border-radius:16px; font-size:13px; outline:none;"
     onfocus="this.style.borderColor='#4F46E5'"
     onblur="this.style.borderColor='var(--border-color)'"
   >
-  <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);font-weight:600;white-space:nowrap;">
-    From
-    <input type="date" name="from_date" value="{{ current_from_date or '' }}"
-           style="padding:8px 10px; border:1.5px solid var(--border-color); border-radius:20px; font-size:13px; outline:none;"
-           onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
-  </label>
-  <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-muted);font-weight:600;white-space:nowrap;">
-    To
-    <input type="date" name="to_date" value="{{ current_to_date or '' }}"
-           style="padding:8px 10px; border:1.5px solid var(--border-color); border-radius:20px; font-size:13px; outline:none;"
-           onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
-  </label>
-  <button type="submit" class="btn btn-primary" style="border-radius:20px; padding:9px 20px; font-size:13px;">Search</button>
-  {% if request.args.get('q') or current_from_date or current_to_date %}
-  <a href="/booking/list?status={{ current_status or 'All' }}&btype={{ current_btype or 'All' }}" class="btn btn-ghost" style="border-radius:20px; padding:9px 16px; font-size:13px;">Clear</a>
-  {% endif %}
-</form>
+  <input type="date" name="from_date" value="{{ current_from_date or '' }}" title="From date" class="filter-date"
+         onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
+  <input type="date" name="to_date" value="{{ current_to_date or '' }}" title="To date" class="filter-date"
+         onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
 
-<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:18px;">
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+  <select name="status" class="filter-select" onchange="this.form.submit()" title="Payment status">
     {% for s in ['All', 'paid', 'partial', 'pending', 'draft', 'void'] %}
-    <a href="/booking/list?status={{ s }}&btype={{ current_btype or 'All' }}{% if request.args.get('q') %}&q={{ request.args.get('q') }}{% endif %}{% if current_from_date %}&from_date={{ current_from_date }}{% endif %}{% if current_to_date %}&to_date={{ current_to_date }}{% endif %}"
-       class="tab {% if current_status == s %}active{% endif %}">
-      {% if s == 'All' %}📋 All
+    <option value="{{ s }}" {% if current_status == s %}selected{% endif %}>
+      {% if s == 'All' %}📋 Payment
       {% elif s == 'paid' %}✅ Paid
       {% elif s == 'partial' %}⏳ Partial
       {% elif s == 'pending' %}⚠️ Pending
       {% elif s == 'void' %}🚫 Void
       {% else %}📝 Draft{% endif %}
-    </a>
+    </option>
     {% endfor %}
-  </div>
-  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+  </select>
+
+  <select name="btype" class="filter-select" onchange="this.form.submit()" title="Sale type" style="max-width:90px;">
     {% for b in ['All', 'cash', 'credit'] %}
-    <a href="/booking/list?status={{ current_status or 'All' }}&btype={{ b }}{% if request.args.get('q') %}&q={{ request.args.get('q') }}{% endif %}{% if current_from_date %}&from_date={{ current_from_date }}{% endif %}{% if current_to_date %}&to_date={{ current_to_date }}{% endif %}"
-       class="tab {% if current_btype == b %}active{% endif %}">
-      {% if b == 'All' %}💰 All Sales
+    <option value="{{ b }}" {% if current_btype == b %}selected{% endif %}>
+      {% if b == 'All' %}💰 Sale
       {% elif b == 'cash' %}💵 Cash
       {% else %}💳 Credit{% endif %}
-    </a>
+    </option>
     {% endfor %}
-  </div>
-</div>
+  </select>
+
+  <select name="performa" class="filter-select" onchange="this.form.submit()" title="Performa status">
+    {% for p in ['All', 'completed', 'pending'] %}
+    <option value="{{ p }}" {% if current_performa == p %}selected{% endif %}>
+      {% if p == 'All' %}📋 Performa
+      {% elif p == 'completed' %}✅ Done
+      {% else %}📋 Pending{% endif %}
+    </option>
+    {% endfor %}
+  </select>
+
+  <select name="tstatus" class="filter-select" onchange="this.form.submit()" title="Tracking status">
+    {% for t in ['All', 'Booked', 'In Transit', 'Out for Delivery', 'Delivered'] %}
+    <option value="{{ t }}" {% if current_tstatus == t %}selected{% endif %}>
+      {% if t == 'All' %}🚚 Tracking
+      {% elif t == 'Booked' %}📦 Booked
+      {% elif t == 'In Transit' %}🚛 In Transit
+      {% elif t == 'Out for Delivery' %}🛵 Out for Delivery
+      {% else %}✅ Delivered{% endif %}
+    </option>
+    {% endfor %}
+  </select>
+
+  <button type="submit" class="btn btn-primary" style="border-radius:16px; padding:8px 16px; font-size:12.5px; flex-shrink:0;">Go</button>
+  {% if request.args.get('q') or current_from_date or current_to_date or current_status != 'All' or current_btype != 'All' or current_performa != 'All' or current_tstatus != 'All' %}
+  <a href="/booking/list" class="btn btn-ghost" style="border-radius:16px; padding:8px 14px; font-size:12.5px; flex-shrink:0;">Clear</a>
+  {% endif %}
+</form>
 
 <div class="card">
   <div class="table-wrap">
@@ -233,6 +262,8 @@
           <th>Tracking Status</th>
           <th>Cash / Credit</th>
           <th>Resale</th>
+          <th>Created By</th>
+          <th>Edited By</th>
           <th style="text-align:right;">Actions</th>
         </tr>
       </thead>
@@ -374,6 +405,35 @@
     <span style="color:#D1D5DB;font-size:11px;">—</span>
   {% endif %}
 </td>
+
+          <!-- Created By -->
+          <td class="created-by-cell">
+            {% set cb = user_names.get(inv.created_by) if user_names else None %}
+            {% if inv.created_by %}
+              <span class="name">{{ cb.name if cb else inv.created_by }}</span>
+              {% if cb and cb.email %}
+                <span style="font-size:10px;color:var(--text-muted);display:block;">{{ cb.email }}</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px;">—</span>
+            {% endif %}
+          </td>
+
+          <!-- Edited By -->
+          <td class="edited-by-cell">
+            {% set ub = user_names.get(inv.updated_by) if user_names else None %}
+            {% if inv.updated_by %}
+              <span class="name">{{ ub.name if ub else inv.updated_by }}</span>
+              {% if ub and ub.email %}
+                <span style="font-size:10px;color:var(--text-muted);display:block;">{{ ub.email }}</span>
+              {% endif %}
+              {% if inv.created_by and inv.updated_by != inv.created_by %}
+                <span style="font-size:10px;color:var(--text-muted);display:block;">(edited)</span>
+              {% endif %}
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px;">—</span>
+            {% endif %}
+          </td>
           
 <td style="white-space:nowrap;text-align:right;">
   {% set can_delete = not inv.is_void and not inv.is_draft and session['user']['role'] in ['owner', 'super_admin'] %}
@@ -407,7 +467,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="13" style="text-align:center;padding:48px;color:var(--text-muted)">
+          <td colspan="15" style="text-align:center;padding:48px;color:var(--text-muted)">
             <div style="font-size:32px;margin-bottom:8px">📭</div>
             No invoices found for this filter.
           </td>
@@ -421,7 +481,7 @@
 <!-- Shared row-actions dropdown (single instance, repositioned per click) -->
 <div id="rowActionsMenu" class="action-menu-popup"></div>
 
-<!-- Void confirmation modal (app-themed, replaces window.confirm) -->
+<!-- Void confirmation modal -->
 <div id="voidModalOverlay" class="void-modal-overlay">
   <div class="void-modal">
     <h3 style="margin:0 0 4px;">🚫 Void Booking <span id="voidModalInvoiceId"></span></h3>
@@ -498,11 +558,10 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('voidModalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeVoidModal();
 });
-/* ---- Inline Tracking No. / Carrier Ref quick-edit (click cell, type, click away) ---- */
+/* ---- Inline Tracking No. / Carrier Ref quick-edit ---- */
 document.querySelectorAll('.inline-track-input').forEach(function(input) {
   input.dataset.lastSaved = input.value;
 
-  // Enter blurs (triggers save) instead of doing nothing / submitting a form.
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
     if (e.key === 'Escape') { input.value = input.dataset.lastSaved; input.blur(); }
@@ -511,7 +570,7 @@ document.querySelectorAll('.inline-track-input').forEach(function(input) {
   input.addEventListener('blur', function() {
     const newVal = input.value.trim();
     input.value = newVal;
-    if (newVal === input.dataset.lastSaved) return; // nothing changed, skip the call
+    if (newVal === input.dataset.lastSaved) return;
 
     const invoiceId = input.getAttribute('data-invoice-id');
     const row = document.querySelectorAll('.inline-track-input[data-row="' + CSS.escape(invoiceId) + '"]');
@@ -547,13 +606,12 @@ document.querySelectorAll('.inline-track-input').forEach(function(input) {
         input.classList.remove('saving');
         input.classList.add('save-error');
         input.title = err.message || 'Could not save. Please try again.';
-        // Revert so the row isn't left showing an unsaved value.
         input.value = input.dataset.lastSaved;
       });
   });
 });
 
-/* ---- Tracking Status dropdown (manual courier-site lookup) ---- */
+/* ---- Tracking Status dropdown ---- */
 document.querySelectorAll('.track-status-select').forEach(function(select) {
   select.dataset.lastSaved = select.value;
 
@@ -580,7 +638,7 @@ document.querySelectorAll('.track-status-select').forEach(function(select) {
       })
       .catch(function(err) {
         select.classList.remove('saving');
-        select.value = select.dataset.lastSaved; // revert
+        select.value = select.dataset.lastSaved;
         alert(err.message || 'Could not save tracking status. Please try again.');
       });
   });
