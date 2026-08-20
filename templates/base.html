@@ -1511,7 +1511,39 @@ window.addEventListener('appinstalled', () => {
   deferredPrompt = null;
 });
 </script>
-
+<script>
+// Comprehensive PWA debugging
+document.addEventListener('DOMContentLoaded', function() {
+  const installBtn = document.getElementById('installNexaBtn');
+  
+  // Log everything
+  console.log('🔍 PWA Debug:');
+  console.log('  - HTTPS:', window.location.protocol === 'https:');
+  console.log('  - Hostname:', window.location.hostname);
+  console.log('  - Manifest link:', document.querySelector('link[rel="manifest"]')?.href || 'NOT FOUND');
+  console.log('  - Service Worker:', navigator.serviceWorker ? 'Supported' : 'Not supported');
+  console.log('  - Standalone mode:', window.matchMedia('(display-mode: standalone)').matches);
+  console.log('  - Install button exists:', !!installBtn);
+  
+  if (installBtn) {
+    console.log('  - Button display:', installBtn.style.display);
+    console.log('  - Button classes:', installBtn.className);
+  }
+  
+  // Try to fetch manifest to check if it's accessible
+  fetch('/static/manifest.json')
+    .then(res => {
+      console.log('  - Manifest fetch:', res.ok ? '✅ OK' : '❌ Failed (status: ' + res.status + ')');
+      return res.json();
+    })
+    .then(data => {
+      console.log('  - Manifest data:', data);
+    })
+    .catch(err => {
+      console.error('  - Manifest fetch error:', err);
+    });
+});
+</script>
 {% endif %}
 </body>
 </html>
