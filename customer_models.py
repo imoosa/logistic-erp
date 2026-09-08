@@ -82,7 +82,6 @@ class CompanyRolePermission(customer_db.Model):
     role             = customer_db.Column(customer_db.String(50), nullable=False)  # 'employee' | 'accountant'
     permissions_json = customer_db.Column(customer_db.Text, nullable=True)  # Module permissions
     field_permissions_json = customer_db.Column(customer_db.Text, nullable=True)
-    permissions_json = customer_db.Column(customer_db.Text, nullable=True)
     updated_at       = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
 
     def __repr__(self):
@@ -259,6 +258,15 @@ class Invoice(customer_db.Model):
     terms          = customer_db.Column(customer_db.Text,        nullable=True)
     paid_amount    = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     balance        = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
+    # Cumulative settlement discount applied via Record Payment (see
+    # invoice_list_record_payment in app.py) — NOT the booking-time discount,
+    # which stays in the `terms` JSON blob's "discount" key. This column
+    # didn't exist before; app.py was reading/writing it with getattr() as
+    # if it were a real column, which meant every value it "stored" here
+    # was a plain in-memory Python attribute that vanished the moment the
+    # request ended and was never in the invoices table at all. Needs a
+    # migration on any existing database — see note below the class.
+    discount       = customer_db.Column(customer_db.Float,       nullable=False, default=0.0)
     created_at     = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     resale_charges   = customer_db.Column(customer_db.Float,     nullable=False, default=0.0)
     resale_reason    = customer_db.Column(customer_db.String(200), nullable=True)
@@ -267,6 +275,8 @@ class Invoice(customer_db.Model):
     has_resale       = customer_db.Column(customer_db.Boolean,   nullable=False, default=False)
     docket_no      = Column(String(50), nullable=True, index=True)
     submit_token     = customer_db.Column(customer_db.String(64), nullable=True, unique=True, index=True)
+    created_by     = customer_db.Column(customer_db.String(100), nullable=True)
+    updated_by     = customer_db.Column(customer_db.String(100), nullable=True)
 
     items = customer_db.relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
 
@@ -322,6 +332,7 @@ class CustomerInvoice(customer_db.Model):
     created_at = customer_db.Column(customer_db.DateTime, nullable=False, default=datetime.utcnow)
     updated_at = customer_db.Column(customer_db.DateTime, nullable=True, onupdate=datetime.utcnow)
     created_by = customer_db.Column(customer_db.String(50), nullable=True)
+    updated_by     = customer_db.Column(customer_db.String(100), nullable=True)
     
     booking_ids_json = customer_db.Column(customer_db.Text, nullable=True)
     
@@ -353,6 +364,7 @@ class CustomerInvoiceItem(customer_db.Model):
     weight_kg = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
     rate_per_kg = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
     taxable_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
+    other_charges = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
     gst_percent = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
     cgst_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
     sgst_amount = customer_db.Column(customer_db.Float, nullable=False, default=0.0)
@@ -439,6 +451,9 @@ class Estimate(customer_db.Model):
     email          = customer_db.Column(customer_db.String(150), nullable=True)
     phone          = customer_db.Column(customer_db.String(30),  nullable=True)
     terms          = customer_db.Column(customer_db.Text,        nullable=True)
+    created_by     = customer_db.Column(customer_db.String(100), nullable=True)
+    updated_by     = customer_db.Column(customer_db.String(100), nullable=True)
+    version         = customer_db.Column(customer_db.Integer, nullable=False, default=1)
 
     items = customer_db.relationship("EstimateItem", back_populates="estimate", cascade="all, delete-orphan")
 
@@ -632,6 +647,7 @@ class CashTransaction(customer_db.Model):
     party_name  = customer_db.Column(customer_db.String(200), nullable=True)  # client/supplier name at time of transaction
     created_at  = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     created_by  = customer_db.Column(customer_db.String(50),  nullable=True)
+    applied_ci_ids_json = customer_db.Column(customer_db.Text, nullable=True)
 
     # ── Structural link back to the invoice this transaction settled ────────
     # `reference` above is a display string (invoice number / "ADVANCE") and
@@ -645,6 +661,14 @@ class CashTransaction(customer_db.Model):
     applied_ref_type = customer_db.Column(customer_db.String(20), nullable=True)
     applied_ref_id   = customer_db.Column(customer_db.Integer,    nullable=True)
     applied_ci_id    = customer_db.Column(customer_db.Integer,    nullable=True)
+
+    # JSON map of {booking Invoice.id (str): amount applied to it (float)}.
+    # Only set when this single transaction settles money across MULTIPLE
+    # bookings under one CustomerInvoice (applied_ref_type ==
+    # "customer_invoice") — that's the one case applied_ref_id alone can't
+    # describe. Lets a delete/reversal peel the exact amount back off each
+    # exact booking instead of only re-syncing the CustomerInvoice's totals.
+    applied_breakdown_json = customer_db.Column(customer_db.Text, nullable=True)
 
 
 # ── 13. Bank Accounts ─────────────────────────────────────────────────────────
@@ -685,6 +709,7 @@ class BankTransaction(customer_db.Model):
     party_name       = customer_db.Column(customer_db.String(200), nullable=True)  # client/supplier name at time of transaction
     created_at       = customer_db.Column(customer_db.DateTime,    nullable=False, default=datetime.utcnow)
     created_by       = customer_db.Column(customer_db.String(50),  nullable=True)
+    applied_ci_ids_json = customer_db.Column(customer_db.Text, nullable=True)
 
     # ── Structural link back to the invoice this transaction settled ────────
     # See CashTransaction above for why this exists — `reference` alone is
@@ -692,6 +717,9 @@ class BankTransaction(customer_db.Model):
     applied_ref_type = customer_db.Column(customer_db.String(20), nullable=True)
     applied_ref_id   = customer_db.Column(customer_db.Integer,    nullable=True)
     applied_ci_id    = customer_db.Column(customer_db.Integer,    nullable=True)
+
+    # See CashTransaction.applied_breakdown_json — same purpose here.
+    applied_breakdown_json = customer_db.Column(customer_db.Text, nullable=True)
 
     bank_account = customer_db.relationship("BankAccount", back_populates="transactions")
 

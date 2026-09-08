@@ -532,7 +532,6 @@
               <th class="right">Total (₹)</th>
               <th class="right">Paid (₹)</th>
               <th class="right">Balance (₹)</th>
-              <th>Status</th>
               <th></th>
             </tr>
           </thead>
@@ -557,12 +556,6 @@
               <td style="text-align:right;" class="inv-amt">₹{{ "{:,.2f}".format(inv.grand_total or 0) }}</td>
               <td style="text-align:right;" class="inv-paid">₹{{ "{:,.2f}".format(inv.paid_amount or 0) }}</td>
               <td style="text-align:right;" class="inv-bal">₹{{ "{:,.2f}".format(inv.balance or 0) }}</td>
-              <td>
-                {% set st = inv.status|lower %}
-                <span class="inv-status {% if st == 'paid' %}inv-paid{% elif st == 'partial' %}inv-partial{% elif st == 'draft' %}inv-draft{% else %}inv-pending{% endif %}">
-                  {{ inv.status }}
-                </span>
-              </td>
               <td>
                 <a href="/invoice/view/{{ inv.invoice_id }}" class="btn btn-ghost btn-sm" title="View Invoice">👁️</a>
               </td>

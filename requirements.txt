@@ -27,5 +27,3 @@ requests
 
 # WSGI server for production (Nginx + Gunicorn deployment)
 gunicorn
-
-ollama

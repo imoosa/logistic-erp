@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Magnustic ERP Solution · {% block title %}{% endblock %}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-bgless.png') }}">
+  <title>{% block title %}{% endblock %} · {{ company.company_name if company else 'Qiyadah' }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='qiyadah_icon.png') }}?v=2">
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
   <meta name="theme-color" content="#0d47a1">
   <style>
@@ -14,7 +16,7 @@
       --primary: #F59E0B;
       --primary-light: #FEF3C7;
       --primary-dark: #D97706;
-      --primary-glow: rgba(245,158,11,0.12);
+      --primary-glow: rgba(245, 158, 11, 0.12);
       --success: #059669;
       --success-light: #D1FAE5;
       --danger: #DC2626;
@@ -23,7 +25,7 @@
       --warning-light: #FEF3C7;
       --accent: #F59E0B;
       --accent-light: #FEF3C7;
-      
+
       /* Light theme colors */
       --gray-50: #F8FAFC;
       --gray-100: #F1F5F9;
@@ -35,13 +37,13 @@
       --gray-700: #334155;
       --gray-800: #1E293B;
       --gray-900: #0F172A;
-      
+
       --font: 'Plus Jakarta Sans', sans-serif;
       --sidebar-w: 265px;
       --sidebar-collapsed-w: 60px;
       --topbar-h: 70px;
       --radius: 14px;
-      
+
       /* Light theme backgrounds & text */
       --bg-body: #F8FAFC;
       --bg-card: #ffffff;
@@ -49,18 +51,18 @@
       --text-body: #1E293B;
       --text-muted: #64748B;
       --border-color: #E2E8F0;
-      --shadow-card: 0 1px 3px rgba(0,0,0,.05);
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, .05);
       --bg-topbar: #ffffff;
       --bg-sidebar: #012926;
       --text-sidebar: #ffffff;
-      --bg-hover: rgba(255,255,255,0.06);
-      --bg-active: rgba(245,158,11,0.2);
+      --bg-hover: rgba(255, 255, 255, 0.06);
+      --bg-active: rgba(245, 158, 11, 0.2);
       --bg-dropdown: #ffffff;
       --bg-modal: #ffffff;
       --bg-table-alt: #F8FAFC;
       --bg-input-disabled: #F1F5F9;
-      --shadow-dropdown: 0 8px 32px rgba(0,0,0,0.13);
-      --border-light: rgba(255,255,255,0.06);
+      --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, 0.13);
+      --border-light: rgba(255, 255, 255, 0.06);
     }
 
     /* ── DARK THEME ── Pure black/dark aesthetic */
@@ -75,14 +77,14 @@
       --bg-modal: #1A1A1A;
       --bg-table-alt: #141414;
       --bg-input-disabled: #141414;
-      
+
       /* Text - pure white and light grays for readability */
       --text-body: #E8E8E8;
       --text-muted: #A0A0A0;
       --border-color: #2A2A2A;
-      --shadow-card: 0 1px 3px rgba(0,0,0,.5);
-      --shadow-dropdown: 0 8px 32px rgba(0,0,0,.6);
-      
+      --shadow-card: 0 1px 3px rgba(0, 0, 0, .5);
+      --shadow-dropdown: 0 8px 32px rgba(0, 0, 0, .6);
+
       /* Gray overrides for dark */
       --gray-50: #141414;
       --gray-100: #1A1A1A;
@@ -94,126 +96,314 @@
       --gray-700: #C0C0C0;
       --gray-800: #D8D8D8;
       --gray-900: #F0F0F0;
-      
+
       /* Sidebar stays dark green but slightly darker */
       --bg-sidebar: #011A18;
-      --bg-hover: rgba(255,255,255,0.05);
-      --bg-active: rgba(245,158,11,0.2);
-      --border-light: rgba(255,255,255,0.04);
+      --bg-hover: rgba(255, 255, 255, 0.05);
+      --bg-active: rgba(245, 158, 11, 0.2);
+      --border-light: rgba(255, 255, 255, 0.04);
     }
 
-   @media print {
-    .sidebar  { display: none !important; }
-    .topbar   { display: none !important; }
-    .main     { margin-left: 0 !important; padding: 0 !important; }
-    .content  { padding: 0 !important; }
-    .logo-loader-overlay,
-    .ai-fab,
-    .ai-panel,
-    .mobile-backdrop,
-    .app-modal-overlay { display: none !important; }
-}
-    
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    body { font-family: var(--font); background: var(--bg-body); color: var(--text-body); transition: background 0.3s ease, color 0.3s ease; }
+    @media print {
+      .sidebar {
+        display: none !important;
+      }
+
+      .topbar {
+        display: none !important;
+      }
+
+      .main {
+        margin-left: 0 !important;
+        padding: 0 !important;
+      }
+
+      .content {
+        padding: 0 !important;
+      }
+
+      .logo-loader-overlay,
+      .ai-fab,
+      .ai-panel,
+      .mobile-backdrop,
+      .app-modal-overlay {
+        display: none !important;
+      }
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-body);
+      color: var(--text-body);
+      transition: background 0.3s ease, color 0.3s ease;
+    }
 
     /* ── SIDEBAR ── */
-    .sidebar { transition: width .22s cubic-bezier(.4,0,.2,1); }
-    .sidebar.collapsed { width: var(--sidebar-collapsed-w); overflow: hidden; }
+    .sidebar {
+      transition: width .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .sidebar.collapsed {
+      width: var(--sidebar-collapsed-w);
+      overflow: hidden;
+    }
+
     .sidebar.collapsed .sidebar-logo-text,
     .sidebar.collapsed .sidebar-logo-sub,
     .sidebar.collapsed .company-pill,
     .sidebar.collapsed .nav-section-title,
     .sidebar.collapsed .nav-item span:last-child,
-    .sidebar.collapsed .sidebar-foot a span:last-child { display: none; }
-    .sidebar.collapsed .sidebar-logo { justify-content: center; }
-    .sidebar.collapsed .sidebar-header { padding: 16px 10px; }
-    .sidebar.collapsed .nav-item { justify-content: center; padding: 10px; }
-    .sidebar.collapsed .nav-icon { font-size: 18px; }
-    .sidebar.collapsed .sidebar-foot a { justify-content: center; padding: 10px; }
-    .sidebar-toggle-btn {
-      position: fixed; top: 50%; left: calc(var(--sidebar-w) - 15px); transform: translateY(-50%);
-      width: 30px; height: 30px; border-radius: 50%;
-      background: #fff; border: 1px solid var(--gray-200);
-      box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 10px rgba(0,0,0,.08);
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      color: var(--bg-sidebar); z-index: 150; padding: 0;
-      transition: left .22s cubic-bezier(.4,0,.2,1), background .15s, border-color .15s, box-shadow .15s, transform .15s;
+    .sidebar.collapsed .sidebar-foot a span:last-child {
+      display: none;
     }
-    .sidebar-toggle-btn svg { width: 14px; height: 14px; transition: transform .22s cubic-bezier(.4,0,.2,1); }
-    .sidebar-toggle-btn.is-collapsed svg { transform: rotate(180deg); }
-    #sidebar.collapsed + .sidebar-toggle-btn { left: calc(var(--sidebar-collapsed-w) - 15px); }
+
+    .sidebar.collapsed .sidebar-logo {
+      justify-content: center;
+    }
+
+    .sidebar.collapsed .sidebar-header {
+      padding: 16px 10px;
+    }
+
+    .sidebar.collapsed .nav-item {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .sidebar.collapsed .nav-icon {
+      font-size: 18px;
+    }
+
+    .sidebar.collapsed .sidebar-foot a {
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .sidebar-toggle-btn {
+      position: fixed;
+      top: 50%;
+      left: calc(var(--sidebar-w) - 15px);
+      transform: translateY(-50%);
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, .08), 0 4px 10px rgba(0, 0, 0, .08);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--bg-sidebar);
+      z-index: 150;
+      padding: 0;
+      transition: left .22s cubic-bezier(.4, 0, .2, 1), background .15s, border-color .15s, box-shadow .15s, transform .15s;
+    }
+
+    .sidebar-toggle-btn svg {
+      width: 14px;
+      height: 14px;
+      transition: transform .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .sidebar-toggle-btn.is-collapsed svg {
+      transform: rotate(180deg);
+    }
+
+    #sidebar.collapsed+.sidebar-toggle-btn {
+      left: calc(var(--sidebar-collapsed-w) - 15px);
+    }
+
     body.dark-theme .sidebar-toggle-btn {
       background: #1A1A1A;
       border-color: #3A3A3A;
       color: #E2E8F0;
     }
+
     .sidebar-toggle-btn:hover {
-      background: var(--primary); border-color: var(--primary); color: #fff;
-      box-shadow: 0 2px 6px rgba(245,158,11,.35), 0 6px 16px rgba(245,158,11,.25);
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(245, 158, 11, .35), 0 6px 16px rgba(245, 158, 11, .25);
       transform: translateY(-50%) scale(1.08);
     }
-    .main { transition: margin-left .22s cubic-bezier(.4,0,.2,1); }
-    .main.collapsed { margin-left: var(--sidebar-collapsed-w); }
+
+    .main {
+      transition: margin-left .22s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .main.collapsed {
+      margin-left: var(--sidebar-collapsed-w);
+    }
 
     .sidebar {
       width: var(--sidebar-w);
       background: var(--bg-sidebar);
-      position: fixed; top: 0; left: 0; height: 100vh;
-      display: flex; flex-direction: column;
-      z-index: 100; overflow-y: auto; overflow-x: hidden;
-      scrollbar-width: thin; scrollbar-color: #334155 transparent;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      z-index: 100;
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: #334155 transparent;
     }
-    .sidebar::-webkit-scrollbar { width: 4px; }
-    .sidebar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+    .sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
 
     .sidebar-header {
       padding: 22px 20px 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
-    .sidebar-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .sidebar-logo-icon { width: 36px; height: 36px; border-radius: 10px; object-fit: cover; flex-shrink: 0; display: block; }
-    .sidebar-logo-text { font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
-    .sidebar-logo-sub { font-size: 10px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      min-height: 48px;
+    }
+
+    .sidebar-qiyadah-brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .sidebar-qiyadah-icon {
+      width: 42px;
+      height: 42px;
+      object-fit: contain;
+      flex: 0 0 42px;
+      display: block;
+    }
+
+    .sidebar-qiyadah-word {
+      width: 132px;
+      height: auto;
+      display: block;
+      object-fit: contain;
+    }
+
+    .sidebar.collapsed .sidebar-qiyadah-brand {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .sidebar.collapsed .sidebar-qiyadah-icon {
+      width: 40px;
+      height: 40px;
+      flex-basis: 40px;
+    }
+
+    .sidebar.collapsed .sidebar-qiyadah-word {
+      display: none;
+    }
 
     .company-pill {
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 10px; padding: 10px 14px;
-    }
-    .company-pill-name { font-size: 12px; font-weight: 700; color: #e2e8f0; }
-    .company-pill-plan {
-      display: inline-block; margin-top: 5px;
-      background: linear-gradient(90deg, #0D9488, #F59E0B);
-      color: #fff; font-size: 9px; font-weight: 700;
-      padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 10px 14px;
     }
 
-    .sidebar-nav { flex: 1; padding: 14px 12px; }
-    .nav-section { margin-bottom: 6px; }
+    .company-pill-name {
+      font-size: 12px;
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .company-pill-plan {
+      display: inline-block;
+      margin-top: 5px;
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 14px 12px;
+    }
+
+    .nav-section {
+      margin-bottom: 6px;
+    }
+
     .nav-section-title {
-      font-size: 9.5px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 1px; color: rgba(255,255,255,0.6);
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.6);
       padding: 10px 10px 5px;
     }
+
     .nav-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 9px 12px; border-radius: 9px;
-      font-size: 13px; font-weight: 500; color: rgba(255,255,255,0.8);
-      text-decoration: none; margin-bottom: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      margin-bottom: 1px;
       transition: all .15s;
     }
-    .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
-    .nav-item.active { background: rgba(245,158,11,0.2); color: #F59E0B; font-weight: 600; }
-    .nav-item.active .nav-icon { color: #F59E0B; }
-    .nav-icon { font-size: 15px; flex-shrink: 0; }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+
+    .nav-item.active {
+      background: rgba(245, 158, 11, 0.2);
+      color: #F59E0B;
+      font-weight: 600;
+    }
+
+    .nav-item.active .nav-icon {
+      color: #F59E0B;
+    }
+
+    .nav-icon {
+      font-size: 15px;
+      flex-shrink: 0;
+    }
 
     /* The icon itself gets a tiny lift on hover so the interaction feels alive */
     .sidebar.collapsed .nav-item .nav-icon,
     .sidebar.collapsed .sidebar-foot a .nav-icon {
-      transition: transform .22s cubic-bezier(.34,1.56,.64,1);
+      transition: transform .22s cubic-bezier(.34, 1.56, .64, 1);
     }
+
     .sidebar.collapsed .nav-item:hover .nav-icon,
     .sidebar.collapsed .sidebar-foot a:hover .nav-icon {
       transform: scale(1.12);
@@ -239,78 +429,161 @@
       letter-spacing: .15px;
       white-space: nowrap;
       pointer-events: none;
-      box-shadow: 6px 0 18px rgba(0,0,0,0.28);
+      box-shadow: 6px 0 18px rgba(0, 0, 0, 0.28);
       opacity: 0;
       visibility: hidden;
       transform: scaleX(.4);
       transform-origin: left center;
-      transition: transform .28s cubic-bezier(.16,1,.3,1), opacity .18s ease, visibility 0s linear .28s;
+      transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .18s ease, visibility 0s linear .28s;
     }
+
     #navRollout.show {
       opacity: 1;
       visibility: visible;
       transform: scaleX(1);
-      transition: transform .28s cubic-bezier(.16,1,.3,1), opacity .12s ease;
+      transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .12s ease;
     }
+
     #navRollout.is-active {
       background: linear-gradient(135deg, #F59E0B, #D97706);
       color: #1A1206;
       border-left-color: transparent;
     }
+
     /* On mobile the collapsed sidebar reverts to full text, so no rollout needed there */
     @media (max-width: 991px) {
-      #navRollout { display: none !important; }
+      #navRollout {
+        display: none !important;
+      }
     }
 
-    .sidebar-foot { padding: 12px; border-top: 1px solid rgba(255,255,255,0.06); }
-    .sidebar-foot a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 9px; font-size: 13px; font-weight: 600; text-decoration: none; transition: all .15s; color: rgba(255,255,255,0.8); }
-    .sidebar-foot a:hover { background: rgba(255,255,255,0.06); color: #fff; }
-    .logout-btn { color: #f87171; }
-    .logout-btn:hover { background: rgba(220,38,38,0.15); color: #ef4444; }
+    .sidebar-foot {
+      padding: 12px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .sidebar-foot a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .15s;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .sidebar-foot a:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+    }
+
+    .logout-btn {
+      color: #f87171;
+    }
+
+    .logout-btn:hover {
+      background: rgba(220, 38, 38, 0.15);
+      color: #ef4444;
+    }
 
     /* ── TOPBAR ── */
     .topbar {
       height: var(--topbar-h);
       background: var(--bg-topbar);
       border-bottom: 1px solid var(--border-color);
-      display: flex; align-items: center;
+      display: flex;
+      align-items: center;
       padding: 0 28px;
       gap: 16px;
       transition: background 0.3s ease, border-color 0.3s ease;
     }
-    .topbar-title { font-size: 16px; font-weight: 700; color: var(--text-body); }
-    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+
+    .topbar-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
     .topbar-welcome {
-      display: flex; align-items: center; gap: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
       background: linear-gradient(135deg, #F0FDFA 0%, #FEF3C7 100%);
       border: 1px solid #DBEAFE;
-      border-radius: 40px; padding: 8px 18px 8px 12px;
+      border-radius: 40px;
+      padding: 8px 18px 8px 12px;
       transition: background 0.3s ease, border-color 0.3s ease;
     }
+
     body.dark-theme .topbar-welcome {
       background: linear-gradient(135deg, #1A2A2A 0%, #2A1A0A 100%);
       border-color: #2A2A2A;
     }
+
     .topbar-welcome-avatar {
-      width: 34px; height: 34px; border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
       background: linear-gradient(135deg, #0D9488, #F59E0B);
-      color: #fff; display: flex; align-items: center;
-      justify-content: center; font-size: 13px; font-weight: 800;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 800;
       flex-shrink: 0;
     }
-    .topbar-welcome-text { line-height: 1.2; }
-    .topbar-welcome-name { font-size: 13px; font-weight: 700; color: var(--text-body); }
-    .topbar-welcome-greeting { font-size: 11px; color: var(--text-muted); }
 
-    .topbar-user-wrap { position: relative; }
-    .topbar-welcome { cursor: pointer; user-select: none; }
-    .topbar-welcome-caret { font-size: 10px; color: var(--text-muted); margin-left: 4px; transition: transform .2s; }
-    .topbar-user-wrap.open .topbar-welcome-caret { transform: rotate(180deg); }
+    .topbar-welcome-text {
+      line-height: 1.2;
+    }
+
+    .topbar-welcome-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+
+    .topbar-welcome-greeting {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .topbar-user-wrap {
+      position: relative;
+    }
+
+    .topbar-welcome {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .topbar-welcome-caret {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-left: 4px;
+      transition: transform .2s;
+    }
+
+    .topbar-user-wrap.open .topbar-welcome-caret {
+      transform: rotate(180deg);
+    }
 
     .user-dropdown {
       display: none;
-      position: absolute; top: calc(100% + 10px); right: 0;
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
       min-width: 230px;
       background: var(--bg-dropdown);
       border: 1px solid var(--border-color);
@@ -320,7 +593,10 @@
       overflow: hidden;
       transition: background 0.3s ease, border-color 0.3s ease;
     }
-    .topbar-user-wrap.open .user-dropdown { display: block; }
+
+    .topbar-user-wrap.open .user-dropdown {
+      display: block;
+    }
 
     .user-dropdown-header {
       padding: 16px 18px 12px;
@@ -328,31 +604,77 @@
       background: linear-gradient(135deg, #F0FDFA 0%, #FEF3C7 100%);
       transition: background 0.3s ease, border-color 0.3s ease;
     }
+
     body.dark-theme .user-dropdown-header {
       background: linear-gradient(135deg, #1A2A2A 0%, #2A1A0A 100%);
     }
-    .user-dropdown-name { font-size: 14px; font-weight: 700; color: var(--text-body); }
-    .user-dropdown-email { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
-    .user-dropdown-role {
-      display: inline-block; margin-top: 6px;
-      background: linear-gradient(90deg, #0D9488, #F59E0B);
-      color: #fff; font-size: 9px; font-weight: 700;
-      padding: 2px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    .user-dropdown-body { padding: 8px; }
-    .user-dropdown-item {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px; border-radius: 9px;
-      font-size: 13px; font-weight: 600;
-      text-decoration: none; transition: all .15s; cursor: pointer;
+
+    .user-dropdown-name {
+      font-size: 14px;
+      font-weight: 700;
       color: var(--text-body);
     }
-    .user-dropdown-item.switch-item { color: var(--primary); }
-    .user-dropdown-item.switch-item:hover { background: var(--primary-light); }
-    body.dark-theme .user-dropdown-item.switch-item:hover { background: rgba(245,158,11,0.15); }
-    .user-dropdown-item.logout-item { color: var(--danger); }
-    .user-dropdown-item.logout-item:hover { background: var(--danger-light); }
-    body.dark-theme .user-dropdown-item.logout-item:hover { background: rgba(220,38,38,0.15); }
+
+    .user-dropdown-email {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .user-dropdown-role {
+      display: inline-block;
+      margin-top: 6px;
+      background: linear-gradient(90deg, #0D9488, #F59E0B);
+      color: #fff;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .user-dropdown-body {
+      padding: 8px;
+    }
+
+    .user-dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all .15s;
+      cursor: pointer;
+      color: var(--text-body);
+    }
+
+    .user-dropdown-item.switch-item {
+      color: var(--primary);
+    }
+
+    .user-dropdown-item.switch-item:hover {
+      background: var(--primary-light);
+    }
+
+    body.dark-theme .user-dropdown-item.switch-item:hover {
+      background: rgba(245, 158, 11, 0.15);
+    }
+
+    .user-dropdown-item.logout-item {
+      color: var(--danger);
+    }
+
+    .user-dropdown-item.logout-item:hover {
+      background: var(--danger-light);
+    }
+
+    body.dark-theme .user-dropdown-item.logout-item:hover {
+      background: rgba(220, 38, 38, 0.15);
+    }
 
     /* ── THEME TOGGLE ── */
     .theme-toggle-btn {
@@ -370,1180 +692,2083 @@
       color: var(--text-body);
       flex-shrink: 0;
     }
+
     .theme-toggle-btn:hover {
       border-color: var(--primary);
       transform: rotate(20deg) scale(1.05);
-      box-shadow: 0 0 20px rgba(245,158,11,0.15);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
     }
+
     body.dark-theme .theme-toggle-btn {
       border-color: #3A3A3A;
     }
+
     body.dark-theme .theme-toggle-btn:hover {
       border-color: var(--primary);
-      box-shadow: 0 0 20px rgba(245,158,11,0.2);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
     }
 
     /* ── COMMON COMPONENTS ── */
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 8px; font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; border: none; text-decoration: none; transition: all .15s; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-primary:hover { background: var(--primary-dark); }
-    .btn-success { background: var(--success); color: #fff; }
-    .btn-success:hover { background: #047857; }
-    .btn-ghost { background: var(--bg-card); color: var(--text-body); border: 1.5px solid var(--border-color); }
-    .btn-ghost:hover { background: var(--gray-100); }
-    body.dark-theme .btn-ghost:hover { background: #2A2A2A; }
-    .btn-danger { background: var(--danger); color: #fff; }
-    .btn-sm { padding: 6px 12px; font-size: 12px; }
-    .hamburger-btn { display: none; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: all .15s;
+    }
 
-    .card { background: var(--bg-card); border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: var(--shadow-card); margin-bottom: 20px; transition: background 0.3s ease, border-color 0.3s ease; }
-    .card-body { padding: 20px; }
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+    }
 
-    .table-wrap { overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; }
-    th { padding: 11px 16px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); background: var(--bg-table-alt); text-align: left; transition: background 0.3s ease, color 0.3s ease; border-bottom: 1px solid var(--border-color); }
-    td { padding: 13px 16px; font-size: 13.5px; border-top: 1px solid var(--border-color); color: var(--text-body); transition: border-color 0.3s ease, color 0.3s ease; }
-    tbody tr:hover { background: var(--gray-50); }
+    .btn-primary:hover {
+      background: var(--primary-dark);
+    }
 
-    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; }
-    .badge-success { background: var(--success-light); color: var(--success); }
-    .badge-warning { background: var(--warning-light); color: var(--warning); }
-    .badge-danger  { background: var(--danger-light);  color: var(--danger); }
-    .badge-primary { background: var(--primary-light); color: var(--primary); }
-    body.dark-theme .badge-success { background: rgba(5,150,105,0.2); color: #34D399; }
-    body.dark-theme .badge-warning { background: rgba(217,119,6,0.2); color: #FBBF24; }
-    body.dark-theme .badge-danger { background: rgba(220,38,38,0.2); color: #F87171; }
-    body.dark-theme .badge-primary { background: rgba(245,158,11,0.2); color: #FBBF24; }
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
 
-    .flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 500; display: flex; align-items: flex-start; gap: 8px; }
-    .flash-success { background: var(--success-light); color: var(--success); }
-    .flash-error, .flash-danger { background: var(--danger-light); color: var(--danger); }
-    .flash-warning { background: var(--warning-light); color: var(--warning); }
-    .flash-info { background: var(--primary-light); color: var(--primary); }
-    body.dark-theme .flash-success { background: rgba(5,150,105,0.15); color: #34D399; }
-    body.dark-theme .flash-error, body.dark-theme .flash-danger { background: rgba(220,38,38,0.15); color: #F87171; }
-    body.dark-theme .flash-warning { background: rgba(217,119,6,0.15); color: #FBBF24; }
-    body.dark-theme .flash-info { background: rgba(245,158,11,0.15); color: #FBBF24; }
+    .btn-success:hover {
+      background: #047857;
+    }
 
-    .form-group { margin-bottom: 16px; }
-    label { display: block; font-size: 12px; font-weight: 600; color: var(--text-body); margin-bottom: 5px; transition: color 0.3s ease; }
-    input, select, textarea { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border-color); border-radius: 8px; font-family: var(--font); font-size: 13.5px; outline: none; transition: border .15s, background 0.3s ease, color 0.3s ease; background: var(--bg-input); color: var(--text-body); }
-    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
-    input::placeholder, textarea::placeholder { color: var(--text-muted); }
-    input:disabled, select:disabled, textarea:disabled { background: var(--bg-input-disabled); opacity: 0.7; }
+    .btn-ghost {
+      background: var(--bg-card);
+      color: var(--text-body);
+      border: 1.5px solid var(--border-color);
+    }
 
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-    .page-header { margin-bottom: 24px; }
-    .page-header h2 { font-size: 24px; font-weight: 700; margin-bottom: 4px; color: var(--text-body); }
-    .page-header p { color: var(--text-muted); }
+    .btn-ghost:hover {
+      background: var(--gray-100);
+    }
+
+    body.dark-theme .btn-ghost:hover {
+      background: #2A2A2A;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .hamburger-btn {
+      display: none;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-color);
+      box-shadow: var(--shadow-card);
+      margin-bottom: 20px;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    .card-body {
+      padding: 20px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      padding: 11px 16px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text-muted);
+      background: var(--bg-table-alt);
+      text-align: left;
+      transition: background 0.3s ease, color 0.3s ease;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 13px 16px;
+      font-size: 13.5px;
+      border-top: 1px solid var(--border-color);
+      color: var(--text-body);
+      transition: border-color 0.3s ease, color 0.3s ease;
+    }
+
+    tbody tr:hover {
+      background: var(--gray-50);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    .badge-danger {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .badge-primary {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    body.dark-theme .badge-success {
+      background: rgba(5, 150, 105, 0.2);
+      color: #34D399;
+    }
+
+    body.dark-theme .badge-warning {
+      background: rgba(217, 119, 6, 0.2);
+      color: #FBBF24;
+    }
+
+    body.dark-theme .badge-danger {
+      background: rgba(220, 38, 38, 0.2);
+      color: #F87171;
+    }
+
+    body.dark-theme .badge-primary {
+      background: rgba(245, 158, 11, 0.2);
+      color: #FBBF24;
+    }
+
+    .flash {
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    .flash-success {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .flash-error,
+    .flash-danger {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .flash-warning {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    .flash-info {
+      background: var(--primary-light);
+      color: var(--primary);
+    }
+
+    body.dark-theme .flash-success {
+      background: rgba(5, 150, 105, 0.15);
+      color: #34D399;
+    }
+
+    body.dark-theme .flash-error,
+    body.dark-theme .flash-danger {
+      background: rgba(220, 38, 38, 0.15);
+      color: #F87171;
+    }
+
+    body.dark-theme .flash-warning {
+      background: rgba(217, 119, 6, 0.15);
+      color: #FBBF24;
+    }
+
+    body.dark-theme .flash-info {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-body);
+      margin-bottom: 5px;
+      transition: color 0.3s ease;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      padding: 9px 12px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13.5px;
+      outline: none;
+      transition: border .15s, background 0.3s ease, color 0.3s ease;
+      background: var(--bg-input);
+      color: var(--text-body);
+    }
+
+    input:focus,
+    select:focus,
+    textarea:focus {
+      border-color: var(--primary);
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    input:disabled,
+    select:disabled,
+    textarea:disabled {
+      background: var(--bg-input-disabled);
+      opacity: 0.7;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .page-header {
+      margin-bottom: 24px;
+    }
+
+    .page-header h2 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      color: var(--text-body);
+    }
+
+    .page-header p {
+      color: var(--text-muted);
+    }
 
     /* ── CORE LAYOUT ── */
-    html, body { height: 100%; }
-    .wrapper { display: flex; min-height: 100vh; }
-    .main { margin-left: var(--sidebar-w); flex: 1; min-height: 100vh; min-width: 0; display: flex; flex-direction: column; }
-    .topbar { position: sticky; top: 0; z-index: 40; flex-shrink: 0; }
-    .content { padding: 28px; flex: 1; }
+    html,
+    body {
+      height: 100%;
+    }
+
+    .wrapper {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    .main {
+      margin-left: var(--sidebar-w);
+      flex: 1;
+      min-height: 100vh;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      flex-shrink: 0;
+    }
+
+    .content {
+      padding: 28px;
+      flex: 1;
+    }
 
     @media(max-width:768px) {
-      .sidebar { transform: translateX(-100%); transition: transform .25s ease; width: min(280px, 82vw); z-index: 200; }
-      .sidebar.mobile-open { transform: translateX(0); }
-      .sidebar.collapsed { width: min(280px, 82vw); }
+      .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        width: min(280px, 82vw);
+        z-index: 200;
+      }
+
+      .sidebar.mobile-open {
+        transform: translateX(0);
+      }
+
+      .sidebar-nav {
+        padding-bottom: 74px;
+      }
+
+      .sidebar.collapsed {
+        width: min(280px, 82vw);
+      }
+
       .sidebar.collapsed .sidebar-logo-text,
       .sidebar.collapsed .sidebar-logo-sub,
       .sidebar.collapsed .company-pill,
       .sidebar.collapsed .nav-section-title,
       .sidebar.collapsed .nav-item span:last-child,
-      .sidebar.collapsed .sidebar-foot a span:last-child { display: revert; }
-      .sidebar.collapsed .nav-item { justify-content: flex-start; padding: 9px 12px; }
-      .sidebar-toggle-btn { display: none; }
-      .mobile-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 150; }
-      .mobile-backdrop.open { display: block; }
-      .main, .main.collapsed { margin-left: 0; }
-      .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 9px; border: 1.5px solid var(--border-color); background: var(--bg-card); font-size: 18px; cursor: pointer; flex-shrink: 0; color: var(--text-body); }
-      .topbar { padding: 0 14px; gap: 10px; }
-      .topbar-company-name { font-size: 14px; }
-      .topbar-company-logo { height: 32px; width: 32px; }
-      .topbar-welcome { padding: 6px; gap: 0; background: none; border: none; }
-      .topbar-welcome-text, .topbar-welcome-caret { display: none; }
-      .user-dropdown { right: -10px; min-width: 210px; }
-      .content { padding: 16px; }
-      .grid-2, .grid-3 { grid-template-columns: 1fr; }
-      .page-header h2 { font-size: 20px; }
-      table { font-size: 12.5px; }
-      th, td { padding: 9px 10px; }
-      .theme-toggle-btn { width: 34px; height: 34px; font-size: 14px; }
+      .sidebar.collapsed .sidebar-foot a span:last-child {
+        display: revert;
+      }
+
+      .sidebar.collapsed .nav-item {
+        justify-content: flex-start;
+        padding: 9px 12px;
+      }
+
+      .sidebar-toggle-btn {
+        display: none;
+      }
+
+      .mobile-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, .6);
+        z-index: 150;
+      }
+
+      .mobile-backdrop.open {
+        display: block;
+      }
+
+      .main,
+      .main.collapsed {
+        margin-left: 0;
+      }
+
+      .hamburger-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 9px;
+        border: 1.5px solid var(--border-color);
+        background: var(--bg-card);
+        font-size: 18px;
+        cursor: pointer;
+        flex-shrink: 0;
+        color: var(--text-body);
+      }
+
+      .topbar {
+        padding: 0 14px;
+        gap: 10px;
+      }
+
+      .topbar-company-name {
+        font-size: 14px;
+      }
+
+      .topbar-company-logo {
+        height: 32px;
+        width: 32px;
+      }
+
+      .topbar-welcome {
+        padding: 6px;
+        gap: 0;
+        background: none;
+        border: none;
+      }
+
+      .topbar-welcome-text,
+      .topbar-welcome-caret {
+        display: none;
+      }
+
+      .user-dropdown {
+        right: -10px;
+        min-width: 210px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      .grid-2,
+      .grid-3 {
+        grid-template-columns: 1fr;
+      }
+
+      .page-header h2 {
+        font-size: 20px;
+      }
+
+      table {
+        font-size: 12.5px;
+      }
+
+      th,
+      td {
+        padding: 9px 10px;
+      }
+
+      .theme-toggle-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 14px;
+      }
+
+      /* ── BOTTOM NAV (mobile only) ── */
+      .content {
+        padding-bottom: 88px;
+      }
+
+      .bottom-nav {
+        display: flex;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 62px;
+        background: var(--bg-topbar);
+        border-top: 1px solid var(--border-color);
+        box-shadow: 0 -2px 12px rgba(0, 0, 0, .08);
+        z-index: 250;
+        padding-bottom: env(safe-area-inset-bottom, 0);
+      }
+
+      .bn-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        text-decoration: none;
+        color: var(--text-muted);
+        font-size: 10.5px;
+        font-weight: 600;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-family: var(--font);
+        padding: 6px 2px;
+      }
+
+      .bn-item .bn-icon {
+        font-size: 19px;
+        line-height: 1;
+      }
+
+      .bn-item.active {
+        color: var(--primary);
+      }
+
+      .bn-fab-slot {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .bn-fab {
+        position: absolute;
+        top: -22px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        text-decoration: none;
+        box-shadow: 0 4px 14px rgba(245, 158, 11, .5);
+        border: 4px solid var(--bg-body);
+        transition: transform .15s;
+      }
+
+      .bn-fab:active {
+        transform: scale(.92);
+      }
+
+      body.dark-theme .bn-fab {
+        border-color: var(--bg-body);
+      }
+
+      /* keep the AI chat bubble above the bottom nav on mobile */
+      .ai-fab {
+        bottom: 78px !important;
+      }
+    }
+
+    @media(min-width:769px) {
+      .bottom-nav {
+        display: none;
+      }
     }
 
     @media(max-width:420px) {
-      .topbar-company-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .topbar-company-name {
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
     }
 
     /* ── MODAL ── */
     .app-modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.7);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 9999; opacity: 0; visibility: hidden;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      visibility: hidden;
       transition: opacity .18s ease, visibility .18s ease;
       padding: 16px;
       backdrop-filter: blur(4px);
     }
-    .app-modal-overlay.open { opacity: 1; visibility: visible; }
+
+    .app-modal-overlay.open {
+      opacity: 1;
+      visibility: visible;
+    }
+
     .app-modal {
-      background: var(--bg-modal); border-radius: var(--radius);
-      width: 100%; max-width: 380px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-      transform: translateY(-12px) scale(.97); opacity: 0;
+      background: var(--bg-modal);
+      border-radius: var(--radius);
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      transform: translateY(-12px) scale(.97);
+      opacity: 0;
       transition: transform .18s ease, opacity .18s ease;
       overflow: hidden;
       transition: background 0.3s ease;
     }
-    .app-modal-overlay.open .app-modal { transform: translateY(0) scale(1); opacity: 1; }
-    .app-modal-icon {
-      width: 44px; height: 44px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px; margin: 22px auto 0;
+
+    .app-modal-overlay.open .app-modal {
+      transform: translateY(0) scale(1);
+      opacity: 1;
     }
-    .app-modal[data-type="info"] .app-modal-icon { background: var(--primary-light); color: var(--primary-dark); }
-    .app-modal[data-type="success"] .app-modal-icon { background: var(--success-light); color: var(--success); }
-    .app-modal[data-type="danger"] .app-modal-icon { background: var(--danger-light); color: var(--danger); }
-    .app-modal[data-type="warning"] .app-modal-icon { background: var(--warning-light); color: var(--warning); }
-    body.dark-theme .app-modal[data-type="info"] .app-modal-icon { background: rgba(245,158,11,0.2); color: #FBBF24; }
-    body.dark-theme .app-modal[data-type="success"] .app-modal-icon { background: rgba(5,150,105,0.2); color: #34D399; }
-    body.dark-theme .app-modal[data-type="danger"] .app-modal-icon { background: rgba(220,38,38,0.2); color: #F87171; }
-    body.dark-theme .app-modal[data-type="warning"] .app-modal-icon { background: rgba(217,119,6,0.2); color: #FBBF24; }
-    .app-modal-body { padding: 14px 24px 24px; text-align: center; }
-    .app-modal-message { font-size: 14px; color: var(--text-body); line-height: 1.5; word-break: break-word; }
+
+    .app-modal-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin: 22px auto 0;
+    }
+
+    .app-modal[data-type="info"] .app-modal-icon {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+    }
+
+    .app-modal[data-type="success"] .app-modal-icon {
+      background: var(--success-light);
+      color: var(--success);
+    }
+
+    .app-modal[data-type="danger"] .app-modal-icon {
+      background: var(--danger-light);
+      color: var(--danger);
+    }
+
+    .app-modal[data-type="warning"] .app-modal-icon {
+      background: var(--warning-light);
+      color: var(--warning);
+    }
+
+    body.dark-theme .app-modal[data-type="info"] .app-modal-icon {
+      background: rgba(245, 158, 11, 0.2);
+      color: #FBBF24;
+    }
+
+    body.dark-theme .app-modal[data-type="success"] .app-modal-icon {
+      background: rgba(5, 150, 105, 0.2);
+      color: #34D399;
+    }
+
+    body.dark-theme .app-modal[data-type="danger"] .app-modal-icon {
+      background: rgba(220, 38, 38, 0.2);
+      color: #F87171;
+    }
+
+    body.dark-theme .app-modal[data-type="warning"] .app-modal-icon {
+      background: rgba(217, 119, 6, 0.2);
+      color: #FBBF24;
+    }
+
+    .app-modal-body {
+      padding: 14px 24px 24px;
+      text-align: center;
+    }
+
+    .app-modal-message {
+      font-size: 14px;
+      color: var(--text-body);
+      line-height: 1.5;
+      word-break: break-word;
+    }
+
     .app-modal-input {
-      margin-top: 14px; width: 100%; padding: 10px 12px;
-      border: 1.5px solid var(--border-color); border-radius: 8px;
-      font-family: var(--font); font-size: 13.5px; color: var(--text-body);
-      outline: none; transition: border .15s; text-align: left;
+      margin-top: 14px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border-color);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 13.5px;
+      color: var(--text-body);
+      outline: none;
+      transition: border .15s;
+      text-align: left;
       background: var(--bg-input);
     }
-    .app-modal-input:focus { border-color: var(--primary); }
-    .app-modal-actions { display: flex; gap: 10px; padding: 0 20px 20px; }
-    .app-modal-btn {
-      flex: 1; padding: 10px 14px; border-radius: 10px; border: none;
-      font-family: var(--font); font-size: 13.5px; font-weight: 700;
-      cursor: pointer; transition: filter .15s;
+
+    .app-modal-input:focus {
+      border-color: var(--primary);
     }
-    .app-modal-btn:hover { filter: brightness(0.94); }
-    .app-modal-btn.confirm { background: var(--primary); color: #fff; }
-    .app-modal[data-type="danger"] .app-modal-btn.confirm { background: var(--danger); }
-    .app-modal-btn.cancel { background: var(--gray-100); color: var(--text-body); }
-    body.dark-theme .app-modal-btn.cancel { background: #2A2A2A; color: #E8E8E8; }
+
+    .app-modal-actions {
+      display: flex;
+      gap: 10px;
+      padding: 0 20px 20px;
+    }
+
+    .app-modal-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: none;
+      font-family: var(--font);
+      font-size: 13.5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: filter .15s;
+    }
+
+    .app-modal-btn:hover {
+      filter: brightness(0.94);
+    }
+
+    .app-modal-btn.confirm {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .app-modal[data-type="danger"] .app-modal-btn.confirm {
+      background: var(--danger);
+    }
+
+    .app-modal-btn.cancel {
+      background: var(--gray-100);
+      color: var(--text-body);
+    }
+
+    body.dark-theme .app-modal-btn.cancel {
+      background: #2A2A2A;
+      color: #E8E8E8;
+    }
 
     .logo-loader-overlay {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
       background: var(--bg-body);
-      display: flex; align-items: center; justify-content: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       z-index: 9999;
       transition: background 0.3s ease;
     }
-    .logo-loader { width: 60px; height: 60px; border-radius: 50%; background: var(--primary); display: flex; align-items: center; justify-content: center; gap: 4px; }
-    .logo-loader .bar { width: 6px; border-radius: 4px; background: #fff; animation: bar-pulse 1.1s ease-in-out infinite; }
-    .logo-loader .bar:nth-child(1) { height: 15px; animation-delay: 0s; }
-    .logo-loader .bar:nth-child(2) { height: 23px; animation-delay: .12s; }
-    .logo-loader .bar:nth-child(3) { height: 30px; animation-delay: .24s; }
-    .logo-loader .bar:nth-child(4) { height: 20px; animation-delay: .36s; }
-    @keyframes bar-pulse { 0%,100% { transform: scaleY(.4); } 50% { transform: scaleY(1); } }
-    
-@media print {
-  .sidebar  { display: none !important; }
-  .topbar   { display: none !important; }
-  .main     { margin-left: 0 !important; padding: 0 !important; }
-  .content  { padding: 0 !important; }
-  .logo-loader-overlay,
-  .ai-fab,
-  .ai-panel,
-  .mobile-backdrop,
-  .app-modal-overlay,
-  .no-print,
-  .print-toolbar,
-  .print-btn-group { display: none !important; }
-  
-  /* Print area ko full page dikhao */
-  #printArea { 
-    display: block !important; 
-    position: absolute; 
-    left: 0; 
-    top: 0; 
-    width: 100%; 
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  #printArea .invoice-print {
-    border: 1.5px solid #000 !important;
-    padding: 6mm !important;
-    min-height: 277mm !important;
-    max-height: 290mm !important;
-    page-break-after: avoid !important;
-    page-break-inside: avoid !important;
-    margin: 0 auto !important;
-    width: 210mm !important;
-    max-width: 210mm !important;
-  }
-}
-</style>
- 
+
+    .logo-loader {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    .logo-loader .bar {
+      width: 6px;
+      border-radius: 4px;
+      background: #fff;
+      animation: bar-pulse 1.1s ease-in-out infinite;
+    }
+
+    .logo-loader .bar:nth-child(1) {
+      height: 15px;
+      animation-delay: 0s;
+    }
+
+    .logo-loader .bar:nth-child(2) {
+      height: 23px;
+      animation-delay: .12s;
+    }
+
+    .logo-loader .bar:nth-child(3) {
+      height: 30px;
+      animation-delay: .24s;
+    }
+
+    .logo-loader .bar:nth-child(4) {
+      height: 20px;
+      animation-delay: .36s;
+    }
+
+    @keyframes bar-pulse {
+
+      0%,
+      100% {
+        transform: scaleY(.4);
+      }
+
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    @media print {
+      .sidebar {
+        display: none !important;
+      }
+
+      .topbar {
+        display: none !important;
+      }
+
+      .main {
+        margin-left: 0 !important;
+        padding: 0 !important;
+      }
+
+      .content {
+        padding: 0 !important;
+      }
+
+      .logo-loader-overlay,
+      .ai-fab,
+      .ai-panel,
+      .mobile-backdrop,
+      .app-modal-overlay,
+      .no-print,
+      .print-toolbar,
+      .print-btn-group {
+        display: none !important;
+      }
+
+      /* Print area ko full page dikhao */
+      #printArea {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      #printArea .invoice-print {
+        border: 1.5px solid #000 !important;
+        padding: 6mm !important;
+        min-height: 277mm !important;
+        max-height: 290mm !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        margin: 0 auto !important;
+        width: 210mm !important;
+        max-width: 210mm !important;
+      }
+    }
+  </style>
+
   {% block extra_style %}{% endblock %}
 </head>
+
 <body>
   <div class="logo-loader-overlay" id="logoLoaderOverlay">
-  <div class="logo-loader">
-    <div class="bar"></div>
-    <div class="bar"></div>
-    <div class="bar"></div>
-    <div class="bar"></div>
+    <div class="logo-loader">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
   </div>
-</div>
-<div class="wrapper">
-  <div class="mobile-backdrop" id="mobileBackdrop"></div>
+  <div class="wrapper">
+    <div class="mobile-backdrop" id="mobileBackdrop"></div>
 
-  <!-- ── SIDEBAR ── -->
-  <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <div class="sidebar-logo">
-        <img src="{{ url_for('static', filename='logo.png') }}" alt="Magnustic ERP Solution" class="sidebar-logo-icon">
-        <div>
-          <div class="sidebar-logo-text">Magnustic</div>
-          <div class="sidebar-logo-sub">ERP Solution</div>
-        </div>
-        
-      </div>
-      
-    </div>
-    <button id="installNexaBtn" style="display:none;" class="btn btn-primary">
-  Install App
-</button>
-
-    <nav class="sidebar-nav">
-      <!-- Main Dashboard -->
-      {% if can('dashboard', 'view') %}
-      <a href="{{ url_for('dashboard') }}" class="nav-item {% if active == 'dashboard' %}active{% endif %}">
-        <span class="nav-icon">📊</span>
-        <span>Dashboard</span>
-      </a>
-      {% endif %}
-
-      <!-- Reports Dashboard -->
-      {% if can('analytics', 'view') %}
-      <a href="{{ url_for('reports_dashboard') }}" class="nav-item {% if active == 'reports_dashboard' %}active{% endif %}">
-        <span class="nav-icon">📈</span>
-        <span>Analytics</span>
-      </a>
-      {% endif %}
-
-      <!-- Sales Section -->
-      <div class="nav-section">
-        <div class="nav-section-title">Sales</div>
-        {% if can('invoices', 'view') %}
-        <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
-          <span class="nav-icon">📄</span><span>Booking</span>
-        </a>
-        {% endif %}
-        {% if can('customer_invoices', 'view') %}
-  <a href="{{ url_for('customer_invoice_list') }}" class="nav-item {% if active == 'customer_invoices' %}active{% endif %}">
-    <span class="nav-icon">📑</span><span>Customer Invoices</span>
-  </a>
-{% endif %}
-        {% if can('estimates', 'view') %}
-        <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
-          <span class="nav-icon">📝</span><span>Estimate</span>
-        </a>
-        {% endif %}
-        {% if can('clients', 'view') %}
-        <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
-          <span class="nav-icon">👥</span><span>Clients</span>
-        </a>
-        {% endif %}
-        {% if can('suppliers', 'view') %}
-        <a href="{{ url_for('supplier_list') }}" class="nav-item {% if active == 'suppliers' %}active{% endif %}">
-          <span class="nav-icon">🏭</span><span>Suppliers</span>
-        </a>
-        {% endif %}
-      </div>
-
-      <!-- Purchases Section -->
-      <div class="nav-section">
-        <div class="nav-section-title">Purchases</div>
-        {% if can('purchase', 'view') %}
-        <a href="{{ url_for('purchase_invoice_list') }}" class="nav-item {% if active == 'purchases' %}active{% endif %}">
-          <span class="nav-icon">🛒</span><span>Purchase Invoices</span>
-        </a>
-        {% endif %}
-        {% if can('stock', 'view') %}
-        <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
-          <span class="nav-icon">📦</span><span>Stock / Inventory</span>
-        </a>
-        {% endif %}
-        {% if can('pricelist', 'view') %}
-        <a href="{{ url_for('price_lists') }}" class="nav-item {% if active == 'price_lists' %}active{% endif %}">
-          <span class="nav-icon">📊</span><span>Price Lists</span>
-        </a>
-        {% endif %}
-        {% if can('manifest', 'view') %}
-        <a href="{{ url_for('manifest_list') }}" class="nav-item {% if active == 'manifest' %}active{% endif %}">
-          <span class="nav-icon">📋</span><span>Manifest</span>
-        </a>
-        {% endif %}
-      </div>
-
-      <!-- Banking & Finance -->
-      <div class="nav-section">
-        <div class="nav-section-title">Banking & Finance</div>
-        {% if can('bank', 'view') %}
-        <a href="{{ url_for('bank_accounts') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
-          <span class="nav-icon">🏦</span><span>Bank Accounts</span>
-        </a>
-        {% endif %}
-        {% if can('cash', 'view') %}
-        <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
-          <span class="nav-icon">💵</span><span>Cash In Hand</span>
-        </a>
-        {% endif %}
-        {% if can('cheques', 'view') %}
-        <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
-          <span class="nav-icon">📝</span><span>Cheques</span>
-        </a>
-        {% endif %}
-        {% if can('loans', 'view') %}
-        <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
-          <span class="nav-icon">🏦</span><span>Loan Accounts</span>
-        </a>
-        {% endif %}
-        {% if can('expenses', 'view') %}
-        <a href="{{ url_for('expenses') }}" class="nav-item {% if active == 'expenses' %}active{% endif %}">
-          <span class="nav-icon">💸</span><span>Expenses</span>
-        </a>
-        {% endif %}
-      </div>
-
-      <!-- Accounting -->
-      <div class="nav-section">
-        <div class="nav-section-title">Accounting</div>
-        {% if can('clients', 'view') %}
-        <a href="{{ url_for('debtors_list') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
-          <span class="nav-icon">💰</span><span>Debtors (Customers)</span>
-        </a>
-        {% endif %}
-        {% if can('suppliers', 'view') %}
-        <a href="{{ url_for('creditors_list') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
-          <span class="nav-icon">💳</span><span>Creditors (Suppliers)</span>
-        </a>
-        {% endif %}
-        {% if can('receipts_payments', 'view') %}
-        <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
-          <span class="nav-icon">📥</span><span>Receipts (IN)</span>
-        </a>
-        <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
-          <span class="nav-icon">📤</span><span>Payments (Out)</span>
-        </a>
-        {% endif %}
-        {% if can('analytics', 'view') %}
-        <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
-          <span class="nav-icon">📒</span><span>General Ledger</span>
-        </a>
-        <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
-          <span class="nav-icon">⚖️</span><span>Trial Balance</span>
-        </a>
-        {% endif %}
-      </div>
-
-      <!-- Sync & Backup -->
-      <div class="nav-section">
-        <div class="nav-section-title">Export & Backup</div>
-        {% if can('backup', 'view') %}
-        <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
-          <span class="nav-icon">💾</span><span>Backup</span>
-        </a>
-        {% endif %}
-        {% if can('analytics', 'view') %}
-        <a href="{{ url_for('export_selector') }}" class="nav-item {% if active == 'export_selector' %}active{% endif %}">
-          <span class="nav-icon">📤</span><span>Export to Excel</span>
-        </a>
-        {% endif %}
-      </div>
-
-      <!-- Settings -->
-      {% if user.role in ['owner', 'super_admin'] %}
-      <div class="nav-section">
-        <div class="nav-section-title">Settings</div>
-        <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
-          <span class="nav-icon">⚙️</span><span>Company Settings</span>
-        </a>
-        <a href="{{ url_for('whatsapp_settings') }}" class="nav-item {% if active == 'whatsapp_settings' %}active{% endif %}">
-          <span class="nav-icon">📱</span><span>WhatsApp Connect</span>
-        </a>
-      </div>
-      {% endif %}
-    </nav>
-
-  </aside>
-  <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-  </button>
-
-  <!-- ── MAIN ── -->
-  <div class="main">
-    <!-- Topbar with Welcome + Logout -->
-    <div class="topbar">
-      <style>
-        .topbar-company-logo { height:38px; width:38px; object-fit:contain; border-radius:6px; vertical-align:middle; margin-right:8px; }
-      </style>
-      <button class="hamburger-btn" id="hamburgerBtn" title="Menu">☰</button>
-      {% if company %}
-      {% if company_logo_url %}
-      <img src="{{ company_logo_url }}" alt="{{ company.company_name }}" class="topbar-company-logo">
-      {% endif %}
-      <strong><span class="topbar-company-name">{{ company.company_name }}</span></strong>
-      {% else %}
-      <span class="topbar-company-name">Magnustic ERP</span>
-      {% endif %}
-      
-      <div class="topbar-right">
-        {% if session.user %}
-        <div class="topbar-company-pill">
-        </div>
-            
-        <div class="topbar-user-wrap" id="userWrap">
-          <div class="topbar-welcome" id="userTrigger">
-            <div class="topbar-welcome-avatar">{{ session.user.full_name[0]|upper if session.user.full_name else 'U' }}</div>
-            <div class="topbar-welcome-text">
-              <div class="topbar-welcome-name">Welcome, {{ session.user.full_name.split()[0] if session.user.full_name else 'User' }}! 👋</div>
-              <div class="topbar-welcome-greeting">{{ session.user.role|replace('_',' ')|title }}</div>
-            </div>
-            <span class="topbar-welcome-caret">▼</span>
-          </div>
-          <div class="user-dropdown" id="userDropdown">
-            <div class="user-dropdown-header">
-              <div class="user-dropdown-name">{{ session.user.full_name or 'User' }}</div>
-              <div class="topbar-company-plan">PLAN : {{ company.subscription_plan|upper if company.subscription_plan else 'FREE' }}</div>
-              <div class="user-dropdown-email">{{ session.user.email or '' }}</div>
-              <span class="user-dropdown-role">{{ session.user.role|replace('_',' ')|title }}</span>
-            </div>
-            <div class="user-dropdown-body">
-              <a href="{{ url_for('select_company') }}" class="user-dropdown-item switch-item">
-                🏢 Select Company
-              </a>
-              <a href="{{ url_for('logout') }}" class="user-dropdown-item logout-item">
-                🚪 Logout
-              </a>
-            </div>
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <div class="sidebar-qiyadah-brand" aria-label="Qiyadah">
+            <img src="{{ url_for('static', filename='qiyadah_icon.png') }}" alt="Qiyadah logo"
+              class="sidebar-qiyadah-icon">
+            <img src="{{ url_for('static', filename='qiyadah-word.png') }}" alt="QIYADAH" class="sidebar-qiyadah-word">
           </div>
         </div>
+
+      </div>
+      <button id="installNexaBtn" style="display:none;" class="btn btn-primary">
+        Install App
+      </button>
+
+      <nav class="sidebar-nav">
+        <!-- Reports Dashboard -->
+        {% if can('analytics', 'view') %}
+        <a href="{{ url_for('reports_dashboard') }}"
+          class="nav-item {% if active == 'reports_dashboard' %}active{% endif %}">
+          <span class="nav-icon">📈</span>
+          <span>Analytics</span>
+        </a>
         {% endif %}
 
-        <!-- ── THEME TOGGLE ── -->
-        <button class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light Mode">🌙</button>
-        
-      </div>
-    </div>
+        <!-- Add to sidebar navigation -->
+        {% if can('bi_dashboard', 'view') %}
 
-    <div class="content">
-      {% if company and company.subscription_end %}
+        <a href="{{ url_for('bi_dashboard') }}" class="nav-item {% if active == 'bi_dashboard' %}active{% endif %}">
+          <span class="nav-icon">📊</span>
+          <span>BI Dashboard</span>
+        </a>
+        {% endif %}
+
+
+        <!-- Sales Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">Sales</div>
+          {% if can('invoices', 'view') %}
+          <a href="{{ url_for('invoice_list') }}" class="nav-item {% if active == 'invoices' %}active{% endif %}">
+            <span class="nav-icon">📄</span><span>Booking</span>
+          </a>
+          {% endif %}
+          {% if can('customer_invoices', 'view') %}
+          <a href="{{ url_for('customer_invoice_list') }}"
+            class="nav-item {% if active == 'customer_invoices' %}active{% endif %}">
+            <span class="nav-icon">📑</span><span>Customer Invoices</span>
+          </a>
+          {% endif %}
+          {% if can('estimates', 'view') %}
+          <a href="{{ url_for('estimate_list') }}" class="nav-item {% if active == 'estimates' %}active{% endif %}">
+            <span class="nav-icon">📝</span><span>Estimate</span>
+          </a>
+          {% endif %}
+          {% if can('clients', 'view') %}
+          <a href="{{ url_for('client_list') }}" class="nav-item {% if active == 'clients' %}active{% endif %}">
+            <span class="nav-icon">👥</span><span>Clients</span>
+          </a>
+          {% endif %}
+          {% if can('suppliers', 'view') %}
+          <a href="{{ url_for('supplier_list') }}" class="nav-item {% if active == 'suppliers' %}active{% endif %}">
+            <span class="nav-icon">🏭</span><span>Suppliers</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Purchases Section -->
+        <div class="nav-section">
+          <div class="nav-section-title">Purchases</div>
+          {% if can('purchase', 'view') %}
+          <a href="{{ url_for('purchase_invoice_list') }}"
+            class="nav-item {% if active == 'purchases' %}active{% endif %}">
+            <span class="nav-icon">🛒</span><span>Purchase Invoices</span>
+          </a>
+          {% endif %}
+          {% if can('stock', 'view') %}
+          <a href="{{ url_for('inventory_list') }}" class="nav-item {% if active == 'stock' %}active{% endif %}">
+            <span class="nav-icon">📦</span><span>Stock / Inventory</span>
+          </a>
+          {% endif %}
+          {% if can('pricelist', 'view') %}
+          <a href="{{ url_for('price_lists') }}" class="nav-item {% if active == 'price_lists' %}active{% endif %}">
+            <span class="nav-icon">📊</span><span>Price Lists</span>
+          </a>
+          {% endif %}
+          {% if can('manifest', 'view') %}
+          <a href="{{ url_for('manifest_list') }}" class="nav-item {% if active == 'manifest' %}active{% endif %}">
+            <span class="nav-icon">📋</span><span>Manifest</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Banking & Finance -->
+        <div class="nav-section">
+          <div class="nav-section-title">Banking & Finance</div>
+          {% if can('bank', 'view') %}
+          <a href="{{ url_for('bank_accounts') }}" class="nav-item {% if active == 'bank_accounts' %}active{% endif %}">
+            <span class="nav-icon">🏦</span><span>Bank Accounts</span>
+          </a>
+          {% endif %}
+          {% if can('cash', 'view') %}
+          <a href="{{ url_for('cash_in_hand') }}" class="nav-item {% if active == 'cash_in_hand' %}active{% endif %}">
+            <span class="nav-icon">💵</span><span>Cash In Hand</span>
+          </a>
+          {% endif %}
+          {% if can('cheques', 'view') %}
+          <a href="{{ url_for('cheques') }}" class="nav-item {% if active == 'cheques' %}active{% endif %}">
+            <span class="nav-icon">📝</span><span>Cheques</span>
+          </a>
+          {% endif %}
+          {% if can('loans', 'view') %}
+          <a href="{{ url_for('loan_accounts') }}" class="nav-item {% if active == 'loan_accounts' %}active{% endif %}">
+            <span class="nav-icon">🏦</span><span>Loan Accounts</span>
+          </a>
+          {% endif %}
+          {% if can('expenses', 'view') %}
+          <a href="{{ url_for('expenses') }}" class="nav-item {% if active == 'expenses' %}active{% endif %}">
+            <span class="nav-icon">💸</span><span>Expenses</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Accounting -->
+        <div class="nav-section">
+          <div class="nav-section-title">Accounting</div>
+          {% if can('clients', 'view') %}
+          <a href="{{ url_for('debtors_list') }}" class="nav-item {% if active == 'debtors' %}active{% endif %}">
+            <span class="nav-icon">💰</span><span>Debtors (Customers)</span>
+          </a>
+          {% endif %}
+          {% if can('suppliers', 'view') %}
+          <a href="{{ url_for('creditors_list') }}" class="nav-item {% if active == 'creditors' %}active{% endif %}">
+            <span class="nav-icon">💳</span><span>Creditors (Suppliers)</span>
+          </a>
+          {% endif %}
+          {% if can('receipts_payments', 'view') %}
+          <a href="{{ url_for('receipt_new') }}" class="nav-item {% if active == 'receipts' %}active{% endif %}">
+            <span class="nav-icon">📥</span><span>Receipts (IN)</span>
+          </a>
+          <a href="{{ url_for('payment_new') }}" class="nav-item {% if active == 'payments' %}active{% endif %}">
+            <span class="nav-icon">📤</span><span>Payments (Out)</span>
+          </a>
+          {% endif %}
+          {% if can('analytics', 'view') %}
+          <a href="{{ url_for('ledger') }}" class="nav-item {% if active == 'ledger' %}active{% endif %}">
+            <span class="nav-icon">📒</span><span>General Ledger</span>
+          </a>
+          <a href="{{ url_for('trial_balance') }}" class="nav-item {% if active == 'trial_balance' %}active{% endif %}">
+            <span class="nav-icon">⚖️</span><span>Trial Balance</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Sync & Backup -->
+        <div class="nav-section">
+          <div class="nav-section-title">Export & Backup</div>
+          {% if can('backup', 'view') %}
+          <a href="{{ url_for('backup') }}" class="nav-item {% if active == 'backup' %}active{% endif %}">
+            <span class="nav-icon">💾</span><span>Backup</span>
+          </a>
+          {% endif %}
+          {% if can('analytics', 'view') %}
+          <a href="{{ url_for('export_selector') }}"
+            class="nav-item {% if active == 'export_selector' %}active{% endif %}">
+            <span class="nav-icon">📤</span><span>Export to Excel</span>
+          </a>
+          {% endif %}
+        </div>
+
+        <!-- Settings -->
+        {% if user.role in ['owner', 'super_admin'] %}
+        <div class="nav-section">
+          <div class="nav-section-title">Settings</div>
+          <a href="{{ url_for('company_settings') }}" class="nav-item {% if active == 'settings' %}active{% endif %}">
+            <span class="nav-icon">⚙️</span><span>Company Settings</span>
+          </a>
+          <a href="{{ url_for('whatsapp_settings') }}"
+            class="nav-item {% if active == 'whatsapp_settings' %}active{% endif %}">
+            <span class="nav-icon">📱</span><span>WhatsApp Connect</span>
+          </a>
+        </div>
+        {% endif %}
+      </nav>
+
+    </aside>
+    <button class="sidebar-toggle-btn" id="sidebarToggle" title="Toggle sidebar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+        stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"></polyline>
+      </svg>
+    </button>
+
+    <!-- ── MAIN ── -->
+    <div class="main">
+      <!-- Topbar with Welcome + Logout -->
+      <div class="topbar">
+        <style>
+          .topbar-company-logo {
+            height: 38px;
+            width: 38px;
+            object-fit: contain;
+            border-radius: 6px;
+            vertical-align: middle;
+            margin-right: 8px;
+          }
+        </style>
+        <button class="hamburger-btn" id="hamburgerBtn" title="Menu">☰</button>
+        {% if company %}
+        {% if company_logo_url %}
+        <img src="{{ company_logo_url }}" alt="{{ company.company_name }}" class="topbar-company-logo">
+        {% endif %}
+        <strong><span class="topbar-company-name">{{ company.company_name }}</span></strong>
+        {% else %}
+        <span class="topbar-company-name">Qiyadah</span>
+        {% endif %}
+
+        <div class="topbar-right">
+          {% if session.user %}
+          <div class="topbar-company-pill">
+          </div>
+
+          <div class="topbar-user-wrap" id="userWrap">
+            <div class="topbar-welcome" id="userTrigger">
+              <div class="topbar-welcome-avatar">{{ session.user.full_name[0]|upper if session.user.full_name else 'U'
+                }}</div>
+              <div class="topbar-welcome-text">
+                <div class="topbar-welcome-name">Welcome, {{ session.user.full_name.split()[0] if session.user.full_name
+                  else 'User' }}! 👋</div>
+                <div class="topbar-welcome-greeting">{{ session.user.role|replace('_',' ')|title }}</div>
+              </div>
+              <span class="topbar-welcome-caret">▼</span>
+            </div>
+            <div class="user-dropdown" id="userDropdown">
+              <div class="user-dropdown-header">
+                <div class="user-dropdown-name">{{ session.user.full_name or 'User' }}</div>
+                <div class="topbar-company-plan">PLAN : {{ company.subscription_plan|upper if company.subscription_plan
+                  else 'FREE' }}</div>
+                <div class="user-dropdown-email">{{ session.user.email or '' }}</div>
+                <span class="user-dropdown-role">{{ session.user.role|replace('_',' ')|title }}</span>
+              </div>
+              <div class="user-dropdown-body">
+                <a href="{{ url_for('select_company') }}" class="user-dropdown-item switch-item">
+                  🏢 Select Company
+                </a>
+                <a href="{{ url_for('logout') }}" class="user-dropdown-item logout-item">
+                  🚪 Logout
+                </a>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- ── THEME TOGGLE ── -->
+          <button class="theme-toggle-btn" id="themeToggle" title="Toggle Dark/Light Mode">🌙</button>
+
+        </div>
+      </div>
+
+      <div class="content">
+        {% if company and company.subscription_end %}
         {% set days_left = (company.subscription_end - subscription_today).days %}
-        {% if days_left < 0 %}
-          <div class="flash" style="background:#fee2e2; color:#b91c1c;">
-            ⚠️ Your {{ company.subscription_plan|upper }} plan expired on {{ company.subscription_end.strftime('%d %b %Y') }}. Contact us to renew and avoid service interruption.
-          </div>
-        {% elif days_left <= 14 %}
-          <div class="flash" style="background:#fef3c7; color:#92400e;">
-            ⏳ Your {{ company.subscription_plan|upper }} plan expires in {{ days_left }} day{{ 's' if days_left != 1 else '' }} ({{ company.subscription_end.strftime('%d %b %Y') }}). <a href="{{ url_for('company_settings') }}" style="color:#92400e; text-decoration:underline;">Renew now</a>.
-          </div>
-        {% endif %}
-      {% endif %}
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          {% for category, msg in messages %}
-            {% set flash_map = {
-              'success': ('flash-success', '✅'),
-              'error':   ('flash-error',   '❌'),
-              'danger':  ('flash-error',   '❌'),
-              'warning': ('flash-warning', '⚠️'),
-              'info':    ('flash-info',    'ℹ️'),
-              'message': ('flash-info',    'ℹ️')
-            } %}
-            {% set cls, icon = flash_map.get(category, ('flash-info', 'ℹ️')) %}
-            <div class="flash {{ cls }}">{{ icon }} {{ msg }}</div>
-          {% endfor %}
-        {% endif %}
-      {% endwith %}
-      {% block content %}{% endblock %}
+        {% if days_left < 0 %} <div class="flash" style="background:#fee2e2; color:#b91c1c;">
+          ⚠️ Your {{ company.subscription_plan|upper }} plan expired on {{ company.subscription_end.strftime('%d %b %Y')
+          }}. Contact us to renew and avoid service interruption.
+      </div>
+      {% elif days_left <= 14 %} <div class="flash" style="background:#fef3c7; color:#92400e;">
+        ⏳ Your {{ company.subscription_plan|upper }} plan expires in {{ days_left }} day{{ 's' if days_left != 1 else ''
+        }} ({{ company.subscription_end.strftime('%d %b %Y') }}). <a href="{{ url_for('company_settings') }}"
+          style="color:#92400e; text-decoration:underline;">Renew now</a>.
     </div>
+    {% endif %}
+    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, msg in messages %}
+    {% set flash_map = {
+    'success': ('flash-success', '✅'),
+    'error': ('flash-error', '❌'),
+    'danger': ('flash-error', '❌'),
+    'warning': ('flash-warning', '⚠️'),
+    'info': ('flash-info', 'ℹ️'),
+    'message': ('flash-info', 'ℹ️')
+    } %}
+    {% set cls, icon = flash_map.get(category, ('flash-info', 'ℹ️')) %}
+    <div class="flash {{ cls }}">{{ icon }} {{ msg }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
   </div>
 
-</div>
-{% block extra_script %}{% endblock %}
-<script>
-  (function(){
-    var wrap = document.getElementById('userWrap');
-    var trigger = document.getElementById('userTrigger');
-    if (!wrap || !trigger) return;
-    trigger.addEventListener('click', function(e){
-      e.stopPropagation();
-      wrap.classList.toggle('open');
-    });
-    document.addEventListener('click', function(){
-      wrap.classList.remove('open');
-    });
-    document.getElementById('userDropdown').addEventListener('click', function(e){
-      e.stopPropagation();
-    });
-  })();
+  </div>
 
-  // Sidebar collapse/expand
-  (function(){
-    var sidebar = document.getElementById('sidebar');
-    var main = document.querySelector('.main');
-    var btn = document.getElementById('sidebarToggle');
-    if (!sidebar || !btn) return;
+  <!-- ── MOBILE BOTTOM NAV ── -->
+  <nav class="bottom-nav">
+    {% if can('analytics', 'view') %}
+    <a href="{{ url_for('reports_dashboard') }}"
+      class="bn-item {% if active == 'reports_dashboard' %}active{% endif %}">
+      <span class="bn-icon">📈</span><span>Analytics</span>
+    </a>
+    {% endif %}
 
-    // Auto-fill tooltip text from each item's visible label, so no
-    // manual data-tooltip attributes are needed on individual nav items.
-    var navLinks = sidebar.querySelectorAll('.nav-item, .sidebar-foot a');
-    navLinks.forEach(function(el){
-      var label = el.querySelector('span:last-child');
-      if (label && !el.hasAttribute('data-tooltip')) {
-        el.setAttribute('data-tooltip', label.textContent.trim());
+    <div class="bn-fab-slot">
+      <a href="/invoice/new" class="bn-fab" title="New Booking">+</a>
+    </div>
+
+    {% if can('invoices', 'view') %}
+    <a href="{{ url_for('invoice_list') }}" class="bn-item {% if active == 'invoices' %}active{% endif %}">
+      <span class="bn-icon">📄</span><span>Booking</span>
+    </a>
+    {% endif %}
+    {% if can('clients', 'view') %}
+    <a href="{{ url_for('client_list') }}" class="bn-item {% if active == 'clients' %}active{% endif %}">
+      <span class="bn-icon">👥</span><span>Clients</span>
+    </a>
+    {% endif %}
+    <button type="button" class="bn-item" id="bnMoreBtn">
+      <span class="bn-icon">☰</span><span>More</span>
+    </button>
+  </nav>
+
+  {% block extra_script %}{% endblock %}
+  <script>
+    (function () {
+      var wrap = document.getElementById('userWrap');
+      var trigger = document.getElementById('userTrigger');
+      if (!wrap || !trigger) return;
+      trigger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        wrap.classList.toggle('open');
+      });
+      document.addEventListener('click', function () {
+        wrap.classList.remove('open');
+      });
+      document.getElementById('userDropdown').addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+    })();
+
+    // Sidebar collapse/expand
+    (function () {
+      var sidebar = document.getElementById('sidebar');
+      var main = document.querySelector('.main');
+      var btn = document.getElementById('sidebarToggle');
+      if (!sidebar || !btn) return;
+
+      // Auto-fill tooltip text from each item's visible label, so no
+      // manual data-tooltip attributes are needed on individual nav items.
+      var navLinks = sidebar.querySelectorAll('.nav-item, .sidebar-foot a');
+      navLinks.forEach(function (el) {
+        var label = el.querySelector('span:last-child');
+        if (label && !el.hasAttribute('data-tooltip')) {
+          el.setAttribute('data-tooltip', label.textContent.trim());
+        }
+      });
+
+      // Rollout label element — lives on <body>, positioned via getBoundingClientRect()
+      // on hover, so it's never clipped by .sidebar.collapsed's overflow:hidden.
+      var rollout = document.createElement('div');
+      rollout.id = 'navRollout';
+      document.body.appendChild(rollout);
+      var hideTimer = null;
+
+      function showRollout(el) {
+        if (!sidebar.classList.contains('collapsed')) return; // only relevant when collapsed
+        if (window.innerWidth <= 991) return; // mobile sidebar shows full labels already
+        clearTimeout(hideTimer);
+        var rect = el.getBoundingClientRect();
+        rollout.textContent = el.getAttribute('data-tooltip') || '';
+        rollout.classList.toggle('is-active', el.classList.contains('active'));
+        rollout.style.top = rect.top + 'px';
+        rollout.style.height = rect.height + 'px';
+        rollout.style.left = rect.right + 'px';
+        // Force reflow so the transition re-triggers even if it was already showing elsewhere
+        void rollout.offsetWidth;
+        rollout.classList.add('show');
       }
-    });
+      function hideRollout() {
+        hideTimer = setTimeout(function () { rollout.classList.remove('show'); }, 40);
+      }
+      navLinks.forEach(function (el) {
+        el.addEventListener('mouseenter', function () { showRollout(el); });
+        el.addEventListener('mouseleave', hideRollout);
+        el.addEventListener('focus', function () { showRollout(el); });
+        el.addEventListener('blur', hideRollout);
+      });
+      // If the sidebar expands (or window resizes into mobile) while a rollout
+      // is visible, get rid of it immediately rather than leaving it stranded.
+      window.addEventListener('scroll', function () { rollout.classList.remove('show'); }, true);
+      window.addEventListener('resize', function () { rollout.classList.remove('show'); });
 
-    // Rollout label element — lives on <body>, positioned via getBoundingClientRect()
-    // on hover, so it's never clipped by .sidebar.collapsed's overflow:hidden.
-    var rollout = document.createElement('div');
-    rollout.id = 'navRollout';
-    document.body.appendChild(rollout);
-    var hideTimer = null;
-
-    function showRollout(el) {
-      if (!sidebar.classList.contains('collapsed')) return; // only relevant when collapsed
-      if (window.innerWidth <= 991) return; // mobile sidebar shows full labels already
-      clearTimeout(hideTimer);
-      var rect = el.getBoundingClientRect();
-      rollout.textContent = el.getAttribute('data-tooltip') || '';
-      rollout.classList.toggle('is-active', el.classList.contains('active'));
-      rollout.style.top = rect.top + 'px';
-      rollout.style.height = rect.height + 'px';
-      rollout.style.left = rect.right + 'px';
-      // Force reflow so the transition re-triggers even if it was already showing elsewhere
-      void rollout.offsetWidth;
-      rollout.classList.add('show');
-    }
-    function hideRollout() {
-      hideTimer = setTimeout(function(){ rollout.classList.remove('show'); }, 40);
-    }
-    navLinks.forEach(function(el){
-      el.addEventListener('mouseenter', function(){ showRollout(el); });
-      el.addEventListener('mouseleave', hideRollout);
-      el.addEventListener('focus', function(){ showRollout(el); });
-      el.addEventListener('blur', hideRollout);
-    });
-    // If the sidebar expands (or window resizes into mobile) while a rollout
-    // is visible, get rid of it immediately rather than leaving it stranded.
-    window.addEventListener('scroll', function(){ rollout.classList.remove('show'); }, true);
-    window.addEventListener('resize', function(){ rollout.classList.remove('show'); });
-
-    var collapsed = localStorage.getItem('sidebarCollapsed') === '1';
-    function apply(c) {
-      if (c) { sidebar.classList.add('collapsed'); main.classList.add('collapsed'); btn.classList.add('is-collapsed'); }
-      else    { sidebar.classList.remove('collapsed'); main.classList.remove('collapsed'); btn.classList.remove('is-collapsed'); }
-    }
-    apply(collapsed);
-    btn.addEventListener('click', function(e){
-      e.stopPropagation();
-      rollout.classList.remove('show');
-      collapsed = !collapsed;
-      localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+      var collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+      function apply(c) {
+        if (c) { sidebar.classList.add('collapsed'); main.classList.add('collapsed'); btn.classList.add('is-collapsed'); }
+        else { sidebar.classList.remove('collapsed'); main.classList.remove('collapsed'); btn.classList.remove('is-collapsed'); }
+      }
       apply(collapsed);
-    });
-  })();
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        rollout.classList.remove('show');
+        collapsed = !collapsed;
+        localStorage.setItem('sidebarCollapsed', collapsed ? '1' : '0');
+        apply(collapsed);
+      });
+    })();
 
-  // ── DARK THEME TOGGLE ──
-  (function(){
-    var themeToggle = document.getElementById('themeToggle');
-    if (!themeToggle) return;
-    
-    var isDark = localStorage.getItem('darkTheme') === 'true';
-    
-    function applyTheme(dark) {
-      if (dark) {
-        document.body.classList.add('dark-theme');
-        themeToggle.textContent = '☀️';
-        themeToggle.title = 'Switch to Light Mode';
-      } else {
-        document.body.classList.remove('dark-theme');
-        themeToggle.textContent = '🌙';
-        themeToggle.title = 'Switch to Dark Mode';
+    // ── DARK THEME TOGGLE ──
+    (function () {
+      var themeToggle = document.getElementById('themeToggle');
+      if (!themeToggle) return;
+
+      var isDark = localStorage.getItem('darkTheme') === 'true';
+
+      function applyTheme(dark) {
+        if (dark) {
+          document.body.classList.add('dark-theme');
+          themeToggle.textContent = '☀️';
+          themeToggle.title = 'Switch to Light Mode';
+        } else {
+          document.body.classList.remove('dark-theme');
+          themeToggle.textContent = '🌙';
+          themeToggle.title = 'Switch to Dark Mode';
+        }
+        localStorage.setItem('darkTheme', dark ? 'true' : 'false');
       }
-      localStorage.setItem('darkTheme', dark ? 'true' : 'false');
-    }
-    
-    applyTheme(isDark);
-    
-    themeToggle.addEventListener('click', function() {
-      isDark = !isDark;
+
       applyTheme(isDark);
-    });
-  })();
 
-  // Mobile drawer
-  (function(){
-    var sidebar = document.getElementById('sidebar');
-    var hamburger = document.getElementById('hamburgerBtn');
-    var backdrop = document.getElementById('mobileBackdrop');
-    if (!sidebar || !hamburger || !backdrop) return;
+      themeToggle.addEventListener('click', function () {
+        isDark = !isDark;
+        applyTheme(isDark);
+      });
+    })();
 
-    function openDrawer() {
-      sidebar.classList.add('mobile-open');
-      backdrop.classList.add('open');
-    }
-    function closeDrawer() {
-      sidebar.classList.remove('mobile-open');
-      backdrop.classList.remove('open');
-    }
-    hamburger.addEventListener('click', function(e){
-      e.stopPropagation();
-      openDrawer();
-    });
-    backdrop.addEventListener('click', closeDrawer);
-    sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function(link){
-      link.addEventListener('click', closeDrawer);
-    });
-    window.addEventListener('resize', function(){
-      if (window.innerWidth > 768) closeDrawer();
-    });
-  })();
+    // Mobile drawer
+    (function () {
+      var sidebar = document.getElementById('sidebar');
+      var hamburger = document.getElementById('hamburgerBtn');
+      var backdrop = document.getElementById('mobileBackdrop');
+      if (!sidebar || !hamburger || !backdrop) return;
 
-  // ── Themed alert/confirm modal ──
-  (function(){
-    var overlay, box, iconEl, msgEl, actionsEl;
+      function openDrawer() {
+        sidebar.classList.add('mobile-open');
+        backdrop.classList.add('open');
+      }
+      function closeDrawer() {
+        sidebar.classList.remove('mobile-open');
+        backdrop.classList.remove('open');
+      }
+      hamburger.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openDrawer();
+      });
+      backdrop.addEventListener('click', closeDrawer);
 
-    function build(){
-      overlay = document.createElement('div');
-      overlay.className = 'app-modal-overlay';
-      overlay.innerHTML =
-        '<div class="app-modal" data-type="info">' +
+      var bnMore = document.getElementById('bnMoreBtn');
+      if (bnMore) {
+        bnMore.addEventListener('click', function (e) {
+          e.stopPropagation();
+          openDrawer();
+        });
+      }
+      sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function (link) {
+        link.addEventListener('click', closeDrawer);
+      });
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 768) closeDrawer();
+      });
+    })();
+
+    // ── Themed alert/confirm modal ──
+    (function () {
+      var overlay, box, iconEl, msgEl, actionsEl;
+
+      function build() {
+        overlay = document.createElement('div');
+        overlay.className = 'app-modal-overlay';
+        overlay.innerHTML =
+          '<div class="app-modal" data-type="info">' +
           '<div class="app-modal-icon">i</div>' +
           '<div class="app-modal-body"><div class="app-modal-message"></div>' +
-            '<input type="text" class="app-modal-input" style="display:none;">' +
+          '<input type="text" class="app-modal-input" style="display:none;">' +
           '</div>' +
           '<div class="app-modal-actions"></div>' +
-        '</div>';
-      document.body.appendChild(overlay);
-      box = overlay.querySelector('.app-modal');
-      iconEl = overlay.querySelector('.app-modal-icon');
-      msgEl = overlay.querySelector('.app-modal-message');
-      inputEl = overlay.querySelector('.app-modal-input');
-      actionsEl = overlay.querySelector('.app-modal-actions');
-      overlay.addEventListener('click', function(e){ if (e.target === overlay) close(cancelValue); });
-      inputEl.addEventListener('keydown', function(e){
-        if (e.key === 'Enter') { e.preventDefault(); var b = actionsEl.querySelector('.app-modal-btn.confirm'); if (b) b.click(); }
-        if (e.key === 'Escape') { close(cancelValue); }
-      });
-    }
-
-    var ICONS = { info: 'ℹ️', success: '✅', danger: '⛔', warning: '⚠️' };
-    var resolver = null;
-    var inputEl = null;
-    var cancelValue = false;
-
-    function open(message, type, buttons, inputCfg){
-      if (!overlay) build();
-      box.setAttribute('data-type', type);
-      iconEl.textContent = ICONS[type] || ICONS.info;
-      msgEl.textContent = message;
-      cancelValue = false;
-      if (inputCfg) {
-        inputEl.style.display = '';
-        inputEl.value = inputCfg.value || '';
-        inputEl.placeholder = inputCfg.placeholder || '';
-      } else {
-        inputEl.style.display = 'none';
-        inputEl.value = '';
-      }
-      actionsEl.innerHTML = '';
-      buttons.forEach(function(b){
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'app-modal-btn ' + b.cls;
-        btn.textContent = b.label;
-        if (b.cls === 'cancel') cancelValue = (b.value === '__INPUT__') ? null : b.value;
-        btn.addEventListener('click', function(){
-          close(b.value === '__INPUT__' ? inputEl.value : b.value);
+          '</div>';
+        document.body.appendChild(overlay);
+        box = overlay.querySelector('.app-modal');
+        iconEl = overlay.querySelector('.app-modal-icon');
+        msgEl = overlay.querySelector('.app-modal-message');
+        inputEl = overlay.querySelector('.app-modal-input');
+        actionsEl = overlay.querySelector('.app-modal-actions');
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) close(cancelValue); });
+        inputEl.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); var b = actionsEl.querySelector('.app-modal-btn.confirm'); if (b) b.click(); }
+          if (e.key === 'Escape') { close(cancelValue); }
         });
-        actionsEl.appendChild(btn);
-      });
-      requestAnimationFrame(function(){
-        overlay.classList.add('open');
-        if (inputCfg) inputEl.focus();
-      });
-    }
-
-    function close(value){
-      overlay.classList.remove('open');
-      if (resolver) { var r = resolver; resolver = null; r(value); }
-    }
-
-    window.alert = function(message, type){
-      open(String(message), type || 'info', [{ label: 'OK', cls: 'confirm', value: true }]);
-      return new Promise(function(res){ resolver = res; });
-    };
-
-    window.appConfirm = function(message, opts){
-      opts = opts || {};
-      return new Promise(function(res){
-        resolver = res;
-        open(String(message), opts.type || 'warning', [
-          { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: false },
-          { label: opts.okLabel || 'Confirm', cls: 'confirm', value: true }
-        ]);
-      });
-    };
-
-    window.appPrompt = function(message, opts){
-      opts = opts || {};
-      return new Promise(function(res){
-        resolver = res;
-        open(String(message), opts.type || 'info', [
-          { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: null },
-          { label: opts.okLabel || 'OK', cls: 'confirm', value: '__INPUT__' }
-        ], { placeholder: opts.placeholder || '', value: opts.defaultValue || '' });
-      });
-    };
-  })();
-</script>
-<script>
-  (function(){
-    var sidebar = document.getElementById('sidebar');
-    if (!sidebar) return;
-    
-    function saveScrollPosition() {
-      localStorage.setItem('sidebarScrollPos', sidebar.scrollTop);
-    }
-    
-    function restoreScrollPosition() {
-      var savedPos = localStorage.getItem('sidebarScrollPos');
-      if (savedPos !== null) {
-        sidebar.scrollTop = parseInt(savedPos, 10);
       }
-    }
-    
-    function scrollToActiveItem() {
-      var activeItem = sidebar.querySelector('.nav-item.active');
-      if (activeItem) {
-        var rect = activeItem.getBoundingClientRect();
-        var sidebarRect = sidebar.getBoundingClientRect();
-        var isVisible = rect.top >= sidebarRect.top && 
-                        rect.bottom <= sidebarRect.bottom;
-        
-        if (!isVisible) {
-          activeItem.scrollIntoView({
-            block: 'center',
-            behavior: 'smooth'
+
+      var ICONS = { info: 'ℹ️', success: '✅', danger: '⛔', warning: '⚠️' };
+      var resolver = null;
+      var inputEl = null;
+      var cancelValue = false;
+
+      function open(message, type, buttons, inputCfg) {
+        if (!overlay) build();
+        box.setAttribute('data-type', type);
+        iconEl.textContent = ICONS[type] || ICONS.info;
+        msgEl.textContent = message;
+        cancelValue = false;
+        if (inputCfg) {
+          inputEl.style.display = '';
+          inputEl.value = inputCfg.value || '';
+          inputEl.placeholder = inputCfg.placeholder || '';
+        } else {
+          inputEl.style.display = 'none';
+          inputEl.value = '';
+        }
+        actionsEl.innerHTML = '';
+        buttons.forEach(function (b) {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'app-modal-btn ' + b.cls;
+          btn.textContent = b.label;
+          if (b.cls === 'cancel') cancelValue = (b.value === '__INPUT__') ? null : b.value;
+          btn.addEventListener('click', function () {
+            close(b.value === '__INPUT__' ? inputEl.value : b.value);
           });
+          actionsEl.appendChild(btn);
+        });
+        requestAnimationFrame(function () {
+          overlay.classList.add('open');
+          if (inputCfg) inputEl.focus();
+        });
+      }
+
+      function close(value) {
+        overlay.classList.remove('open');
+        if (resolver) { var r = resolver; resolver = null; r(value); }
+      }
+
+      window.alert = function (message, type) {
+        open(String(message), type || 'info', [{ label: 'OK', cls: 'confirm', value: true }]);
+        return new Promise(function (res) { resolver = res; });
+      };
+
+      window.appConfirm = function (message, opts) {
+        opts = opts || {};
+        return new Promise(function (res) {
+          resolver = res;
+          open(String(message), opts.type || 'warning', [
+            { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: false },
+            { label: opts.okLabel || 'Confirm', cls: 'confirm', value: true }
+          ]);
+        });
+      };
+
+      window.appPrompt = function (message, opts) {
+        opts = opts || {};
+        return new Promise(function (res) {
+          resolver = res;
+          open(String(message), opts.type || 'info', [
+            { label: opts.cancelLabel || 'Cancel', cls: 'cancel', value: null },
+            { label: opts.okLabel || 'OK', cls: 'confirm', value: '__INPUT__' }
+          ], { placeholder: opts.placeholder || '', value: opts.defaultValue || '' });
+        });
+      };
+    })();
+  </script>
+  <script>
+    (function () {
+      var sidebar = document.getElementById('sidebar');
+      if (!sidebar) return;
+
+      function saveScrollPosition() {
+        localStorage.setItem('sidebarScrollPos', sidebar.scrollTop);
+      }
+
+      function restoreScrollPosition() {
+        var savedPos = localStorage.getItem('sidebarScrollPos');
+        if (savedPos !== null) {
+          sidebar.scrollTop = parseInt(savedPos, 10);
         }
       }
-    }
-    
-    sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function(link) {
-      link.addEventListener('click', function() {
+
+      function scrollToActiveItem() {
+        var activeItem = sidebar.querySelector('.nav-item.active');
+        if (activeItem) {
+          var rect = activeItem.getBoundingClientRect();
+          var sidebarRect = sidebar.getBoundingClientRect();
+          var isVisible = rect.top >= sidebarRect.top &&
+            rect.bottom <= sidebarRect.bottom;
+
+          if (!isVisible) {
+            activeItem.scrollIntoView({
+              block: 'center',
+              behavior: 'smooth'
+            });
+          }
+        }
+      }
+
+      sidebar.querySelectorAll('.nav-item, .sidebar-foot a').forEach(function (link) {
+        link.addEventListener('click', function () {
+          saveScrollPosition();
+        });
+      });
+
+      window.addEventListener('load', function () {
+        setTimeout(function () {
+          restoreScrollPosition();
+          setTimeout(scrollToActiveItem, 100);
+        }, 50);
+      });
+
+      window.addEventListener('beforeunload', function () {
         saveScrollPosition();
       });
+    })();
+  </script>
+  <script>
+    window.addEventListener('load', function () {
+      var loader = document.getElementById('logoLoaderOverlay');
+      if (loader) loader.style.display = 'none';
     });
-    
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        restoreScrollPosition();
-        setTimeout(scrollToActiveItem, 100);
-      }, 50);
-    });
-    
-    window.addEventListener('beforeunload', function() {
-      saveScrollPosition();
-    });
-  })();
-</script>
-<script>
-  window.addEventListener('load', function() {
-    var loader = document.getElementById('logoLoaderOverlay');
-    if (loader) loader.style.display = 'none';
-  });
-</script>
-{% if session.user %}
-<style>
-  .ai-fab {
-    position: fixed; bottom: 24px; right: 24px; z-index: 998;
-    width: 56px; height: 56px; border-radius: 50%; border: none;
-    background: linear-gradient(135deg, #0D9488, var(--primary));
-    color: #fff; font-size: 24px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: 0 6px 20px rgba(245,158,11,0.35);
-    transition: transform .18s ease, box-shadow .18s ease;
-  }
-  .ai-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 10px 26px rgba(245,158,11,0.45); }
-  .ai-fab.hidden-when-open { display: none; }
-
-  .ai-panel {
-    position: fixed; top: 0; right: 0; bottom: 0; z-index: 999;
-    width: 400px; max-width: 100vw;
-    height: 100vh; max-height: 100vh;
-    background: var(--bg-card); border-radius: 0;
-    box-shadow: -8px 0 40px rgba(0,0,0,0.3);
-    display: flex; flex-direction: column; overflow: hidden;
-    font-family: var(--font);
-    border-left: 1px solid var(--border-color);
-    transform: translateX(100%);
-    visibility: hidden;
-    transition: transform .28s cubic-bezier(.4,0,.2,1), visibility 0s linear .28s;
-  }
-  .ai-panel.open { transform: translateX(0); visibility: visible; transition: transform .28s cubic-bezier(.4,0,.2,1); }
-
-  .ai-panel-header {
-    background: #012926; color: #fff; padding: 14px 16px;
-    display: flex; align-items: center; gap: 10px;
-  }
-  body.dark-theme .ai-panel-header {
-    background: #011A18;
-  }
-  .ai-panel-header-icon {
-    width: 32px; height: 32px; border-radius: 9px;
-    background: linear-gradient(135deg, #0D9488, var(--primary));
-    display: flex; align-items: center; justify-content: center; font-size: 16px;
-    flex-shrink: 0;
-  }
-  .ai-panel-header-text { flex: 1; min-width: 0; }
-  .ai-panel-header-title { font-size: 13.5px; font-weight: 700; }
-  .ai-panel-header-sub { font-size: 10.5px; color: rgba(255,255,255,0.6); margin-top: 1px; }
-  .ai-panel-header-btn {
-    background: transparent; border: none; color: rgba(255,255,255,0.7);
-    font-size: 15px; cursor: pointer; padding: 4px 8px; border-radius: 6px;
-  }
-  .ai-panel-header-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
-  .ai-panel-body {
-    flex: 1; overflow-y: auto; padding: 16px;
-    display: flex; flex-direction: column; gap: 10px;
-    background: var(--bg-body);
-    transition: background 0.3s ease;
-  }
-  .ai-msg { max-width: 85%; padding: 10px 13px; border-radius: 12px; font-size: 13px; line-height: 1.5; }
-  .ai-msg.user {
-    align-self: flex-end; background: var(--primary); color: #fff;
-    border-bottom-right-radius: 3px;
-  }
-  .ai-msg.bot {
-    align-self: flex-start; background: var(--bg-card); color: var(--text-body);
-    border: 1px solid var(--border-color); border-bottom-left-radius: 3px;
-    transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
-  }
-  .ai-msg.bot.error { border-color: var(--danger-light); background: var(--danger-light); color: #991b1b; }
-  body.dark-theme .ai-msg.bot.error { background: rgba(220,38,38,0.15); color: #F87171; border-color: rgba(220,38,38,0.2); }
-  .ai-msg.bot.denied { border-color: var(--warning-light); background: var(--warning-light); color: #92400e; }
-  body.dark-theme .ai-msg.bot.denied { background: rgba(217,119,6,0.15); color: #FBBF24; border-color: rgba(217,119,6,0.2); }
-  .ai-msg-welcome {
-    align-self: center; text-align: center; color: var(--text-muted);
-    font-size: 12px; padding: 24px 12px;
-    transition: color 0.3s ease;
-  }
-  .ai-msg-welcome b { color: var(--text-body); display: block; margin-bottom: 4px; font-size: 13px; }
-
-  .ai-typing { align-self: flex-start; display: flex; gap: 4px; padding: 10px 13px; }
-  .ai-typing span {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted);
-    animation: ai-bounce 1.2s infinite;
-  }
-  .ai-typing span:nth-child(2) { animation-delay: .15s; }
-  .ai-typing span:nth-child(3) { animation-delay: .3s; }
-  @keyframes ai-bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
-
-  .ai-panel-suggestions {
-    display: flex; gap: 6px; flex-wrap: wrap; padding: 0 16px 10px;
-  }
-  .ai-suggestion-chip {
-    font-size: 11px; padding: 5px 10px; border-radius: 20px;
-    background: var(--gray-100); color: var(--text-muted); border: 1px solid var(--border-color);
-    cursor: pointer; white-space: nowrap;
-    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
-  }
-  .ai-suggestion-chip:hover { background: var(--primary-light); color: var(--primary-dark); border-color: var(--primary); }
-  body.dark-theme .ai-suggestion-chip:hover { background: rgba(245,158,11,0.15); color: #FBBF24; border-color: #FBBF24; }
-
-  .ai-panel-input {
-    display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border-color); background: var(--bg-card);
-    transition: border-color 0.3s ease, background 0.3s ease;
-  }
-  .ai-panel-input input {
-    flex: 1; border: 1px solid var(--border-color); border-radius: 10px;
-    padding: 10px 12px; font-size: 13px; font-family: var(--font); outline: none;
-    background: var(--bg-input); color: var(--text-body);
-    transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease;
-  }
-  .ai-panel-input input:focus { border-color: var(--primary); }
-  .ai-panel-input button {
-    background: var(--primary); color: #fff; border: none; border-radius: 10px;
-    width: 40px; height: 40px; cursor: pointer; font-size: 15px; flex-shrink: 0;
-  }
-  .ai-panel-input button:disabled { opacity: .5; cursor: not-allowed; }
-
-  @media (max-width: 480px) {
-    .ai-panel { width: 100vw; }
-    .ai-fab { right: 16px; bottom: 16px; }
-  }
-
-  .ai-status { align-self: flex-start; display: flex; align-items: center; gap: 8px; padding: 10px 13px; font-size: 12.5px; color: var(--text-muted); transition: color 0.3s ease; }
-  .ai-status .ai-status-dot {
-    width: 6px; height: 6px; border-radius: 50%; background: var(--primary);
-    animation: ai-pulse 1s infinite;
-  }
-  @keyframes ai-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
-</style>
-
-<button class="ai-fab" id="aiFab" title="Ask Magnustic AI">💬</button>
-
-<div class="ai-panel" id="aiPanel">
-  <div class="ai-panel-header">
-    <div class="ai-panel-header-icon">🤖</div>
-    <div class="ai-panel-header-text">
-      <div class="ai-panel-header-title">Magnustic ERP AI</div>
-      <div class="ai-panel-header-sub">{{ company.company_name if company else 'Your company' }}</div>
-    </div>
-    <button class="ai-panel-header-btn" id="aiClearBtn" title="Clear chat">↺</button>
-    <button class="ai-panel-header-btn" id="aiCloseBtn" title="Close">✕</button>
-  </div>
-
-  <div class="ai-panel-body" id="aiBody">
-    <div class="ai-msg-welcome" id="aiWelcome">
-      <b>Ask me anything about {{ company.company_name if company else 'your company' }}</b>
-      Pending invoices, client balances, stock levels, cash/bank position,
-      GST questions — just ask.
-    </div>
-  </div>
-
-  <div class="ai-panel-suggestions" id="aiSuggestions">
-    <span class="ai-suggestion-chip" data-q="Show dashboard summary">Dashboard</span>
-    <span class="ai-suggestion-chip" data-q="Who owes us money">Receivables</span>
-    <span class="ai-suggestion-chip" data-q="What is our cash balance">Cash balance</span>
-    <span class="ai-suggestion-chip" data-q="What is CGST and SGST">CGST vs SGST</span>
-  </div>
-
-  <div class="ai-panel-input">
-    <input type="text" id="aiInput" placeholder="Ask about clients, invoices, GST..." maxlength="500" autocomplete="off">
-    <button id="aiSendBtn" title="Send">➤</button>
-  </div>
-</div>
-
-<script>
-(function(){
-  var fab = document.getElementById('aiFab');
-  var panel = document.getElementById('aiPanel');
-  var closeBtn = document.getElementById('aiCloseBtn');
-  var clearBtn = document.getElementById('aiClearBtn');
-  var body = document.getElementById('aiBody');
-  var welcome = document.getElementById('aiWelcome');
-  var suggestions = document.getElementById('aiSuggestions');
-  var input = document.getElementById('aiInput');
-  var sendBtn = document.getElementById('aiSendBtn');
-  if (!fab || !panel) return;
-
-  var OPEN_KEY = 'aiPanelOpen';
-  var HISTORY_KEY = 'aiChatHistory';
-
-  function loadHistory() {
-    try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY)) || []; }
-    catch (e) { return []; }
-  }
-  function saveHistory(history) {
-    try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
-    catch (e) {}
-  }
-  function setOpenState(isOpen) {
-    try { sessionStorage.setItem(OPEN_KEY, isOpen ? '1' : '0'); }
-    catch (e) {}
-  }
-
-  function openPanel(skipSave) {
-    panel.classList.add('open');
-    fab.classList.add('hidden-when-open');
-    input.focus();
-    if (!skipSave) setOpenState(true);
-  }
-  function closePanel() {
-    panel.classList.remove('open');
-    fab.classList.remove('hidden-when-open');
-    setOpenState(false);
-  }
-
-  fab.addEventListener('click', function(){ openPanel(false); });
-  closeBtn.addEventListener('click', closePanel);
-
-  clearBtn.addEventListener('click', function(){
-    fetch('/api/ai-chat/clear', { method: 'POST' }).catch(function(){});
-    body.querySelectorAll('.ai-msg').forEach(function(el){ el.remove(); });
-    if (welcome) welcome.style.display = '';
-    if (suggestions) suggestions.style.display = '';
-    saveHistory([]);
-  });
-
-  function addMessage(text, who, variant, skipSave) {
-    if (welcome) welcome.style.display = 'none';
-    if (suggestions) suggestions.style.display = 'none';
-    var el = document.createElement('div');
-    el.className = 'ai-msg ' + who + (variant ? ' ' + variant : '');
-    el.textContent = text;
-    body.appendChild(el);
-    body.scrollTop = body.scrollHeight;
-    if (!skipSave) {
-      var history = loadHistory();
-      history.push({ text: text, who: who, variant: variant || null });
-      saveHistory(history);
+  </script>
+  {% if session.user %}
+  <style>
+    .ai-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 998;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #0D9488, var(--primary));
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+      transition: transform .18s ease, box-shadow .18s ease;
     }
-    return el;
-  }
 
-  var STATUS_PHASES = [
-    'Thinking…',
-    'Checking your records…',
-    'Crunching the numbers…',
-    'Almost there…'
-  ];
-  var statusTimer = null;
+    .ai-fab:hover {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: 0 10px 26px rgba(245, 158, 11, 0.45);
+    }
 
-  function addTyping() {
-    var el = document.createElement('div');
-    el.className = 'ai-status';
-    el.id = 'aiTypingIndicator';
-    el.innerHTML = '<span class="ai-status-dot"></span><span class="ai-status-text">' + STATUS_PHASES[0] + '</span>';
-    body.appendChild(el);
-    body.scrollTop = body.scrollHeight;
+    .ai-fab.hidden-when-open {
+      display: none;
+    }
 
-    var phase = 1;
-    statusTimer = setInterval(function(){
-      var textEl = el.querySelector('.ai-status-text');
-      if (!textEl) return;
-      textEl.textContent = STATUS_PHASES[phase % STATUS_PHASES.length];
-      phase++;
-    }, 1600);
-  }
-  function removeTyping() {
-    if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
-    var el = document.getElementById('aiTypingIndicator');
-    if (el) el.remove();
-  }
+    .ai-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 999;
+      width: 400px;
+      max-width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      background: var(--bg-card);
+      border-radius: 0;
+      box-shadow: -8px 0 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-family: var(--font);
+      border-left: 1px solid var(--border-color);
+      transform: translateX(100%);
+      visibility: hidden;
+      transition: transform .28s cubic-bezier(.4, 0, .2, 1), visibility 0s linear .28s;
+    }
 
-  function send() {
-    var msg = input.value.trim();
-    if (!msg) return;
-    addMessage(msg, 'user');
-    input.value = '';
-    sendBtn.disabled = true;
-    addTyping();
+    .ai-panel.open {
+      transform: translateX(0);
+      visibility: visible;
+      transition: transform .28s cubic-bezier(.4, 0, .2, 1);
+    }
 
-    fetch('/api/ai-chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: msg })
-    })
-    .then(function(res){ return res.json(); })
-    .then(function(data){
-      removeTyping();
-      var variant = data.source === 'permission_denied' ? 'denied'
-                    : data.source === 'error' ? 'error' : null;
-      addMessage(data.response || "Sorry, something went wrong.", 'bot', variant);
-    })
-    .catch(function(){
-      removeTyping();
-      addMessage("Couldn't reach the assistant. Please try again.", 'bot', 'error');
-    })
-    .finally(function(){ sendBtn.disabled = false; });
-  }
+    .ai-panel-header {
+      background: #012926;
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
 
-  sendBtn.addEventListener('click', send);
-  input.addEventListener('keydown', function(e){
-    if (e.key === 'Enter') send();
-  });
-  suggestions.querySelectorAll('.ai-suggestion-chip').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      input.value = chip.getAttribute('data-q');
-      send();
+    body.dark-theme .ai-panel-header {
+      background: #011A18;
+    }
+
+    .ai-panel-header-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #0D9488, var(--primary));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .ai-panel-header-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .ai-panel-header-title {
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+
+    .ai-panel-header-sub {
+      font-size: 10.5px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-top: 1px;
+    }
+
+    .ai-panel-header-btn {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 15px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .ai-panel-header-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .ai-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--bg-body);
+      transition: background 0.3s ease;
+    }
+
+    .ai-msg {
+      max-width: 85%;
+      padding: 10px 13px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .ai-msg.user {
+      align-self: flex-end;
+      background: var(--primary);
+      color: #fff;
+      border-bottom-right-radius: 3px;
+    }
+
+    .ai-msg.bot {
+      align-self: flex-start;
+      background: var(--bg-card);
+      color: var(--text-body);
+      border: 1px solid var(--border-color);
+      border-bottom-left-radius: 3px;
+      transition: background 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+    }
+
+    .ai-msg.bot.error {
+      border-color: var(--danger-light);
+      background: var(--danger-light);
+      color: #991b1b;
+    }
+
+    body.dark-theme .ai-msg.bot.error {
+      background: rgba(220, 38, 38, 0.15);
+      color: #F87171;
+      border-color: rgba(220, 38, 38, 0.2);
+    }
+
+    .ai-msg.bot.denied {
+      border-color: var(--warning-light);
+      background: var(--warning-light);
+      color: #92400e;
+    }
+
+    body.dark-theme .ai-msg.bot.denied {
+      background: rgba(217, 119, 6, 0.15);
+      color: #FBBF24;
+      border-color: rgba(217, 119, 6, 0.2);
+    }
+
+    .ai-msg-welcome {
+      align-self: center;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 24px 12px;
+      transition: color 0.3s ease;
+    }
+
+    .ai-msg-welcome b {
+      color: var(--text-body);
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .ai-typing {
+      align-self: flex-start;
+      display: flex;
+      gap: 4px;
+      padding: 10px 13px;
+    }
+
+    .ai-typing span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: ai-bounce 1.2s infinite;
+    }
+
+    .ai-typing span:nth-child(2) {
+      animation-delay: .15s;
+    }
+
+    .ai-typing span:nth-child(3) {
+      animation-delay: .3s;
+    }
+
+    @keyframes ai-bounce {
+
+      0%,
+      60%,
+      100% {
+        transform: translateY(0);
+        opacity: .5;
+      }
+
+      30% {
+        transform: translateY(-4px);
+        opacity: 1;
+      }
+    }
+
+    .ai-panel-suggestions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 0 16px 10px;
+    }
+
+    .ai-suggestion-chip {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      background: var(--gray-100);
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .ai-suggestion-chip:hover {
+      background: var(--primary-light);
+      color: var(--primary-dark);
+      border-color: var(--primary);
+    }
+
+    body.dark-theme .ai-suggestion-chip:hover {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+      border-color: #FBBF24;
+    }
+
+    .ai-panel-input {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      border-top: 1px solid var(--border-color);
+      background: var(--bg-card);
+      transition: border-color 0.3s ease, background 0.3s ease;
+    }
+
+    .ai-panel-input input {
+      flex: 1;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: var(--font);
+      outline: none;
+      background: var(--bg-input);
+      color: var(--text-body);
+      transition: border-color 0.3s ease, background 0.3s ease, color 0.3s ease;
+    }
+
+    .ai-panel-input input:focus {
+      border-color: var(--primary);
+    }
+
+    .ai-panel-input button {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .ai-panel-input button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    @media (max-width: 480px) {
+      .ai-panel {
+        width: 100vw;
+      }
+
+      .ai-fab {
+        right: 16px;
+        bottom: 16px;
+      }
+    }
+
+    .ai-status {
+      align-self: flex-start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 13px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      transition: color 0.3s ease;
+    }
+
+    .ai-status .ai-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+      animation: ai-pulse 1s infinite;
+    }
+
+    @keyframes ai-pulse {
+
+      0%,
+      100% {
+        opacity: .35;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+  </style>
+
+  <button class="ai-fab" id="aiFab" title="Ask Magnustic AI">💬</button>
+
+  <div class="ai-panel" id="aiPanel">
+    <div class="ai-panel-header">
+      <div class="ai-panel-header-icon">🤖</div>
+      <div class="ai-panel-header-text">
+        <div class="ai-panel-header-title">Magnustic ERP AI</div>
+        <div class="ai-panel-header-sub">{{ company.company_name if company else 'Your company' }}</div>
+      </div>
+      <button class="ai-panel-header-btn" id="aiClearBtn" title="Clear chat">↺</button>
+      <button class="ai-panel-header-btn" id="aiCloseBtn" title="Close">✕</button>
+    </div>
+
+    <div class="ai-panel-body" id="aiBody">
+      <div class="ai-msg-welcome" id="aiWelcome">
+        <b>Ask me anything about {{ company.company_name if company else 'your company' }}</b>
+        Pending invoices, client balances, stock levels, cash/bank position,
+        GST questions — just ask.
+      </div>
+    </div>
+
+    <div class="ai-panel-suggestions" id="aiSuggestions">
+      <span class="ai-suggestion-chip" data-q="Show dashboard summary">Dashboard</span>
+      <span class="ai-suggestion-chip" data-q="Who owes us money">Receivables</span>
+      <span class="ai-suggestion-chip" data-q="What is our cash balance">Cash balance</span>
+      <span class="ai-suggestion-chip" data-q="What is CGST and SGST">CGST vs SGST</span>
+    </div>
+
+    <div class="ai-panel-input">
+      <input type="text" id="aiInput" placeholder="Ask about clients, invoices, GST..." maxlength="500"
+        autocomplete="off">
+      <button id="aiSendBtn" title="Send">➤</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var fab = document.getElementById('aiFab');
+      var panel = document.getElementById('aiPanel');
+      var closeBtn = document.getElementById('aiCloseBtn');
+      var clearBtn = document.getElementById('aiClearBtn');
+      var body = document.getElementById('aiBody');
+      var welcome = document.getElementById('aiWelcome');
+      var suggestions = document.getElementById('aiSuggestions');
+      var input = document.getElementById('aiInput');
+      var sendBtn = document.getElementById('aiSendBtn');
+      if (!fab || !panel) return;
+
+      var OPEN_KEY = 'aiPanelOpen';
+      var HISTORY_KEY = 'aiChatHistory';
+
+      function loadHistory() {
+        try { return JSON.parse(sessionStorage.getItem(HISTORY_KEY)) || []; }
+        catch (e) { return []; }
+      }
+      function saveHistory(history) {
+        try { sessionStorage.setItem(HISTORY_KEY, JSON.stringify(history)); }
+        catch (e) { }
+      }
+      function setOpenState(isOpen) {
+        try { sessionStorage.setItem(OPEN_KEY, isOpen ? '1' : '0'); }
+        catch (e) { }
+      }
+
+      function openPanel(skipSave) {
+        panel.classList.add('open');
+        fab.classList.add('hidden-when-open');
+        input.focus();
+        if (!skipSave) setOpenState(true);
+      }
+      function closePanel() {
+        panel.classList.remove('open');
+        fab.classList.remove('hidden-when-open');
+        setOpenState(false);
+      }
+
+      fab.addEventListener('click', function () { openPanel(false); });
+      closeBtn.addEventListener('click', closePanel);
+
+      clearBtn.addEventListener('click', function () {
+        fetch('/api/ai-chat/clear', { method: 'POST' }).catch(function () { });
+        body.querySelectorAll('.ai-msg').forEach(function (el) { el.remove(); });
+        if (welcome) welcome.style.display = '';
+        if (suggestions) suggestions.style.display = '';
+        saveHistory([]);
+      });
+
+      function addMessage(text, who, variant, skipSave) {
+        if (welcome) welcome.style.display = 'none';
+        if (suggestions) suggestions.style.display = 'none';
+        var el = document.createElement('div');
+        el.className = 'ai-msg ' + who + (variant ? ' ' + variant : '');
+        el.textContent = text;
+        body.appendChild(el);
+        body.scrollTop = body.scrollHeight;
+        if (!skipSave) {
+          var history = loadHistory();
+          history.push({ text: text, who: who, variant: variant || null });
+          saveHistory(history);
+        }
+        return el;
+      }
+
+      var STATUS_PHASES = [
+        'Thinking…',
+        'Checking your records…',
+        'Crunching the numbers…',
+        'Almost there…'
+      ];
+      var statusTimer = null;
+
+      function addTyping() {
+        var el = document.createElement('div');
+        el.className = 'ai-status';
+        el.id = 'aiTypingIndicator';
+        el.innerHTML = '<span class="ai-status-dot"></span><span class="ai-status-text">' + STATUS_PHASES[0] + '</span>';
+        body.appendChild(el);
+        body.scrollTop = body.scrollHeight;
+
+        var phase = 1;
+        statusTimer = setInterval(function () {
+          var textEl = el.querySelector('.ai-status-text');
+          if (!textEl) return;
+          textEl.textContent = STATUS_PHASES[phase % STATUS_PHASES.length];
+          phase++;
+        }, 1600);
+      }
+      function removeTyping() {
+        if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+        var el = document.getElementById('aiTypingIndicator');
+        if (el) el.remove();
+      }
+
+      function send() {
+        var msg = input.value.trim();
+        if (!msg) return;
+        addMessage(msg, 'user');
+        input.value = '';
+        sendBtn.disabled = true;
+        addTyping();
+
+        fetch('/api/ai-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: msg })
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            removeTyping();
+            var variant = data.source === 'permission_denied' ? 'denied'
+              : data.source === 'error' ? 'error' : null;
+            addMessage(data.response || "Sorry, something went wrong.", 'bot', variant);
+          })
+          .catch(function () {
+            removeTyping();
+            addMessage("Couldn't reach the assistant. Please try again.", 'bot', 'error');
+          })
+          .finally(function () { sendBtn.disabled = false; });
+      }
+
+      sendBtn.addEventListener('click', send);
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') send();
+      });
+      suggestions.querySelectorAll('.ai-suggestion-chip').forEach(function (chip) {
+        chip.addEventListener('click', function () {
+          input.value = chip.getAttribute('data-q');
+          send();
+        });
+      });
+
+      var history = loadHistory();
+      if (history.length) {
+        history.forEach(function (m) { addMessage(m.text, m.who, m.variant, true); });
+      }
+      if (sessionStorage.getItem(OPEN_KEY) === '1') {
+        openPanel(true);
+      }
+    })();
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
+  </script>
+  <script>
+    let deferredPrompt = null;
+    const installBtn = document.getElementById('installNexaBtn');
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      // Stop Chrome's default mini-infobar so you control the moment it shows
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'inline-block';
     });
-  });
 
-  var history = loadHistory();
-  if (history.length) {
-    history.forEach(function(m){ addMessage(m.text, m.who, m.variant, true); });
-  }
-  if (sessionStorage.getItem(OPEN_KEY) === '1') {
-    openPanel(true);
-  }
-})();
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js');
-  });
-}
-</script>
-<script>
-let deferredPrompt = null;
-const installBtn = document.getElementById('installNexaBtn');
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Stop Chrome's default mini-infobar so you control the moment it shows
-  e.preventDefault();
-  deferredPrompt = e;
-  installBtn.style.display = 'inline-block';
-});
-
-installBtn.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  installBtn.style.display = 'none';
-  deferredPrompt.prompt();
-  const { outcome } = await deferredPrompt.userChoice; // 'accepted' | 'dismissed'
-  deferredPrompt = null;
-});
-
-// Already installed (or user just installed) — hide the button, nothing more to do
-window.addEventListener('appinstalled', () => {
-  installBtn.style.display = 'none';
-  deferredPrompt = null;
-});
-</script>
-<script>
-// Comprehensive PWA debugging
-document.addEventListener('DOMContentLoaded', function() {
-  const installBtn = document.getElementById('installNexaBtn');
-  
-  // Log everything
-  console.log('🔍 PWA Debug:');
-  console.log('  - HTTPS:', window.location.protocol === 'https:');
-  console.log('  - Hostname:', window.location.hostname);
-  console.log('  - Manifest link:', document.querySelector('link[rel="manifest"]')?.href || 'NOT FOUND');
-  console.log('  - Service Worker:', navigator.serviceWorker ? 'Supported' : 'Not supported');
-  console.log('  - Standalone mode:', window.matchMedia('(display-mode: standalone)').matches);
-  console.log('  - Install button exists:', !!installBtn);
-  
-  if (installBtn) {
-    console.log('  - Button display:', installBtn.style.display);
-    console.log('  - Button classes:', installBtn.className);
-  }
-  
-  // Try to fetch manifest to check if it's accessible
-  fetch('/static/manifest.json')
-    .then(res => {
-      console.log('  - Manifest fetch:', res.ok ? '✅ OK' : '❌ Failed (status: ' + res.status + ')');
-      return res.json();
-    })
-    .then(data => {
-      console.log('  - Manifest data:', data);
-    })
-    .catch(err => {
-      console.error('  - Manifest fetch error:', err);
+    installBtn.addEventListener('click', async () => {
+      if (!deferredPrompt) return;
+      installBtn.style.display = 'none';
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice; // 'accepted' | 'dismissed'
+      deferredPrompt = null;
     });
-});
-</script>
-{% endif %}
+
+    // Already installed (or user just installed) — hide the button, nothing more to do
+    window.addEventListener('appinstalled', () => {
+      installBtn.style.display = 'none';
+      deferredPrompt = null;
+    });
+  </script>
+  <script>
+    // Comprehensive PWA debugging
+    document.addEventListener('DOMContentLoaded', function () {
+      const installBtn = document.getElementById('installNexaBtn');
+
+      // Log everything
+      console.log('🔍 PWA Debug:');
+      console.log('  - HTTPS:', window.location.protocol === 'https:');
+      console.log('  - Hostname:', window.location.hostname);
+      console.log('  - Manifest link:', document.querySelector('link[rel="manifest"]')?.href || 'NOT FOUND');
+      console.log('  - Service Worker:', navigator.serviceWorker ? 'Supported' : 'Not supported');
+      console.log('  - Standalone mode:', window.matchMedia('(display-mode: standalone)').matches);
+      console.log('  - Install button exists:', !!installBtn);
+
+      if (installBtn) {
+        console.log('  - Button display:', installBtn.style.display);
+        console.log('  - Button classes:', installBtn.className);
+      }
+
+      // Try to fetch manifest to check if it's accessible
+      fetch('/static/manifest.json')
+        .then(res => {
+          console.log('  - Manifest fetch:', res.ok ? '✅ OK' : '❌ Failed (status: ' + res.status + ')');
+          return res.json();
+        })
+        .then(data => {
+          console.log('  - Manifest data:', data);
+        })
+        .catch(err => {
+          console.error('  - Manifest fetch error:', err);
+        });
+    });
+  </script>
+  {% endif %}
 </body>
+
 </html>

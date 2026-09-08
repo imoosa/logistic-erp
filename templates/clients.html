@@ -83,7 +83,7 @@
               <a href="/clients/{{ c.id }}" class="ent-icon-btn" title="View Details">👁️</a>
               <a href="/clients/{{ c.id }}/edit" class="ent-icon-btn" title="Edit">✏️</a>
               <a href="/clients/{{ c.id }}/delete" class="ent-icon-btn client-clear-link" title="Clear Outstanding"
-                 data-name="{{ c.client_name }}" data-amount="{{ '{:,.0f}'.format(c.outstanding or 0) }}">🧹</a>
+                 data-name="{{ c.client_name }}" data-amount="{{ '{:,.0f}'.format(c.outstanding or 0) }}" data-id="{{ c.id }}">🧹</a>
               <a href="/clients/{{ c.id }}/shift-to-opening" class="ent-icon-btn client-shift-link" title="Shift Outstanding to Opening Balance"
                  data-name="{{ c.client_name }}" data-amount="{{ '{:,.0f}'.format(c.outstanding or 0) }}">🔄</a>
             </div>
@@ -91,9 +91,11 @@
           </td>
           <td>
             {% if session['user']['role'] in ['owner', 'super_admin'] %}
-<form method="POST" action="/clients/{{ c.id }}/remove" style="display:inline"
-      onsubmit="return confirm('Remove {{ c.name }} from the client list?\n\nAll their invoices, manifests, and ledger history stay exactly as they are — this only removes them from this list.');">
-  <button type="submit" class="ent-icon-btn ent-icon-btn-danger" title="Delete Client">🗑️</button>
+<form method="POST" action="/clients/{{ c.id }}/remove" style="display:inline" class="client-delete-form">
+  <input type="hidden" name="admin_password" class="admin-password-field">
+  <button type="button" class="ent-icon-btn ent-icon-btn-danger client-delete-link" title="Delete Client"
+          data-name="{{ c.client_name }}" data-amount="{{ '{:,.0f}'.format(c.outstanding or 0) }}"
+          data-count="{{ c.booking_count or 0 }}">🗑️</button>
 </form>
 {% endif %}
           </td>
@@ -126,6 +128,11 @@
     <h3 class="ent-modal-title">Clear Outstanding</h3>
     <p class="ent-modal-body" id="clearModalBody"></p>
     <p class="ent-modal-warn">⚠️ This can't be undone — there will be no record of the cleared statement left in the ledger view. Print or download the current statement first if you need a copy.</p>
+    <div class="ent-modal-field">
+      <label for="clearModalPassword">Your password (to confirm):</label>
+      <input type="password" id="clearModalPassword" autocomplete="current-password">
+      <div id="clearModalError" style="display:none;color:#DC2626;font-size:12px;margin-top:6px;">Enter your password to confirm.</div>
+    </div>
     <div class="ent-modal-choices">
       <button type="button" class="ent-modal-choice-btn" id="clearCompleteBtn">
         <strong>Clear Completely</strong>
@@ -142,6 +149,16 @@
   </div>
 </div>
 
+<!-- Hidden form used to POST the Clear Outstanding action with the password -->
+<form id="clearSubmitForm" method="POST" action="" style="display:none">
+  <input type="hidden" name="admin_password" id="clearSubmitPassword">
+</form>
+
+<!-- Hidden form used to POST the Carry Forward action with the password -->
+<form id="shiftSubmitForm" method="POST" action="" style="display:none">
+  <input type="hidden" name="admin_password" id="shiftSubmitPassword">
+</form>
+
 <!-- Shift to Opening / Carry Forward modal -->
 <div id="shiftModalOverlay" class="ent-modal-overlay">
   <div class="ent-modal">
@@ -154,9 +171,33 @@
       <span class="ent-modal-field-hint" id="shiftAsOfHint"></span>
     </div>
     <p class="ent-modal-warn">⚠️ The old statement will be deleted and a new one generated with the carried-forward balance. Print or download the current statement first if you need a copy.</p>
+    <div class="ent-modal-field">
+      <label for="shiftModalPassword">Your password (to confirm):</label>
+      <input type="password" id="shiftModalPassword" autocomplete="current-password">
+      <div id="shiftModalError" style="display:none;color:#DC2626;font-size:12px;margin-top:6px;">Enter your password to confirm.</div>
+    </div>
     <div class="ent-modal-actions">
       <button type="button" class="btn btn-ghost btn-sm" id="shiftModalCancel">Cancel</button>
       <button type="button" class="btn btn-primary btn-sm" id="shiftConfirmBtn">Confirm Carry Forward</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Client modal -->
+<div id="deleteModalOverlay" class="ent-modal-overlay">
+  <div class="ent-modal">
+    <div class="ent-modal-icon">🗑️</div>
+    <h3 class="ent-modal-title">Delete Client</h3>
+    <p class="ent-modal-body" id="deleteModalBody"></p>
+    <p class="ent-modal-warn" id="deleteModalWarn"></p>
+    <div class="ent-modal-field">
+      <label for="deleteModalPassword">Your password (to confirm):</label>
+      <input type="password" id="deleteModalPassword" autocomplete="current-password">
+      <div id="deleteModalPasswordError" style="display:none;color:#DC2626;font-size:12px;margin-top:6px;">Enter your password to confirm.</div>
+    </div>
+    <div class="ent-modal-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="deleteModalCancel">Cancel</button>
+      <button type="button" class="btn btn-danger btn-sm" id="deleteConfirmBtn">Delete Client</button>
     </div>
   </div>
 </div>
@@ -403,21 +444,37 @@ function filterClients() {
   let clearTargetUrl = null;
   const clearOverlay = document.getElementById('clearModalOverlay');
   const clearBody = document.getElementById('clearModalBody');
+  const clearModalPassword = document.getElementById('clearModalPassword');
+  const clearModalError = document.getElementById('clearModalError');
 
   document.querySelectorAll('.client-clear-link').forEach(function(link) {
     link.addEventListener('click', function(e) {
       e.preventDefault();
       clearTargetUrl = link.getAttribute('href');
+      clearModalPassword.value = '';
+      clearModalError.style.display = 'none';
       clearBody.textContent = 'Clearing the outstanding balance for ' + link.dataset.name +
         ' (₹' + link.dataset.amount + ') removes it from the statement — after this there will be no records left in the ledger view for the cleared period. The client record and invoices themselves stay in your GST records.';
       clearOverlay.classList.add('open');
     });
   });
+  function submitClear(scope) {
+    if (!clearTargetUrl) return;
+    const password = clearModalPassword.value;
+    if (!password) {
+      clearModalError.textContent = 'Enter your password to confirm.';
+      clearModalError.style.display = 'block';
+      return;
+    }
+    document.getElementById('clearSubmitForm').action = clearTargetUrl + '?scope=' + encodeURIComponent(scope);
+    document.getElementById('clearSubmitPassword').value = password;
+    document.getElementById('clearSubmitForm').submit();
+  }
   document.getElementById('clearCompleteBtn').addEventListener('click', function() {
-    if (clearTargetUrl) window.location = clearTargetUrl + '?scope=complete';
+    submitClear('complete');
   });
   document.getElementById('clearYesterdayBtn').addEventListener('click', function() {
-    if (clearTargetUrl) window.location = clearTargetUrl + '?scope=till_yesterday';
+    submitClear('till_yesterday');
   });
   document.getElementById('clearModalCancel').addEventListener('click', function() {
     clearOverlay.classList.remove('open');
@@ -433,6 +490,8 @@ function filterClients() {
   const shiftBody = document.getElementById('shiftModalBody');
   const shiftAsOfDate = document.getElementById('shiftAsOfDate');
   const shiftAsOfHint = document.getElementById('shiftAsOfHint');
+  const shiftModalPassword = document.getElementById('shiftModalPassword');
+  const shiftModalError = document.getElementById('shiftModalError');
 
   function yesterdayStr() {
     const d = new Date();
@@ -460,14 +519,23 @@ function filterClients() {
       shiftAsOfDate.value = yStr;
       shiftAsOfDate.max = yStr;
       updateShiftHint();
+      shiftModalPassword.value = '';
+      shiftModalError.style.display = 'none';
       shiftOverlay.classList.add('open');
     });
   });
   document.getElementById('shiftConfirmBtn').addEventListener('click', function() {
-    if (shiftTargetUrl) {
-      const asOf = shiftAsOfDate.value || yesterdayStr();
-      window.location = shiftTargetUrl + '?as_of=' + encodeURIComponent(asOf);
+    if (!shiftTargetUrl) return;
+    const password = shiftModalPassword.value;
+    if (!password) {
+      shiftModalError.textContent = 'Enter your password to confirm.';
+      shiftModalError.style.display = 'block';
+      return;
     }
+    const asOf = shiftAsOfDate.value || yesterdayStr();
+    document.getElementById('shiftSubmitForm').action = shiftTargetUrl + '?as_of=' + encodeURIComponent(asOf);
+    document.getElementById('shiftSubmitPassword').value = password;
+    document.getElementById('shiftSubmitForm').submit();
   });
   document.getElementById('shiftModalCancel').addEventListener('click', function() {
     shiftOverlay.classList.remove('open');
@@ -475,6 +543,57 @@ function filterClients() {
   });
   shiftOverlay.addEventListener('click', function(e) {
     if (e.target === shiftOverlay) { shiftOverlay.classList.remove('open'); shiftTargetUrl = null; }
+  });
+
+  // Delete Client modal
+  let deleteTargetForm = null;
+  const deleteOverlay = document.getElementById('deleteModalOverlay');
+  const deleteBody = document.getElementById('deleteModalBody');
+  const deleteWarn = document.getElementById('deleteModalWarn');
+  const deleteModalPassword = document.getElementById('deleteModalPassword');
+  const deleteModalPasswordError = document.getElementById('deleteModalPasswordError');
+
+  document.querySelectorAll('.client-delete-link').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      deleteTargetForm = btn.closest('.client-delete-form');
+      const name = btn.dataset.name;
+      const amount = btn.dataset.amount;
+      const count = parseInt(btn.dataset.count || '0', 10);
+
+      deleteBody.textContent = 'Remove ' + name + ' from the client list?';
+
+      if (count > 0) {
+        deleteWarn.style.display = '';
+        deleteWarn.textContent = '⚠️ ' + name + ' still has ' + count + ' booking' + (count === 1 ? '' : 's') +
+          ' on record' + (amount && amount !== '0' ? ' with ₹' + amount + ' pending' : '') +
+          '. Deleting only removes them from this Clients list — their bookings, invoices, and ledger history stay exactly as they are, they just won\'t be tracked here anymore. Continue?';
+      } else {
+        deleteWarn.style.display = 'none';
+        deleteWarn.textContent = '';
+      }
+      deleteModalPassword.value = '';
+      deleteModalPasswordError.style.display = 'none';
+      deleteOverlay.classList.add('open');
+    });
+  });
+  document.getElementById('deleteConfirmBtn').addEventListener('click', function() {
+    const password = deleteModalPassword.value;
+    if (!password) {
+      deleteModalPasswordError.textContent = 'Enter your password to confirm.';
+      deleteModalPasswordError.style.display = 'block';
+      return;
+    }
+    if (deleteTargetForm) {
+      deleteTargetForm.querySelector('.admin-password-field').value = password;
+      deleteTargetForm.submit();
+    }
+  });
+  document.getElementById('deleteModalCancel').addEventListener('click', function() {
+    deleteOverlay.classList.remove('open');
+    deleteTargetForm = null;
+  });
+  deleteOverlay.addEventListener('click', function(e) {
+    if (e.target === deleteOverlay) { deleteOverlay.classList.remove('open'); deleteTargetForm = null; }
   });
 })();
 </script>

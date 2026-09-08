@@ -57,10 +57,51 @@
   {% endfor %}{% endif %}
 {% endwith %}
 
+{% if existing_match %}
+<div style="margin-bottom:16px; padding:14px 18px; border-radius:10px; background:#FFFBEB; border:1px solid #FDE68A; color:#92400E;">
+  {% if existing_match.deleted %}
+    <strong>⚠️ A client named "{{ existing_match.name }}" already exists but was deleted.</strong>
+    <p style="margin:6px 0 12px;">Restoring brings back all their bookings, estimates, customer invoices, and debtor statement exactly as they were. Creating a new client instead starts a completely separate, empty record under the same name.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <form method="POST" action="/clients/{{ existing_match.id }}/restore" style="display:inline">
+        <button type="submit" class="btn btn-primary btn-sm">Restore this client</button>
+      </form>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('forceNewInput').value='1'; document.getElementById('clientForm').submit();">Create separate new client anyway</button>
+    </div>
+  {% else %}
+    <strong>⚠️ A client named "{{ existing_match.name }}" already exists ({{ existing_match.client_id }}).</strong>
+    <p style="margin:6px 0 12px;">It's already active and showing in your Clients list. Go to it instead of creating a duplicate — or create a separate new client anyway.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <a href="/clients/{{ existing_match.id }}" class="btn btn-primary btn-sm">Go to existing client</a>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('forceNewInput').value='1'; document.getElementById('clientForm').submit();">Create separate new client anyway</button>
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Client-side exact-match modal: shown BEFORE any submit reaches the
+     server, in place of the generic "Similar client name(s)" popup, when
+     the typed name exactly matches an existing client (active or
+     deleted). The generic fuzzy popup still runs for near-matches that
+     aren't exact. -->
+<div id="exactMatchOverlay" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(15,23,42,.55); align-items:center; justify-content:center; padding:20px;">
+  <div style="background:#fff; border-radius:14px; max-width:440px; width:100%; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,.25); text-align:center;">
+    <div style="font-size:28px; margin-bottom:6px;">⚠️</div>
+    <h3 style="font-size:16.5px; font-weight:800; color:#0F172A; margin:0 0 10px;" id="exactMatchTitle"></h3>
+    <p style="font-size:13px; color:#334155; line-height:1.5; margin:0 0 16px;" id="exactMatchBody"></p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+      <button type="button" class="btn btn-primary btn-sm" id="exactMatchPrimaryBtn"></button>
+      <button type="button" class="btn btn-ghost btn-sm" id="exactMatchCreateAnywayBtn">Create separate new client anyway</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="exactMatchCancelBtn">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="form-card">
   <form method="POST"
         action="{{ '/clients/' ~ client.id ~ '/edit' if client else '/clients/new' }}"
         id="clientForm" enctype="multipart/form-data">
+    <input type="hidden" name="force_new" id="forceNewInput" value="">
 
     <!-- ══ 1. Basic Information ══════════════════════════════════════════ -->
     <div class="section-title">👤 Basic Information</div>
@@ -69,7 +110,7 @@
       <div class="form-group">
         <label>Client / Company Name <span class="req">*</span></label>
         <input type="text" name="client_name" required
-               value="{{ client.client_name if client else '' }}"
+               value="{{ client.client_name if client else (form_data.client_name if form_data else '') }}"
                placeholder="e.g. Reliance Industries Pvt Ltd">
       </div>
       <div class="form-group">
@@ -398,6 +439,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (matches.length === 0) {
       similarCheckDone = true;
       this.submit();
+      return;
+    }
+
+    // Exact name match (active or deleted) → show the specific
+    // Restore / Go-to-existing modal instead of the generic fuzzy popup.
+    const exact = matches.find(m => m.name.trim().toLowerCase() === name.toLowerCase());
+    if (exact) {
+      const overlay     = document.getElementById('exactMatchOverlay');
+      const title        = document.getElementById('exactMatchTitle');
+      const body          = document.getElementById('exactMatchBody');
+      const primaryBtn     = document.getElementById('exactMatchPrimaryBtn');
+      const createAnywayBtn = document.getElementById('exactMatchCreateAnywayBtn');
+      const cancelBtn        = document.getElementById('exactMatchCancelBtn');
+      const isDeleted = exact.status === 'Deleted';
+
+      title.textContent = isDeleted
+        ? `"${exact.name}" already exists but was deleted`
+        : `"${exact.name}" already exists`;
+      body.textContent = isDeleted
+        ? 'Restoring brings back all their bookings, estimates, customer invoices, and debtor statement exactly as they were. Creating a new client instead starts a completely separate, empty record under the same name.'
+        : "It's already active in your Clients list. Go to it instead of creating a duplicate — or create a separate new client anyway.";
+      primaryBtn.textContent = isDeleted ? 'Restore this client' : 'Go to existing client';
+
+      primaryBtn.onclick = function () {
+        if (isDeleted) {
+          const restoreForm = document.createElement('form');
+          restoreForm.method = 'POST';
+          restoreForm.action = `/clients/${exact.id}/restore`;
+          document.body.appendChild(restoreForm);
+          restoreForm.submit();
+        } else {
+          window.location = `/clients/${exact.id}`;
+        }
+      };
+      createAnywayBtn.onclick = function () {
+        overlay.style.display = 'none';
+        similarCheckDone = true;
+        document.getElementById('forceNewInput').value = '1';
+        clientForm.submit();
+      };
+      cancelBtn.onclick = function () {
+        overlay.style.display = 'none';
+      };
+      overlay.style.display = 'flex';
       return;
     }
 

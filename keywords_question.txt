@@ -1,0 +1,635 @@
+1. Dashboard
+Keywords
+
+dashboard, summary, overview, today, business summary, performance, analytics, report, stats, metrics
+
+Questions
+Show me my dashboard
+Give me today's summary
+How is my business doing?
+Show overall performance
+Show today's business report
+Show company overview
+Show today's activity
+Give me today's analytics
+Show current business status
+How is business today?
+2. Sales
+Keywords
+
+sales
+
+sale
+
+revenue
+
+income
+
+turnover
+
+billing
+
+invoice sales
+
+customer sales
+
+sales report
+
+sales summary
+
+sales amount
+
+Questions
+What are today's sales?
+What are this month's sales?
+Show total sales.
+How much did we sell today?
+Show yearly sales.
+Compare this month and last month sales.
+Which customer generated highest sales?
+Which customer generated lowest sales?
+Which day had highest sales?
+Average sales per day?
+Highest invoice amount?
+Lowest invoice amount?
+Show unpaid sales.
+Show paid sales.
+Show cancelled invoices.
+Show overdue invoices.
+Show invoice summary.
+3. Purchase
+Keywords
+
+purchase
+
+buying
+
+procurement
+
+vendor purchase
+
+supplier purchase
+
+purchase invoice
+
+expenses
+
+Questions
+Show total purchase.
+Today's purchase.
+Monthly purchase.
+Which supplier has highest purchase?
+Which supplier has lowest purchase?
+Pending purchase invoices.
+Paid purchase invoices.
+Purchase GST.
+Purchase tax.
+Purchase trend.
+Compare purchases month wise.
+4. Profit
+Keywords
+
+profit
+
+loss
+
+margin
+
+earning
+
+gross
+
+net
+
+income
+
+business income
+
+Questions
+Show today's profit.
+Monthly profit.
+Net profit.
+Gross profit.
+Profit by customer.
+Profit by destination.
+Profit by courier.
+Profit this year.
+Highest profit shipment.
+Lowest profit shipment.
+5. GST / Tax
+Keywords
+
+gst
+
+cgst
+
+sgst
+
+igst
+
+tax
+
+tax payable
+
+tax receivable
+
+input tax
+
+output tax
+
+gst report
+
+Questions
+What is my GST payable?
+What is my GST receivable?
+Show CGST.
+Show SGST.
+Show IGST.
+Show GST collected.
+Show GST paid.
+Monthly GST report.
+Quarterly GST.
+Yearly GST.
+GST liability.
+Input tax credit.
+Output tax.
+6. Outstanding
+Keywords
+
+pending
+
+outstanding
+
+balance
+
+dues
+
+receivable
+
+payable
+
+credit
+
+debit
+
+Questions
+Who has not paid?
+Outstanding invoices.
+Pending payments.
+Total receivable.
+Total payable.
+Customers with highest outstanding.
+Suppliers with highest payable.
+Overdue invoices.
+Bills pending for more than 30 days.
+Show unpaid invoices.
+7. Customers
+Keywords
+
+customer
+
+client
+
+party
+
+buyer
+
+receiver
+
+consignee
+
+Questions
+Total customers.
+Active customers.
+New customers.
+Top customer.
+Lowest customer.
+Customer balance.
+Customer statement.
+Customer ledger.
+Customer purchase history.
+Customer invoice history.
+Customer payment history.
+Customer outstanding.
+Customer GST.
+8. Suppliers
+Keywords
+
+supplier
+
+vendor
+
+seller
+
+courier partner
+
+carrier
+
+Questions
+Total suppliers.
+Top supplier.
+Supplier balance.
+Supplier ledger.
+Supplier outstanding.
+Supplier payments.
+Supplier invoices.
+Supplier purchase history.
+Supplier GST.
+Supplier report.
+9. Inventory
+Keywords
+
+inventory
+
+stock
+
+warehouse
+
+item
+
+product
+
+goods
+
+material
+
+stock level
+
+Questions
+Current stock.
+Low stock items.
+Out of stock items.
+Highest stock item.
+Lowest stock item.
+Stock valuation.
+Stock movement.
+Inventory report.
+Reorder items.
+Fast moving stock.
+Slow moving stock.
+Dead stock.
+Most sold item.
+Least sold item.
+10. Logistics
+Keywords
+
+shipment
+
+parcel
+
+awb
+
+docket
+
+tracking
+
+consignment
+
+booking
+
+dispatch
+
+delivery
+
+manifest
+
+Questions
+Total shipments.
+Today's shipments.
+Delivered shipments.
+Pending shipments.
+Cancelled shipments.
+Returned shipments.
+Show AWB details.
+Search by AWB.
+Search by docket.
+Shipment history.
+Shipment status.
+Shipment tracking.
+Which shipment is delayed?
+Delivered today.
+In transit shipments.
+Pickup pending.
+Delivery pending.
+11. Destination Analysis
+Keywords
+
+destination
+
+city
+
+state
+
+country
+
+zone
+
+route
+
+location
+
+Questions
+Which destination received most parcels?
+Which destination has highest revenue?
+Which city generated highest sales?
+Which destination has least shipments?
+Top destination.
+Lowest destination.
+Destination-wise sales.
+Destination-wise profit.
+Destination-wise shipment count.
+Top shipping city.
+Most profitable destination.
+12. Courier Analysis
+Keywords
+
+courier
+
+carrier
+
+partner
+
+service
+
+transport
+
+Questions
+Which courier handled most shipments?
+Courier wise sales.
+Courier wise profit.
+Courier wise purchase.
+Top courier.
+Lowest courier.
+Courier performance.
+Courier delay report.
+Courier delivery success.
+Courier shipment count.
+13. Manifest
+Keywords
+
+manifest
+
+bag
+
+dispatch
+
+load
+
+trip
+
+vehicle
+
+Questions
+Show manifests.
+Today's manifests.
+Pending manifests.
+Closed manifests.
+Manifest summary.
+Vehicle manifest.
+Manifest shipment count.
+Manifest weight.
+Manifest destination.
+14. Banking
+Keywords
+
+bank
+
+account
+
+deposit
+
+withdrawal
+
+transaction
+
+balance
+
+statement
+
+Questions
+Bank balance.
+Total bank balance.
+Bank statement.
+Today's transactions.
+Deposits today.
+Withdrawals today.
+Bank ledger.
+Which account has highest balance?
+Last bank transaction.
+15. Cash
+Keywords
+
+cash
+
+cash in hand
+
+petty cash
+
+cashbook
+
+Questions
+Cash in hand.
+Today's cash.
+Cash received today.
+Cash paid today.
+Cash book.
+Cash report.
+Cash balance.
+Cash summary.
+16. Expenses
+Keywords
+
+expense
+
+cost
+
+payment
+
+spending
+
+fuel
+
+salary
+
+maintenance
+
+office expense
+
+Questions
+Today's expenses.
+Monthly expenses.
+Highest expense.
+Lowest expense.
+Expense category report.
+Fuel expenses.
+Office expenses.
+Salary expenses.
+Maintenance expenses.
+Expense trend.
+17. Loans
+Keywords
+
+loan
+
+emi
+
+interest
+
+borrowing
+
+repayment
+
+finance
+
+Questions
+Total loan.
+Outstanding loan.
+Loan balance.
+EMI due.
+Loan repayment history.
+Interest paid.
+Remaining loan.
+Active loans.
+18. Cheques
+Keywords
+
+cheque
+
+check
+
+bank cheque
+
+cleared
+
+pending cheque
+
+bounce
+
+Questions
+Pending cheques.
+Cleared cheques.
+Bounced cheques.
+Received cheques.
+Issued cheques.
+Cheque due today.
+Cheque summary.
+19. Receipts & Payments
+Keywords
+
+receipt
+
+payment
+
+collection
+
+receive
+
+paid
+
+income
+
+expense
+
+Questions
+Today's receipts.
+Today's payments.
+Monthly collections.
+Monthly payments.
+Collection summary.
+Payment summary.
+Outstanding collections.
+20. Date Filters
+
+Users may ask
+
+today
+yesterday
+last 7 days
+last week
+last month
+this month
+previous month
+this quarter
+last quarter
+this year
+last year
+custom date
+between January and March
+from 1 Jan to 31 Jan
+21. Ranking Questions
+Top 5 customers
+Top 10 suppliers
+Top 20 destinations
+Top 10 cities
+Top selling items
+Top purchased items
+Highest profit shipment
+Lowest profit shipment
+Highest GST invoice
+Biggest expense
+Biggest payment
+Highest bank balance
+22. Comparison Questions
+Compare this month and last month sales.
+Compare this year and last year.
+Compare courier performance.
+Compare destination revenue.
+Compare customer purchases.
+Compare supplier purchases.
+Compare GST month wise.
+Compare expenses month wise.
+23. Search Queries
+Find invoice INV001
+Find AWB 123456
+Find docket DKT001
+Find customer ABC Ltd
+Find supplier XYZ
+Find shipment to Mumbai
+Find shipment to Delhi
+Find manifest MAN001
+Find purchase invoice PI001
+Find estimate EST001
+24. AI Insight Questions
+Why are sales down?
+Why is profit decreasing?
+Which customer should I follow up?
+Which invoices are risky?
+Which supplier is most expensive?
+Which courier is performing badly?
+Which city is most profitable?
+Which customer pays late?
+Which supplier gives best rates?
+Which route gives highest profit?
+Which expense is increasing?
+Predict next month's sales.
+Forecast GST.
+Forecast expenses.
+Recommend stock to reorder.
+25. Natural Language Variations
+
+Your intent model should also recognize conversational variants such as:
+
+How much money did we make?
+Did we earn today?
+What's our revenue?
+Give me sales.
+Show sales.
+Revenue today.
+Sales this month.
+Earnings this week.
+How much tax do I owe?
+Who owes me money?
+Who should I collect from?
+Which city sends the most parcels?
+Which courier is best?
+Where do we ship most?
+Show my best customer.
+Show my worst customer.
+Show my fastest growing customer.
+Which item sells the most?
+How much stock do I have?
+Do I need to reorder anything?
+Which supplier should I pay?
+Which invoices are overdue?
+How much cash do I have?
+What's my bank balance?

@@ -7,8 +7,8 @@
 <style>
   .mode-badge {
     display: inline-flex; align-items: center; gap: 4px;
-    padding: 3px 10px; border-radius: 20px;
-    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 20px;
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px;
     white-space: nowrap;
   }
   .bm-air     { background:#EEF2FF; color:#4338CA; }
@@ -17,14 +17,14 @@
   .bm-courier { background:#F0FDF4; color:#15803D; }
   .bm-default { background:#F3F4F6; color:#374151; }
 
-  .badge { display:inline-flex; align-items:center; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; white-space:nowrap; }
+  .badge { display:inline-flex; align-items:center; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:700; white-space:nowrap; }
   .badge-success { background:#DCFCE7; color:#16A34A; }
   .badge-warning  { background:#FEF9C3; color:#CA8A04; }
   .badge-danger   { background:#FEE2E2; color:#DC2626; }
   .badge-draft    { background:#F3F4F6; color:#4B5563; }
   .badge-completed{ background:#EEF2FF; color:#4338CA; }
 
-  .bt-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+  .bt-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 8px; border-radius:20px; font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; white-space:nowrap; }
   .bt-cash   { background:#FEF3C7; color:#92400E; }
   .bt-credit { background:#DBEAFE; color:#1D4ED8; }
 
@@ -51,24 +51,24 @@
 
   .awb-code {
     font-family:'Courier New',monospace;
-    font-size:13px; font-weight:800; letter-spacing:1px;
+    font-size:12px; font-weight:800; letter-spacing:.5px;
     color:#1E40AF; background:#EEF2FF;
-    padding:4px 10px; border-radius:6px;
+    padding:4px 8px; border-radius:6px;
     display:inline-block;
   }
   body.dark-theme .awb-code { color:#A5B4FC; background: rgba(79,70,229,0.2); }
 
   .carrier-pill {
     display:inline-flex; align-items:center; gap:4px;
-    padding:3px 9px; border-radius:20px;
+    padding:3px 7px; border-radius:20px;
     background: var(--bg-table-alt); color: var(--text-body);
-    font-size:11.5px; font-weight:600;
+    font-size:11px; font-weight:600;
   }
 
   .inline-track-input {
-    width:130px; font-size:13px; font-family:inherit; color:var(--text-body);
+    width:100px; font-size:12.5px; font-family:inherit; color:var(--text-body);
     background:transparent; border:1.5px solid transparent; border-radius:6px;
-    padding:5px 8px; outline:none; transition:border-color .12s, background .12s;
+    padding:5px 6px; outline:none; transition:border-color .12s, background .12s;
   }
   .inline-track-input::placeholder { color:#D1D5DB; }
   .inline-track-input:hover { background:var(--bg-table-alt); }
@@ -78,15 +78,15 @@
   .inline-track-input.save-error { border-color:#DC2626; }
 
   .table-wrap { overflow:auto; max-height:68vh; border-radius:10px; position:relative; }
-  table { width:100%; border-collapse:collapse; min-width:1100px; }
+  table { width:100%; border-collapse:collapse; table-layout:auto; }
   thead th {
-    padding:11px 14px; font-size:10.5px; font-weight:700;
-    text-transform:uppercase; letter-spacing:.7px;
+    padding:9px 8px; font-size:10px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.4px;
     color:#F59E0B; background:#012926;
     border-bottom:1.5px solid var(--border-color); text-align:left; white-space:nowrap;
     position:sticky; top:0; z-index:2;
   }
-  tbody td { padding:13px 14px; border-bottom:1px solid var(--border-color); font-size:13.5px; vertical-align:middle; color: var(--text-body); }
+  tbody td { padding:9px 8px; border-bottom:1px solid var(--border-color); font-size:12.5px; vertical-align:middle; color: var(--text-body); }
   tbody tr:hover { background: var(--bg-table-alt); }
   tbody tr:last-child td { border-bottom:none; }
 
@@ -122,6 +122,22 @@
   .s-val   { font-size:18px; font-weight:800; color: var(--text-body); }
   .s-val.green { color:#16A34A; }
   .s-val.red   { color:#DC2626; }
+  .booking-summary {
+    gap: 18px 28px;
+    align-items: center;
+  }
+  .booking-summary .summary-item {
+    min-width: 105px;
+  }
+  .s-note {
+    margin-top: 2px;
+    font-size: 10px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  @media (max-width: 900px) {
+    .booking-summary .summary-item { min-width: 90px; }
+  }
 
   .created-by-cell { font-size:12px; color:var(--text-muted); }
   .created-by-cell .name { color:var(--text-body); font-weight:500; }
@@ -134,29 +150,71 @@
 
 <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
   <h2 style="margin: 0;">🚚 Booking</h2>
-  <a href="/booking/customer" class="btn btn-primary">+ New Booking</a>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <a href="/booking/deleted-log" class="btn btn-ghost btn-sm">🗑 Deleted Bookings</a>
+    <a href="/booking/customer" class="btn btn-primary">+ New Booking</a>
+  </div>
 </div>
-<a href="/booking/deleted-log" class="btn btn-ghost btn-sm">🗑 Deleted Bookings</a>
-{% set completed_invoices = invoices | rejectattr('is_draft') | rejectattr('is_void') | list %}
-{% set total_billed  = completed_invoices | sum(attribute='total') %}
-{% set total_paid    = completed_invoices | sum(attribute='paid') %}
-{% set total_balance = completed_invoices | sum(attribute='balance') %}
-<div class="summary-strip">
-  <div>
-    <div class="s-label">Total Invoices</div>
-    <div class="s-val">{{ invoices | length }}</div>
+{# ── Booking summary: calculated from exactly the rows currently shown ── #}
+{% set active_invoices = invoices | rejectattr('is_draft') | rejectattr('is_void') | list %}
+{% set void_invoices = invoices | selectattr('is_void') | list %}
+{% set draft_invoices = invoices | selectattr('is_draft') | list %}
+
+{% set total_bookings = invoices | length %}
+{% set void_bookings = void_invoices | length %}
+{% set draft_bookings = draft_invoices | length %}
+{% set active_bookings = active_invoices | length %}
+
+{% set total_amount = active_invoices | sum(attribute='total') %}
+
+{#
+  IMPORTANT:
+  Receivables do NOT come from Invoice.status / Invoice.balance.
+  "Yet to Receive" is the live customer outstanding from the Clients ledger,
+  supplied by app.py as total_outstanding.
+  Amount Received is therefore Total Amount - Client Outstanding.
+#}
+{% set yet_to_receive = total_outstanding or 0 %}
+{% set total_received = total_amount - yet_to_receive %}
+{% if total_received < 0 %}{% set total_received = 0 %}{% endif %}
+
+{# Total Pending is the live outstanding amount, not a payment-status count. #}
+{% set total_pending = yet_to_receive %}
+
+<div class="summary-strip booking-summary">
+  <div class="summary-item">
+    <div class="s-label">Total Bookings</div>
+    <div class="s-val">{{ total_bookings }}</div>
   </div>
-  <div>
-    <div class="s-label">Total Billed</div>
-    <div class="s-val">₹{{ "{:,.0f}".format(total_billed) }}</div>
+
+  <div class="summary-item">
+    <div class="s-label">Void Bookings</div>
+    <div class="s-val red">{{ void_bookings }}</div>
   </div>
-  <div>
+
+  <div class="summary-item">
+    <div class="s-label">Active Bookings</div>
+    <div class="s-val green">{{ active_bookings }}</div>
+    {% if draft_bookings %}
+    <div class="s-note">{{ draft_bookings }} draft excluded</div>
+    {% endif %}
+  </div>
+
+  <div class="summary-item">
+    <div class="s-label">Total Amount</div>
+    <div class="s-val">₹{{ "{:,.0f}".format(total_amount) }}</div>
+  </div>
+
+  <div class="summary-item">
+    <div class="s-label">Total Pending</div>
+    <div class="s-val red">₹{{ "{:,.0f}".format(total_pending) }}</div>
+  </div>
+
+  
+
+  <div class="summary-item">
     <div class="s-label">Amount Received</div>
-    <div class="s-val green">₹{{ "{:,.0f}".format(total_paid) }}</div>
-  </div>
-  <div>
-    <div class="s-label">Balance Pending</div>
-    <div class="s-val red">₹{{ "{:,.0f}".format(total_balance) }}</div>
+    <div class="s-val green">₹{{ "{:,.0f}".format(total_received) }}</div>
   </div>
 </div>
 
@@ -177,14 +235,54 @@
     padding:8px 8px; border:1.5px solid var(--border-color); border-radius:16px;
     font-size:12px; outline:none; width:120px; flex-shrink:0;
   }
+  .booktype-tabs { display:flex; gap:14px; margin-bottom:16px; }
+  .booktype-tab {
+    flex:1; display:flex; align-items:center; gap:12px;
+    padding:14px 18px; border-radius:12px; border:1.5px solid var(--border-color);
+    background: var(--bg-input); text-decoration:none; cursor:pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .booktype-tab:hover { border-color:#16A34A; }
+  .booktype-tab .bt-icon { font-size:22px; line-height:1; }
+  .booktype-tab .bt-title { font-size:14px; font-weight:700; color:var(--text-body); }
+  .booktype-tab .bt-sub { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+  .booktype-tab.active { background:#ECFDF5; border-color:#16A34A; }
+  .booktype-tab.active .bt-title { color:#15803D; }
+  body.dark-theme .booktype-tab.active { background:rgba(22,163,74,0.15); }
 </style>
 
+<div class="booktype-tabs">
+  <a href="#" class="booktype-tab {{ 'active' if current_btype == 'all' }}" data-btype="all">
+    <span class="bt-icon">📋</span>
+    <span>
+      <span class="bt-title" style="display:block;">All Bookings</span>
+      <span class="bt-sub">Cash + Credit combined</span>
+    </span>
+  </a>
+  <a href="#" class="booktype-tab {{ 'active' if current_btype == 'credit' }}" data-btype="credit">
+    <span class="bt-icon">💳</span>
+    <span>
+      <span class="bt-title" style="display:block;">Credit Bookings</span>
+      <span class="bt-sub">Billed to client, settles later</span>
+    </span>
+  </a>
+  <a href="#" class="booktype-tab {{ 'active' if current_btype == 'cash' }}" data-btype="cash">
+    <span class="bt-icon">💵</span>
+    <span>
+      <span class="bt-title" style="display:block;">Cash Bookings</span>
+      <span class="bt-sub">Paid upfront, no client ledger</span>
+    </span>
+  </a>
+</div>
+
 <form method="get" action="/booking/list" class="filter-bar">
+  <input type="hidden" name="btype" value="{{ current_btype }}">
+  <input type="hidden" name="status" value="{{ current_status }}">
   <input
     type="text"
     name="q"
     value="{{ request.args.get('q', '') }}"
-    placeholder="🔍 Search AWB, party, tracking no."
+    placeholder="🔍 Search AWB, consignor, consignee, tracking no."
     style="flex:1; min-width:140px; padding:8px 12px; border:1.5px solid var(--border-color); border-radius:16px; font-size:13px; outline:none;"
     onfocus="this.style.borderColor='#4F46E5'"
     onblur="this.style.borderColor='var(--border-color)'"
@@ -194,34 +292,12 @@
   <input type="date" name="to_date" value="{{ current_to_date or '' }}" title="To date" class="filter-date"
          onfocus="this.style.borderColor='#4F46E5'" onblur="this.style.borderColor='var(--border-color)'">
 
-  <select name="status" class="filter-select" onchange="this.form.submit()" title="Payment status">
-    {% for s in ['All', 'paid', 'partial', 'pending', 'draft', 'void'] %}
-    <option value="{{ s }}" {% if current_status == s %}selected{% endif %}>
-      {% if s == 'All' %}📋 Payment
-      {% elif s == 'paid' %}✅ Paid
-      {% elif s == 'partial' %}⏳ Partial
-      {% elif s == 'pending' %}⚠️ Pending
-      {% elif s == 'void' %}🚫 Void
-      {% else %}📝 Draft{% endif %}
-    </option>
-    {% endfor %}
-  </select>
-
-  <select name="btype" class="filter-select" onchange="this.form.submit()" title="Sale type" style="max-width:90px;">
-    {% for b in ['All', 'cash', 'credit'] %}
-    <option value="{{ b }}" {% if current_btype == b %}selected{% endif %}>
-      {% if b == 'All' %}💰 Sale
-      {% elif b == 'cash' %}💵 Cash
-      {% else %}💳 Credit{% endif %}
-    </option>
-    {% endfor %}
-  </select>
-
   <select name="performa" class="filter-select" onchange="this.form.submit()" title="Performa status">
-    {% for p in ['All', 'completed', 'pending'] %}
+    {% for p in ['All', 'completed', 'pending', 'Draft'] %}
     <option value="{{ p }}" {% if current_performa == p %}selected{% endif %}>
       {% if p == 'All' %}📋 Performa
       {% elif p == 'completed' %}✅ Done
+      {% elif p == 'Draft' %} Draft
       {% else %}📋 Pending{% endif %}
     </option>
     {% endfor %}
@@ -240,7 +316,7 @@
   </select>
 
   <button type="submit" class="btn btn-primary" style="border-radius:16px; padding:8px 16px; font-size:12.5px; flex-shrink:0;">Go</button>
-  {% if request.args.get('q') or current_from_date or current_to_date or current_status != 'All' or current_btype != 'All' or current_performa != 'All' or current_tstatus != 'All' %}
+  {% if request.args.get('q') or current_from_date or current_to_date or current_status != 'All' or current_btype != 'all' or current_performa != 'All' or current_tstatus != 'All' %}
   <a href="/booking/list" class="btn btn-ghost" style="border-radius:16px; padding:8px 14px; font-size:12.5px; flex-shrink:0;">Clear</a>
   {% endif %}
 </form>
@@ -257,7 +333,6 @@
           <th>Carrier Ref No.</th>
           <th>Tracking No.</th>
           <th>Amount</th>
-          <th>Payment Status</th>
           <th>Booking Status</th>
           <th>Tracking Status</th>
           <th>Cash / Credit</th>
@@ -343,25 +418,15 @@
           <!-- Amount -->
           <td>
           <strong style="font-size:14px">₹{{ "{:,.0f}".format(inv.total) }}</strong>
+          {% if inv.booking_type == 'cash' %}
           {% if inv.balance > 0 %}
           <div style="font-size:11.5px;color:#DC2626;margin-top:2px">Due: ₹{{ "{:,.0f}".format(inv.balance) }}</div>
           {% else %}
           <div style="font-size:11.5px;color:#16A34A;margin-top:2px">Fully Paid ✓</div>
           {% endif %}
+          {% endif %}
         </td>
 
-          <!-- Status -->
-          <td>
-            {% if inv.is_void %}
-              <span class="badge badge-draft">🚫 Void</span>
-            {% elif inv.status == 'paid' %}
-              <span class="badge badge-success">✓ Paid</span>
-            {% elif inv.status == 'partial' %}
-              <span class="badge badge-warning">⏳ Partial</span>
-            {% else %}
-              <span class="badge badge-danger">⚠ Pending</span>
-            {% endif %}
-          </td>
           <td>
   {% if inv.is_void %}
     <span class="badge badge-draft">🚫 Void</span>
@@ -438,8 +503,8 @@
 <td style="white-space:nowrap;text-align:right;">
   {% set can_delete = not inv.is_void and not inv.is_draft and session['user']['role'] in ['owner', 'super_admin'] %}
   {% if can_delete %}
-  <form method="POST" action="/booking/hard-delete/{{ inv.id }}" id="deleteForm-{{ inv.id }}" style="display:none"
-        onsubmit="return confirm('PERMANENTLY delete booking {{ inv.invoice_id }}?\n\nThis cannot be undone — unlike Void, the record itself is gone. Only use this for bug-duplicate bookings that were never real.');">
+  <form method="POST" action="/booking/hard-delete/{{ inv.id }}" id="deleteForm-{{ inv.id }}" style="display:none">
+    <input type="hidden" name="admin_password" class="admin-password-field">
   </form>
   {% endif %}
   <button type="button" class="action-menu-btn" title="Actions"
@@ -448,6 +513,14 @@
       "editUrl": ("/booking/new?edit=" ~ inv.id) if can("invoices", "edit") else "",
       "cloneUrl": ("/booking/clone/" ~ inv.id),
       "canVoid": (not inv.is_void and not inv.is_draft),
+      "canPay": (inv.booking_type == 'cash' and not inv.is_void and not inv.is_draft and (inv.balance or 0) > 0),
+      "payUrl": ("/booking/list/record-payment/" ~ inv.id),
+      "payPayload": {
+        "invoiceId": inv.id | default("", true),
+        "docketNo": inv.docket_no | default("", true),
+        "customerName": inv.customer_name | default("—", true),
+        "balance": inv.balance | default(0, true)
+      },
       "voidPayload": {
         "id": inv.id | default("", true),
         "invoiceId": inv.id | default("", true),
@@ -467,7 +540,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="15" style="text-align:center;padding:48px;color:var(--text-muted)">
+          <td colspan="14" style="text-align:center;padding:48px;color:var(--text-muted)">
             <div style="font-size:32px;margin-bottom:8px">📭</div>
             No invoices found for this filter.
           </td>
@@ -480,6 +553,59 @@
 
 <!-- Shared row-actions dropdown (single instance, repositioned per click) -->
 <div id="rowActionsMenu" class="action-menu-popup"></div>
+
+<!-- Payment modal (cash bookings only) -->
+<div id="paymentModalOverlay" class="void-modal-overlay">
+  <div class="void-modal">
+    <h3 style="margin:0 0 4px;">💵 Record Payment <span id="paymentModalInvoiceId"></span></h3>
+    <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;">
+      Records a payment received against this booking and logs it to Cash or Bank Transactions, based on the mode below.
+    </p>
+
+    <div class="void-modal-section">
+      <div class="void-modal-label">Customer</div>
+      <div id="paymentModalCustomer" class="void-modal-value"></div>
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Balance Due</div>
+      <div id="paymentModalBalance" class="void-modal-value"></div>
+    </div>
+
+    <div class="void-modal-section">
+      <div class="void-modal-label">Amount Received</div>
+      <input type="number" id="paymentModalAmount" class="void-modal-value" style="width:100%;box-sizing:border-box;" min="0" step="0.01" oninput="updatePaymentModalRemainder()">
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Discount Given (₹, optional)</div>
+      <input type="number" id="paymentModalDiscount" class="void-modal-value" style="width:100%;box-sizing:border-box;" min="0" step="0.01" value="0" oninput="updatePaymentModalRemainder()">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Use this when the client paid less than the balance and the gap is being written off — e.g. balance ₹2,180, client pays ₹2,100, discount ₹80. It's added to this booking's Discount, not recorded as cash.</div>
+      <div id="paymentModalRemainder" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;"></div>
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Payment Mode</div>
+      <div class="pay-tabs">
+        <div class="pay-tab active" id="paymentModalTab-cash" onclick="setPaymentModalMode('cash')">💵 Cash</div>
+        <div class="pay-tab" id="paymentModalTab-bank_transfer" onclick="setPaymentModalMode('bank_transfer')">🏦 Bank Transfer</div>
+        <div class="pay-tab" id="paymentModalTab-upi" onclick="setPaymentModalMode('upi')">📱 UPI</div>
+      </div>
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Payment Date</div>
+      <input type="date" id="paymentModalDate" class="void-modal-value" style="width:100%;box-sizing:border-box;">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Defaults to today — pick an earlier date to record a back-dated payment.</div>
+    </div>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Narration (optional)</div>
+      <input type="text" id="paymentModalNarration" class="void-modal-value" style="width:100%;box-sizing:border-box;" placeholder="e.g. Paid at counter, or UTR/Ref No.">
+    </div>
+    <div id="paymentModalError" style="display:none;color:#DC2626;font-size:12px;margin-top:6px;"></div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+      <button type="button" class="btn btn-ghost" onclick="closePaymentModal()">Cancel</button>
+      <button type="button" id="paymentModalConfirmBtn" class="btn btn-primary">Save Payment</button>
+    </div>
+  </div>
+</div>
 
 <!-- Void confirmation modal -->
 <div id="voidModalOverlay" class="void-modal-overlay">
@@ -513,6 +639,26 @@
   </div>
 </div>
 
+<!-- Delete confirmation modal (permanent hard-delete — needs owner password) -->
+<div id="deleteModalOverlay" class="void-modal-overlay">
+  <div class="void-modal">
+    <h3 style="margin:0 0 4px;">🗑 Permanently Delete Booking <span id="deleteModalInvoiceId"></span></h3>
+    <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;">
+      This cannot be undone — unlike Void, the record itself is gone. Only use this for
+      bug-duplicate bookings that were never real. Enter your password to confirm.
+    </p>
+    <div class="void-modal-section">
+      <div class="void-modal-label">Password</div>
+      <input type="password" id="deleteModalPassword" class="void-modal-value" style="width:100%;box-sizing:border-box;" autocomplete="current-password">
+      <div id="deleteModalError" style="display:none;color:#DC2626;font-size:12px;margin-top:6px;">Enter your password to confirm.</div>
+    </div>
+    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px;">
+      <button type="button" class="btn btn-ghost" id="deleteModalCancelBtn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="deleteModalConfirmBtn" style="background:#DC2626;border-color:#DC2626;">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
 <style>
 .void-modal-overlay {
   display:none; position:fixed; inset:0; background:rgba(17,24,39,.5); z-index:1000;
@@ -529,6 +675,13 @@
   color: var(--text-muted); margin-bottom:3px;
 }
 .void-modal-value { font-size:13.5px; color: var(--text-body); background: var(--bg-table-alt); border:1px solid var(--border-color); border-radius:8px; padding:8px 12px; }
+
+/* Payment mode tabs — same look as the Payment Mode card on the booking form,
+   kept in sync so Record Payment (here) and booking-time payment (booking.html)
+   read as one feature, not two. */
+.pay-tabs { display:flex; gap:8px; flex-wrap:wrap; }
+.pay-tab { padding:8px 18px; border-radius:20px; border:1.5px solid var(--border-color); font-size:13px; font-weight:600; cursor:pointer; background:var(--bg-input); color:var(--text-muted); transition:all .15s; user-select:none; }
+.pay-tab.active { border-color:#4F46E5; background:#EEF2FF; color:#4F46E5; }
 </style>
 
 <script>
@@ -557,6 +710,48 @@ document.addEventListener('keydown', function(e) {
 });
 document.getElementById('voidModalOverlay').addEventListener('click', function(e) {
   if (e.target === this) closeVoidModal();
+});
+
+/* ---- Delete Booking modal (password re-confirmation) ---- */
+let deleteTargetFormId = null;
+const deleteModalOverlay = document.getElementById('deleteModalOverlay');
+const deleteModalPassword = document.getElementById('deleteModalPassword');
+const deleteModalError = document.getElementById('deleteModalError');
+
+function openDeleteModal(invoiceId, formId) {
+  document.getElementById('deleteModalInvoiceId').textContent = invoiceId || '';
+  deleteTargetFormId = formId;
+  deleteModalPassword.value = '';
+  deleteModalError.style.display = 'none';
+  deleteModalOverlay.classList.add('open');
+  setTimeout(function() { deleteModalPassword.focus(); }, 50);
+}
+function closeDeleteModal() {
+  deleteModalOverlay.classList.remove('open');
+  deleteTargetFormId = null;
+}
+document.getElementById('deleteModalCancelBtn').addEventListener('click', closeDeleteModal);
+deleteModalOverlay.addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeDeleteModal();
+});
+function submitDeleteModal() {
+  const password = deleteModalPassword.value;
+  if (!password) {
+    deleteModalError.textContent = 'Enter your password to confirm.';
+    deleteModalError.style.display = 'block';
+    return;
+  }
+  const form = document.getElementById(deleteTargetFormId);
+  if (!form) { closeDeleteModal(); return; }
+  form.querySelector('.admin-password-field').value = password;
+  form.requestSubmit();
+}
+document.getElementById('deleteModalConfirmBtn').addEventListener('click', submitDeleteModal);
+deleteModalPassword.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') { e.preventDefault(); submitDeleteModal(); }
 });
 /* ---- Inline Tracking No. / Carrier Ref quick-edit ---- */
 document.querySelectorAll('.inline-track-input').forEach(function(input) {
@@ -644,6 +839,134 @@ document.querySelectorAll('.track-status-select').forEach(function(select) {
   });
 });
 
+/* ---- All / Cash / Credit tabs (mutually exclusive) ---- */
+document.querySelectorAll('.booktype-tab').forEach(function(tab) {
+  tab.addEventListener('click', function(e) {
+    e.preventDefault();
+    const params = new URLSearchParams(window.location.search);
+    const clickedType = this.getAttribute('data-btype');
+    params.set('btype', clickedType);
+    window.location.search = params.toString();
+  });
+});
+
+/* ---- Payment modal (cash bookings only) ---- */
+const paymentModalOverlay   = document.getElementById('paymentModalOverlay');
+const paymentModalInvoiceId = document.getElementById('paymentModalInvoiceId');
+const paymentModalCustomer  = document.getElementById('paymentModalCustomer');
+const paymentModalBalance   = document.getElementById('paymentModalBalance');
+const paymentModalAmount    = document.getElementById('paymentModalAmount');
+const paymentModalDiscount  = document.getElementById('paymentModalDiscount');
+const paymentModalRemainder = document.getElementById('paymentModalRemainder');
+const paymentModalDate      = document.getElementById('paymentModalDate');
+const paymentModalNarration = document.getElementById('paymentModalNarration');
+const paymentModalError     = document.getElementById('paymentModalError');
+let paymentModalUrl = null;
+let paymentModalMode = 'cash';
+let paymentModalCurrentBalance = 0;
+
+// Shows what's left of the balance after the entered amount + discount, so
+// it's obvious before submitting whether the two numbers reconcile against
+// the balance due (mirrors the backend's own check).
+function updatePaymentModalRemainder() {
+  const amount   = parseFloat(paymentModalAmount.value) || 0;
+  const discount = parseFloat(paymentModalDiscount.value) || 0;
+  const leftover = paymentModalCurrentBalance - amount - discount;
+  if (amount <= 0 && discount <= 0) {
+    paymentModalRemainder.textContent = '';
+    return;
+  }
+  if (leftover < -0.004) {
+    paymentModalRemainder.textContent = 'Amount + discount exceeds the balance due by ₹' + Math.abs(leftover).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + '.';
+    paymentModalRemainder.style.color = '#DC2626';
+  } else {
+    paymentModalRemainder.textContent = 'Remaining balance after this: ₹' + Math.max(0, leftover).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    paymentModalRemainder.style.color = 'var(--text-muted)';
+  }
+}
+
+function setPaymentModalMode(mode) {
+  paymentModalMode = mode;
+  document.querySelectorAll('#paymentModalOverlay .pay-tabs .pay-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('paymentModalTab-' + mode).classList.add('active');
+}
+
+function openPaymentModal(payload, url) {
+  paymentModalUrl = url;
+  paymentModalCurrentBalance = Number(payload.balance || 0);
+  paymentModalInvoiceId.textContent = payload.docketNo || payload.invoiceId || '';
+  paymentModalCustomer.textContent = payload.customerName || '—';
+  paymentModalBalance.textContent = '₹' + paymentModalCurrentBalance.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  paymentModalAmount.value = payload.balance || '';
+  paymentModalAmount.max = payload.balance || '';
+  paymentModalDiscount.value = '0';
+  paymentModalRemainder.textContent = '';
+  paymentModalDate.value = new Date().toISOString().slice(0, 10);
+  paymentModalNarration.value = '';
+  paymentModalError.style.display = 'none';
+  setPaymentModalMode('cash');
+  paymentModalOverlay.classList.add('open');
+}
+function closePaymentModal() {
+  paymentModalOverlay.classList.remove('open');
+  paymentModalUrl = null;
+}
+paymentModalOverlay.addEventListener('click', function(e) {
+  if (e.target === this) closePaymentModal();
+});
+function submitPaymentModal() {
+  const amount = parseFloat(paymentModalAmount.value) || 0;
+  const discount = parseFloat(paymentModalDiscount.value) || 0;
+  if (amount <= 0 && discount <= 0) {
+    paymentModalError.textContent = 'Enter a valid payment or discount amount.';
+    paymentModalError.style.display = 'block';
+    return;
+  }
+  if (amount < 0 || discount < 0) {
+    paymentModalError.textContent = 'Amount and discount cannot be negative.';
+    paymentModalError.style.display = 'block';
+    return;
+  }
+  if (paymentModalCurrentBalance > 0 && (amount + discount) > paymentModalCurrentBalance + 0.004) {
+    paymentModalError.textContent = 'Amount + discount cannot exceed the balance due.';
+    paymentModalError.style.display = 'block';
+    return;
+  }
+  const body = new URLSearchParams();
+  body.set('amount', amount);
+  body.set('discount_amount', discount);
+  body.set('pay_date', paymentModalDate.value);
+  body.set('payment_mode', paymentModalMode);
+  body.set('narration', paymentModalNarration.value.trim());
+
+  const btn = document.getElementById('paymentModalConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  fetch(paymentModalUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  })
+    .then(function(res) { return res.json().then(function(data) { return { ok: res.ok, data: data }; }); })
+    .then(function(result) {
+      if (!result.ok || !result.data.ok) {
+        throw new Error((result.data && result.data.error) || 'Could not save payment.');
+      }
+      window.location.reload();
+    })
+    .catch(function(err) {
+      btn.disabled = false;
+      btn.textContent = 'Save Payment';
+      paymentModalError.textContent = err.message || 'Could not save payment. Please try again.';
+      paymentModalError.style.display = 'block';
+    });
+}
+document.getElementById('paymentModalConfirmBtn').addEventListener('click', submitPaymentModal);
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closePaymentModal();
+});
+
 document.querySelectorAll('.void-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     const inv = JSON.parse(btn.getAttribute('data-void'));
@@ -665,7 +988,8 @@ function buildActionsMenuHtml(data) {
   let html = '<a href="' + data.viewUrl + '">👁️ View</a>';
   if (data.editUrl) html += '<a href="' + data.editUrl + '">✏️ Edit</a>';
   html += '<a href="' + data.cloneUrl + '" class="purple">📋 Clone</a>';
-  if (data.canVoid || data.deleteFormId) html += '<div class="action-menu-divider"></div>';
+  if (data.canPay || data.canVoid || data.deleteFormId) html += '<div class="action-menu-divider"></div>';
+  if (data.canPay) html += '<button type="button" data-role="pay">💵 Record Payment</button>';
   if (data.canVoid) html += '<button type="button" class="danger" data-role="void">🚫 Void</button>';
   if (data.deleteFormId) html += '<button type="button" class="danger" data-role="delete">🗑 Delete</button>';
   return html;
@@ -692,6 +1016,11 @@ document.querySelectorAll('.action-menu-btn').forEach(function(btn) {
     activeActionsBtn = btn;
     positionActionsMenu(btn);
 
+    const payBtn = rowActionsMenu.querySelector('[data-role="pay"]');
+    if (payBtn) payBtn.addEventListener('click', function() {
+      closeActionsMenu();
+      openPaymentModal(data.payPayload, data.payUrl);
+    });
     const voidBtn = rowActionsMenu.querySelector('[data-role="void"]');
     if (voidBtn) voidBtn.addEventListener('click', function() {
       closeActionsMenu();
@@ -700,8 +1029,8 @@ document.querySelectorAll('.action-menu-btn').forEach(function(btn) {
     const deleteBtn = rowActionsMenu.querySelector('[data-role="delete"]');
     if (deleteBtn) deleteBtn.addEventListener('click', function() {
       closeActionsMenu();
-      const form = document.getElementById(data.deleteFormId);
-      if (form) form.requestSubmit();
+      const invoiceId = (data.voidPayload && data.voidPayload.invoiceId) || '';
+      openDeleteModal(invoiceId, data.deleteFormId);
     });
   });
 });

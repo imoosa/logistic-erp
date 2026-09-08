@@ -29,6 +29,75 @@
     font-size: 26px;
     font-weight: 800;
   }
+  
+  .balance-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .balance-card {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    border: 1px solid var(--border-color);
+  }
+  .balance-card .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-muted);
+  }
+  .balance-card .value {
+    font-size: 22px;
+    font-weight: 800;
+    margin-top: 4px;
+    color: var(--text-body);
+  }
+  .balance-card .value.positive { color: #059669; }
+  .balance-card .value.negative { color: #DC2626; }
+  .balance-card .value.opening { color: #2563EB; }
+  
+  .filter-bar {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .filter-bar .fg {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .filter-bar .fg label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .filter-bar .fg input,
+  .filter-bar .fg select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-body);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .filter-bar .fg input:focus,
+  .filter-bar .fg select:focus {
+    outline: none;
+    border-color: #4F46E5;
+  }
+  
   .txn-table-wrap {
     background: var(--bg-card);
     border-radius: 16px;
@@ -58,6 +127,22 @@
   table.txn-table tr:last-child td {
     border-bottom: none;
   }
+  table.txn-table tr.opening-row {
+    background: var(--bg-table-alt);
+  }
+  table.txn-table tr.opening-row td {
+    color: #2563EB;
+    font-weight: 600;
+  }
+  table.txn-table tr.date-group-row td {
+    background: var(--bg-table-alt);
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 16px;
+  }
   .amount-credit {
     color: #059669;
     font-weight: 700;
@@ -65,6 +150,10 @@
   .amount-debit {
     color: #DC2626;
     font-weight: 700;
+  }
+  .amount-balance {
+    font-weight: 600;
+    color: var(--text-body);
   }
   .txn-badge {
     display: inline-block;
@@ -81,6 +170,10 @@
     background: #FEE2E2;
     color: #991B1B;
   }
+  .txn-badge.opening {
+    background: #EFF6FF;
+    color: #1D4ED8;
+  }
   body.dark-theme .txn-badge.credit {
     background: rgba(5,150,105,0.2);
     color: #34D399;
@@ -88,6 +181,13 @@
   body.dark-theme .txn-badge.debit {
     background: rgba(220,38,38,0.2);
     color: #F87171;
+  }
+  body.dark-theme .txn-badge.opening {
+    background: rgba(37,99,235,0.2);
+    color: #93C5FD;
+  }
+  body.dark-theme .txn-table tr.date-group-row td {
+    background: rgba(255,255,255,0.03);
   }
   .back-link {
     display: inline-flex;
@@ -99,28 +199,121 @@
     font-weight: 600;
     font-size: 14px;
   }
+  .back-link:hover {
+    text-decoration: underline;
+  }
+  .txn-footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-top: 2px solid var(--border-color);
+    font-weight: 700;
+    font-size: 15px;
+    background: var(--bg-table-alt);
+  }
+  .txn-footer .closing-label {
+    color: var(--text-muted);
+  }
+  .txn-footer .closing-amount {
+    color: var(--text-body);
+  }
+  
+  @media (max-width: 768px) {
+    .balance-summary {
+      grid-template-columns: 1fr 1fr;
+    }
+    table.txn-table th,
+    table.txn-table td {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .filter-bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+  @media (max-width: 480px) {
+    .balance-summary {
+      grid-template-columns: 1fr;
+    }
+    .account-summary-bar {
+      flex-direction: column;
+      text-align: center;
+    }
+    .account-summary-bar .balance {
+      font-size: 22px;
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 
-<a href="/bank-accounts" class="back-link">&larr; Back to Bank Accounts</a>
+<a href="{{ url_for('bank_accounts') }}" class="back-link">&larr; Back to Bank Accounts</a>
 
 <div class="account-summary-bar">
   <div>
     <div class="bank-name">{{ account.bank_name }}</div>
     <div class="account-name">{{ account.account_name }} &middot; {{ account.account_number }}</div>
+    {% if account.branch %}
+      <div class="account-name" style="opacity:0.7; font-size:12px;">{{ account.branch }} {% if account.ifsc_code %}&middot; {{ account.ifsc_code }}{% endif %}</div>
+    {% endif %}
   </div>
   <div>
     <div style="font-size:12px; opacity:0.85; text-align:right;">Current Balance</div>
-    <div class="balance">₹{{ "{:,.2f}".format(account.balance) }}</div>
+    <div class="balance">₹{{ "{:,.2f}".format(current_balance) }}</div>
   </div>
 </div>
 
-<div class="page-header">
-  <h2>Transaction History</h2>
+<!-- Balance Summary Cards -->
+<div class="balance-summary">
+  <div class="balance-card">
+    <div class="label">Opening Balance</div>
+    <div class="value opening">₹{{ "{:,.2f}".format(opening_balance) }}</div>
+  </div>
+  <div class="balance-card">
+    <div class="label">Total Credits (Inflow)</div>
+    <div class="value positive">₹{{ "{:,.2f}".format(total_credits) }}</div>
+  </div>
+  <div class="balance-card">
+    <div class="label">Total Debits (Outflow)</div>
+    <div class="value negative">₹{{ "{:,.2f}".format(total_debits) }}</div>
+  </div>
+  <div class="balance-card">
+    <div class="label">Current Balance</div>
+    <div class="value {% if current_balance >= 0 %}positive{% else %}negative{% endif %}">
+      ₹{{ "{:,.2f}".format(current_balance) }}
+    </div>
+  </div>
 </div>
 
+<!-- Filter Bar -->
+<div class="filter-bar">
+  <form method="GET" style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; width: 100%;">
+    <div class="fg">
+      <label>From Date</label>
+      <input type="date" name="from_date" value="{{ from_date }}">
+    </div>
+    <div class="fg">
+      <label>To Date</label>
+      <input type="date" name="to_date" value="{{ to_date }}">
+    </div>
+    <div class="fg">
+      <label>Type</label>
+      <select name="type">
+        <option value="all" {% if request.args.get('type') == 'all' or not request.args.get('type') %}selected{% endif %}>All</option>
+        <option value="credit" {% if request.args.get('type') == 'credit' %}selected{% endif %}>Credits (Inflow)</option>
+        <option value="debit" {% if request.args.get('type') == 'debit' %}selected{% endif %}>Debits (Outflow)</option>
+      </select>
+    </div>
+    <div style="display: flex; gap: 8px; padding-bottom: 2px;">
+      <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+      <a href="{{ url_for('bank_transactions', account_id=account.id) }}" class="btn btn-sm btn-ghost">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Transaction Table -->
 <div class="txn-table-wrap">
   <table class="txn-table">
     <thead>
@@ -132,35 +325,148 @@
         <th>Mode</th>
         <th>Type</th>
         <th style="text-align:right;">Amount</th>
+        <th style="text-align:right;">Balance</th>
       </tr>
     </thead>
     <tbody>
-      {% for txn in transactions %}
-      <tr>
-        <td>{{ txn.date.strftime('%d %b %Y') if txn.date else '-' }}</td>
-        <td>{{ txn.description|default('-', true) }}</td>
-        <td>{{ txn.party_name|default('-', true) }}</td>
-        <td>{{ txn.reference|default('-', true) }}</td>
-        <td>{{ txn.transaction_mode|default('-', true) }}</td>
-        <td>
-          {% set ttype = (txn.type|default('', true))|lower %}
-          <span class="txn-badge {{ 'credit' if ttype == 'credit' else 'debit' }}">
-            {{ txn.type|default('-', true) }}
-          </span>
-        </td>
-        <td style="text-align:right;" class="{{ 'amount-credit' if ttype == 'credit' else 'amount-debit' }}">
-          {{ '+' if ttype == 'credit' else '-' }}₹{{ "{:,.2f}".format(txn.amount) }}
-        </td>
-      </tr>
+      {% if transactions %}
+        {% for txn_date, day_txns in transactions|groupby('date')|reverse %}
+        <tr class="date-group-row">
+          <td colspan="8">{{ txn_date.strftime('%d %b %Y') if txn_date else 'No Date' }}</td>
+        </tr>
+        {% for txn in day_txns|reverse %}
+        <tr {% if 'Opening Balance' in txn.description %}class="opening-row"{% endif %}>
+          <td>{{ txn.date.strftime('%d %b %Y') if txn.date else '-' }}</td>
+          <td>
+            {% if 'Opening Balance' in txn.description %}
+              <span style="display:inline-flex;align-items:center;gap:6px;">
+                <span>🔓</span> {{ txn.description }}
+              </span>
+            {% else %}
+              {{ txn.description|default('-', true) }}
+            {% endif %}
+          </td>
+          <td>{{ txn.party_name|default('-', true) }}</td>
+          <td>{{ txn.reference|default('-', true) }}</td>
+          <td>{{ txn.transaction_mode|default('-', true) }}</td>
+          <td>
+            {% set ttype = (txn.type|default('', true))|lower %}
+            {% if 'Opening Balance' in txn.description %}
+              <span class="txn-badge opening">Opening</span>
+            {% else %}
+              <span class="txn-badge {{ 'credit' if ttype == 'credit' else 'debit' }}">
+                {{ txn.type|default('-', true) }}
+              </span>
+            {% endif %}
+          </td>
+          <td style="text-align:right;" class="{{ 'amount-credit' if ttype == 'credit' else 'amount-debit' }}">
+            {% if 'Opening Balance' in txn.description %}
+              ₹{{ "{:,.2f}".format(txn.amount) }}
+            {% else %}
+              {{ '+' if ttype == 'credit' else '-' }}₹{{ "{:,.2f}".format(txn.amount) }}
+            {% endif %}
+          </td>
+          <td style="text-align:right;" class="amount-balance">
+            ₹{{ "{:,.2f}".format(txn.running_balance) }}
+          </td>
+        </tr>
+        {% endfor %}
+        {% endfor %}
       {% else %}
       <tr>
-        <td colspan="7" style="text-align:center; padding:40px; color:#6B7280;">
+        <td colspan="8" style="text-align: center; padding:40px; color:#6B7280;">
           No transactions recorded for this account yet.
         </td>
       </tr>
-      {% endfor %}
+      {% endif %}
     </tbody>
   </table>
+  {% if transactions %}
+  <div class="txn-footer">
+    <span class="closing-label">Closing Balance</span>
+    <span class="closing-amount">₹{{ "{:,.2f}".format(current_balance) }}</span>
+  </div>
+  {% endif %}
 </div>
+
+<!-- Add Transaction Button -->
+<div style="margin-top: 20px; text-align: right;">
+  <button class="btn btn-primary" onclick="showAddTransactionModal()">+ Add Transaction</button>
+</div>
+
+<!-- Add Transaction Modal -->
+<div id="addTransactionModal" class="modal" style="display: none;">
+  <div class="modal-content" style="max-width: 500px;">
+    <div class="modal-header">
+      <h3 style="margin:0">Add Transaction</h3>
+      <span class="close-modal" onclick="closeModal('addTransactionModal')">&times;</span>
+    </div>
+    <form method="POST" action="{{ url_for('add_bank_transaction', account_id=account.id) }}">
+      <div class="form-group">
+        <label>Transaction Type *</label>
+        <select name="type" required>
+          <option value="credit">Credit (Deposit)</option>
+          <option value="debit">Debit (Withdrawal)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Date *</label>
+        <input type="date" name="date" value="{{ today }}" required>
+      </div>
+      <div class="form-group">
+        <label>Description *</label>
+        <input type="text" name="description" placeholder="e.g., Rent payment" required>
+      </div>
+      <div class="form-group">
+        <label>Amount *</label>
+        <input type="number" name="amount" step="0.01" placeholder="0.00" required>
+      </div>
+      <div class="form-group">
+        <label>Reference</label>
+        <input type="text" name="reference" placeholder="Transaction reference">
+      </div>
+      <div class="form-group">
+        <label>Transaction Mode</label>
+        <select name="transaction_mode">
+          <option value="Cash">Cash</option>
+          <option value="Online">Online/UPI</option>
+          <option value="Cheque">Cheque</option>
+          <option value="Transfer">Bank Transfer</option>
+          <option value="Card">Card</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Party Name</label>
+        <input type="text" name="party_name" placeholder="Party name (optional)">
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" rows="2" placeholder="Additional notes"></textarea>
+      </div>
+      <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:20px">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('addTransactionModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Transaction</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showAddTransactionModal() {
+  document.getElementById('addTransactionModal').style.display = 'flex';
+}
+
+function closeModal(modalId) {
+  document.getElementById(modalId).style.display = 'none';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+  const modal = document.getElementById('addTransactionModal');
+  if (event.target == modal) {
+    closeModal('addTransactionModal');
+  }
+}
+</script>
 
 {% endblock %}

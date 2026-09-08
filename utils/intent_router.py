@@ -148,6 +148,140 @@ INTENT_MAP = [
       "number of users", "how many owners", "owner count",
       "how many employees", "employee count", "users in company",
       "staff count", "list of users", "list of employees"], "user_count_summary"),
+
+    # ── NEW INTENTS ──────────────────────────────────────────────────────────
+
+    # Today's sales — must appear BEFORE generic sales_summary to avoid
+    # "today's sales" landing on the aggregate-all-time bucket.
+    (["today's sales", "todays sales", "sales today", "how much did we sell today",
+      "today sale", "sales for today", "today's revenue", "today revenue",
+      "today's income", "today's billing", "what did we sell today"], "todays_sales"),
+
+    # Today's bookings
+    (["today's bookings", "todays bookings", "bookings today", "how many bookings today",
+      "shipments today", "today's shipments", "dispatched today",
+      "today's dispatch", "today's dockets"], "todays_bookings"),
+
+    # Overdue invoices
+    (["overdue", "overdue invoice", "overdue invoices", "overdue bills",
+      "pending more than 30 days", "long overdue", "which invoices are overdue",
+      "which invoices are risky", "bills pending for more than",
+      "invoices not paid", "long pending invoices"], "overdue_invoices"),
+
+    # Top clients by sales
+    (["top customer", "top client", "best client", "best customer",
+      "highest sales client", "highest revenue client", "top 5 customer",
+      "top 10 customer", "top 5 client", "top 10 client", "highest billing client",
+      "which customer generated highest", "which customer generated most",
+      "show my best customer"], "top_clients_sales"),
+
+    # Top clients by outstanding
+    (["who owes most", "who has highest outstanding", "highest outstanding client",
+      "clients with most pending", "customer with highest balance",
+      "who should i collect from first", "which customer should i follow up",
+      "customer payment follow up", "collection priority"], "top_clients_outstanding"),
+
+    # AWB / docket lookup — specific shipment search
+    (["find awb", "search awb", "track awb", "awb number", "awb no",
+      "find docket", "search docket", "track docket", "docket number",
+      "docket no", "track shipment", "shipment status", "where is my shipment",
+      "find booking", "search booking", "booking status", "track booking",
+      "find invoice awb", "lookup awb", "lookup docket"], "awb_detail"),
+
+    # Today's expenses
+    (["today's expenses", "todays expenses", "expenses today", "what did we spend today",
+      "today's spending", "today spending", "daily expenses today"], "todays_expenses"),
+
+    # Expenses by category
+    (["fuel expense", "fuel expenses", "salary expense", "salary expenses",
+      "office expense", "office expenses", "maintenance expense", "maintenance expenses",
+      "travel expense", "electricity expense", "rent expense", "misc expense",
+      "expense by category", "category wise expense", "expense category"], "expenses_category"),
+
+    # Today's cash
+    (["cash today", "today's cash", "todays cash", "cash in today",
+      "cash out today", "cash received today", "cash paid today",
+      "today's cash flow", "cash flow today", "daily cash"], "todays_cash"),
+
+    # Receipts and payments
+    (["receipt", "receipts", "today's receipts", "monthly receipts",
+      "payment received", "payments received", "collection summary",
+      "money received", "amount collected", "total collection",
+      "payment made", "payments made", "total payment",
+      "receipts and payments", "payment summary"], "receipts_payments_summary"),
+
+    # Client ledger / statement
+    (["client statement", "customer statement", "client ledger", "customer ledger",
+      "party statement", "account statement for client", "statement of account",
+      "client account summary", "customer account summary",
+      "client payment history", "customer payment history",
+      "client invoice history", "customer invoice history"], "client_statement"),
+
+    # Supplier ledger / statement
+    (["supplier statement", "vendor statement", "supplier ledger", "vendor ledger",
+      "supplier account summary", "vendor account summary",
+      "supplier payment history", "supplier invoice history",
+      "account statement for supplier"], "supplier_statement"),
+
+    # Estimates / quotations
+    (["estimate", "estimates", "quotation", "quotations", "quote",
+      "estimate list", "show estimates", "pending estimates",
+      "estimate summary", "how many estimates", "total estimates",
+      "estimate value", "draft estimates"], "estimate_summary"),
+
+    # Estimate detail (single lookup)
+    (["find estimate", "show estimate", "estimate detail",
+      "search estimate", "lookup estimate"], "estimate_detail"),
+
+    # Top suppliers by purchase
+    (["top supplier", "top vendor", "best supplier", "best vendor",
+      "highest purchase supplier", "highest purchase vendor",
+      "which supplier has highest purchase", "top 5 supplier",
+      "top 10 supplier", "supplier ranking", "vendor ranking"], "top_suppliers_purchase"),
+
+    # Destination analysis
+    (["destination wise", "destination analysis", "city wise shipments",
+      "city analysis", "state wise", "which city most shipments",
+      "which city has highest revenue", "which destination received most",
+      "top destination", "top city", "shipping city", "most shipped to",
+      "where do we ship most", "destination report", "city report",
+      "most profitable destination", "top shipping city"], "destination_analysis"),
+
+    # Courier / carrier analysis
+    (["courier wise", "courier analysis", "carrier analysis",
+      "which courier handled most", "carrier performance",
+      "courier performance", "courier comparison", "best courier",
+      "which courier is best", "top courier", "courier report",
+      "courier shipment count", "carrier report", "courier trend"], "courier_analysis"),
+
+    # New clients
+    (["new customer", "new customers", "new client", "new clients",
+      "recently added client", "recently added customer",
+      "new clients this month", "new customers this month",
+      "clients added this month", "latest clients", "latest customers",
+      "customer onboarding", "newly registered"], "new_clients"),
+
+    # Customer invoice (aggregate billing)
+    (["customer invoice", "billing invoice", "aggregate invoice",
+      "customer invoice summary", "customer invoices",
+      "billing summary", "how many customer invoices", "ci summary",
+      "consolidated invoice"], "customer_invoice_summary"),
+
+    # Bank account detail
+    (["bank account detail", "account detail", "which account has highest",
+      "bank transactions", "account transactions", "recent bank transactions",
+      "last bank transaction", "bank account info", "show bank account"], "bank_account_detail"),
+
+    # Pending manifests
+    (["pending manifest", "pending manifests", "manifest pending",
+      "manifests not dispatched", "open manifests", "unprocessed manifests",
+      "manifest queue"], "pending_manifests"),
+
+    # Help / capabilities
+    (["help", "what can you do", "what can you answer", "what do you know",
+      "capabilities", "list of questions", "what questions", "show help",
+      "how do you help", "what can i ask", "what are your features",
+      "show capabilities"], "help"),
 ]
 
 
@@ -190,6 +324,27 @@ def extract_months(message: str, default: int = 1) -> int:
 def extract_days(message: str, default: int = 30) -> int:
     m = re.search(r"(\d+)\s*day", message.lower())
     return int(m.group(1)) if m else default
+
+
+def extract_limit(message: str, default: int = 10) -> int:
+    """Extract a ranking limit: 'top 5', 'top 10', etc."""
+    m = re.search(r"\btop\s+(\d+)\b", message.lower())
+    return int(m.group(1)) if m else default
+
+
+def extract_category_from_expense_message(message: str) -> str:
+    """Extract expense category from message (fuel, salary, office, etc.)."""
+    msg = message.lower()
+    categories = [
+        "fuel", "salary", "office", "maintenance", "travel",
+        "electricity", "rent", "misc", "miscellaneous", "repair",
+        "transport", "printing", "insurance", "telephone", "internet",
+        "water", "cleaning", "stationary", "food",
+    ]
+    for cat in categories:
+        if cat in msg:
+            return cat
+    return ""
 
 
 # ─────────────────────────────────────────────────────────────────────────

@@ -31,6 +31,16 @@
   .pkg-totals { display:flex; gap:24px; margin-top:14px; padding:12px 16px; background:#DCFCE7; border-radius:10px; font-size:13px; }
   .pkg-totals span { font-weight:700; color:#15803D; }
 
+  /* Payment history table — one row per payment received against this
+     booking (Cash + Bank/UPI combined), oldest first, with a running
+     balance. Only shown when editing a booking that has at least one
+     payment on record. */
+  .paymhist-table { width:100%; border-collapse:collapse; margin-top:14px; }
+  .paymhist-table th { padding:8px 10px; font-size:11px; font-weight:700; text-transform:uppercase; color:#fff; background:#0D9488; text-align:left; }
+  .paymhist-table td { padding:7px 10px; border-top:1px solid var(--border-color); font-size:13px; }
+  .paymhist-table .pm-mode-chip { display:inline-block; padding:2px 9px; border-radius:12px; font-size:11px; font-weight:600; background:var(--surface-info-bg); color:var(--surface-info-text); }
+  .paymhist-empty { font-size:12.5px; color:var(--text-muted); padding:6px 2px; }
+
   /* Payment tabs */
   .pay-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
   .pay-tab { padding:8px 18px; border-radius:20px; border:1.5px solid var(--border-color); font-size:13px; font-weight:600; cursor:pointer; background:var(--bg-input); color:var(--text-muted); transition:all .15s; user-select:none; }
@@ -356,7 +366,7 @@
   <ul id="errorList"></ul>
 </div>
 
-<form method="POST" action="{{ '/booking/customer/update' if is_edit else '/booking/customer/save' }}" id="custInvForm" enctype="multipart/form-data" onsubmit="return validateCustForm(event)" onkeydown="return handleFormEnter(event)">
+<form method="POST" action="{{ '/booking/customer/update' if is_edit else '/booking/customer/save' }}" id="custInvForm" enctype="multipart/form-data" onsubmit="return formSubmitGate(event)" onkeydown="return handleFormEnter(event)">
   <input type="hidden" name="payment_mode" id="paymentModeHidden" value="{{ form_data.payment_mode or 'cash' }}">
   <input type="hidden" name="upi_app" id="upiAppHidden" value="{{ form_data.upi_app or '' }}">
   <input type="hidden" name="submit_token" id="submitTokenField" value="">
@@ -377,10 +387,8 @@
       <div class="form-group">
         <label>Invoice Date *</label>
         <input type="date" name="invoice_date" value="{{ invoice_date or today }}" required
-          {% if is_edit %}
           readonly style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed;"
-          title="Invoice date is locked to the date this booking was originally generated"
-          {% endif %}>
+          title="{{ 'Invoice date is locked to the date this booking was originally generated' if is_edit else 'Invoice date is locked to today\'s date' }}">
       </div>
       <div class="form-group">
         <label>Docket / AWB No.</label>
@@ -682,9 +690,7 @@
 </div>
       <div class="form-group">
         <label>Pickup Date *</label>
-        <input type="date" name="pickup_date" id="pickup" value="{{ form_data.pickup_date or today }}" readonly
-          style="background:var(--surface-success-bg);color:var(--surface-success-text);font-weight:700;cursor:not-allowed;"
-          title="Pickup date is locked to the date this booking was created and cannot be changed">
+        <input type="date" name="pickup_date" id="pickup" value="{{ form_data.pickup_date or today }}">
       </div>
       <div class="form-group">
         <label>Expected Delivery Date *</label>
@@ -769,9 +775,12 @@
             <input type="text" id="pkgEntryChgWt" value="0.000" readonly style="background:var(--surface-info-bg);color:var(--surface-info-text);font-weight:800;">
           </div>
           
+          
           <div>
             <label>Rate (₹)</label>
-            <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0">
+            <input type="number" id="pkgEntryRate" step="0.01" min="0" value="0" readonly
+              title="Locked — follows Rate per kg above. Click &quot;Take Current Rate&quot; to refresh it."
+              style="background:var(--bg-table-alt);color:var(--text-body);font-weight:700;cursor:not-allowed;">
           </div>
           <button type="button" class="btn btn-success btn-sm" onclick="addPkgRow()" style="height:32px;white-space:nowrap;">+ Add</button>
         </div>
@@ -784,14 +793,15 @@
               <th>Box No.</th>
               <th>Item</th>
               <th>actual Weight</th>
+              <th>Company weight</th>
               <th>Pieces</th>
               <th>Length</th>
               <th>Breadth</th>
               <th>Height</th>
               <th>Volumetric Wt</th>
               <th>Chrg Weight</th>
-              <th title="Auto-calculated: Actual Weight − Discounted weight. AWB copies only — never shown to the customer">Disc. Wt (AWB)</th>
-              <th>Discounted weight</th>
+              
+              
               <th>Rate (₹)</th>
               <th></th>
             </tr>
@@ -808,14 +818,15 @@
                   <input type="hidden" name="pkg_unit[]" value="{{ pkg.unit or 'cm' }}">
                 </td>
                 <td>{{ '%.2f'|format(pkg.weight or 0) }}<input type="hidden" name="pkg_wt[]" value="{{ pkg.weight or 0 }}"></td>
+                <td style="font-weight:700;color:var(--surface-danger-text);">{{ '%.2f'|format((pkg.weight or 0) - (pkg.discount_wt or 0)) }}<input type="hidden" name="pkg_weight_after_discount[]" value="{{ (pkg.weight or 0) - (pkg.discount_wt or 0) }}"><input type="hidden" name="pkg_discwt[]" value="{{ pkg.discount_wt or 0 }}"></td>
                 <td>{{ pkg.qty|int }}<input type="hidden" name="pkg_qty[]" value="{{ pkg.qty }}"></td>
                 <td>{{ pkg.length or 0 }}<input type="hidden" name="pkg_l[]" value="{{ pkg.length or 0 }}"></td>
                 <td>{{ pkg.width or 0 }}<input type="hidden" name="pkg_w[]" value="{{ pkg.width or 0 }}"></td>
                 <td>{{ pkg.height or 0 }}<input type="hidden" name="pkg_h[]" value="{{ pkg.height or 0 }}"><input type="hidden" name="pkg_division[]" value="{{ pkg.division or 5000 }}"><input type="hidden" name="pkg_discount[]" value="{{ pkg.discount or 0 }}"></td>
                 <td>{{ '%.3f'|format(pkg.vol_weight or 0) }}<input type="hidden" name="pkg_volwt[]" value="{{ pkg.vol_weight or 0 }}"></td>
                 <td style="font-weight:700;color:var(--surface-info-text);">{{ '%.3f'|format(pkg.chg_weight or 0) }}<input type="hidden" name="pkg_chgwt[]" value="{{ pkg.chg_weight or 0 }}"></td>
-                <td>{{ '%.2f'|format(pkg.discount_wt or 0) }}<input type="hidden" name="pkg_discwt[]" value="{{ pkg.discount_wt or 0 }}"></td>
-                 <td style="font-weight:700;color:var(--surface-danger-text);">{{ '%.2f'|format((pkg.weight or 0) - (pkg.discount_wt or 0)) }}<input type="hidden" name="pkg_weight_after_discount[]" value="{{ (pkg.weight or 0) - (pkg.discount_wt or 0) }}"></td>
+                
+                 
                 <td>₹<span class="pkg-rate-display">{{ '%.2f'|format(pkg.rate or 0) }}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="{{ pkg.rate or 0 }}"></td>
                 <td>
                   <button type="button" class="del-btn" onclick="editPkgRow(this)" title="Edit">✎</button>
@@ -1000,7 +1011,7 @@
         <label>Rate per kg (₹) *</label>
         <div style="display:flex;gap:8px;align-items:center;">
           <input type="number" name="freight_rate_per_kg" id="freightRatePerKg" step="0.01" min="0" placeholder="0.00"
-            value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="calcFreight()" style="flex:1;">
+            value="{{ form_data.freight_rate_per_kg or '0' }}" oninput="onFreightRateManualInput()" style="flex:1;">
           {% if is_edit %}
           <button type="button" id="btnTakeCurrentRate" onclick="syncRateLookupInputs(true)"
             title="Fetch today's rate from the sale price list and overwrite the locked rate"
@@ -1093,6 +1104,7 @@
       <div class="billing-row" id="roundOffRow"><span>Round Off</span><span id="dispRoundOff">₹0</span></div>
 
       <div class="billing-row grand"><span>Grand Total</span><span id="dispGrand">₹0</span></div>
+      {% if not is_edit %}
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid #E5E7EB">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <span style="font-weight:700">Balance Due</span>
@@ -1100,29 +1112,45 @@
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Amount Paid is recorded in the Payment Mode section below.</div>
       </div>
+      {% endif %}
     </div>
   </div>
 
   
-  <!-- Payment Mode -->
-  <div class="card card-body" style="margin-bottom:16px">
+  <!-- Payment Mode — cash bookings only. Credit bookings never show this;
+       payment against a credit booking is recorded in Debtors instead. -->
+  <div class="card card-body" id="paymentModeCard" style="margin-bottom:16px;display:{{ 'block' if (form_data.booking_type or 'credit') == 'cash' else 'none' }}">
+    {% if not is_edit %}
     <div class="section-title">Payment Mode</div>
+    {% endif %}
 
+    {% if is_edit %}
+    <!-- Editing an existing booking: the initial payment was already made
+         (or not) when the booking was created, and this Payment Mode card
+         is now just the home for Payment History + Record Payment below.
+         Re-showing Amount Paid / mode tabs here would let someone silently
+         change the original leg-1 payment outside of the payment ledger, so
+         the value is carried through as a hidden field instead. -->
+    <input type="hidden" name="amount_paid" value="{{ form_data.amount_paid or '0' }}">
+    {% else %}
     <div class="form-group" style="max-width:260px;margin-bottom:14px;">
-      <label>Amount Paid (₹)</label>
+      <label id="amountPaidLabel">Amount Paid (₹)</label>
       <input type="number" name="amount_paid" id="amountPaid" step="0.01" value="{{ form_data.amount_paid or '0' }}" oninput="calcBalance()" min="0">
     </div>
 
     <div class="pay-tabs">
       <div class="pay-tab {% if form_data.payment_mode == 'cash' or not form_data.payment_mode %}active{% endif %}" id="tab-cash"   onclick="setPayMode('cash')">💵 Cash</div>
-      <div class="pay-tab {% if form_data.payment_mode == 'online' %}active{% endif %}" id="tab-online" onclick="setPayMode('online')">📱 Online / UPI</div>
-      <div class="pay-tab {% if form_data.payment_mode == 'cheque' %}active{% endif %}" id="tab-cheque" onclick="setPayMode('cheque')">🏦 Cheque</div>
-      <div class="pay-tab {% if form_data.payment_mode == 'credit' %}active{% endif %}" id="tab-credit" onclick="setPayMode('credit')">💳 Credit</div>
+      <div class="pay-tab {% if form_data.payment_mode == 'bank_transfer' %}active{% endif %}" id="tab-bank_transfer" onclick="setPayMode('bank_transfer')">🏦 Bank Transfer</div>
+      <div class="pay-tab {% if form_data.payment_mode == 'upi' %}active{% endif %}" id="tab-upi" onclick="setPayMode('upi')">📱 UPI</div>
+    </div>
+
+    <!-- Bank Transfer section -->
+    <div id="bankTransferSection" style="display: {{ 'block' if form_data.payment_mode == 'bank_transfer' else 'none' }}">
     </div>
 
     <!-- UPI section -->
-    <div id="upiSection" style="display: {{ 'block' if form_data.payment_mode == 'online' else 'none' }}">
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">Select UPI / Online payment app:</p>
+    <div id="upiSection" style="display: {{ 'block' if form_data.payment_mode == 'upi' else 'none' }}">
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:6px;font-weight:500">Select UPI app:</p>
       <div class="upi-grid">
         {% set upi_apps = [
           ('gpay',         '🟢', 'Google Pay'),
@@ -1133,9 +1161,7 @@
           ('mobikwik',     '💜', 'MobiKwik'),
           ('freecharge',   '🟡', 'FreeCharge'),
           ('airtel',       '🔴', 'Airtel Pay'),
-          ('jiopay',       '🔷', 'JioPay'),
-          ('neft',         '🏛️', 'NEFT/RTGS'),
-          ('bank_transfer','🏦', 'Bank Transfer')
+          ('jiopay',       '🔷', 'JioPay')
         ] %}
         {% for app_id, icon, label in upi_apps %}
         <div class="upi-chip {% if form_data.upi_app == app_id %}selected{% endif %}" onclick="selectUPI(this,'{{ app_id }}')">
@@ -1143,32 +1169,107 @@
         </div>
         {% endfor %}
       </div>
-      <div class="form-group" style="margin-top:12px">
+    </div>
+
+    <!-- Shared reference field — used for whichever of Bank Transfer / UPI is
+         active. Hidden entirely for Cash, since app.py reads a single
+         "upi_ref" for leg 1 regardless of which non-cash mode was picked. -->
+    <div id="refSection" style="display: {{ 'block' if form_data.payment_mode in ('bank_transfer', 'upi') else 'none' }}">
+      <div class="form-group" style="margin-top:12px;max-width:320px;">
         <label>Transaction / UTR Reference No.</label>
-        <input type="text" name="upi_ref" id="upiRef" value="{{ form_data.upi_ref or '' }}" placeholder="Enter transaction reference number">
+        <input type="text" name="upi_ref" id="upiRef" value="{{ form_data.upi_ref or '' }}" placeholder="Enter transaction / UTR reference number">
+      </div>
+    </div>
+    {% endif %}
+
+    {% if is_edit %}
+    <!-- Payment History — every payment recorded against this booking,
+         whether entered at booking time or added later via Record Payment
+         below. Each row is one payment; a booking paid in 2 installments
+         shows 2 rows, each with the balance remaining after that payment.
+         New payments default to today's date but the modal's date field
+         can be moved back to record a back-dated payment. -->
+    <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border-color);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="section-title" style="margin-bottom:0;padding-bottom:0;border-bottom:none;">Payment History</div>
+        <button type="button" class="btn btn-primary" style="padding:6px 14px;font-size:12.5px;" onclick="openBookingPaymentModal()">+ Record Payment</button>
+      </div>
+      <div id="paymhistTableWrap">
+        {% if payment_history %}
+        <table class="paymhist-table" id="paymhistTable">
+          <thead>
+            <tr><th>Date</th><th>Amount</th><th>Mode</th><th>Balance After</th></tr>
+          </thead>
+          <tbody>
+            {% for p in payment_history %}
+            <tr>
+              <td>{{ p.date.strftime('%d %b %Y') if p.date.strftime else p.date }}</td>
+              <td>₹{{ "%.2f"|format(p.amount) }}</td>
+              <td><span class="pm-mode-chip">{{ p.mode }}</span></td>
+              <td>₹{{ "%.2f"|format(p.balance) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="paymhist-empty" id="paymhistEmpty">No payments recorded against this booking yet.</div>
+        {% endif %}
       </div>
     </div>
 
-    <!-- Cheque section -->
-    <div id="chequeSection" style="display: {{ 'grid' if form_data.payment_mode == 'cheque' else 'none' }}" class="grid-2">
-      <div class="form-group">
-        <label>Cheque Number</label>
-        <input type="text" name="cheque_no" value="{{ form_data.cheque_no or '' }}">
-      </div>
-      <div class="form-group">
-        <label>Cheque Date</label>
-        <input type="date" name="cheque_date" value="{{ form_data.cheque_date or '' }}">
-      </div>
-      <div class="form-group">
-        <label>Bank Name</label>
-        <input type="text" name="cheque_bank" value="{{ form_data.cheque_bank or '' }}" placeholder="e.g. HDFC Bank">
-      </div>
-    </div>
+    <!-- Record Payment modal — same fields/behaviour as the one on the
+         Bookings list page, posting to the same endpoint, so a payment
+         recorded from either place lands in the same history/ledger. -->
+    <div id="bookingPayModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,.5);z-index:1000;align-items:center;justify-content:center;">
+      <div style="background:var(--bg-modal);border-radius:16px;width:420px;max-width:90%;padding:24px;max-height:85vh;overflow-y:auto;">
+        <h3 style="margin:0 0 4px;">💵 Record Payment</h3>
+        <p style="font-size:12.5px;color:var(--text-muted);margin:0 0 16px;">Records a payment received against this booking.</p>
 
-    <!-- Credit note -->
-    <div id="creditNote" style="display: {{ 'block' if form_data.payment_mode == 'credit' else 'none' }};padding:10px 14px;background:var(--surface-warning-bg-strong);border-radius:8px;font-size:12.5px;color:var(--surface-warning-text);font-weight:500">
-      ⚠️ This invoice will be recorded in <strong>Debtors</strong> as an outstanding balance for this customer.
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;">Balance Due</div>
+          <div id="bookingPayModalBalance" style="font-size:13.5px;color:var(--text-body);background:var(--bg-table-alt);border:1px solid var(--border-color);border-radius:8px;padding:8px 12px;">₹0</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;">Amount Received</div>
+          <input type="number" id="bookingPayModalAmount" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #0D9488;border-radius:8px;" min="0" step="0.01" oninput="updateBookingPayModalRemainder()">
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;">Discount Given (₹, optional)</div>
+          <input type="number" id="bookingPayModalDiscount" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #0D9488;border-radius:8px;" min="0" step="0.01" value="0" oninput="updateBookingPayModalRemainder()">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Use this when the client paid less than the balance and the gap is being written off — e.g. balance ₹2,180, client pays ₹2,100, discount ₹80. It's added to this booking's Discount, not recorded as cash.</div>
+          <div id="bookingPayModalRemainder" style="font-size:11.5px;color:var(--text-muted);margin-top:4px;"></div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;">Payment Mode</div>
+          <div class="pay-tabs">
+            <div class="pay-tab active" id="bookingPayModalTab-cash" onclick="setBookingPayModalMode('cash')">💵 Cash</div>
+            <div class="pay-tab" id="bookingPayModalTab-bank_transfer" onclick="setBookingPayModalMode('bank_transfer')">🏦 Bank Transfer</div>
+            <div class="pay-tab" id="bookingPayModalTab-upi" onclick="setBookingPayModalMode('upi')">📱 UPI</div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;">Payment Date</div>
+          <input type="date" id="bookingPayModalDate" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #0D9488;border-radius:8px;">
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Defaults to today — pick an earlier date to record a back-dated payment.</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);margin-bottom:3px;">Narration (optional)</div>
+          <input type="text" id="bookingPayModalNarration" style="width:100%;box-sizing:border-box;padding:8px 12px;border:1.5px solid #0D9488;border-radius:8px;" placeholder="e.g. Paid at counter, or UTR/Ref No.">
+        </div>
+        <div id="bookingPayModalError" style="display:none;color:#DC2626;font-size:12px;margin-top:6px;"></div>
+
+        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px;">
+          <button type="button" class="btn btn-ghost" onclick="closeBookingPaymentModal()">Cancel</button>
+          <button type="button" id="bookingPayModalConfirmBtn" class="btn btn-primary" onclick="submitBookingPaymentModal()">Save Payment</button>
+        </div>
+      </div>
     </div>
+    {% endif %}
+  </div>
+
+  <!-- Credit note — shown for credit bookings in place of Payment Mode -->
+  <div class="card card-body" id="creditNote" style="margin-bottom:16px;display: {{ 'block' if (form_data.booking_type or 'credit') == 'credit' else 'none' }};padding:10px 14px;background:var(--surface-warning-bg-strong);border-radius:8px;font-size:12.5px;color:var(--surface-warning-text);font-weight:500">
+    ⚠️ This is a credit booking — payment isn't recorded here. Update it from <strong>Debtors</strong> once this booking is saved.
   </div>
 
   <!-- Notes -->
@@ -1177,11 +1278,22 @@
     <div class="form-group">
       <textarea name="notes" rows="3" style="width:100%;padding:10px;border-radius:8px;border:1.5px solid #E5E7EB" placeholder="Delivery terms, payment terms, special instructions...">{{ form_data.notes or '' }}</textarea>
     </div>
+
   </div>
 
-  <div style="display:flex;justify-content:flex-end;gap:12px">
-    <button type="submit" name="action" value="draft" id="btnSaveDraft" class="btn btn-ghost" formnovalidate>💾 Save Draft</button>
-    <button type="submit" name="action" value="final" id="btnGenerateInvoice" class="btn btn-success">{{ '✓ Update Invoice' if is_edit else '✓ Generate Customer Invoice' }}</button>
+  <div style="display:flex;justify-content:flex-end;align-items:center;gap:28px">
+    <!-- Single source of truth for which action is being submitted. Do NOT
+         infer this from e.submitter / document.activeElement inside the
+         form's submit handler — a native confirm() dialog on the Draft
+         button can steal focus before the submit event fires, so that
+         inference silently falls back to 'final' on some browsers/webviews.
+         Each button sets this explicitly in its own click handler, which
+         always runs strictly before the submit event does. -->
+    <input type="hidden" name="action" id="actionField" value="final">
+    <button type="submit" id="btnSaveDraft" class="btn btn-ghost" formnovalidate
+      title="Saves your progress only. Nothing is billed, added to debtors, or sent to Purchases until you click Generate."
+      onclick="return handleSaveDraftClick(event);">💾 Save Draft</button>
+    <button type="submit" id="btnGenerateInvoice" class="btn btn-success" onclick="return handleGenerateClick(event);">{{ '✓ Update Invoice' if is_edit else '✓ Generate Customer Invoice' }}</button>
   </div>
 </form>
 
@@ -1253,13 +1365,20 @@
           {% if form_data.fuel and form_data.fuel|float > 0 %}<tr><td>2</td><td>Fuel Surcharge</td><td style="text-align:right;">{{ "%.2f"|format(form_data.fuel|float) }}</td></tr>{% endif %}
           {% if form_data.other and form_data.other|float > 0 %}<tr><td>3</td><td>Other Charges{% if form_data.other_charges_reason %} — {{ form_data.other_charges_reason }}{% endif %}</td><td style="text-align:right;">{{ "%.2f"|format(form_data.other|float) }}</td></tr>{% endif %}
           {% if form_data.discount and form_data.discount|float > 0 %}<tr><td>4</td><td>Discount</td><td style="text-align:right;color:#DC2626;">−{{ "%.2f"|format(form_data.discount|float) }}</td></tr>{% endif %}
+          {% if is_edit and invoice and invoice.discount and invoice.discount|float > 0 %}<tr><td>5</td><td>Discount (via Record Payment)</td><td style="text-align:right;color:#DC2626;">−{{ "%.2f"|format(invoice.discount|float) }}</td></tr>{% endif %}
         </tbody>
       </table>
       <div class="pi-totals">
         <div class="pi-totals-box">
           {% set _pre_discount = (form_data.freight|float if form_data.freight else 0) + (form_data.fuel|float if form_data.fuel else 0) + (form_data.other|float if form_data.other else 0) %}
           {% set _discount = form_data.discount|float if form_data.discount else 0 %}
-          {% set _base = [_pre_discount - _discount, 0]|max %}
+          {# Settlement discounts added later via the Bookings-list/Record
+             Payment modal land on invoice.discount (a DB column), never on
+             form_data — see invoice_list_record_payment in app.py. Leaving
+             it out here would make this preview's own Grand Total drift
+             back up above the real, already-reduced invoice.grand_total. #}
+          {% set _record_payment_discount = (invoice.discount|float if (is_edit and invoice and invoice.discount) else 0) %}
+          {% set _base = [_pre_discount - _discount - _record_payment_discount, 0]|max %}
           {% set _shipper_state = (form_data.shipper_state or '')|lower|trim %}
           {% set _receiver_state = (form_data.receiver_state or '')|lower|trim %}
           {% set _interstate = (_shipper_state and _receiver_state and _shipper_state != _receiver_state) %}
@@ -1281,8 +1400,10 @@
           <div class="pi-total-row"><span>Round Off</span><span>{{ '+' if _round_off >= 0 else '' }}₹{{ "%.2f"|format(_round_off) }}</span></div>
           {% endif %}
           <div class="pi-grand"><span>GRAND TOTAL</span><span>₹{{ "%.2f"|format(_grand if is_gst_registered else _base) }}</span></div>
-          <div class="pi-total-row" style="margin-top:8px;"><span>Amount Paid</span><span>₹{{ "%.2f"|format(form_data.amount_paid|float if form_data.amount_paid else 0) }}</span></div>
-          <div class="pi-total-row" style="color:#DC2626;font-weight:700;"><span>Balance Due</span><span>₹{{ "%.2f"|format((_grand if is_gst_registered else _base) - (form_data.amount_paid|float if form_data.amount_paid else 0)) }}</span></div>
+          {% set _paid_display = (invoice.paid_amount|float if (is_edit and invoice and invoice.paid_amount is not none) else (form_data.amount_paid|float if form_data.amount_paid else 0)) %}
+          {% set _balance_display = (invoice.balance|float if (is_edit and invoice and invoice.balance is not none) else ((_grand if is_gst_registered else _base) - _paid_display)) %}
+          <div class="pi-total-row" style="margin-top:8px;"><span>Amount Paid</span><span>₹{{ "%.2f"|format(_paid_display) }}</span></div>
+          <div class="pi-total-row" style="color:#DC2626;font-weight:700;"><span>Balance Due</span><span>₹{{ "%.2f"|format(_balance_display) }}</span></div>
         </div>
       </div>
       {% if form_data.notes %}<div style="margin-top:16px;padding:10px 14px;background:#F9FAFB;border-radius:6px;font-size:11px;border-left:3px solid #16A34A;"><strong>Notes:</strong> {{ form_data.notes }}</div>{% endif %}
@@ -1575,6 +1696,7 @@ function populateDestinationSelect() {
     if (opt) destBox.value = opt.textContent.trim();
   }
   syncRateLookupInputs();
+  syncPkgEntryRateField();
 }
 
 document.addEventListener('DOMContentLoaded', populateDestinationSelect);
@@ -2504,8 +2626,8 @@ function addPkgRow() {
   // not the amount to subtract. Back-calculate the subtract-amount here so the
   // backend (pkg_discwt[] = actual − discount_wt everywhere in app.py) never changes.
   const discEntryRaw = discWtInput.value;
-  const discountedWt = discEntryRaw === '' ? wt : Math.min(parseFloat(discEntryRaw) || 0, wt); // can't discount below 0 or "discount" above actual
-  const discWt = Math.max(wt - discountedWt, 0); // stored subtract-amount, feeds pkg_discwt[]
+  const discountedWt = discEntryRaw === '' ? wt : (parseFloat(discEntryRaw) || 0); // Company Weight is taken exactly as typed — no clamping to Actual Weight
+  const discWt = wt - discountedWt; // stored subtract-amount (can be negative when Company Weight > Actual Weight), feeds pkg_discwt[]
   const rate   = parseFloat(document.getElementById('pkgEntryRate').value) || 0;
 
   livePkgCalc();
@@ -2521,6 +2643,7 @@ function addPkgRow() {
       <input type="hidden" name="pkg_unit[]" value="${unit}">
     </td>
     <td>${wt.toFixed(2)}<input type="hidden" name="pkg_wt[]" value="${wt}"></td>
+    <td style="font-weight:700;color:#DC2626;">${discountedWt.toFixed(2)}<input type="hidden" name="pkg_weight_after_discount[]" value="${discountedWt}"></td>
     <td>${qty}<input type="hidden" name="pkg_qty[]" value="${qty}"></td>
     <td>${l}<input type="hidden" name="pkg_l[]" value="${l}"></td>
     <td>${w}<input type="hidden" name="pkg_w[]" value="${w}"></td>
@@ -2529,9 +2652,7 @@ function addPkgRow() {
       <input type="hidden" name="pkg_discount[]" value="${discount}">
     </td>
     <td>${volWt.toFixed(3)}<input type="hidden" name="pkg_volwt[]" value="${volWt}"></td>
-    <td style="font-weight:700;color:#4338CA;">${chgWt.toFixed(3)}<input type="hidden" name="pkg_chgwt[]" value="${chgWt}"></td>
-    <td>${discWt.toFixed(2)}<input type="hidden" name="pkg_discwt[]" value="${discWt}"></td>
-    <td style="font-weight:700;color:#DC2626;">${discountedWt.toFixed(2)}<input type="hidden" name="pkg_weight_after_discount[]" value="${discountedWt}"></td>
+    <td style="font-weight:700;color:#4338CA;">${chgWt.toFixed(3)}<input type="hidden" name="pkg_chgwt[]" value="${chgWt}"><input type="hidden" name="pkg_discwt[]" value="${discWt}"></td>
     <td>₹<span class="pkg-rate-display">${rate.toFixed(2)}</span><input type="hidden" class="pkg-rate-input" name="pkg_rate[]" value="${rate}"></td>
     <td>
       <button type="button" class="del-btn" onclick="editPkgRow(this)" title="Edit">✎</button>
@@ -2546,7 +2667,7 @@ function addPkgRow() {
   document.getElementById('pkgEntryL').value = 0;
   document.getElementById('pkgEntryW').value = 0;
   document.getElementById('pkgEntryH').value = 0;
-  document.getElementById('pkgEntryRate').value = 0;
+  syncPkgEntryRateField(); // locked field — re-sync to Rate per kg, don't zero it out
   livePkgCalc();
 
   calcPkg();
@@ -2573,7 +2694,7 @@ function editPkgRow(btn) {
   const division = tr.querySelector('[name="pkg_division[]"]')?.value || 5000;
   const rate     = tr.querySelector('.pkg-rate-input')?.value || 0;
   const discWt   = parseFloat(tr.querySelector('[name="pkg_discwt[]"]')?.value) || 0; // stored subtract-amount
-  const discountedWt = Math.max((parseFloat(wt) || 0) - discWt, 0); // convert back to the "final weight" the user typed
+  const discountedWt = (parseFloat(wt) || 0) - discWt; // convert back to the "final weight" the user typed
 
   // Load the row's values back into the entry panel for editing.
   document.getElementById('pkgEntryUnit').value     = unit;
@@ -2630,6 +2751,30 @@ function calcPkg() {
   syncRateLookupInputs();
 }
 
+/* ── Manual rate edit: a human typing into Rate per kg means "use this
+   rate against the actual weight", not against whatever slab weight a
+   previous price-list fetch happened to leave behind. Clear the hidden
+   billing weight so calcFreight() falls back to the real chargeable
+   weight. autoFetchSaleRate() sets the rate via .value= directly, which
+   does not fire 'input', so this only runs for genuine manual typing. ── */
+function onFreightRateManualInput() {
+  const billingWtEl = document.getElementById('freightBillingWeight');
+  if (billingWtEl) billingWtEl.value = '0';
+  syncPkgEntryRateField();
+  calcFreight(); // also syncs every package row's Rate column to the new value
+}
+
+/* Packages-tab Rate field is locked (readonly) — it always mirrors Rate per
+   kg above rather than being typed in directly. Called after any change to
+   Rate per kg (manual, auto-fetch, or "Take Current Rate") and once on page
+   load so a freshly-loaded/edit-mode rate is reflected before the first
+   package is even added. */
+function syncPkgEntryRateField() {
+  const rateEl = document.getElementById('freightRatePerKg');
+  const entryRateEl = document.getElementById('pkgEntryRate');
+  if (rateEl && entryRateEl) entryRateEl.value = parseFloat(rateEl.value) || 0;
+}
+
 /* ── Freight per-kg calculator ── */
 function calcFreight() {
   const weight = parseFloat(document.getElementById('freightWeight').value)||0;
@@ -2646,6 +2791,18 @@ function calcFreight() {
   } else {
     bd.textContent = '';
   }
+
+  // Keep every package row's Rate column in lockstep with Rate per kg above.
+  // This runs on every path that touches the rate or the package list (manual
+  // typing, auto-fetch, add/remove package) so a row can never sit stale at
+  // whatever rate happened to exist the moment it was added.
+  document.querySelectorAll('#pkgBody tr').forEach(tr => {
+    const display = tr.querySelector('.pkg-rate-display');
+    const input = tr.querySelector('.pkg-rate-input');
+    if (display) display.textContent = rate.toFixed(2);
+    if (input) input.value = rate.toFixed(2);
+  });
+
   calcInvoiceTotal();
 }
 
@@ -2662,12 +2819,6 @@ function calcFreight() {
 // moved on — only an explicit "Take Current Rate" click (force=true) may
 // refresh it.
 const IS_EDIT_MODE = {{ 'true' if is_edit else 'false' }};
-
-// Baseline weight as saved when this booking was generated/last saved. Used
-// solely to detect "did the package weight itself change" — NOT updated by
-// carrier/destination/other edits, only after a weight-driven rate refetch
-// below, so a subsequent unrelated edit correctly re-locks.
-let EDIT_BASELINE_WEIGHT = {{ (form_data.freight_weight or 0)|float }};
 
 function syncRateLookupInputs(force) {
     const carrierEl = document.getElementById('carrierSelect');
@@ -2686,29 +2837,25 @@ function syncRateLookupInputs(force) {
     const noteEl = document.getElementById('freightRateNote');
 
     if (IS_EDIT_MODE && !force) {
-        // Weight itself has moved away from what it was when the rate was
-        // locked in — that's the one thing allowed to refresh the rate
-        // automatically, since the whole point of the lock is to stop the
-        // rate silently drifting when nothing about the shipment changed.
-        const weightChanged = Math.abs(weight - EDIT_BASELINE_WEIGHT) > 0.005;
+        // BOTH the rate and the billing weight stay locked at whatever was
+        // saved when this booking was generated — e.g. booked at 97.25kg
+        // (billed at the 98kg slab) / ₹650 per kg stays 98 x 650 no matter
+        // how many boxes get added/edited/removed afterwards, and no matter
+        // how many times this edit page is reloaded. Freight must NOT
+        // silently move with the live package weight. Only an explicit
+        // "Take Current Rate" click (force=true) may pull a fresh weight +
+        // rate from the price list — see the branch below this one.
+        //
+        // freightBillingWeight is left untouched here on purpose. It used to
+        // get reset to '0' on every call (including the very first one on
+        // page load), which made calcFreight() fall back to whatever the
+        // live package weight happened to be — that was the bug.
+        calcFreight();
 
-        if (weightChanged && courier && destination && weight > 0) {
-            if (noteEl) {
-                noteEl.style.display = 'block';
-                noteEl.style.color = 'var(--text-muted)';
-                noteEl.textContent = '⏳ Weight changed — fetching rate for ' + weight + 'kg…';
-            }
-            autoFetchSaleRate(courier, destination, weight, /*isWeightDriven=*/true);
-            return;
-        }
-
-        // Rate stays locked at whatever was saved when this booking was
-        // generated. Nothing else is fetched automatically — the user must
-        // click "Take Current Rate" to pull today's price-list rate on purpose.
         if (noteEl) {
             noteEl.style.display = 'block';
             noteEl.style.color = 'var(--text-muted)';
-            noteEl.textContent = '🔒 Rate locked at generation — click "Take Current Rate" to refresh from the price list';
+            noteEl.textContent = '🔒 Weight & rate locked at generation — click "Take Current Rate" to refresh from the price list';
         }
         return;
     }
@@ -2722,10 +2869,14 @@ function syncRateLookupInputs(force) {
 
 /* ── Rate auto-fetch ── */
 let rateFetchToken = 0; // guards against a slower earlier request overwriting a newer one
+let rateFetchInFlight = false; // true while a rate-lookup request is in flight; handleGenerateClick/handleSaveDraftClick
+                                // checks this so the form can't be submitted with a stale rate
+                                // still sitting in the field while the new-weight lookup is pending.
 
-function autoFetchSaleRate(courier, destination, weight, isWeightDriven) {
+function autoFetchSaleRate(courier, destination, weight) {
     const noteEl = document.getElementById('freightRateNote');
     const myToken = ++rateFetchToken;
+    rateFetchInFlight = true;
 
     if (noteEl) {
         noteEl.style.display = 'block';
@@ -2743,10 +2894,6 @@ function autoFetchSaleRate(courier, destination, weight, isWeightDriven) {
                     noteEl.style.color = 'var(--surface-danger-text)';
                     noteEl.textContent = '⚠️ ' + (data.error || 'No sale price list rate found — enter manually');
                 }
-                // Rebaseline anyway: this weight has been accounted for (even
-                // though no price-list match was found), so a later unrelated
-                // edit won't re-trigger a fetch attempt for the same weight.
-                EDIT_BASELINE_WEIGHT = weight;
                 return;
             }
 
@@ -2765,20 +2912,13 @@ function autoFetchSaleRate(courier, destination, weight, isWeightDriven) {
                 if (display) display.textContent = ratePerKg.toFixed(2);
                 if (input) input.value = ratePerKg.toFixed(2);
             });
-            // Also default the entry-panel Rate field so the next added package uses it too
-            const entryRateEl = document.getElementById('pkgEntryRate');
-            if (entryRateEl) entryRateEl.value = ratePerKg.toFixed(2);
+            // Also default the (locked) entry-panel Rate field so the next added package uses it too
+            syncPkgEntryRateField();
 
             if (noteEl) {
                 noteEl.style.color = 'var(--surface-success-text)';
-                noteEl.textContent = isWeightDriven
-                    ? `✅ Weight changed — rate re-fetched for ${data.weight_used}kg (${data.country_matched})`
-                    : `✅ Auto-fetched from sale price list — ${data.country_matched}, ${data.weight_used}kg`;
+                noteEl.textContent = `✅ Auto-fetched from sale price list — ${data.country_matched}, ${data.weight_used}kg`;
             }
-
-            // Move the baseline to this weight so a later, unrelated edit
-            // doesn't re-trigger another auto-fetch and stays correctly locked.
-            EDIT_BASELINE_WEIGHT = weight;
 
             calcFreight();
         })
@@ -2789,6 +2929,11 @@ function autoFetchSaleRate(courier, destination, weight, isWeightDriven) {
                 noteEl.textContent = '⚠️ Error fetching rate — enter manually';
             }
             console.error('Rate auto-fetch error:', error);
+        })
+        .finally(() => {
+            // Only the most recent request clears the flag — an older, superseded
+            // fetch settling late must not mark a newer one as "done".
+            if (myToken === rateFetchToken) rateFetchInFlight = false;
         });
 }
 
@@ -2886,27 +3031,138 @@ function calcInvoiceTotal() {
   calcBalance();
 }
 function calcBalance() {
-  const grand = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,''))||0;
-  const paid  = parseFloat(document.getElementById('amountPaid')?.value)||0;
-  document.getElementById('balanceDue').textContent = fmt(grand-paid);
+  const balEl = document.getElementById('balanceDue');
+  if (!balEl) return; // edit mode: no Balance Due box — Payment History shows the running balance instead
+  const grand  = parseFloat(document.getElementById('dispGrand').textContent.replace(/[^0-9.]/g,''))||0;
+  const paid   = parseFloat(document.getElementById('amountPaid')?.value)||0;
+  balEl.textContent = fmt(grand-paid);
 }
 
-/* ── Payment mode ── */
+/* ── Payment mode (leg 1) — Cash / Bank Transfer / UPI only. Cheque and the
+   old Credit tab are gone: credit bookings don't show this card at all
+   (see onBookingTypeChange), and cheque was dropped from cash-booking
+   payment options entirely. ── */
 function setPayMode(mode) {
-  document.querySelectorAll('.pay-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('#paymentModeCard > .pay-tabs .pay-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('tab-'+mode).classList.add('active');
   document.getElementById('paymentModeHidden').value = mode;
-  document.getElementById('upiSection').style.display    = mode==='online' ? 'block':'none';
-  document.getElementById('chequeSection').style.display = mode==='cheque' ? 'grid':'none';
-  document.getElementById('creditNote').style.display    = mode==='credit' ? 'block':'none';
-  if (mode!=='online'){ document.getElementById('upiAppHidden').value=''; document.querySelectorAll('.upi-chip').forEach(c=>c.classList.remove('selected')); }
+  document.getElementById('bankTransferSection').style.display = mode==='bank_transfer' ? 'block':'none';
+  document.getElementById('upiSection').style.display          = mode==='upi' ? 'block':'none';
+  document.getElementById('refSection').style.display          = (mode==='bank_transfer' || mode==='upi') ? 'block':'none';
+  if (mode!=='upi'){ document.getElementById('upiAppHidden').value=''; document.querySelectorAll('#upiSection .upi-chip').forEach(c=>c.classList.remove('selected')); }
 }
 
+{% if is_edit %}
+/* ── Record Payment modal (booking edit page) — posts to the same
+   endpoint the Bookings list page's Record Payment action uses, so a
+   payment logged from either place lands in the same Cash/Bank ledger
+   and shows up in the Payment History table below. ── */
+const BOOKING_PAY_INVOICE_ID = {{ invoice_id|tojson }};
+const BOOKING_PAY_URL = '/booking/list/record-payment/' + encodeURIComponent(BOOKING_PAY_INVOICE_ID);
+let bookingPayCurrentBalance = {{ (invoice.balance if invoice else 0) or 0 }};
+let bookingPayModalMode = 'cash';
+
+function setBookingPayModalMode(mode) {
+  bookingPayModalMode = mode;
+  document.querySelectorAll('#bookingPayModalOverlay .pay-tabs .pay-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('bookingPayModalTab-' + mode).classList.add('active');
+}
+
+function openBookingPaymentModal() {
+  document.getElementById('bookingPayModalBalance').textContent = '₹' + bookingPayCurrentBalance.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  document.getElementById('bookingPayModalAmount').value = bookingPayCurrentBalance || '';
+  document.getElementById('bookingPayModalAmount').max = bookingPayCurrentBalance || '';
+  document.getElementById('bookingPayModalDiscount').value = '0';
+  document.getElementById('bookingPayModalDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('bookingPayModalNarration').value = '';
+  document.getElementById('bookingPayModalError').style.display = 'none';
+  setBookingPayModalMode('cash');
+  updateBookingPayModalRemainder();
+  document.getElementById('bookingPayModalOverlay').style.display = 'flex';
+}
+function closeBookingPaymentModal() {
+  document.getElementById('bookingPayModalOverlay').style.display = 'none';
+}
+document.getElementById('bookingPayModalOverlay')?.addEventListener('click', function(e) {
+  if (e.target === this) closeBookingPaymentModal();
+});
+
+// Shows what's left of the balance after the entered amount + discount,
+// so it's obvious before submitting whether the two numbers actually
+// reconcile against the balance due (mirrors the backend's own check).
+function updateBookingPayModalRemainder() {
+  const amount   = parseFloat(document.getElementById('bookingPayModalAmount').value) || 0;
+  const discount = parseFloat(document.getElementById('bookingPayModalDiscount').value) || 0;
+  const remBox   = document.getElementById('bookingPayModalRemainder');
+  const leftover = bookingPayCurrentBalance - amount - discount;
+  if (amount <= 0 && discount <= 0) {
+    remBox.textContent = '';
+    return;
+  }
+  if (leftover < -0.004) {
+    remBox.textContent = 'Amount + discount exceeds the balance due by ₹' + Math.abs(leftover).toLocaleString('en-IN', { maximumFractionDigits: 2 }) + '.';
+    remBox.style.color = '#DC2626';
+  } else {
+    remBox.textContent = 'Remaining balance after this: ₹' + Math.max(0, leftover).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+    remBox.style.color = 'var(--text-muted)';
+  }
+}
+
+function submitBookingPaymentModal() {
+  const errBox = document.getElementById('bookingPayModalError');
+  const amount = parseFloat(document.getElementById('bookingPayModalAmount').value) || 0;
+  const discount = parseFloat(document.getElementById('bookingPayModalDiscount').value) || 0;
+  if (amount <= 0 && discount <= 0) {
+    errBox.textContent = 'Enter a valid payment or discount amount.';
+    errBox.style.display = 'block';
+    return;
+  }
+  if (amount < 0 || discount < 0) {
+    errBox.textContent = 'Amount and discount cannot be negative.';
+    errBox.style.display = 'block';
+    return;
+  }
+  if (bookingPayCurrentBalance > 0 && (amount + discount) > bookingPayCurrentBalance + 0.004) {
+    errBox.textContent = 'Amount + discount cannot exceed the balance due.';
+    errBox.style.display = 'block';
+    return;
+  }
+  const body = new URLSearchParams();
+  body.set('amount', amount);
+  body.set('discount_amount', discount);
+  body.set('pay_date', document.getElementById('bookingPayModalDate').value);
+  body.set('payment_mode', bookingPayModalMode);
+  body.set('narration', document.getElementById('bookingPayModalNarration').value.trim());
+
+  const btn = document.getElementById('bookingPayModalConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving…';
+
+  fetch(BOOKING_PAY_URL, { method: 'POST', body })
+    .then(async res => {
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save payment.');
+      return data;
+    })
+    .then(data => {
+      // Reload so the Payment History table, invoice status, and the rest
+      // of the page all reflect the fresh balance from the server — the
+      // ledger truth lives there, not in this form's own fields.
+      window.location.reload();
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.textContent = 'Save Payment';
+      errBox.textContent = err.message || 'Could not save payment. Please try again.';
+      errBox.style.display = 'block';
+    });
+}
+{% endif %}
+
 /* ── Booking Type (Cash / Credit) — controls whether the Consignor uses a
-   real Customer/Company record or a one-off typed name. Deliberately its
-   own dropdown, separate from the Payment Mode tabs below (cash/online/
-   cheque/credit), which is about how the freight gets paid, not whether
-   this booking is tied to a client record. ── */
+   real Customer/Company record or a one-off typed name, AND now also
+   controls whether the Payment Mode card shows at all: credit bookings
+   are settled via Debtors, not on this form. ── */
 function onBookingTypeChange(mode) {
   const custWrap    = document.getElementById('customerSelectWrap');
   const codeWrap    = document.getElementById('clientCodeWrap');
@@ -2916,6 +3172,8 @@ function onBookingTypeChange(mode) {
   const manualName  = document.getElementById('manualCompanyName');
   const cashDocs    = document.getElementById('cashIdDocsSection');
   const creditDocs  = document.getElementById('creditIdDocsPanel');
+  const paymentCard = document.getElementById('paymentModeCard');
+  const creditNote  = document.getElementById('creditNote');
 
   if (mode === 'cash') {
     custWrap.style.display   = 'none';
@@ -2926,6 +3184,8 @@ function onBookingTypeChange(mode) {
     document.getElementById('shipperNameHidden').value = manualName.value || '';
     cashDocs.style.display   = 'grid';
     creditDocs.style.display = 'none';
+    paymentCard.style.display = 'block';
+    creditNote.style.display  = 'none';
   } else {
     custWrap.style.display   = 'block';
     codeWrap.style.display   = 'block';
@@ -2934,6 +3194,15 @@ function onBookingTypeChange(mode) {
     cashDocs.style.display   = 'none';
     creditDocs.style.display = 'block';
     updateCreditIdDocsPanel();
+    paymentCard.style.display = 'none';
+    creditNote.style.display  = 'block';
+    // Credit bookings carry no cash-booking payment — reset it so a stale
+    // value typed before switching from Cash to Credit can't sneak an
+    // amount_paid through on submit. (Edit mode has no visible amountPaid
+    // field — its value is carried as a fixed hidden input instead.)
+    const amountPaidEl = document.getElementById('amountPaid');
+    if (amountPaidEl) amountPaidEl.value = '0';
+    calcBalance();
   }
 }
 
@@ -3253,90 +3522,155 @@ function reenableSubmitButtons() {
 
 document.addEventListener('DOMContentLoaded', generateSubmitToken);
 
-/* ── Validation ── */
-function validateCustForm(e) {
-  const errors=[], banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
+/* ── Shared small helpers used by both button handlers ── */
+
+function clearFormErrors() {
+  const banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
   document.querySelectorAll('.field-error').forEach(el=>el.classList.remove('field-error'));
   banner.style.display='none'; errList.innerHTML='';
+}
 
-  // Which button was clicked? Only enforce mandatory (*) fields on Final invoice generation.
-  const submitter = e.submitter || document.activeElement;
-  const actionVal = submitter && submitter.name === 'action' ? submitter.value : 'final';
-  const isFinal = actionVal !== 'draft';
+function showFormErrors(errors) {
+  const banner=document.getElementById('errorBanner'), errList=document.getElementById('errorList');
+  errors.forEach(err=>{const li=document.createElement('li');li.textContent=err;errList.appendChild(li);});
+  banner.style.display='block'; banner.scrollIntoView({behavior:'smooth',block:'start'});
+}
 
-  // Already mid-submit (double click / Enter repeat) — ignore the repeat click outright.
-  if (submitter && submitter.disabled) { e.preventDefault(); return false; }
-  disableSubmitButtons();
+// A package/weight edit just triggered a rate-lookup fetch and it hasn't
+// returned yet — submitting now would save whatever rate was left over
+// from the previous weight. Returns true (and shows the message) if the
+// caller should stop.
+function blockedByRateFetchInFlight() {
+  if (!rateFetchInFlight) return false;
+  clearFormErrors();
+  showFormErrors(['Still fetching the current rate for this weight — wait a second and click again.']);
+  return true;
+}
 
-  const custSel=document.getElementById('customerSelect');
+// Submits the form for real, bypassing formSubmitGate's re-entry into
+// these handlers (this call IS the already-validated submission).
+function submitFormBypassingGate(btn) {
+  const form = document.getElementById('custInvForm');
+  form.dataset.gateBypass = '1';
+  if (form.requestSubmit) form.requestSubmit(btn);
+  else form.submit();
+}
 
-  const mode = document.getElementById('paymentModeHidden').value;
-  const bookingType = document.getElementById('bookingTypeSelect').value;
-
-  if (isFinal) {
-    // Required (*) fields — only enforced when generating the final invoice, not on Save Draft.
-    // Customer/Company is only mandatory for credit bookings — a cash
-    // booking fills the company name directly on the invoice and doesn't
-    // need a client record.
-    if (bookingType === 'credit' && !custSel.value){ errors.push('Please select a Customer / Company (required for credit bookings).'); custSel.classList.add('field-error'); }
-    if (bookingType === 'cash') {
-      const manualName = document.getElementById('manualCompanyName');
-      if (!manualName.value.trim()) { errors.push('Please type a Company / Customer Name (required for cash bookings).'); manualName.classList.add('field-error'); }
-    }
-    const requiredFields = [
-      { id:'custPhone',        label:'Sender / Shipper Phone' },
-      { id:'receiverName',     label:'Receiver Name' },
-      { id:'receiverPhone',    label:'Receiver Phone' },
-      { id:'receiverAddress1', label:'Receiver Address Line 1' },
-      { id:'receiverCity',     label:'Receiver City / Town' },
-      { id:'receiverPincode',  label:'Receiver Pincode' },
-      { id:'expectedDelivery', label:'Expected Delivery Date' },
-      { id:'pickup',           label:'pickup' },
-      { id:'courierCompanySelect', label:'courierCompanySelect' },
-      { id:'carrierSelect', label:'carrierSelect' },
-    ];
-    requiredFields.forEach(f => {
-      const el = document.getElementById(f.id);
-      if (el && !el.value.trim()) {
-        errors.push(f.label + ' is required.');
-        el.classList.add('field-error');
-      }
-    });
-
-    // Company Weight is enforced at add-time (addPkgRow blocks an empty
-    // value), so the real check here is "does at least one package exist" —
-    // not the transient entry panel, which is empty on the edit screen until
-    // the user adds a new row even though existing rows already have it set.
-    if (document.querySelectorAll('#pkgBody tr').length === 0) {
-      errors.push('Please add at least one package.');
-      document.getElementById('pkgEntryDiscWt').classList.add('field-error');
-    }
-
-    const freight=parseFloat(document.getElementById('freightAmt').value)||0;
-    if (freight<=0){ errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
-
-    if (mode==='online' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI / Online payment app.');
+/* ── Safety-net gatekeeper on the <form>'s onsubmit ──────────────────────
+   Both buttons intercept their own click (handleSaveDraftClick /
+   handleGenerateClick below) and, once everything checks out, submit via
+   submitFormBypassingGate(), which sets gateBypass first. So on the normal
+   path this just clears that flag and lets the submit through.
+   If a submit event somehow reaches here WITHOUT gateBypass set — a stray
+   Enter, a browser extension, anything that bypassed the button handlers —
+   block it rather than silently letting an unvalidated submit through. ── */
+function formSubmitGate(e) {
+  const form = e.target;
+  if (form.dataset.gateBypass) {
+    delete form.dataset.gateBypass;
+    return true;
   }
+  e.preventDefault();
+  return false;
+}
 
-  if (errors.length){
-    errors.forEach(err=>{const li=document.createElement('li');li.textContent=err;errList.appendChild(li);});
-    banner.style.display='block'; banner.scrollIntoView({behavior:'smooth',block:'start'});
-    e.preventDefault(); reenableSubmitButtons(); return false;
-  }
+/* ── Save Draft ───────────────────────────────────────────────────────────
+   Deliberately minimal: no required-field checks, no credit-limit check —
+   a draft is allowed to be incomplete. Nothing here can touch or care
+   about the Generate/Update button's logic below. ── */
+function handleSaveDraftClick(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnSaveDraft');
+  if (btn.disabled) return false; // already mid-submit
 
-  // ── Credit limit popup ────────────────────────────────────────────────
-  // Only relevant when actually generating (not Save Draft) and a client
-  // is selected — matches the same condition the server uses.
-  if (isFinal && custSel && custSel.value && !e.target.dataset.creditLimitConfirmed) {
-    e.preventDefault();
-    runCreditLimitCheck(e.target, custSel.value);
+  if (!confirm('Save as DRAFT?\n\nThis will NOT bill the customer, add anything to debtors, or create a purchase line. The booking will show as 📝 Draft in the list until you open it again and click Generate.')) {
     return false;
   }
 
-  // Clear the flag so a later real submit (e.g. after fixing something and
-  // clicking Generate again) re-runs the check instead of skipping it.
-  delete e.target.dataset.creditLimitConfirmed;
-  return true;
+  if (blockedByRateFetchInFlight()) return false;
+
+  clearFormErrors();
+  document.getElementById('actionField').value = 'draft';
+  disableSubmitButtons();
+  submitFormBypassingGate(btn);
+  return false;
+}
+
+/* ── Generate / Update Invoice ────────────────────────────────────────────
+   Full required-field validation + the credit-limit confirm flow. Entirely
+   separate from the draft path above — nothing here reads or depends on
+   what Save Draft does. ── */
+function handleGenerateClick(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnGenerateInvoice');
+  if (btn.disabled) return false; // already mid-submit
+
+  if (blockedByRateFetchInFlight()) return false;
+
+  clearFormErrors();
+  const errors = [];
+  const custSel = document.getElementById('customerSelect');
+  const mode = document.getElementById('paymentModeHidden').value;
+  const bookingType = document.getElementById('bookingTypeSelect').value;
+
+  // Customer/Company is only mandatory for credit bookings — a cash
+  // booking fills the company name directly on the invoice and doesn't
+  // need a client record.
+  if (bookingType === 'credit' && !custSel.value) { errors.push('Please select a Customer / Company (required for credit bookings).'); custSel.classList.add('field-error'); }
+  if (bookingType === 'cash') {
+    const manualName = document.getElementById('manualCompanyName');
+    if (!manualName.value.trim()) { errors.push('Please type a Company / Customer Name (required for cash bookings).'); manualName.classList.add('field-error'); }
+  }
+  const requiredFields = [
+    { id:'custPhone',        label:'Sender / Shipper Phone' },
+    { id:'receiverName',     label:'Receiver Name' },
+    { id:'receiverPhone',    label:'Receiver Phone' },
+    { id:'receiverAddress1', label:'Receiver Address Line 1' },
+    { id:'receiverCity',     label:'Receiver City / Town' },
+    { id:'receiverPincode',  label:'Receiver Pincode' },
+    { id:'expectedDelivery', label:'Expected Delivery Date' },
+    { id:'pickup',           label:'pickup' },
+    { id:'courierCompanySelect', label:'courierCompanySelect' },
+    { id:'carrierSelect', label:'carrierSelect' },
+  ];
+  requiredFields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (el && !el.value.trim()) {
+      errors.push(f.label + ' is required.');
+      el.classList.add('field-error');
+    }
+  });
+
+  // Company Weight is enforced at add-time (addPkgRow blocks an empty
+  // value), so the real check here is "does at least one package exist" —
+  // not the transient entry panel, which is empty on the edit screen until
+  // the user adds a new row even though existing rows already have it set.
+  if (document.querySelectorAll('#pkgBody tr').length === 0) {
+    errors.push('Please add at least one package.');
+    document.getElementById('pkgEntryDiscWt').classList.add('field-error');
+  }
+
+  const freight = parseFloat(document.getElementById('freightAmt').value) || 0;
+  if (freight <= 0) { errors.push('Total Freight must be greater than 0.'); document.getElementById('freightAmt').classList.add('field-error'); }
+
+  if (bookingType === 'cash' && mode === 'upi' && !document.getElementById('upiAppHidden').value) errors.push('Please select a UPI app.');
+
+  if (errors.length) {
+    showFormErrors(errors);
+    return false;
+  }
+
+  document.getElementById('actionField').value = 'final';
+  disableSubmitButtons();
+
+  // ── Credit limit popup ────────────────────────────────────────────────
+  if (custSel && custSel.value) {
+    runCreditLimitCheck(document.getElementById('custInvForm'), custSel.value);
+    return false;
+  }
+
+  submitFormBypassingGate(btn);
+  return false;
 }
 
 async function runCreditLimitCheck(form, clientId) {
@@ -3348,44 +3682,73 @@ async function runCreditLimitCheck(form, clientId) {
   const editIdEl = form.querySelector('[name="edit_invoice_id"]');
   const editInvoiceId = editIdEl ? editIdEl.value : '';
 
-  let data;
+  // submitting becomes true only once we actually hand off to
+  // form.requestSubmit()/form.submit(). Everything else — including any
+  // unexpected throw from window.alert/window.appConfirm below, which
+  // aren't defined in this file and come from the shared layout — must
+  // fall through to the finally block and re-enable the buttons. Without
+  // this, a missing/broken alert or confirm implementation throws inside
+  // this async function, nothing catches it, and both buttons sit on
+  // "Saving…" forever with no popup ever shown.
+  let submitting = false;
   try {
-    const resp = await fetch('/booking/customer/check-credit-limit', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ client_id: clientId, amount: amount, edit_invoice_id: editInvoiceId })
-    });
-    if (!resp.ok) throw new Error('check-credit-limit returned ' + resp.status);
-    data = await resp.json();
-  } catch (err) {
-    // Fail CLOSED, not open. We can't say the bill is within limit if the
-    // check itself couldn't run — silently letting it through here is what
-    // made "stop generating" look broken before: any hiccup in this call
-    // (bad response, permission redirect coming back as HTML instead of
-    // JSON, network blip) used to fall straight through to form.submit().
-    console.error('Credit limit check failed:', err);
-    await window.alert(
-      'Could not verify the credit limit right now, so this bill was not generated. Please try again.',
-      'danger'
-    );
-    reenableSubmitButtons();
-    return;
-  }
+    let data;
+    try {
+      const resp = await fetch('/booking/customer/check-credit-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ client_id: clientId, amount: amount, edit_invoice_id: editInvoiceId })
+      });
+      if (!resp.ok) throw new Error('check-credit-limit returned ' + resp.status);
+      data = await resp.json();
+    } catch (err) {
+      // Fail CLOSED, not open. We can't say the bill is within limit if the
+      // check itself couldn't run — silently letting it through here is what
+      // made "stop generating" look broken before: any hiccup in this call
+      // (bad response, permission redirect coming back as HTML instead of
+      // JSON, network blip) used to fall straight through to form.submit().
+      console.error('Credit limit check failed:', err);
+      try {
+        await window.alert(
+          'Could not verify the credit limit right now, so this bill was not generated. Please try again.',
+          'danger'
+        );
+      } catch (alertErr) {
+        console.error('Could not show the credit-limit-failure alert:', alertErr);
+      }
+      return;
+    }
 
-  if (data.blocked) {
-    await window.alert(data.message || 'This booking exceeds the customer\'s credit limit and cannot be generated.', 'danger');
-    reenableSubmitButtons();
-    return; // stop — do not submit
-  }
-  if (data.message) {
-    const ok = await window.appConfirm(data.message + '\n\nGenerate this bill anyway?', { type: 'warning', okLabel: 'Generate anyway' });
-    if (!ok) { reenableSubmitButtons(); return; } // user chose No/Cancel — stop
-  }
+    if (data.blocked) {
+      try {
+        await window.alert(data.message || 'This booking exceeds the customer\'s credit limit and cannot be generated.', 'danger');
+      } catch (alertErr) {
+        console.error('Could not show the credit-limit-blocked alert:', alertErr);
+      }
+      return; // stop — do not submit
+    }
+    if (data.message) {
+      let ok = false;
+      try {
+        ok = await window.appConfirm(data.message + '\n\nGenerate this bill anyway?', { type: 'warning', okLabel: 'Generate anyway' });
+      } catch (confirmErr) {
+        // Fail CLOSED here too — if we can't even show the confirmation,
+        // we can't treat that as the user having said yes.
+        console.error('Could not show the credit-limit confirm dialog:', confirmErr);
+        ok = false;
+      }
+      if (!ok) return; // user chose No/Cancel, or the dialog itself failed — stop
+    }
 
-  // Confirmed (or nothing to confirm) — submit for real, skipping this
-  // check on the way back through validateCustForm.
-  form.dataset.creditLimitConfirmed = '1';
-  form.requestSubmit ? form.requestSubmit() : form.submit();
+    // Confirmed (or nothing to confirm) — submit for real via the bypass
+    // helper, explicitly through btnGenerateInvoice so its name/value pair
+    // is included (requestSubmit() with no argument drops it).
+    const generateBtn = document.getElementById('btnGenerateInvoice');
+    submitting = true;
+    submitFormBypassingGate(generateBtn);
+  } finally {
+    if (!submitting) reenableSubmitButtons();
+  }
 }
 
 // ── Field-level permission gating (owner-configured, Settings → Access) ──────
@@ -3396,9 +3759,14 @@ const FIELD_EDIT_PERMS = {
   is_edit: {{ 'true' if is_edit else 'false' }},
   sender: {{ 'true' if (can_edit_field('invoice_customer') and can_edit_field('invoice_sender')) else 'false' }},
   receiver: {{ 'true' if can_edit_field('invoice_receiver') else 'false' }},
-  service: {{ 'true' if can_edit_field('invoice_service') else 'false' }},
+  service_courier: {{ 'true' if can_edit_field('invoice_service_courier') else 'false' }},
+  service_tracking: {{ 'true' if can_edit_field('invoice_service_tracking') else 'false' }},
   charges: {{ 'true' if can_edit_field('invoice_charges') else 'false' }},
-  packages_actual_weight: {{ 'true' if can_edit_field('invoice_packages_actual_weight') else 'false' }}
+  // Hard lock, not Settings → Access configurable: no role (accountant/
+  // sales/manager) can ever edit weight, regardless of the permission grid.
+  // Only the owner can. Backend re-enforces this the same way (app.py
+  // invoice_customer_update / can_edit_weight()) — this is UX only.
+  is_owner: {{ 'true' if is_owner else 'false' }}
 };
 
 function applyFieldEditPermissions() {
@@ -3411,8 +3779,9 @@ function applyFieldEditPermissions() {
     receiver: ['receiver_name', 'receiver_company', 'receiver_phone', 'receiver_address1',
                'receiver_address2', 'receiver_city', 'receiver_state', 'receiver_pincode',
                'receiver_country', 'receiver_doc_type', 'receiver_doc_no'],
-    service: ['destination', 'shipment_type', 'mode', 'vendor', 'courier_company_id',
-              'carrier', 'tracking_number', 'carrier_ref', 'pickup_date', 'expected_delivery'],
+    service_courier: ['destination', 'shipment_type', 'mode', 'vendor', 'courier_company_id',
+                       'carrier', 'pickup_date', 'expected_delivery'],
+    service_tracking: ['tracking_number', 'carrier_ref'],
     charges: ['freight_amount', 'freight_weight', 'freight_rate_per_kg', 'fuel_surcharge',
               'other_charges', 'discount_amount', 'other_charges_reason'],
   };
@@ -3427,13 +3796,14 @@ function applyFieldEditPermissions() {
     });
   });
 
-  // Actual weight is a hard lock — entered in the package add-panel, not a
-  // named form field, so it's disabled separately from the groups above.
-  if (!FIELD_EDIT_PERMS.packages_actual_weight) {
+  // Actual Weight is a hard, owner-only lock — entered in the package
+  // add-panel, not a named form field, so it's disabled separately from
+  // the groups above. Not editable by any non-owner role, full stop.
+  if (!FIELD_EDIT_PERMS.is_owner) {
     const wtInput = document.getElementById('pkgEntryWt');
     if (wtInput) {
       wtInput.disabled = true;
-      wtInput.title = "You don't have permission to edit actual weight";
+      wtInput.title = "Only the owner can edit actual weight";
     }
   }
 }

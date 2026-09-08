@@ -41,7 +41,7 @@
   body.dark-theme .pay-btn { background:rgba(217,119,6,0.15); color:#FBBF24; }
   body.dark-theme .pay-btn:hover { background:#D97706; color:#fff; }
 
-  .tbl-row:hover { background:var(--gray-50); cursor:pointer; }
+  .tbl-row:hover { background:var(--gray-50); }
   body.dark-theme .tbl-row:hover { background:rgba(255,255,255,0.03); }
   .action-cell   { display:flex; gap:6px; white-space:nowrap; }
   .table-wrap th {
@@ -129,8 +129,7 @@
       <tbody>
         {% for c in creditors %}
         <tr class="tbl-row {% if c.overdue %}row-overdue{% endif %}"
-            data-overdue="{{ 'yes' if c.overdue else 'no' }}"
-            onclick="window.location='/creditors/{{ c.id }}/statement'">
+            data-overdue="{{ 'yes' if c.overdue else 'no' }}">
           <td style="color:var(--text-muted); font-size:12px;">{{ loop.index }}</td>
           <td>
             <strong style="color:var(--text-body);">{{ c.name }}</strong>

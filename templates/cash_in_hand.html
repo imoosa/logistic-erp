@@ -107,6 +107,23 @@
     background: var(--bg-table-alt);
   }
   
+  .transactions-table tr.date-group-row {
+    background: var(--bg-table-alt);
+  }
+  
+  .transactions-table tr.date-group-row:hover {
+    background: var(--bg-table-alt);
+  }
+  
+  .transactions-table tr.date-group-row td {
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 8px 12px;
+  }
+  
   .badge-income {
     background: #D1FAE5;
     color: #065F46;
@@ -131,6 +148,9 @@
   body.dark-theme .badge-expense {
     background: rgba(220,38,38,0.2);
     color: #F87171;
+  }
+  body.dark-theme .transactions-table tr.date-group-row td {
+    background: rgba(255,255,255,0.03);
   }
   
   .filter-bar {
@@ -279,30 +299,40 @@
     </tr>
   </thead>
   <tbody id="transactionsBody">
-    {% for txn in transactions %}
-    <tr>
-      <td>{{ txn.date }}</td>
-      <td>
-        <span class="{% if txn.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
-          {{ 'Income' if txn.type == 'income' else 'Expense' }}
-        </span>
-      </td>
-      <td>{{ txn.category }}</td>
-      <td>{{ txn.description }}</td>
-      <td style="{% if txn.type == 'income' %}color: #065F46; font-weight: 600;{% else %}color: #991B1B; font-weight: 600;{% endif %}">
-        {{ '+' if txn.type == 'income' else '-' }} ₹{{ "%.2f"|format(txn.amount) }}
-      </td>
-      <td>{{ txn.reference or '—' }}</td>
-      <td>₹{{ "%.2f"|format(txn.balance_after) }}</td>
-      <td>
-        <button onclick="deleteTransaction({{ txn.id }})" style="background: none; border: none; color: #DC2626; cursor: pointer;">🗑️</button>
-      </td>
-    </tr>
+    {% if transactions %}
+      {% set sorted_txns = transactions|sort(attribute='id', reverse=true) %}
+      {% set ns = namespace(last_date=None) %}
+      {% for txn in sorted_txns %}
+        {% if txn.date != ns.last_date %}
+        <tr class="date-group-row">
+          <td colspan="8">{{ txn.date.strftime('%d %b %Y') if txn.date and txn.date is not string else txn.date }}</td>
+        </tr>
+        {% set ns.last_date = txn.date %}
+        {% endif %}
+        <tr>
+          <td>{{ txn.date }}</td>
+          <td>
+            <span class="{% if txn.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+              {{ 'Income' if txn.type == 'income' else 'Expense' }}
+            </span>
+          </td>
+          <td>{{ txn.category }}</td>
+          <td>{{ txn.description }}</td>
+          <td style="{% if txn.type == 'income' %}color: #065F46; font-weight: 600;{% else %}color: #991B1B; font-weight: 600;{% endif %}">
+            {{ '+' if txn.type == 'income' else '-' }} ₹{{ "%.2f"|format(txn.amount) }}
+          </td>
+          <td>{{ txn.reference or '—' }}</td>
+          <td>₹{{ "%.2f"|format(txn.balance_after) }}</td>
+          <td>
+            <button onclick="deleteTransaction({{ txn.id }})" style="background: none; border: none; color: #DC2626; cursor: pointer;">🗑️</button>
+          </td>
+        </tr>
+      {% endfor %}
     {% else %}
     <tr>
       <td colspan="8" style="text-align: center; padding: 40px;">No cash transactions found</td>
     </tr>
-    {% endfor %}
+    {% endif %}
   </tbody>
 </table>
 
